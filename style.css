@@ -1,8 +1,55 @@
 /*
-Theme Name: TRB FAQ
-Description: Tema figlio versionato per il portale artisti faq.trbrec.com.
-Author: TRB rec
-Template: docy
-Version: 0.1.0
-Text Domain: trb-faq
+Theme Name: Flatsome Child
+Description: This is a child theme for Flatsome Theme
+Author: UX Themes
+Template: flatsome
+Version: 3.1
 */
+
+/*************** ADD CUSTOM CSS HERE. ***************/
+
+.container,
+.container-width,
+.full-width .ubermenu-nav,
+.row {
+	max-width: 1200px !important;
+}
+
+.slider-prodotti img {
+	height: 200px !important;
+}
+
+.nav > li.html {
+	width: 100% !important;
+}
+
+.servizi-principali {
+	margin-top: -330px !important;
+	margin-bottom: 30px !important;
+}
+
+#footer-social {
+	margin-top: 16px;
+	display: flex;
+}
+
+#footer-social li {
+	padding: 0 15px 0 0;
+}
+
+#torna-su {
+	padding: 15px;
+	color: #fff;
+	text-align: center;
+	background-color: #5b5b5b;
+}
+
+#torna-su:hover {
+	background-color: #000;
+}
+
+#accesso-footer {
+	color: #fff;
+	line-height: 35px;
+	text-align: center;
+}
