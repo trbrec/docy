@@ -1,48 +1,98 @@
 <?php
 /**
- * Header template.
+ * The header for our theme
  *
- * @package Flatsome\Templates
- * @flatsome-version 3.16.0
+ * This is the template that displays all the <head> section
+ *
+ * @link https://developer.wordpress.org/themes/basics/template-files/#template-partials
+ *
+ * @package docy
  */
 
 ?>
 <!DOCTYPE html>
-<html <?php language_attributes(); ?> class="<?php flatsome_html_classes(); ?>">
-<head>
-	<meta charset="<?php bloginfo( 'charset' ); ?>" />
-	<link rel="profile" href="http://gmpg.org/xfn/11" />
-	<link rel="pingback" href="<?php bloginfo( 'pingback_url' ); ?>" />
+<html <?php language_attributes(); ?>>
+    <head>
+        <!-- Theme Version -->
+        <meta name="docy-version" content="<?php echo DOCY_VERSION ?>">
+        <!-- Charset Meta -->
+        <meta charset="<?php bloginfo('charset' ); ?>">
+        <!-- For IE -->
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <!-- For Responsive Device -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-	<?php wp_head(); ?>
+        <?php wp_head(); ?>
+    </head>
 
-	<?php if ( is_page( 2734 ) ) { ?>
-		<style>
-			.page-header-excerpt {
-				display: none !important;
-			}
-		</style>
-	<?php } ?>
+    <body <?php body_class(); docy_has_scrollspy() ?> >
+        <?php
+        if ( function_exists('wp_body_open') ) {
+            wp_body_open();
+        }
+        ?>
+        <a class="skip-link screen-reader-text" href="#main-content">
+            <?php esc_html_e( 'Skip to content', 'docy' ); ?>
+        </a>
 
-</head>
+        <?php
+        /**
+         * Preloader
+         */
+        if ( docy_opt('is_preloader') == '1' ) {
+            get_template_part('template-parts/header-elements/preloader');
+        }
+        ?>
 
-<body <?php body_class(); ?>>
+        <div class="body_wrapper <?php docy_body_wrapper_classes() ?>">
+            <div class="click_capture"></div>
 
-<?php do_action( 'flatsome_after_body_open' ); ?>
-<?php wp_body_open(); ?>
+            <?php
+            if ( docy_opt('header_style') == 'elementor' && class_exists( '\\Elementor\\Plugin' ) ) {
+                $template_id = absint( docy_opt('header_el_template') );
+                if ( $template_id > 0 ) :
+                ?>
+                <header id="docy-header" class="docy-header">
+                    <?php echo \Elementor\Plugin::instance()->frontend->get_builder_content_for_display( $template_id ); ?>
+                </header>
+                <?php
+                endif;
+            } else {
+                ?>
+                <header class="header">
+                    <?php
+                    if ( docy_opt('is_top_header') == '1' ) {
+                        get_template_part( 'template-parts/header-elements/top-header' );
+                    }
+                    ?>
+                    <nav <?php docy_navbar_class() ?> id="<?php docy_sticky_navbar('id') ?>">
+                        <div class="<?php docy_nav_container() ?>">
+                            <?php Docy_helper()->logo(); ?>
+                            <button class="navbar-toggler collapsed" type="button" data-bs-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                                    aria-expanded="false" aria-label="<?php esc_attr_e('Toggle navigation', 'docy'); ?>">
+                                <span class="menu_toggle">
+                                    <span class="hamburger">
+                                        <span></span>
+                                        <span></span>
+                                        <span></span>
+                                    </span>
+                                    <span class="hamburger-cross">
+                                        <span></span>
+                                        <span></span>
+                                    </span>
+                                </span>
+                            </button>
+                            <?php get_template_part( 'template-parts/header-elements/layout', docy_opt('header_layout', 'default') ); ?>
+                        </div>
+                    </nav>
+                </header>
 
-<a class="skip-link screen-reader-text" href="#main"><?php esc_html_e( 'Skip to content', 'flatsome' ); ?></a>
-
-<div id="wrapper">
-
-	<?php do_action( 'flatsome_before_header' ); ?>
-
-	<header id="header" class="header <?php flatsome_header_classes(); ?>">
-		<div class="header-wrapper">
-			<?php get_template_part( 'template-parts/header/header', 'wrapper' ); ?>
-		</div>
-	</header>
-
-	<?php do_action( 'flatsome_after_header' ); ?>
-
-	<main id="main" class="<?php flatsome_main_classes(); ?>">
+                <?php
+                /**
+                 * Mobile menu
+                 */
+                get_template_part( 'template-parts/header-elements/mobile-menu' );
+            }
+            ?>
+            
+            <main id="main-content" tabindex="-1">

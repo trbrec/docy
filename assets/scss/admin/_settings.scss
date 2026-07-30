@@ -1,0 +1,208 @@
+/**
+ * Docy Theme Settings Page Styles
+ *
+ * Custom CSS for the Codestar Framework (CSF) powered
+ * settings page (docy-options).
+ *
+ * @package Docy
+ * @since   2.0.0
+ */
+
+// =====================================================================
+// Settings Page Layout
+// =====================================================================
+
+/**
+ * CSF Options container.
+ * Limits the max-width for better readability on large screens.
+ */
+.csf-options {
+	max-width: 1400px;
+}
+
+// =====================================================================
+// CSF Field Layouts
+// =====================================================================
+
+/**
+ * Text input fields.
+ * Sets consistent width for text input fields.
+ */
+.csf-field-text input {
+	width: 70%;
+}
+
+/**
+ * General field structure.
+ * Defines title and fieldset widths.
+ */
+.csf-field {
+	.csf-title {
+		width: 30%;
+	}
+
+	.csf-fieldset {
+		width: calc(70% - 20px);
+
+		.csf-field-text input {
+			width: 100%;
+		}
+	}
+
+	&.csf-field-heading .csf-title {
+		width: 100%;
+	}
+}
+
+// =====================================================================
+// Heading Fields
+// =====================================================================
+
+/**
+ * Heading field adjustments.
+ * Full-width title and larger subtitle font.
+ */
+.csf-field-heading {
+	.csf-title {
+		width: 100%;
+	}
+	.csf-subtitle-text {
+		font-size: 16px;
+	}
+}
+
+/**
+ * Subtitle text line height.
+ */
+.csf-subtitle-text {
+	line-height: 1.5;
+}
+
+// =====================================================================
+// Image Select Fields
+// =====================================================================
+
+/**
+ * Image select field styling.
+ * Provides consistent image preview sizing and hover effects.
+ */
+.csf-field-image_select {
+	figure {
+		width: 150px;
+	}
+
+	.csf--image {
+		margin: 0 10px 10px 0;
+	}
+
+	img {
+		opacity: .6;
+		border-radius: 10px;
+
+		&:hover {
+			opacity: 1;
+		}
+	}
+
+	.csf--active {
+		figure {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			border-radius: 10px;
+		}
+
+		img {
+			opacity: 1;
+			border-radius: 10px;
+		}
+	}
+}
+
+/**
+ * Image select in customizer.
+ */
+.csf-customize-field {
+	.csf-field-image_select figure {
+		width: 130px;
+	}
+}
+
+#customize-controls .csf-field-image_select img {
+	width: 120px;
+}
+
+// =====================================================================
+// Docy Options Specific Styles
+// =====================================================================
+
+/**
+ * Docy options page body class styles.
+ * Full-width image select for toplevel page.
+ */
+body.toplevel_page_docy-options .csf-field-image_select figure {
+	width: 100%;
+}
+
+/**
+ * Docy options data-slug specific styles.
+ * Wider image select for settings page.
+ */
+.csf-options[data-slug="docy-options"] .csf-field-image_select figure {
+	width: 100%;
+	padding: 2px 0;
+	border-radius: 10px;
+}
+
+/**
+ * Version number display in header.
+ */
+.csf-options[data-slug="docy-options"] .csf-header-left h1 span {
+	font-size: 13px;
+	color: #b9b9b9;
+	margin-left: 3px;
+}
+
+// =====================================================================
+// Repeater Fields
+// =====================================================================
+
+/**
+ * Repeater field styling.
+ * Provides consistent helper width and item styling.
+ */
+.csf-field-repeater {
+	.csf-repeater-helper-inner {
+		width: 80px;
+	}
+
+	.csf-repeater-wrapper .csf-repeater-item {
+		margin-bottom: 10px;
+		border-color: #dcdcdc;
+		overflow: hidden;
+		border-radius: 10px;
+	}
+}
+
+// =====================================================================
+// Navigation Icons
+// =====================================================================
+
+/**
+ * Tab icon alignment in navigation.
+ */
+.csf-nav .csf-tab-icon {
+	margin-top: 2px;
+}
+
+// =====================================================================
+// Hidden Elements
+// =====================================================================
+
+/**
+ * Hidden upload buttons for specific fields.
+ */
+#docy_opt-footer_btm_links .upload_button_div,
+fieldset#docy_opt-os_options .media_upload_button {
+	display: none;
+}

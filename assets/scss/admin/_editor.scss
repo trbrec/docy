@@ -1,0 +1,104 @@
+.ocdi-content-notice.ocdi-content-notice--warning,
+label.plugin-item.plugin-item-wpforms-lite,
+label.plugin-item.plugin-item-all-in-one-seo-pack,
+label.plugin-item.plugin-item-google-analytics-for-wordpress,
+li#menu-posts-none,
+.menu-item-depth-2 p.field-activemega,
+div#job_locationdiv,
+div#job_typediv {
+  display: none !important;
+}
+
+.acf-input-append {
+  height: 28px;
+}
+
+#customize-controls .description {
+  display: block;
+}
+
+@media (min-width: 1120px) {
+  .ocdi__gl-item {
+    flex: 0 0 calc(25% - 30px);
+    margin: 0 30px 30px 0;
+  }
+}
+
+.notice {
+  padding: 10px;
+}
+
+.notice ul li a {
+  text-decoration: none;
+}
+
+.notice .notice-action {
+  position: relative;
+  color: #00a0d2;
+}
+
+.notice .notice-action::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  background: #00a0d2;
+  width: 100%;
+  left: 0;
+  bottom: -2px;
+}
+
+input[type="number"].tiny-text {
+  width: 60px;
+}
+
+#postimagediv .inside img {
+  width: 100px;
+}
+
+.acf-input-append {
+  margin-left: -2px;
+  z-index: 1;
+  position: relative;
+  border-left: 1px solid #7e8993;
+}
+
+.ocdi__content-container-content .ocdi-install-plugins-content-content .plugin-item p,
+.ocdi__content-container-content .ocdi-install-plugins-content-content .content-item p,
+.ocdi__content-container-content .ocdi-create-content-content .plugin-item p,
+.ocdi__content-container-content .ocdi-create-content-content .content-item p {
+  line-height: 1.5;
+}
+
+.plugin-item-content-title {
+  margin-bottom: 10px !important;
+}
+
+.ocdi__content-container-content .ocdi-install-plugins-content-content .plugin-item,
+.ocdi__content-container-content .ocdi-install-plugins-content-content .content-item,
+.ocdi__content-container-content .ocdi-create-content-content .plugin-item,
+.ocdi__content-container-content .ocdi-create-content-content .content-item {
+  padding-bottom: 15px;
+}
+
+.notice.docy-notice {
+  position: relative;
+}
+
+/*=================== Blog Banner Single =================*/
+#docy_customizer_opt {
+  text-decoration: none;
+  width: 220px;
+  background: #050505;
+  display: block;
+  color: rgba(255, 255, 255, 0.7019607843);
+  text-transform: uppercase;
+  padding-top: 100px;
+  padding-bottom: 100px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-shadow: 2px 2px black;
+  float: left;
+  margin: 0 20px 0 0;
+}

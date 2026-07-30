@@ -1,0 +1,463 @@
+/** === Comment Form == **/
+.blog_comment_box .get_quote_form {
+  position: relative;
+}
+
+.comment_inner {
+  padding-top: 80px;
+
+  .c_head {
+    margin-bottom: 0;
+
+    small {
+      font-size: 14px;
+      padding-left: 10px;
+    }
+  }
+}
+
+#commentform {
+  .form-group {
+    position: relative;
+
+    // The field shows its placeholder at rest; the label floats in once the
+    // field has content (or is focused).
+    .form-control:focus + .floating-label,
+    .form-control:not(:placeholder-shown) + .floating-label {
+      transform: translate(2px, -50%);
+      opacity: 1;
+      background: #fff;
+    }
+
+    .floating-label {
+      left: 15px;
+      position: absolute;
+      top: 0;
+      opacity: 0;
+      transition: all 200ms;
+      font-size: 12px;
+      padding: 0 5px;
+      color: var(--brand_color)
+    }
+  }
+
+  .form-submit {
+    margin-top: 15px;
+  }
+}
+
+.comment_box {
+  margin-bottom: 0;
+
+  .post_comment {
+    .comment_author {
+      padding-top: 25px;
+
+      .img_rounded {
+        border-radius: 50%;
+        margin-right: 20px;
+        height: max-content;
+      }
+
+      .media-body {
+        border-bottom: 1px solid var(--black_75);
+        padding-bottom: 15px;
+        position: relative;
+        width: 100%;
+
+        .comment-txt p:last-child {
+          margin-bottom: .5rem;
+        }
+
+        .comment-reply-link {
+          transition: all 0.3s linear, color 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 2px;
+
+          &:hover {
+            text-decoration: none;
+            font-weight: 500;
+            i {
+              transform: translateX(4px);
+              display: inline-block;
+            }
+          }
+        }
+
+        .comment-txt p {
+          font-size: 15px;
+          line-height: 1.6;
+        }
+
+        @media (min-width: 576px) {
+          .comment_info {
+            display: flex;
+            align-items: baseline;
+            margin-bottom: 3px;
+          }
+        }
+
+        .comment_info {
+          .author-name {
+            font-size: 14px;
+            margin-bottom: 5px;
+            font-weight: 500;
+          }
+
+          @media (min-width: 576px) {
+            .comment_date {
+              margin-left: 5px;
+              margin-top: 0;
+            }
+          }
+          @media (max-width: 575px) {
+            .comment_date {
+              &::before {
+                content: none;
+              }
+            }
+          }
+
+          .comment_date {
+            font-size: 12px;
+
+          }
+        }
+
+        .comment_reply {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--black_400);
+          transition: all 0.2s linear;
+          position: absolute;
+          right: 0;
+          top: -1px;
+          text-decoration: none;
+
+          i {
+            vertical-align: middle;
+            font-size: 18px;
+            padding-left: 5px;
+          }
+
+          &:hover {
+            color: var(--brand_color);
+
+            i {
+              color: var(--brand_color);
+              transform: translateX(3px);
+            }
+          }
+        }
+      }
+    }
+
+    .reply_comment {
+      padding-left: 80px;
+    }
+  }
+}
+
+.comment_box #respond {
+  padding-top: 40px;
+
+  .get_quote_form {
+    position: relative;
+    margin-top: 15px;
+    @media (max-width: 575px) {
+      padding-top: 70px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+  }
+}
+
+#cancel-comment-reply-link {
+  color: red;
+  font-size: 16px;
+}
+
+
+.blog_comment_box {
+  clear: both;
+
+  &.no_comments {
+    margin-top: 80px;
+  }
+
+  p {
+    margin-bottom: 0;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--p_color);
+  }
+
+  .get_quote_form {
+    padding-top: 55px;
+
+    @media (max-width: 575px) {
+      padding-top: 70px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+
+      .form-control {
+        height: 46px;
+        border-radius: 4px;
+        border: 1px solid var(--border_on_white);
+        font-size: 14px;
+        line-height: 1.4;
+        padding-left: 25px;
+        box-shadow: none;
+        color: var(--black_800);
+        @include placeholder {
+          color: var(--black_300);
+        }
+
+        &:focus {
+          border: 1px solid var(--brand_color);
+        }
+
+        &.message {
+          height: 160px;
+          padding-top: 22px;
+        }
+      }
+    }
+  }
+}
+
+/** === Empty state (no comments yet) === **/
+.comment_empty {
+  padding-top: 40px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--black_400);
+}
+
+
+#comments {
+  margin-top: 40px;
+}
+
+
+.blog_comment_box.topic_comment {
+  .c_head {
+    display: inline-block;
+    margin-bottom: 15px;
+
+    a {
+      color: var(--black_800, #242729);
+      text-decoration: underline;
+      font-weight: 500;
+    }
+  }
+
+  .cancle {
+    display: inline-block;
+    padding: 0;
+    border: none;
+    color: #54595d;
+    background: transparent;
+    font-weight: 400;
+    font-size: 16px;
+  }
+}
+
+.comment_inner .comment_box .post_comment .post_author_two p {
+  padding-bottom: 20px;
+  padding-top: 0;
+}
+
+/** === Nested reply threads === **/
+.comment_box .children {
+  list-style: none;
+  margin: 0;
+  padding-left: 55px;
+}
+
+/** === AJAX response message === **/
+.docy-comment-response {
+  margin-bottom: 15px;
+  padding: 12px 18px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+
+  &.is-success {
+    background: rgba(40, 167, 69, 0.1);
+    color: #1e7e34;
+  }
+
+  &.is-error {
+    background: rgba(220, 53, 69, 0.1);
+    color: #c82333;
+  }
+}
+
+/** === Comment actions (reply + edit) === **/
+.comment_actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+
+  .comment-reply-link {
+    margin: 0;
+  }
+}
+
+// Styled to match the Reply link (plain text + icon) so both comment actions
+// read as the same kind of control rather than a link next to a pill button.
+.docy-comment-edit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--black_400);
+  transition: color 0.2s linear;
+
+  i {
+    font-size: 13px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: var(--brand_color);
+
+    i {
+      transform: rotate(-12deg);
+    }
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+/** === Inline comment editor === **/
+.docy-comment-editor {
+  margin-top: 12px;
+
+  .docy-comment-edit-field {
+    width: 100%;
+    min-height: 90px;
+    border: 1px solid var(--border_on_white);
+    background: var(--bs-white);
+    border-radius: 4px;
+    padding: 12px 15px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--black_800);
+    box-shadow: none;
+    resize: vertical;
+
+    &:focus {
+      outline: none;
+      border-color: var(--brand_color);
+    }
+  }
+
+  .docy-comment-edit-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .docy-comment-edit-save,
+  .docy-comment-edit-cancel {
+    border: 0;
+    border-radius: 4px;
+    padding: 8px 22px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s linear;
+  }
+
+  .docy-comment-edit-cancel {
+    background: transparent;
+    color: var(--black_400);
+
+    &:hover {
+      color: var(--brand_color);
+    }
+  }
+}
+
+// Loading/disabled states for submit + save buttons.
+#commentform .form-submit .is-loading,
+.docy-comment-editor .docy-comment-edit-save[disabled] {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/** === Mobile improvements === **/
+@media (max-width: 575px) {
+  .comment_inner {
+    padding-top: 50px;
+  }
+
+  .comment_box {
+    .post_comment {
+      .comment_author {
+        padding-top: 18px;
+
+        .img_rounded {
+          width: 34px;
+          height: 34px;
+          margin-right: 12px;
+        }
+
+        .media-body {
+          padding-bottom: 18px;
+
+          .comment-txt p {
+            font-size: 14px;
+            line-height: 1.55;
+          }
+
+          // Keep the top-right reply link from overlapping the comment text.
+          .comment_reply {
+            position: static;
+            display: inline-flex;
+            margin-top: 8px;
+          }
+        }
+      }
+    }
+
+    // Tighter indentation so deep threads don't overflow narrow screens.
+    .children {
+      padding-left: 18px;
+    }
+  }
+
+  .comment_actions {
+    gap: 14px;
+    margin-top: 4px;
+  }
+
+  .docy-comment-editor {
+    .docy-comment-edit-actions {
+      .docy-comment-edit-save,
+      .docy-comment-edit-cancel {
+        flex: 1 1 auto;
+        text-align: center;
+      }
+    }
+  }
+}

@@ -1,0 +1,1284 @@
+/**
+ * Docy Register/Verify Page Styles
+ *
+ * Modern, premium design matching the welcome page aesthetics
+ * with glassmorphism effects and smooth animations.
+ *
+ * @package Docy
+ * @since   2.0.0
+ */
+
+// =====================================================================
+// Variables (matching welcome page)
+// =====================================================================
+$docy-primary: #6366f1;
+$docy-primary-dark: #4f46e5;
+$docy-primary-light: #818cf8;
+$docy-success: #10b981;
+$docy-success-light: #34d399;
+$docy-danger: #ef4444;
+$docy-danger-dark: #dc2626;
+$docy-warning: #f59e0b;
+$docy-dark: #1e293b;
+$docy-gray-900: #0f172a;
+$docy-gray-700: #334155;
+$docy-gray-600: #475569;
+$docy-gray-500: #64748b;
+$docy-gray-400: #94a3b8;
+$docy-gray-300: #cbd5e1;
+$docy-gray-200: #e2e8f0;
+$docy-gray-100: #f1f5f9;
+$docy-gray-50: #f8fafc;
+$docy-white: #ffffff;
+$docy-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$docy-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+$docy-shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+$docy-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+$docy-gradient: linear-gradient(135deg, $docy-primary 0%, $docy-primary-dark 100%);
+$docy-gradient-success: linear-gradient(135deg, $docy-success 0%, $docy-success-light 100%);
+$docy-gradient-danger: linear-gradient(135deg, $docy-danger 0%, $docy-danger-dark 100%);
+$docy-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$docy-transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+// =====================================================================
+// Main Wrapper
+// =====================================================================
+.docy-verify-wrap {
+    max-width: 1400px;
+    margin: 20px auto;
+    padding: 0 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+// =====================================================================
+// Hero Section
+// =====================================================================
+.docy-verify-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 40px 50px;
+    margin-bottom: 30px;
+    border-radius: 20px;
+    background: $docy-gradient;
+    overflow: hidden;
+}
+
+.docy-hero-bg {
+    position: absolute;
+    inset: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,255,255,0.05)" d="M0,160L48,144C96,128,192,96,288,117.3C384,139,480,213,576,234.7C672,256,768,224,864,197.3C960,171,1056,149,1152,160C1248,171,1344,213,1392,234.7L1440,256L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>');
+    background-size: cover;
+    background-position: bottom;
+    opacity: 0.5;
+}   
+
+.docy-hero-content {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 30px;
+    z-index: 1;
+}
+
+.docy-hero-text {
+    flex: 1;
+}
+
+.docy-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    margin-bottom: 16px;
+    border-radius: 50px;
+    background: rgba($docy-white, 0.15);
+    backdrop-filter: blur(10px);
+    font-size: 12px;
+    font-weight: 600;
+    color: $docy-white;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    .dashicons {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+    }
+}
+
+.docy-hero-title {
+    margin: 0 0 12px;
+    font-size: 32px;
+    font-weight: 700;
+    color: $docy-white;
+    line-height: 1.2;
+}
+
+.docy-hero-description {
+    margin: 0;
+    max-width: 600px;
+    font-size: 15px;
+    line-height: 1.7;
+    color: rgba($docy-white, 0.9);
+}
+
+.docy-hero-status {
+    flex-shrink: 0;
+}
+
+.docy-status-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 24px 40px;
+    border-radius: 16px;
+    background: rgba($docy-white, 0.15);
+    backdrop-filter: blur(10px);
+    text-align: center;
+
+    &.verified {
+        background: rgba($docy-success, 0.2);
+
+        .docy-status-icon {
+            color: $docy-success-light;
+        }
+    }
+
+    &.invalid {
+        background: rgba($docy-danger, 0.2);
+
+        .docy-status-icon {
+            color: $docy-danger;
+        }
+    }
+
+    &.pending {
+        .docy-status-icon {
+            color: $docy-warning;
+        }
+    }
+}
+
+.docy-status-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+    color: $docy-white;
+}
+
+.docy-status-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: $docy-white;
+}
+
+// =====================================================================
+// Main Grid Layout
+// =====================================================================
+.docy-verify-grid {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 30px;
+    margin-bottom: 30px;
+
+    @media (max-width: 1200px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.docy-verify-column {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+// =====================================================================
+// Cards
+// =====================================================================
+.docy-card {
+    background: $docy-white;
+    border-radius: 16px;
+    box-shadow: $docy-shadow-md;
+    overflow: hidden;
+}
+
+.docy-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 28px;
+    border-bottom: 1px solid $docy-gray-200;
+    background: $docy-gray-50;
+
+    h2 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: $docy-gray-900;
+    }
+}
+
+.docy-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: $docy-gradient;
+    color: $docy-white;
+    font-size: 18px;
+
+    &::before {
+        width: auto;
+        height: auto;
+    }
+}
+
+.docy-card-content {
+    padding: 28px;
+}
+
+// =====================================================================
+// License Card - Verified State
+// =====================================================================
+.docy-license-verified {
+    text-align: center;
+}
+
+.docy-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    margin-bottom: 28px;
+    border-radius: 50px;
+    background: rgba($docy-success, 0.1);
+    color: $docy-success;
+    font-size: 14px;
+    font-weight: 600;
+
+    .dashicons {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+    }
+}
+
+.docy-license-details {
+    margin-bottom: 28px;
+    padding: 20px;
+    border-radius: 12px;
+    background: $docy-gray-50;
+    text-align: left;
+}
+
+.docy-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid $docy-gray-200;
+
+    &:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    &:first-child {
+        padding-top: 0;
+    }
+}
+
+.docy-detail-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: $docy-gray-500;
+}
+
+.docy-detail-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: $docy-gray-900;
+
+    code {
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: $docy-gray-200;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 12px;
+    }
+}
+
+.docy-license-key {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.docy-copy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid $docy-gray-300;
+    border-radius: 6px;
+    background: $docy-white;
+    color: $docy-gray-500;
+    cursor: pointer;
+    transition: $docy-transition-fast;
+
+    .dashicons {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+    }
+
+    &:hover {
+        border-color: $docy-primary;
+        background: rgba($docy-primary, 0.05);
+        color: $docy-primary;
+    }
+
+    &.copied {
+        border-color: $docy-success;
+        background: rgba($docy-success, 0.1);
+        color: $docy-success;
+    }
+}
+
+.docy-status-active {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: $docy-success !important;
+}
+
+.docy-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $docy-success;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.docy-license-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+// =====================================================================
+// License Card - Form State
+// =====================================================================
+.docy-license-form-wrapper {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.docy-form-intro {
+    margin: 0 0 24px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.6;
+    color: $docy-gray-600;
+}
+
+// =====================================================================
+// Platform Tabs (ThemeForest vs spider-themes.net)
+// =====================================================================
+.docy-license-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 24px;
+    padding: 6px;
+    background: $docy-gray-100;
+    border-radius: 12px;
+}
+
+.docy-license-tab {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: $docy-gray-600;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: $docy-transition-fast;
+
+    .dashicons {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+    }
+
+    &:hover {
+        color: $docy-primary-dark;
+    }
+
+    &.active {
+        background: $docy-white;
+        color: $docy-primary-dark;
+        box-shadow: $docy-shadow-sm;
+    }
+}
+
+.docy-license-panel {
+    &[hidden] {
+        display: none;
+    }
+}
+
+.docy-verify-form {
+    .docy-form-group {
+        margin-bottom: 20px;
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: $docy-gray-700;
+        }
+    }
+}
+
+.docy-input-wrapper {
+    position: relative;
+
+    .docy-input-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: $docy-gray-400;
+    }
+
+    input[type="text"] {
+        width: 100%;
+        height: 52px;
+        padding: 0 16px 0 48px;
+        border: 2px solid $docy-gray-200;
+        border-radius: 12px;
+        background: $docy-white;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 14px;
+        color: $docy-gray-900;
+        transition: $docy-transition-fast;
+
+        &::placeholder {
+            color: $docy-gray-400;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        &:focus {
+            outline: none;
+            border-color: $docy-primary;
+            box-shadow: 0 0 0 4px rgba($docy-primary, 0.1);
+        }
+    }
+}
+
+.docy-form-result {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    text-align: center;
+
+    &:empty {
+        display: none;
+    }
+
+    &.success {
+        background: rgba($docy-success, 0.1);
+        color: $docy-success;
+    }
+
+    &.error {
+        background: rgba($docy-danger, 0.1);
+        color: $docy-danger;
+    }
+}
+
+.docy-form-help {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 20px;
+    font-size: 13px;
+    color: $docy-gray-500;
+
+    .dashicons {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+    }
+
+    a {
+        color: $docy-primary;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+// =====================================================================
+// Features Grid
+// =====================================================================
+.docy-features-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+
+    @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.docy-feature-item {
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 12px;
+    background: $docy-gray-50;
+    transition: $docy-transition;
+
+    &:hover {
+        background: $docy-white;
+        box-shadow: $docy-shadow;
+        transform: translateY(-2px);
+    }
+
+    &.locked {
+        opacity: 0.7;
+
+        .docy-feature-icon {
+            background: $docy-gray-300;
+        }
+    }
+
+    &.unlocked {
+        .docy-feature-icon {
+            background: $docy-gradient-success;
+        }
+    }
+}
+
+.docy-feature-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 12px;
+    background: $docy-gradient;
+    color: $docy-white;
+    font-size: 20px;
+    transition: $docy-transition;
+
+    &::before {
+        width: auto;
+        height: auto;
+    }
+}
+
+.docy-feature-content {
+    h4 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 6px;
+        font-size: 14px;
+        font-weight: 600;
+        color: $docy-gray-900;
+    }
+
+    p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: $docy-gray-500;
+    }
+}
+
+.docy-unlocked-badge {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: $docy-success;
+}
+
+.docy-locked-badge {
+    font-size: 12px;
+    width: 12px;
+    height: 12px;
+    color: $docy-gray-400;
+}
+
+// =====================================================================
+// Resources List
+// =====================================================================
+.docy-resources-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.docy-resource-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 12px;
+    background: $docy-gray-50;
+    text-decoration: none;
+    transition: $docy-transition;
+
+    &:hover {
+        background: $docy-white;
+        box-shadow: $docy-shadow;
+        transform: translateX(4px);
+
+        .docy-resource-arrow {
+            opacity: 1;
+            transform: translateX(0);
+            color: $docy-primary;
+        }
+    }
+
+    &.docy-resource-blue .docy-resource-icon {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    }
+
+    &.docy-resource-red .docy-resource-icon {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+
+    &.docy-resource-green .docy-resource-icon {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+}
+
+.docy-resource-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 10px;
+    background: $docy-gradient;
+    color: $docy-white;
+    font-size: 18px;
+
+    &::before {
+        width: auto;
+        height: auto;
+    }
+}
+
+.docy-resource-content {
+    flex: 1;
+}
+
+.docy-resource-title {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 14px;
+    font-weight: 600;
+    color: $docy-gray-900;
+}
+
+.docy-resource-desc {
+    display: block;
+    font-size: 12px;
+    color: $docy-gray-500;
+}
+
+.docy-resource-arrow {
+    font-size: 16px;
+    color: $docy-gray-400;
+    opacity: 0;
+    transform: translateX(-5px);
+    transition: $docy-transition;
+}
+
+// =====================================================================
+// FAQ Section
+// =====================================================================
+.docy-faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.docy-faq-item {
+    border-radius: 10px;
+    background: $docy-gray-50;
+    overflow: hidden;
+    transition: $docy-transition;
+
+    &[open] {
+        background: $docy-white;
+        box-shadow: $docy-shadow;
+
+        summary {
+            border-bottom: 1px solid $docy-gray-200;
+        }
+
+        .docy-faq-icon {
+            transform: rotate(90deg);
+        }
+    }
+
+    summary {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        font-size: 13px;
+        font-weight: 500;
+        color: $docy-gray-700;
+        cursor: pointer;
+        list-style: none;
+        transition: $docy-transition-fast;
+
+        &::-webkit-details-marker {
+            display: none;
+        }
+
+        &:hover {
+            color: $docy-gray-900;
+        }
+    }
+}
+
+.docy-faq-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: $docy-gray-400;
+    transition: $docy-transition;
+}
+
+.docy-faq-answer {
+    padding: 0 16px 16px 40px;
+
+    p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.6;
+        color: $docy-gray-600;
+    }
+}
+
+// =====================================================================
+// Help Card - Premium CTA Section
+// =====================================================================
+.docy-help-card {
+    position: relative;
+    background: $docy-gradient !important;
+    border: none !important;
+    overflow: hidden;
+
+    // Background decorative elements
+    .docy-help-bg {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .docy-help-shape {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba($docy-white, 0.08);
+    }
+
+    .docy-help-shape-1 {
+        width: 120px;
+        height: 120px;
+        top: -30px;
+        right: -30px;
+        animation: floatShape 8s ease-in-out infinite;
+    }
+
+    .docy-help-shape-2 {
+        width: 80px;
+        height: 80px;
+        bottom: -20px;
+        left: -20px;
+        animation: floatShape 6s ease-in-out infinite reverse;
+    }
+
+    .docy-help-shape-3 {
+        width: 50px;
+        height: 50px;
+        top: 50%;
+        right: 20%;
+        animation: floatShape 10s ease-in-out infinite 2s;
+    }
+
+    @keyframes floatShape {
+        0%, 100% {
+            transform: translate(0, 0) scale(1);
+            opacity: 0.08;
+        }
+        50% {
+            transform: translate(10px, -10px) scale(1.1);
+            opacity: 0.15;
+        }
+    }
+
+    .docy-help-content {
+        position: relative;
+        z-index: 1;
+        padding: 36px 28px;
+        text-align: center;
+        color: $docy-white;
+    }
+
+    // Icon with animated ring
+    .docy-help-icon-wrapper {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 72px;
+        height: 72px;
+        margin-bottom: 20px;
+    }
+
+    .docy-help-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: rgba($docy-white, 0.2);
+        backdrop-filter: blur(4px);
+        font-size: 26px;
+        z-index: 1;
+
+        &::before {
+            width: auto;
+            height: auto;
+        }
+    }
+
+    .docy-help-icon-ring {
+        position: absolute;
+        inset: 0;
+        border: 2px solid rgba($docy-white, 0.3);
+        border-radius: 50%;
+        animation: ringPulse 2.5s ease-out infinite;
+    }
+
+    @keyframes ringPulse {
+        0% {
+            transform: scale(0.95);
+            opacity: 0.8;
+        }
+        50% {
+            transform: scale(1.15);
+            opacity: 0;
+        }
+        100% {
+            transform: scale(0.95);
+            opacity: 0;
+        }
+    }
+
+    h3 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        color: #fff;
+    }
+
+    p {
+        margin: 0 0 24px;
+        font-size: 14px;
+        line-height: 1.6;
+        opacity: 0.9;
+    }
+
+    // Actions container
+    .docy-help-actions {
+        margin-bottom: 24px;
+    }
+
+    // Stats section
+    .docy-help-stats {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        padding-top: 20px;
+        border-top: 1px solid rgba($docy-white, 0.15);
+    }
+
+    .docy-help-stat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .docy-help-stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+
+    .docy-help-stat-label {
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.75;
+    }
+
+    .docy-help-stat-divider {
+        width: 1px;
+        height: 36px;
+        background: rgba($docy-white, 0.2);
+    }
+}
+
+// White button variant for help card
+.docy-btn-white {
+    background: $docy-white;
+    color: $docy-primary;
+    font-weight: 600;
+    box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.15);
+
+    &:hover {
+        background: $docy-gray-50;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.2);
+        color: $docy-primary;
+    }
+}
+
+// =====================================================================
+// Buttons
+// =====================================================================
+.docy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px !important;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: $docy-transition;
+
+    .dashicons {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+    }
+
+    &:focus {
+        outline: none;
+    }
+}
+
+.docy-btn-primary {
+    background: $docy-gradient;
+    color: $docy-white;
+    box-shadow: 0 4px 14px -3px rgba($docy-primary, 0.5);
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px -3px rgba($docy-primary, 0.6);
+        color: $docy-white;
+    }
+}
+
+.docy-btn-secondary {
+    background: $docy-gray-100;
+    color: $docy-gray-700;
+    border: 1px solid $docy-gray-300;
+
+    &:hover {
+        background: $docy-gray-200;
+        color: $docy-gray-900;
+    }
+}
+
+.docy-btn-danger {
+    background: $docy-gradient-danger;
+    color: $docy-white;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px -3px rgba($docy-danger, 0.5);
+    }
+}
+
+.docy-btn-danger-outline {
+    background: transparent;
+    color: $docy-danger;
+    border: 2px solid $docy-danger;
+
+    &:hover {
+        background: rgba($docy-danger, 0.05);
+    }
+}
+
+.docy-btn-full {
+    width: 100%;
+}
+
+// Preloader
+.docy-verify-preloader {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba($docy-white, 0.3);
+    border-top-color: $docy-white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.loading .docy-verify-preloader {
+    display: block;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+// =====================================================================
+// Footer
+// =====================================================================
+.docy-verify-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 28px;
+    border-radius: 12px;
+    background: $docy-white;
+    box-shadow: $docy-shadow;
+
+    @media (max-width: 600px) {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+}
+
+.docy-footer-info {
+    font-size: 13px;
+    color: $docy-gray-600;
+
+    strong {
+        color: $docy-gray-900;
+    }
+
+    a {
+        color: $docy-primary;
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+.docy-footer-links {
+    display: flex;
+    gap: 16px;
+
+    a {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: $docy-gray-600;
+        text-decoration: none;
+        transition: $docy-transition-fast;
+
+        .dashicons {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+        }
+
+        &:hover {
+            color: $docy-primary;
+        }
+    }
+}
+
+// =====================================================================
+// Modal
+// =====================================================================
+.docy-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.docy-modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba($docy-gray-900, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.docy-modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    border-radius: 16px;
+    background: $docy-white;
+    box-shadow: $docy-shadow-lg;
+    overflow: hidden;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.docy-modal-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 28px 28px 20px;
+    text-align: center;
+
+    .docy-modal-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: rgba($docy-warning, 0.1);
+        color: $docy-warning;
+        font-size: 28px;
+
+        &::before {
+            width: auto;
+            height: auto;
+        }
+    }
+
+    h3 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+        color: $docy-gray-900;
+    }
+}
+
+.docy-modal-body {
+    padding: 0 28px 24px;
+
+    p {
+        margin: 0 0 16px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: $docy-gray-600;
+        text-align: center;
+    }
+
+    ul {
+        margin: 0 0 16px;
+        padding: 0;
+        list-style: none;
+
+        li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid $docy-gray-100;
+            font-size: 13px;
+            color: $docy-gray-700;
+
+            &:last-child {
+                border-bottom: none;
+            }
+
+            .dashicons {
+                font-size: 14px;
+                width: 14px;
+                height: 14px;
+                color: $docy-danger;
+            }
+        }
+    }
+
+    .docy-modal-note {
+        padding: 12px 16px;
+        margin: 0;
+        border-radius: 8px;
+        background: $docy-gray-50;
+        font-size: 12px;
+        color: $docy-gray-500;
+    }
+}
+
+.docy-modal-footer {
+    display: flex;
+    gap: 12px;
+    padding: 20px 28px 28px;
+
+    .docy-btn {
+        flex: 1;
+    }
+}

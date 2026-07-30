@@ -1,0 +1,46 @@
+/** Title-bar **/
+.titlebar {
+  background: var(--black_25);
+  padding: 170px 0 70px;
+  position: relative;
+  z-index: 1;
+  .one {
+    top: 0;
+    left: 35px;
+  }
+  .four {
+    right: 0;
+    bottom: 0;
+  }
+}
+
+.bg-faded-sun {
+  background: radial-gradient(ellipse farthest-side at 76% 77%, rgba(245, 228, 212, 0.25) 4%, rgba(255, 255, 255, 0) calc(4% + 1px)), radial-gradient(circle at 76% 40%, #fef6ec 4%, rgba(255, 255, 255, 0) 4.18%), linear-gradient(135deg, #ff0000 0%, #000036 100%), radial-gradient(ellipse at 28% 0%, #ffcfac 0%, rgba(98, 149, 144, 0.5) 100%), linear-gradient(180deg, #cd6e8a 0%, #f5eab0 69%, #d6c8a2 70%, #a2758d 100%) !important;
+  background-blend-mode: normal, normal, screen, overlay, normal;
+}
+.bg-faded-moon {
+  background: radial-gradient(ellipse farthest-side at 76% 77%, rgba(245, 228, 212, 0.25) 4%, rgba(255, 255, 255, 0) calc(4% + 1px)), radial-gradient(circle at 76% 40%, #fef6ec 4%, rgba(255, 255, 255, 0) 4.18%), linear-gradient(135deg, #000000 0%, #000036 100%), radial-gradient(ellipse at 28% 0%, #ffcfac 0%, rgba(98, 149, 144, 0.5) 100%), linear-gradient(180deg, #cd6e8a 0%, #f5eab0 69%, #d6c8a2 70%, #a2758d 100%) !important;
+  background-blend-mode: normal, normal, screen, overlay, normal;
+}
+.bg-happy-journey {
+  background: linear-gradient(45deg, #C7F5FE 10%, #C7F5FE 40%, #FCC8F8 40%, #FCC8F8 60%, #EAB4F8 60%, #EAB4F8 65%, #F3F798 65%, #F3F798 90%) !important;
+}
+.bg-creative-idea {
+  background: linear-gradient(45deg, #F3F798 10%, #F3F798 40%, #EAB4F8 40%, #EAB4F8 60%, #FCC8F8 60%, #FCC8F8 65%, #C7F5FE 65%, #C7F5FE 90%) !important;
+}
+.bg-apparent-circle {
+  background: linear-gradient(238.72deg, #EBFF00 0%, #8F00FF 100%), linear-gradient(64.82deg, #AD00FF 0%, #FF0000 100%), linear-gradient(65.03deg, #00FFFF 0%, #FF0000 99.79%), radial-gradient(67.08% 100% at 50% 100%, #FF00C7 0%, #50005E 100%), radial-gradient(100% 140% at 100% 0%, #5ED500 0%, #2200AA 100%) !important;
+  background-blend-mode: color-dodge, difference, lighten, color-dodge, normal;
+}
+.bg-soft-weather {
+  background: radial-gradient(80.99% 100% at 50% 0%, #00FF0A 0%, #36008E 100%), radial-gradient(50% 123.47% at 50% 50%, #EFE7C8 0%, #36008E 100%), linear-gradient(301.28deg, #FF006B 0%, #48DD9E 100%), linear-gradient(294.84deg, #5A60E4 0%, #D30000 100%), linear-gradient(52.29deg, #000000 0%, #00FF85 100%), radial-gradient(100% 138.69% at 100% 0%, #0007A5 0%, #FF7A00 100%), radial-gradient(70.41% 100% at 50% 0%, #D5B300 0%, #2200AA 100%) !important;
+  background-blend-mode: screen, screen, lighten, overlay, lighten, difference, normal;
+}
+.bg-romantic-sun {
+  background: linear-gradient(180deg, #FFB7B7 0%, #727272 100%), radial-gradient(60.91% 100% at 50% 0%, #FFD1D1 0%, #260000 100%), linear-gradient(238.72deg, #FFDDDD 0%, #720066 100%), linear-gradient(127.43deg, #00FFFF 0%, #FF4444 100%), radial-gradient(100.22% 100% at 70.57% 0%, #FF0000 0%, #00FFE0 100%), linear-gradient(127.43deg, #B7D500 0%, #3300FF 100%) !important;
+  background-blend-mode: screen, overlay, hard-light, color-burn, color-dodge, normal;
+}
+.bg-teal-eclipse {
+  background: linear-gradient(238.72deg, #EBFF00 0%, #7700D5 100%), linear-gradient(64.82deg, #AD00FF 0%, #FF0000 100%), linear-gradient(65.03deg, #00FFFF 0%, #FF0000 99.79%), radial-gradient(67.08% 100% at 50% 0%, #FF00C7 0%, #1400FF 100%), radial-gradient(100% 140% at 100% 0%, #5ED500 0%, #2200AA 100%) !important;
+  background-blend-mode: color-dodge, difference, lighten, color-dodge, normal;
+}

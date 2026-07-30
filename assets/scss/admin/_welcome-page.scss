@@ -1,0 +1,987 @@
+/**
+ * Docy Welcome Page Styles
+ *
+ * Modern, premium design with glassmorphism effects,
+ * smooth animations, and responsive layout.
+ *
+ * @package Docy
+ * @since   2.0.0
+ */
+
+// =====================================================================
+// Variables
+// =====================================================================
+$docy-primary: #6366f1;
+$docy-primary-dark: #4f46e5;
+$docy-primary-light: #818cf8;
+$docy-primary-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+$docy-success: #10b981;
+$docy-success-light: #34d399;
+$docy-warning: #f59e0b;
+$docy-danger: #ef4444;
+$docy-dark: #1e293b;
+$docy-gray-900: #0f172a;
+$docy-gray-700: #334155;
+$docy-gray-600: #475569;
+$docy-gray-500: #64748b;
+$docy-gray-400: #94a3b8;
+$docy-gray-300: #cbd5e1;
+$docy-gray-200: #e2e8f0;
+$docy-gray-100: #f1f5f9;
+$docy-gray-50: #f8fafc;
+$docy-white: #ffffff;
+$docy-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$docy-shadow:
+	0 4px 6px -1px rgba(0, 0, 0, 0.1),
+	0 2px 4px -2px rgba(0, 0, 0, 0.1);
+$docy-shadow-md:
+	0 10px 15px -3px rgba(0, 0, 0, 0.1),
+	0 4px 6px -4px rgba(0, 0, 0, 0.1);
+$docy-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+$docy-radius: 12px;
+$docy-radius-lg: 16px;
+$docy-radius-xl: 20px;
+$docy-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$docy-transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+// =====================================================================
+// Welcome Wrap Container
+// =====================================================================
+.docy-welcome-wrap {
+	max-width: 1400px;
+	margin: 20px auto;
+	font-family:
+		-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans,
+		Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+	}
+}
+
+// =====================================================================
+// Hero Section
+// =====================================================================
+.docy-welcome-hero {
+	position: relative;
+	padding: 40px 48px;
+	border-radius: $docy-radius-xl;
+	margin-bottom: 24px;
+	overflow: hidden;
+	background: $docy-primary-gradient;
+	color: $docy-white;
+}
+
+.docy-hero-content {
+	position: relative;
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 40px;
+	z-index: 1;
+}
+
+.docy-hero-text {
+	flex: 1;
+	max-width: 680px;
+}
+
+.docy-hero-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 14px;
+	margin-bottom: 16px;
+	border-radius: 50px;
+	background: rgba($docy-white, 0.2);
+	backdrop-filter: blur(10px);
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	animation: docy-fade-in 0.6s ease;
+
+	.dashicons {
+		font-size: 12px;
+		width: 12px;
+		height: 12px;
+	}
+}
+
+.docy-hero-title {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin: 0 0 16px;
+	font-size: 32px;
+	font-weight: 700;
+	color: $docy-white;
+	line-height: 1.2;
+	animation: docy-slide-up 0.6s ease 0.1s backwards;
+}
+
+.docy-version-badge {
+	display: inline-block;
+	padding: 6px 12px;
+	border-radius: 8px;
+	background: rgba($docy-white, 0.15);
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.docy-hero-description {
+	margin: 0;
+	font-size: 15px;
+	line-height: 1.7;
+	color: rgba($docy-white, 0.9);
+	animation: docy-slide-up 0.6s ease 0.2s backwards;
+}
+
+// =====================================================================
+// Hero Stats
+// =====================================================================
+.docy-hero-stats {
+	display: flex;
+	gap: 12px;
+	animation: docy-slide-up 0.6s ease 0.3s backwards;
+}
+
+.docy-stat-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 18px 24px;
+	min-width: 100px;
+	border-radius: $docy-radius;
+	background: rgba($docy-white, 0.1);
+	backdrop-filter: blur(10px);
+	text-align: center;
+	transition: $docy-transition;
+
+	&:hover {
+		background: rgba($docy-white, 0.18);
+		transform: translateY(-2px);
+	}
+}
+
+.docy-stat-icon {
+	font-size: 22px;
+	opacity: 0.9;
+
+	&::before {
+		width: auto;
+		height: auto;
+	}
+}
+
+.docy-stat-value {
+	font-size: 24px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.docy-stat-label {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	opacity: 0.7;
+}
+
+// =====================================================================
+// Setup Progress Bar
+// =====================================================================
+.docy-setup-progress {
+	padding: 20px 28px;
+	margin-bottom: 24px;
+	border-radius: $docy-radius-lg;
+	background: $docy-white;
+	box-shadow: $docy-shadow;
+	animation: docy-fade-in 0.6s ease 0.4s backwards;
+}
+
+.docy-progress-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+
+	h3 {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin: 0;
+		font-size: 15px;
+		font-weight: 600;
+		color: $docy-gray-900;
+
+		.dashicons {
+			color: $docy-primary;
+			font-size: 18px;
+			width: 18px;
+			height: 18px;
+		}
+	}
+}
+
+.docy-progress-text {
+	font-size: 13px;
+	color: $docy-gray-500;
+}
+
+.docy-progress-bar {
+	height: 10px;
+	border-radius: 10px;
+	background: $docy-gray-100;
+	overflow: hidden;
+}
+
+.docy-progress-fill {
+	height: 100%;
+	border-radius: 10px;
+	background: $docy-primary-gradient;
+	transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// =====================================================================
+// Main Grid Layout
+// =====================================================================
+.docy-welcome-grid {
+	display: grid;
+	grid-template-columns: 1.4fr 1fr;
+	gap: 24px;
+	animation: docy-fade-in 0.6s ease 0.5s backwards;
+}
+
+.docy-welcome-column {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+// =====================================================================
+// Cards
+// =====================================================================
+.docy-card {
+	background: $docy-white;
+	border-radius: $docy-radius-lg;
+	box-shadow: $docy-shadow;
+	overflow: hidden;
+	transition: $docy-transition;
+
+	&:hover {
+		box-shadow: $docy-shadow-md;
+	}
+}
+
+.docy-card-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 20px 24px;
+	border-bottom: 1px solid $docy-gray-100;
+
+	h2 {
+		margin: 0;
+		font-size: 16px;
+		font-weight: 600;
+		color: $docy-gray-900;
+	}
+}
+
+.docy-card-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 38px;
+	height: 38px;
+	border-radius: 10px;
+	background: $docy-primary-gradient;
+	color: $docy-white;
+	font-size: 18px;
+
+	&::before {
+		width: auto;
+		height: auto;
+	}
+}
+
+.docy-card-content {
+	padding: 20px 24px;
+}
+
+// =====================================================================
+// Setup Checklist
+// =====================================================================
+.docy-setup-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.docy-setup-item {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 14px 0;
+	border-bottom: 1px solid $docy-gray-100;
+	transition: $docy-transition;
+
+	&:last-child {
+		border-bottom: none;
+		padding-bottom: 0;
+	}
+
+	&:first-child {
+		padding-top: 0;
+	}
+
+	&.completed {
+		.docy-setup-check {
+			background: $docy-success;
+		}
+
+		.docy-setup-title {
+			color: $docy-success;
+		}
+	}
+
+	&:not(.completed):hover {
+		.docy-setup-arrow {
+			opacity: 1;
+			transform: translateX(0);
+			color: $docy-primary;
+		}
+	}
+}
+
+.docy-setup-link {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	text-decoration: none;
+	color: inherit;
+	flex: 1;
+
+	&:focus {
+		outline: none;
+		box-shadow: none;
+	}
+}
+
+.docy-setup-check {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	min-width: 32px;
+	border-radius: 8px;
+	background: $docy-gray-200;
+	color: $docy-white;
+	font-size: 16px;
+	transition: $docy-transition;
+
+	.dashicons {
+		font-size: 18px;
+		width: 18px;
+		height: 18px;
+	}
+}
+
+.docy-check-empty {
+	display: block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: $docy-gray-400;
+}
+
+.docy-setup-content {
+	flex: 1;
+}
+
+.docy-setup-title {
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	color: $docy-gray-900;
+	margin-bottom: 2px;
+	transition: color 0.2s ease;
+}
+
+.docy-setup-desc {
+	display: block;
+	font-size: 12px;
+	color: $docy-gray-500;
+	line-height: 1.4;
+}
+
+.docy-setup-arrow {
+	font-size: 16px;
+	color: $docy-gray-400;
+	opacity: 0;
+	transform: translateX(-5px);
+	transition: $docy-transition;
+
+	&::before {
+		width: auto;
+		height: auto;
+	}
+}
+
+// =====================================================================
+// Video Card
+// =====================================================================
+.docy-video-wrapper {
+	position: relative;
+	width: 100%;
+	padding-bottom: 56.25%;
+	margin-bottom: 16px;
+	border-radius: $docy-radius;
+	overflow: hidden;
+	background: $docy-gray-900;
+
+	iframe {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		border: none;
+	}
+}
+
+// =====================================================================
+// Quick Actions
+// =====================================================================
+.docy-quick-actions {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 12px;
+}
+
+.docy-action-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 20px 12px;
+	border-radius: $docy-radius;
+	background: $docy-gray-50;
+	text-decoration: none;
+	text-align: center;
+	transition: $docy-transition;
+	position: relative;
+
+	&:hover {
+		background: $docy-white;
+		box-shadow: $docy-shadow;
+		transform: translateY(-3px);
+
+		.docy-action-icon {
+			background: $docy-primary-gradient;
+			color: $docy-white;
+			transform: scale(1.1);
+		}
+	}
+
+	&:focus {
+		outline: none;
+		box-shadow: 0 0 0 3px rgba($docy-primary, 0.2);
+	}
+}
+
+.docy-action-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 10px;
+	background: $docy-gray-200;
+	color: $docy-gray-600;
+	font-size: 20px;
+	transition: $docy-transition;
+
+	&::before {
+		width: auto;
+		height: auto;
+	}
+}
+
+.docy-action-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: $docy-gray-700;
+}
+
+.docy-external-badge {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	font-size: 12px;
+	color: $docy-gray-400;
+
+	&::before {
+		width: auto;
+		height: auto;
+	}
+}
+
+// =====================================================================
+// Resources List
+// =====================================================================
+.docy-resources-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.docy-resource-item {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 14px 16px;
+	border-radius: $docy-radius;
+	background: $docy-gray-50;
+	border: 1px solid transparent;
+	text-decoration: none;
+	transition: $docy-transition;
+
+	&:hover {
+		background: $docy-white;
+		border-color: $docy-gray-200;
+		box-shadow: $docy-shadow;
+		transform: translateX(4px);
+
+		.docy-resource-title {
+			color: $docy-primary;
+		}
+
+		.docy-resource-arrow {
+			opacity: 1;
+			transform: translateX(0);
+			color: $docy-primary;
+		}
+	}
+
+	&:focus {
+		outline: none;
+		box-shadow: 0 0 0 3px rgba($docy-primary, 0.15);
+	}
+
+	// Different icon colors for each resource.
+	&:nth-child(1) .docy-resource-icon {
+		background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+	}
+
+	&:nth-child(2) .docy-resource-icon {
+		background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+	}
+
+	&:nth-child(3) .docy-resource-icon {
+		background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+	}
+
+	&:nth-child(4) .docy-resource-icon {
+		background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+	}
+}
+
+.docy-resource-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	min-width: 36px;
+	border-radius: 8px;
+	background: $docy-primary-gradient;
+	color: $docy-white;
+	font-size: 16px;
+	box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.15);
+	transition: $docy-transition;
+
+	&::before {
+		width: auto;
+		height: auto;
+	}
+}
+
+.docy-resource-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.docy-resource-title {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	color: $docy-gray-900;
+	margin-bottom: 2px;
+	transition: color 0.2s ease;
+}
+
+.docy-resource-desc {
+	display: block;
+	font-size: 11px;
+	color: $docy-gray-500;
+	line-height: 1.4;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.docy-resource-arrow {
+	font-size: 16px;
+	color: $docy-gray-400;
+	opacity: 0;
+	transform: translateX(-5px);
+	transition: $docy-transition;
+
+	&::before {
+		width: auto;
+		height: auto;
+	}
+}
+
+// =====================================================================
+// System Status
+// =====================================================================
+.docy-system-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.docy-system-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 0;
+	border-bottom: 1px solid $docy-gray-100;
+
+	&:last-child {
+		border-bottom: none;
+		padding-bottom: 0;
+	}
+
+	&:first-child {
+		padding-top: 0;
+	}
+
+	&.passed {
+		.docy-system-indicator .dashicons {
+			color: $docy-success;
+		}
+	}
+
+	&.failed {
+		.docy-system-indicator .dashicons {
+			color: $docy-danger;
+		}
+	}
+}
+
+.docy-system-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	min-width: 28px;
+
+	.dashicons {
+		font-size: 20px;
+		width: 20px;
+		height: 20px;
+	}
+}
+
+.docy-system-info {
+	flex: 1;
+}
+
+.docy-system-label {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	color: $docy-gray-900;
+	margin-bottom: 2px;
+}
+
+.docy-system-value {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	color: $docy-gray-600;
+}
+
+.docy-system-required {
+	font-size: 11px;
+	color: $docy-gray-400;
+}
+
+// =====================================================================
+// Buttons
+// =====================================================================
+.docy-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 12px 24px;
+	border: none;
+	border-radius: 8px;
+	font-size: 13px;
+	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+	transition: $docy-transition;
+
+	.dashicons {
+		font-size: 16px;
+		width: 16px;
+		height: 16px;
+	}
+
+	&:focus {
+		outline: none;
+	}
+}
+
+.docy-btn-primary {
+	background: $docy-primary-gradient;
+	color: $docy-white;
+	box-shadow: 0 4px 14px -3px rgba($docy-primary, 0.5);
+
+	&:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 6px 20px -3px rgba($docy-primary, 0.6);
+		color: $docy-white;
+	}
+
+	&:focus {
+		box-shadow: 0 0 0 3px rgba($docy-primary, 0.3);
+	}
+}
+
+.docy-btn-outline {
+	background: $docy-white;
+	color: $docy-primary;
+	border: 2px solid $docy-primary;
+	width: 100%;
+
+	&:hover {
+		background: $docy-primary;
+		color: $docy-white;
+	}
+
+	&:focus {
+		box-shadow: 0 0 0 3px rgba($docy-primary, 0.2);
+	}
+}
+
+// =====================================================================
+// Footer
+// =====================================================================
+.docy-welcome-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 20px;
+	margin-top: 24px;
+	padding: 20px 28px;
+	border-radius: $docy-radius-lg;
+	background: $docy-white;
+	box-shadow: $docy-shadow;
+}
+
+.docy-footer-info {
+	font-size: 13px;
+	color: $docy-gray-600;
+
+	strong {
+		color: $docy-gray-900;
+	}
+
+	a {
+		color: $docy-primary;
+		text-decoration: none;
+		font-weight: 500;
+
+		&:hover {
+			text-decoration: underline;
+		}
+	}
+}
+
+.docy-footer-links {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+
+	a {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 13px;
+		color: $docy-gray-600;
+		text-decoration: none;
+		transition: $docy-transition-fast;
+
+		.dashicons {
+			font-size: 14px;
+			width: 14px;
+			height: 14px;
+		}
+
+		&:hover {
+			color: $docy-primary;
+		}
+
+		&:focus {
+			outline: none;
+			box-shadow: none;
+		}
+	}
+}
+
+// =====================================================================
+// Animations
+// =====================================================================
+@keyframes docy-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes docy-slide-up {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+// =====================================================================
+// Responsive Styles
+// =====================================================================
+@media screen and (max-width: 1280px) {
+	.docy-welcome-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.docy-hero-content {
+		flex-direction: column;
+		gap: 24px;
+	}
+
+	.docy-hero-stats {
+		width: 100%;
+		flex-wrap: wrap;
+	}
+
+	.docy-stat-card {
+		flex: 1;
+		min-width: 100px;
+	}
+}
+
+@media screen and (max-width: 768px) {
+	.docy-welcome-wrap {
+		margin: 15px 10px 15px 0;
+	}
+
+	.docy-welcome-hero {
+		padding: 28px 24px;
+	}
+
+	.docy-hero-title {
+		font-size: 26px;
+	}
+
+	.docy-hero-stats {
+		gap: 8px;
+	}
+
+	.docy-stat-card {
+		padding: 14px 16px;
+		min-width: 80px;
+	}
+
+	.docy-stat-value {
+		font-size: 20px;
+	}
+
+	.docy-quick-actions {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.docy-welcome-footer {
+		flex-direction: column;
+		text-align: center;
+		gap: 12px;
+	}
+
+	.docy-footer-links {
+		justify-content: center;
+	}
+}
+
+@media screen and (max-width: 480px) {
+	.docy-welcome-hero {
+		padding: 24px 20px;
+	}
+
+	.docy-hero-title {
+		font-size: 22px;
+	}
+
+	.docy-hero-description {
+		font-size: 14px;
+	}
+
+	.docy-card-header {
+		padding: 16px 20px;
+	}
+
+	.docy-card-content {
+		padding: 16px 20px;
+	}
+
+	.docy-quick-actions {
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+	}
+
+	.docy-action-item {
+		padding: 16px 8px;
+	}
+
+	.docy-action-icon {
+		width: 38px;
+		height: 38px;
+		font-size: 18px;
+	}
+}
+
+// =====================================================================
+// Legacy Styles Override (backwards compatibility)
+// =====================================================================
+.docy_welcome_page {
+	display: none !important;
+}

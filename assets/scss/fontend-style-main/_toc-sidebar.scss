@@ -1,0 +1,342 @@
+.left_sidebarlist {
+  margin-left: -50px;
+  @media only screen and (max-width: 1024px) {
+    margin-left: -20px;
+  }
+
+  .nav-sidebar {
+    &:before {
+      content: "";
+      width: 1px;
+      background: brand_color_rgba(0.24);
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    > ul {
+      list-style: none !important;
+      padding-left: 0 !important;
+    }
+  }
+
+  .nav-link {
+    color: inherit;
+    position: relative;
+    padding: 8px 5px;
+    font-size: 15px;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: none;
+    }
+
+    &.active {
+      &::before {
+        content: "";
+        width: 2px;
+        background: var(--brand_color);
+        position: absolute;
+        top: 0;
+        left: -15px;
+        bottom: 0;
+      }
+
+      + ul.nav {
+        display: block;
+      }
+    }
+  }
+
+  ul.nav ul {
+    padding-left: 20px;
+    display: none;
+
+    .nav-link {
+      font-weight: 400;
+      line-height: 1.5;
+      font-size: 14px;
+      padding: 5px 0;
+
+      &.active {
+        &::before {
+          display: none;
+        }
+
+        color: var(--brand_color);
+      }
+    }
+  }
+}
+
+.page {
+  .left_sidebarlist {
+    margin-left: 0;
+  }
+}
+
+#toc_stick {
+  &.stick {
+    .left_sidebarlist {
+      position: sticky;
+      top: 130px;
+      width: 240px;
+
+      .nav-sidebar {
+        &:before {
+          left: -15px;
+          bottom: 0;
+        }
+      }
+    }
+  }
+}
+
+.docy-mobile-toc {
+  background: rgb(23, 26, 34);
+  border-radius: 10px 10px 0 0;
+  z-index: 20;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 15px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 160%;
+  @media (min-width: 768px) {
+    display: none;
+  }
+
+  .mobile-toc {
+    display: flex;
+    -webkit-box-pack: center;
+    justify-content: center;
+    column-gap: 16px;
+
+    /* Overlay styles */
+    #toc-overlay {
+      display: none; /* Initially hidden */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent overlay */
+      z-index: 10; /* Ensure it's above other content */
+    }
+
+
+    /* Styling for the TOC when it appears */
+    .bottom_table_content {
+      background-color: #171a22; /* Updated background color */
+      color: #fff; /* Updated text color */
+      padding: 10px;
+      border-radius: 10px;
+      position: absolute;
+      width: 100%;
+      bottom: 100%; /* Makes it appear above the button */
+      left: 0;
+      z-index: 21; /* Ensures it appears on top */
+      display: none; /* Initially hidden */
+      .close-toc {
+        display: inline-flex;
+        position: absolute;
+        right: 0;
+        top: 0;
+        padding: var(--intergalactic-spacing-3x, 12px);
+        color: var(--intergalactic-icon-secondary-neutral, #a9abb6);
+        cursor: pointer;
+        z-index: 1;
+        border: 0;
+        background: 0 0;
+        outline: 0;
+
+        svg {
+          margin-right: 0;
+        }
+      }
+
+      .nav-sidebar {
+        max-height: 40vh;
+        overflow-y: scroll;
+      }
+    }
+
+    .bottom_table_content {
+      display: none; /* Initially hidden */
+      position: absolute;
+      bottom: 100%; /* Position above the button */
+      left: 0;
+      width: 100%;
+      background-color: #171a22; /* Background color */
+      color: #fff; /* Text color */
+      padding: 24px;
+      border-radius: 10px 10px 0 0; /* Rounded corners */
+      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); /* Optional shadow */
+      z-index: 20; /* Ensure it appears above other elements */
+      nav {
+        margin: 0;
+        padding: 0;
+
+        ul {
+          padding-left: 0 !important;
+
+          li {
+            list-style: none;
+
+            a {
+              color: #898d9a;
+              text-decoration: none !important;
+
+              &:hover {
+                color: #fff;
+              }
+
+              &:active {
+                color: #fff;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    .fqmceZ {
+      background-color: inherit;
+      color: rgb(246, 247, 248);
+      padding: 6px 16px;
+      border-radius: 6px;
+      width: 100%;
+      border: 1px solid rgb(209, 212, 219);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+
+      img {
+        max-width: 15px;
+        max-height: 15px;
+        filter: invert(1);
+      }
+
+      &:first-child {
+        margin-right: 10px;
+      }
+    }
+
+    /* Share modal styles */
+    .docy-modal-content {
+      display: none; /* Initially hidden */
+      position: absolute;
+      bottom: 100%; /* Position above the button */
+      left: 0;
+      width: 100%;
+      background-color: #171a22; /* Background color */
+      color: #fff; /* Text color */
+      padding: 24px;
+      border-radius: 10px 10px 0 0; /* Rounded corners */
+      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); /* Optional shadow */
+      z-index: 20; /* Ensure it appears above other elements */
+
+      button {
+        svg {
+          margin-right: 0;
+        }
+      }
+
+      .docy-share-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        .social-links {
+          display: flex;
+          column-gap: 24px;
+          justify-content: center;
+          width: 100%;
+
+          a {
+            text-decoration: none !important;
+
+            i {
+              font-size: 20px;
+              color: #fff;
+            }
+          }
+        }
+
+        p {
+          margin-top: 10px;
+        }
+
+        .docy-copy-url-wrap {
+          display: flex;
+          align-items: center;
+
+          .share-this-docs {
+            display: flex;
+            cursor: pointer;
+            margin-left: 10px;
+            background: #fff;
+            border: 1px solid var(--black_75);
+            border-radius: 5px;
+
+            input {
+              padding: 8px 8px 8px 18px !important;
+              background: transparent;
+              border: none !important;
+              border-radius: 0 !important;
+            }
+
+            img {
+              padding: 8px 18px 8px 0;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+.___SIcon_pchrv_gg_ {
+  display: inline-block;
+  user-select: none;
+  shape-rendering: geometricPrecision;
+  box-sizing: content-box;
+  fill: currentColor;
+  flex-shrink: 0;
+  outline: 0;
+  margin-right: 8px;
+  color: rgb(246, 247, 248);
+}
+
+/* Close button styles */
+.close-toc, .docy-close {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+
+  img {
+    filter: invert(1);
+    max-width: 20px;
+  }
+}
+
+.copy-popup {
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+
+  span {
+    margin-right: 8px;
+    font-size: 20px;
+    color: green;
+  }
+}

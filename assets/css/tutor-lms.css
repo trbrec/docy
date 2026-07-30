@@ -1,0 +1,17 @@
+:is(.single-courses, .single-lesson) .tutor-wrap {
+  margin-top: 50px;
+}
+:is(.single-courses, .single-lesson) .navbar {
+  position: static;
+}
+:is(.single-courses, .single-lesson) h1 {
+  font-size: 36px;
+}
+:is(.single-courses, .single-lesson) .tutor-course-details-top {
+  margin-top: 10px;
+}
+:is(.single-courses, .single-lesson) a:hover {
+  text-decoration: none;
+}
+
+/*# sourceMappingURL=tutor-lms.css.map */

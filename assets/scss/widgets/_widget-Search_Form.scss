@@ -1,0 +1,86 @@
+.searchbar-tabs {
+  text-align: left;
+  .tab-item {
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 8px 5px;
+    margin-right: 15px;
+    color: var(--black_500);
+    border: none;
+    background: transparent;
+    text-decoration: none !important;
+    &.active {
+      color: var(--brand_color) !important;
+      border-bottom: 2px solid var(--brand_color) !important;
+    }
+    &:hover {
+      color: var(--brand_color);
+    }
+    &:last-child {
+      margin-right: 0;
+    }
+  }
+}
+
+.search_form_wrap {
+  .form-group .input-wrapper {
+    position: relative
+  }
+  input[type="search" i] {
+    width: 100%;
+    padding: 13px 48px 13px 18px;
+    border: 1px solid var(--black_75);
+    border-radius: 0;
+    transition: .4s;
+    &::-webkit-search-cancel-button {
+      margin-right: 55px;
+    }
+    &::placeholder {
+      color: #999
+    }
+  }
+  .search_submit_btn {
+    position: absolute;
+    border: none;
+    bottom: 0;
+    top: 0;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    background: transparent;
+    > svg {
+      width: auto;
+      max-width: 25px;
+      height: auto;
+      max-height: 100%;
+      min-width: 18px;
+      object-fit: cover;
+    }
+    > i {
+      font-size: 16px;
+      font-weight: bold;
+      color: #999
+    }
+    &.left{
+      left: 10px;
+      right:unset !important;
+    }
+    &.right{
+      right: 10px;
+      left:unset !important;
+    }
+  }
+}
+
+.elementor-widget-docy_search_form form #searchInput + .spinner {
+  right: 15px;
+}
+.header_search_form_info.search_form_wrap .search_submit_btn.left{
+  right: unset !important;
+  left: 18px;
+  min-width: 50px;
+}
+.header_search_form_info.search_form_wrap .search_submit_btn.right{
+  left: unset !important;
+}

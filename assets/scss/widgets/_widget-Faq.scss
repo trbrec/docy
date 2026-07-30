@@ -1,0 +1,164 @@
+/*============== Start doc_faq_area css =============*/
+.doc_faq_area {
+  .doc_tag {
+    margin-bottom: 50px;
+
+    .nav-item {
+      .nav-link {
+        @media (max-width: 676px) {
+          margin: 0 4px 10px;
+        }
+      }
+    }
+  }
+}
+
+.faq_tab_pane {}
+
+.doc_faq_info {
+  .card {
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 20px 50px 0 rgba(4, 73, 89, 0.1);
+    border: 0;
+    margin-bottom: 20px;
+
+    .card-header {
+      padding: 0;
+      margin: 0;
+      border-radius: 0;
+      background: transparent;
+      border: 0;
+
+      h2 {
+        button {
+          display: block;
+          text-align: left;
+          width: 100%;
+          font-size: 18px;
+          line-height: 30px;
+          font-weight: 500;
+          color: var(--brand_color);
+          text-decoration: none;
+          padding: 19px 40px 19px 30px;
+          position: relative;
+
+          i {
+            position: absolute;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            display: none;
+
+            &+i {
+              display: block;
+            }
+          }
+
+          &.collapsed {
+            color: var(--black_800, #242729);
+
+            i {
+              display: block;
+
+              &+i {
+                display: none;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    .card-body {
+      border: 0;
+      line-height: 24px;
+      padding: 0 30px 35px;
+    }
+
+    &.active {
+      position: relative;
+      z-index: 1;
+    }
+  }
+}
+
+/*=========== Faq-2 ============*/
+.fact_navigation_info {
+  border-radius: 5px;
+  background-color: rgb(255, 255, 255);
+  box-shadow: 0 20px 40px 0 rgba(4, 73, 89, 0.1);
+  padding: 40px 40px 28px;
+
+  @media (max-width: 769px) {
+    padding: 25px;
+  }
+}
+
+.fact_navigation {
+  border: 0;
+  padding-top: 8px;
+  margin: 0;
+
+  //@media (max-width: 769px) {
+  //  padding-left: 20px !important;
+  //}
+
+  .nav-item {
+    display: block;
+    width: 100%;
+    padding: 12px 0;
+
+    .nav-link {
+      display: block;
+      font-size: 16px;
+      font-weight: 500;
+      color: brand_color_rgba(.5);
+      position: relative;
+      padding: 0 0 0 28px;
+      border: 0;
+      border-radius: 0;
+      transition: all 0.2s linear;
+      text-decoration: none;
+      &:before {
+        content: "\35";
+        font-family: eleganticons;
+        font-size: 20px;
+        position: absolute;
+        right: 0;
+      }
+
+      i {
+        position: absolute;
+        left: 0;
+        top: 2px;
+      }
+
+      &.active,
+      &:hover {
+        color: var(--brand_color);
+        background: transparent !important;
+        &:before {
+          color: var(--brand_color);
+        }
+      }
+    }
+
+    &+li {
+      border-top: 1px solid #e6eeef;
+    }
+  }
+}
+
+.doc_faq_area_two {
+  .tab-content {
+    @media (max-width: 769px) {
+      padding-left: 0 !important;
+      margin-top: 0;
+    }
+    @media (max-width: 767px) {
+      margin-top: 30px;
+    }
+  }
+}

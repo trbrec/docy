@@ -1,0 +1,23 @@
+/*----------------------------------------------------
+@File: Default Admin Styles
+
+This file contains the styling for the actual template, this
+is the file you need to edit to change the look of the
+template.
+---------------------------------------------------- */
+
+/*=====================================================================
+@Template Name: Docy
+@Default Styles
+@ List of Style Table:
+
+01/ Editor
+02/ Verify Dashboard
+03/ Welcome (Legacy)
+04/ Welcome Page (New)
+=====================================================================*/
+
+@import "admin/editor";
+@import "admin/verify_dashboard";
+@import "admin/verify-page";
+@import "admin/welcome-page";
