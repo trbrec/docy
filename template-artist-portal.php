@@ -16,7 +16,7 @@ $portal_page_url = get_permalink();
 <header class="trb-portal-topbar">
 	<div class="trb-portal-topbar__inner">
 		<a class="trb-portal-topbar__brand" href="<?php echo esc_url( $portal_page_url ); ?>" aria-label="Area Artisti TRB rec">
-			<span>TRB</span><small>rec</small>
+			<img src="https://faq.trbrec.com/wp-content/uploads/2023/08/Vector-TRB-rec-White.png" alt="TRB rec" width="186" height="62" />
 		</a>
 		<?php if ( is_user_logged_in() ) : ?>
 			<div class="trb-portal-topbar__actions">
