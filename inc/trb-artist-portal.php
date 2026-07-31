@@ -15,22 +15,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 function trb_portal_profiles() {
 	return array(
 		'dds' => array(
-			'role'       => 'artista_dds',
+			// WordPress stores these as artista_a/b/c/d. The longer names
+			// shown in the users screen are display labels, not role slugs.
+			'role'       => 'artista_a',
+			'aliases'    => array( 'artista_dds' ),
 			'label'      => 'DDS',
 			'capability' => 'trb_portal_dds',
 		),
 		'ddb' => array(
-			'role'       => 'artista_ddb',
+			'role'       => 'artista_b',
+			'aliases'    => array( 'artista_ddb' ),
 			'label'      => 'DDB',
 			'capability' => 'trb_portal_ddb',
 		),
 		'ddb_trb' => array(
-			'role'       => 'artista_ddb-trb',
+			'role'       => 'artista_c',
+			'aliases'    => array( 'artista_ddb-trb' ),
 			'label'      => 'DDB-TRB',
 			'capability' => 'trb_portal_ddb_trb',
 		),
 		'trb' => array(
-			'role'       => 'artista_trb',
+			'role'       => 'artista_d',
+			'aliases'    => array( 'artista_trb' ),
 			'label'      => 'TRB',
 			'capability' => 'trb_portal_trb',
 		),
@@ -49,7 +55,8 @@ function trb_portal_user_profile( $user = null ) {
 	}
 
 	foreach ( trb_portal_profiles() as $key => $profile ) {
-		if ( in_array( $profile['role'], (array) $user->roles, true ) ) {
+		$roles = array_merge( array( $profile['role'] ), isset( $profile['aliases'] ) ? (array) $profile['aliases'] : array() );
+		if ( array_intersect( $roles, (array) $user->roles ) ) {
 			return $key;
 		}
 	}
