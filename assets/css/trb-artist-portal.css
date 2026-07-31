@@ -53,6 +53,8 @@ body.trb-artist-portal-shell .mobile_menu {
   text-decoration: none;
 }
 
+.trb-portal-topbar__brand img { display: block; height: auto; max-height: 39px; max-width: 118px; object-fit: contain; }
+
 .trb-portal-topbar__brand small {
   background: var(--trb-accent);
   border-radius: 999px;
@@ -204,6 +206,46 @@ body.trb-artist-portal-shell .mobile_menu {
 .trb-portal__timeline .is-current > span { background: var(--trb-accent); border-color: #aeb2ff; box-shadow: 0 0 0 6px rgba(75,80,245,.25); }
 .trb-portal__timeline .is-locked { opacity: .5; }
 .trb-portal__demo { background: linear-gradient(115deg, #f4f5ff, #fff); border: 1px solid #e2e3ff; border-radius: 18px; padding: 34px; }
+.trb-portal__demo h2 { color: var(--trb-ink); font-size: clamp(25px, 3vw, 34px); letter-spacing: -.035em; margin: 0 0 8px; }
+.trb-portal__demo > p:not(.trb-portal__eyebrow) { color: var(--trb-ink-soft); max-width: 690px; }
+.trb-portal__field-grid { display: grid; gap: 15px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.trb-portal__profile-form { gap: 22px; }
+.trb-portal__profile-form small,
+.trb-portal__release-form small { color: var(--trb-ink-soft); display: block; font-size: 12px; font-weight: 500; line-height: 1.4; margin-top: 4px; }
+.trb-portal__private-documents { background: #f6f7fb; border: 1px solid var(--trb-line); border-radius: 10px; color: var(--trb-ink-soft); font-size: 14px; line-height: 1.55; padding: 15px 17px; }
+.trb-portal__private-documents strong { color: var(--trb-ink); }
+.trb-portal__private-documents p { margin: 5px 0 0; }
+.trb-portal__release-gate { background: #fff8e9; border: 1px solid #eed49c; border-radius: 16px; color: #684d16; padding: 23px; }
+.trb-portal__release-gate strong { color: #44310c; font-size: 16px; }
+.trb-portal__release-gate p { margin: 8px 0 16px; }
+.trb-portal__request-grid--release { align-items: start; }
+.trb-portal__release-form fieldset { border: 0; border-top: 1px solid var(--trb-line); margin: 0; padding: 20px 0 0; }
+.trb-portal__release-form fieldset:first-of-type { border-top: 0; padding-top: 0; }
+.trb-portal__release-form legend { color: var(--trb-ink); font-size: 15px; font-weight: 800; margin: 0 0 12px; padding: 0; }
+.trb-portal__release-types { display: grid; gap: 9px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.trb-portal__release-types label { align-items: center; background: #fff; border: 1px solid #d8dce6; border-radius: 10px; cursor: pointer; display: flex; font-weight: 500; gap: 9px; padding: 12px; }
+.trb-portal__release-types label:has(input:checked) { background: #f3f3ff; border-color: var(--trb-accent); box-shadow: 0 0 0 2px rgba(75,80,245,.12); }
+.trb-portal__release-types input { height: auto; margin: 0; width: auto; }
+.trb-portal__release-types span { display: grid; gap: 2px; }
+.trb-portal__release-types small { margin: 0; }
+.trb-portal__radios { display: grid; gap: 9px; }
+.trb-portal__radios label { align-items: center; display: flex; font-weight: 600; gap: 8px; }
+.trb-portal__radios input { height: auto; margin: 0; width: auto; }
+.trb-portal__original-date { margin-top: 14px; max-width: 340px; }
+.trb-portal__field-help { color: var(--trb-ink-soft); font-size: 13px; line-height: 1.5; margin: 0 0 15px; }
+.trb-portal__tracks { display: grid; gap: 16px; }
+.trb-portal__track { background: #f8f9fc; border: 1px solid var(--trb-line); border-radius: 12px; display: grid; gap: 16px; padding: 18px; }
+.trb-portal__track > header { align-items: center; display: flex; justify-content: space-between; }
+.trb-portal__track > header strong { color: var(--trb-ink); font-size: 16px; }
+.trb-portal__remove-track { background: transparent; border: 0; color: #a7352b; cursor: pointer; font: inherit; font-size: 12px; font-weight: 800; padding: 4px; }
+.trb-portal__remove-track[hidden] { display: none; }
+.trb-portal__credits { background: #fff; border: 1px solid #dfe2ea !important; border-radius: 10px; padding: 14px !important; }
+.trb-portal__credits legend { font-size: 14px !important; }
+.trb-portal__info { background: var(--trb-ink); border: 0; border-radius: 50%; color: #fff; cursor: help; font: inherit; font-size: 11px; font-weight: 800; height: 18px; margin-left: 5px; padding: 0; width: 18px; }
+.trb-portal__credit-info { background: #f4f5ff; border-radius: 8px; color: var(--trb-ink-soft); font-size: 12px; line-height: 1.55; margin: 2px 0 13px; padding: 11px; }
+.trb-portal__credit-info[hidden] { display: none; }
+.trb-portal__add-track { align-self: start; border: 0; cursor: pointer; }
+.trb-portal__add-track:disabled { cursor: not-allowed; opacity: .5; }
 
 @media (max-width: 760px) {
   .trb-portal-topbar__inner { min-height: 58px; padding: 0 16px; }
@@ -217,6 +259,8 @@ body.trb-artist-portal-shell .mobile_menu {
   .trb-portal__cards,
   .trb-portal__service-grid,
   .trb-portal__request-grid { grid-template-columns: 1fr; }
+  .trb-portal__field-grid,
+  .trb-portal__release-types { grid-template-columns: 1fr; }
   .trb-portal__card[open],
   .trb-portal__answers--search .trb-portal__card[open] { grid-column: auto; }
   .trb-portal__section { margin-top: 52px; }
