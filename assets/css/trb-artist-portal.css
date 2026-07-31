@@ -28,8 +28,8 @@ body.trb-artist-portal-shell .mobile_menu {
 }
 
 .trb-portal-topbar {
-  background: #fff;
-  border-bottom: 1px solid var(--trb-line);
+  background: #092b57;
+  border-bottom: 1px solid #092246;
 }
 
 .trb-portal-topbar__inner {
@@ -66,9 +66,9 @@ body.trb-artist-portal-shell .mobile_menu {
 }
 
 .trb-portal-topbar__actions { align-items: center; display: flex; gap: 18px; }
-.trb-portal-topbar__actions a { color: var(--trb-ink-soft); font-size: 13px; font-weight: 800; text-decoration: none; }
-.trb-portal-topbar__actions a:hover { color: var(--trb-accent); }
-.trb-portal-topbar__actions .trb-portal-topbar__logout { border-left: 1px solid var(--trb-line); padding-left: 18px; }
+.trb-portal-topbar__actions a { color: rgba(255,255,255,.82); font-size: 13px; font-weight: 800; text-decoration: none; }
+.trb-portal-topbar__actions a:hover { color: #fff; }
+.trb-portal-topbar__actions .trb-portal-topbar__logout { border-left: 1px solid rgba(255,255,255,.24); padding-left: 18px; }
 
 .trb-portal__hero {
   align-items: end;
