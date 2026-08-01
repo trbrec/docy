@@ -681,17 +681,17 @@ add_action( 'init', 'trb_portal_index_canonical_guides', 37 );
  * included in TRB and the two e-books remain premium material.
  */
 function trb_portal_migrate_known_download_audiences() {
-	if ( get_option( 'trb_portal_download_audience_migrated_v1' ) ) {
+	if ( get_option( 'trb_portal_download_audience_migrated_v2' ) ) {
 		return;
 	}
 
 	$packages = array(
-		11829 => array( 'ddb', 'ddb_trb', 'trb' ), // Biografia artistica.
+		11829 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Guida: biografia artistica.
 		11201 => array( 'ddb', 'ddb_trb', 'trb' ), // E-book: missaggio.
 		11119 => array( 'ddb', 'ddb_trb', 'trb' ), // E-book: brano contemporaneo.
-		11118 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Spotify e streaming.
-		11117 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Social Network Tips base.
-		11116 => array( 'trb' ), // Social Network Tips avanzata.
+		11118 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Guida: Spotify e streaming.
+		11117 => array( 'ddb', 'ddb_trb' ), // Social Network Tips: DDB / DDB-TRB.
+		11116 => array( 'trb' ), // Social Network Tips: TRB.
 	);
 
 	foreach ( $packages as $package_id => $profiles ) {
@@ -700,7 +700,23 @@ function trb_portal_migrate_known_download_audiences() {
 		}
 	}
 
-	update_option( 'trb_portal_download_audience_migrated_v1', time(), false );
+	$revisions = array(
+		11117 => array(
+			'post_title'   => '[GUIDA] SOCIAL NETWORK TIPS · DDB / DDB-TRB',
+			'post_excerpt' => 'Linee guida per creare e gestire i profili social, i contenuti e i TAG dei post.',
+		),
+		11116 => array(
+			'post_title'   => '[GUIDA] SOCIAL NETWORK TIPS · TRB',
+			'post_excerpt' => 'Approfondimento per il progetto TRB: identità, pianificazione editoriale e presenza social.',
+		),
+	);
+	foreach ( $revisions as $package_id => $revision ) {
+		if ( 'wpdmpro' === get_post_type( $package_id ) ) {
+			wp_update_post( array_merge( array( 'ID' => $package_id ), $revision ) );
+		}
+	}
+
+	update_option( 'trb_portal_download_audience_migrated_v2', time(), false );
 }
 add_action( 'init', 'trb_portal_migrate_known_download_audiences', 36 );
 
