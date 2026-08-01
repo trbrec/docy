@@ -1138,6 +1138,18 @@ function trb_portal_force_public_landing_template( $template ) {
 add_filter( 'template_include', 'trb_portal_force_public_landing_template', 90 );
 
 /**
+ * Retire the former Profile Builder entry page. It exposes a public
+ * registration form that conflicts with the approval-only Artist Portal.
+ */
+function trb_portal_redirect_legacy_account_page() {
+	if ( 'GET' === strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) && is_page( 'my-account' ) ) {
+		wp_safe_redirect( home_url( '/' ), 301 );
+		exit;
+	}
+}
+add_action( 'template_redirect', 'trb_portal_redirect_legacy_account_page', 2 );
+
+/**
  * The artist dashboard uses its own quiet shell. The public Docy header and
  * its search are intentionally excluded from this one private page.
  */
