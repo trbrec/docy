@@ -461,3 +461,22 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
   .trb-portal__answers--search .trb-portal__card[open] { grid-column: auto; }
   .trb-portal__section { margin-top: 52px; }
 }
+
+
+/* Resource grids must widen before text is compressed or broken arbitrarily. */
+.trb-portal__section-heading { max-width: 900px; }
+.trb-portal__steps,
+.trb-portal__cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)); }
+.trb-portal__cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.trb-portal__card { min-height: 240px; min-width: 0; }
+.trb-portal__steps h3,
+.trb-portal__card h3 { font-size: clamp(18px, 1.55vw, 20px); hyphens: none; overflow-wrap: normal; text-wrap: pretty; }
+.trb-portal__steps p,
+.trb-portal__card p,
+.trb-portal__section-heading > p:last-child { text-wrap: pretty; }
+.trb-portal__video-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.trb-portal__video-card h3 { font-size: clamp(17px, 1.35vw, 19px); hyphens: none; overflow-wrap: normal; text-wrap: pretty; }
+@media (max-width: 520px) {
+  .trb-portal__card,
+  .trb-portal__steps article { padding: 22px; }
+}
