@@ -7,6 +7,7 @@
 
 get_header();
 $dashboard_url = home_url( '/area-artisti/' );
+$login_url     = add_query_arg( 'wppb_force_wp_login', 'true', wp_login_url( $dashboard_url ) );
 ?>
 <main class="trb-landing">
 	<header class="trb-landing__topbar">
@@ -20,7 +21,7 @@ $dashboard_url = home_url( '/area-artisti/' );
 			<p class="trb-landing__lead">Knowledge Hub Esclusivo: linee guida, procedure, formazione e supporto tecnico per il percorso artistico dei nostri artisti.</p>
 			<div class="trb-landing__actions">
 				<a class="trb-button" href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Registrati</a>
-				<a class="trb-button trb-button--secondary trb-landing__login" href="<?php echo esc_url( wp_login_url( $dashboard_url ) ); ?>">Accedi</a>
+				<a class="trb-button trb-button--secondary trb-landing__login" href="<?php echo esc_url( $login_url ); ?>">Accedi</a>
 			</div>
 		</div>
 		<aside class="trb-landing__access-note"><strong>Attenzione: accesso subordinato ad approvazione</strong><p>La registrazione è ammessa esclusivamente dopo la sottoscrizione dell’accordo contrattuale o dopo espressa autorizzazione della Direzione TRB rec.</p><p>La semplice registrazione <b>non abilita</b> l’Area Artisti, non attiva servizi e non sostituisce alcuna approvazione contrattuale. Gli account non autorizzati restano inattivi.</p></aside>
