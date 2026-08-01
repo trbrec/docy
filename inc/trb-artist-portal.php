@@ -73,6 +73,16 @@ function trb_portal_profile_label( $profile = null ) {
 	return isset( $profiles[ $profile ] ) ? $profiles[ $profile ]['label'] : '';
 }
 
+/**
+ * The contractual profile and the brand under which it belongs are distinct.
+ * DDS, DDB and DDB-TRB remain Digital Distribution Bundle; TRB is TRB rec.
+ */
+function trb_portal_profile_affiliation( $profile = null ) {
+	$profile = $profile ? $profile : trb_portal_user_profile();
+
+	return 'trb' === $profile ? 'TRB rec - Music Publishing' : 'Digital Distribution Bundle';
+}
+
 function trb_portal_allowed_profiles() {
 	return array_keys( trb_portal_profiles() );
 }
@@ -315,10 +325,97 @@ function trb_portal_handle_artist_profile() {
 	}
 	$bio = isset( $_POST['trb_artist_bio'] ) ? wp_kses_post( wp_unslash( $_POST['trb_artist_bio'] ) ) : '';
 	update_user_meta( $user_id, '_trb_artist_bio', $bio );
+	trb_portal_handle_private_profile_uploads( $user_id );
 	wp_safe_redirect( add_query_arg( 'trb_profile', 'saved', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 	exit;
 }
 add_action( 'admin_post_trb_portal_save_artist_profile', 'trb_portal_handle_artist_profile' );
+
+/**
+ * Store identity files outside the normal Media Library and deny direct web
+ * access. The stored metadata contains no public URL, only a private path.
+ */
+function trb_portal_private_upload_dir( $dirs ) {
+	$dirs['subdir'] = '/trb-artist-private';
+	$dirs['path']   = $dirs['basedir'] . $dirs['subdir'];
+	$dirs['url']    = $dirs['baseurl'] . $dirs['subdir'];
+
+	return $dirs;
+}
+
+function trb_portal_private_profile_files( $user_id = 0 ) {
+	$files = get_user_meta( $user_id ? $user_id : get_current_user_id(), '_trb_artist_private_files', true );
+	return is_array( $files ) ? $files : array();
+}
+
+function trb_portal_handle_private_profile_uploads( $user_id ) {
+	if ( empty( $_FILES ) ) {
+		return;
+	}
+
+	require_once ABSPATH . 'wp-admin/includes/file.php';
+	$existing       = trb_portal_private_profile_files( $user_id );
+	$photos_count   = count( array_filter( $existing, function( $file ) { return isset( $file['group'] ) && 'photo' === $file['group']; } ) );
+	$uploads        = array(
+		'trb_artist_photos'    => array( 'group' => 'photo', 'mimes' => array( 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp' ) ),
+		'trb_artist_documents' => array( 'group' => 'document', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
+	);
+
+	foreach ( $uploads as $input_name => $settings ) {
+		if ( empty( $_FILES[ $input_name ]['name'] ) || ! is_array( $_FILES[ $input_name ]['name'] ) ) {
+			continue;
+		}
+
+		foreach ( $_FILES[ $input_name ]['name'] as $index => $name ) {
+			if ( empty( $name ) || empty( $_FILES[ $input_name ]['tmp_name'][ $index ] ) ) {
+				continue;
+			}
+			if ( 'photo' === $settings['group'] && $photos_count >= 5 ) {
+				break;
+			}
+
+			$file = array(
+				'name'     => sanitize_file_name( $name ),
+				'type'     => isset( $_FILES[ $input_name ]['type'][ $index ] ) ? sanitize_mime_type( $_FILES[ $input_name ]['type'][ $index ] ) : '',
+				'tmp_name' => $_FILES[ $input_name ]['tmp_name'][ $index ], // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+				'error'    => isset( $_FILES[ $input_name ]['error'][ $index ] ) ? absint( $_FILES[ $input_name ]['error'][ $index ] ) : UPLOAD_ERR_NO_FILE,
+				'size'     => isset( $_FILES[ $input_name ]['size'][ $index ] ) ? absint( $_FILES[ $input_name ]['size'][ $index ] ) : 0,
+			);
+			if ( UPLOAD_ERR_OK !== $file['error'] ) {
+				continue;
+			}
+
+			add_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
+			$handled = wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $settings['mimes'] ) );
+			remove_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
+			if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) {
+				continue;
+			}
+
+			$upload_dir = wp_upload_dir();
+			$private_dir = trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private';
+			if ( wp_mkdir_p( $private_dir ) ) {
+				$rules_file = trailingslashit( $private_dir ) . '.htaccess';
+				if ( ! file_exists( $rules_file ) ) {
+					file_put_contents( $rules_file, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+				}
+			}
+
+			$existing[] = array(
+				'group' => $settings['group'],
+				'name'  => basename( $handled['file'] ),
+				'path'  => str_replace( trailingslashit( $upload_dir['basedir'] ), '', $handled['file'] ),
+				'type'  => $handled['type'],
+				'time'  => time(),
+			);
+			if ( 'photo' === $settings['group'] ) {
+				$photos_count++;
+			}
+		}
+	}
+
+	update_user_meta( $user_id, '_trb_artist_private_files', $existing );
+}
 
 function trb_portal_user_releases() {
 	return get_posts(
@@ -539,6 +636,7 @@ function trb_portal_dashboard_shortcode() {
 	$profile   = $profile ? $profile : 'trb';
 	$resources = trb_portal_get_resources( $profile );
 	$requests  = trb_portal_request_catalogue();
+	$affiliation = trb_portal_profile_affiliation( $profile );
 
 	ob_start();
 	?>
@@ -547,9 +645,9 @@ function trb_portal_dashboard_shortcode() {
 			<div>
 				<p class="trb-portal__eyebrow">AREA ARTISTI TRB REC</p>
 				<h1>Ciao <?php echo esc_html( $user->display_name ); ?>.</h1>
-				<p>Il tuo spazio riservato per seguire la collaborazione, preparare le release e trovare ciò che ti serve.</p>
+				<p>Il tuo spazio riservato per seguire la collaborazione e preparare le release.</p>
 			</div>
-			<div class="trb-portal__profile"><span>Il tuo profilo</span><strong><?php echo esc_html( trb_portal_profile_label( $profile ) ); ?></strong></div>
+			<div class="trb-portal__profile"><span>Il tuo profilo</span><strong><?php echo esc_html( trb_portal_profile_label( $profile ) ); ?></strong><small><?php echo esc_html( $affiliation ); ?></small></div>
 		</header>
 
 		<nav class="trb-portal__nav" aria-label="Sezioni Area Artisti">
@@ -560,11 +658,15 @@ function trb_portal_dashboard_shortcode() {
 			<a href="#documenti">Procedure</a>
 		</nav>
 
-		<form class="trb-portal__search" method="get" action="<?php echo esc_url( get_permalink() ); ?>">
-			<label class="screen-reader-text" for="trb-portal-search">Cerca nella Knowledge Hub</label>
-			<input id="trb-portal-search" type="search" name="trb_search" value="<?php echo esc_attr( trb_portal_current_search() ); ?>" placeholder="Cerca procedure, requisiti e guide" />
-			<button type="submit">Cerca</button>
-		</form>
+		<section class="trb-portal__search-panel" aria-labelledby="trb-portal-search-title">
+			<div><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2 id="trb-portal-search-title">Trova subito la risposta che ti serve</h2><p>Cerca fra guide aggiornate, procedure e materiali disponibili per il tuo profilo. Le risposte si aprono qui, senza uscire dalla pagina.</p></div>
+			<form class="trb-portal__search" method="get" action="<?php echo esc_url( get_permalink() ); ?>">
+				<label class="screen-reader-text" for="trb-portal-search">Cerca nella Knowledge Hub</label>
+				<input id="trb-portal-search" type="search" name="trb_search" value="<?php echo esc_attr( trb_portal_current_search() ); ?>" placeholder="Es. formato audio, copertina, tempi di pubblicazione" />
+				<button type="submit">Cerca</button>
+			</form>
+			<p class="trb-portal__search-suggestions">Prova: <a href="?trb_search=formato+audio#risposte">formato audio</a> · <a href="?trb_search=copertina#risposte">copertina</a> · <a href="?trb_search=tempistiche#risposte">tempistiche</a></p>
+		</section>
 
 		<?php trb_portal_render_artist_profile_section(); ?>
 
@@ -600,7 +702,7 @@ function trb_portal_render_artist_profile_section() {
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Compila questi dati prima di richiedere la prima pubblicazione. Li riuseremo per preparare correttamente le pratiche e, in futuro, i contratti.</p></div>
 		<?php if ( $saved ) : ?><div class="trb-portal__message trb-portal__message--success">Profilo artista aggiornato.</div><?php endif; ?>
 		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Prima di avviare la tua prima release completa tutti i campi obbligatori qui sotto, inclusa la biografia.</div><?php endif; ?>
-		<form class="trb-portal__request-form trb-portal__profile-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="trb_portal_save_artist_profile" />
 			<?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?>
 			<div class="trb-portal__field-grid">
@@ -611,7 +713,7 @@ function trb_portal_render_artist_profile_section() {
 				<?php endforeach; ?>
 			</div>
 			<label>Biografia artistica aggiornata <span aria-hidden="true">*</span><textarea name="trb_artist_bio" rows="9" required placeholder="Incolla qui la biografia aggiornata: non caricare un file."><?php echo esc_textarea( trb_portal_artist_profile_value( 'bio' ) ); ?></textarea><small>Inserisci testo copiato e incollato, pronto per essere usato nei materiali editoriali.</small></label>
-			<div class="trb-portal__private-documents"><strong>Foto e documenti</strong><p>Le foto ad alta qualità (massimo 5) e i documenti anagrafici saranno caricati nel passaggio protetto della scheda profilo: non vengono pubblicati né usati come materiale pubblico.</p></div>
+			<div class="trb-portal__private-documents"><strong>Foto e documenti riservati</strong><p>Carica fino a 5 foto ad alta qualità e i documenti anagrafici necessari. Restano riservati al tuo profilo e non vengono pubblicati.</p><div class="trb-portal__field-grid"><label>Foto artista <small>JPG, PNG o WEBP · massimo 5 foto in totale</small><input type="file" name="trb_artist_photos[]" accept="image/jpeg,image/png,image/webp" multiple /></label><label>Documenti anagrafici <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_documents[]" accept="application/pdf,image/jpeg,image/png" multiple /></label></div><?php $private_files = trb_portal_private_profile_files(); if ( ! empty( $private_files ) ) : ?><p class="trb-portal__uploaded-files"><strong>File già ricevuti:</strong> <?php echo esc_html( implode( ' · ', wp_list_pluck( $private_files, 'name' ) ) ); ?></p><?php endif; ?></div>
 			<button class="trb-button" type="submit">Salva il profilo artista</button>
 		</form>
 	</section>
