@@ -271,11 +271,21 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__release-form small { color: var(--trb-ink-soft); display: block; font-size: 12px; font-weight: 500; line-height: 1.4; margin-top: 4px; }
 .trb-portal__private-documents { background: #f6f7fb; border: 1px solid var(--trb-line); border-radius: 10px; color: var(--trb-ink-soft); font-size: 14px; line-height: 1.55; padding: 15px 17px; }
 
+/* Public entry pages are self-contained: the legacy Docy header must never
+   compete with the Artist Portal header. */
+body.trb-artist-public-shell .header,
+body.trb-artist-public-shell .docy-header,
+body.trb-artist-public-shell .mobile_menu,
+body.trb-artist-public-shell .navbar,
+body.trb-artist-public-shell .navbar_fixed_menu,
+body.trb-artist-public-shell .menu-toggle,
+body.trb-artist-public-shell .doc_footer_menu,
+body.trb-artist-public-shell #back-to-top { display: none !important; }
+body.trb-artist-public-shell #main-content { padding: 0; }
+body.trb-artist-public-shell .body_wrapper { min-height: 0; }
+
 /* Public entry page: no public FAQ or internal search before authentication. */
-.trb-landing { background: linear-gradient(180deg,#f7f8fc 0,#fff 58%); color: var(--trb-ink); min-height: 100vh; }
-body.home .header,
-body.home .docy-header,
-body.home .mobile_menu { display: none; }
+.trb-landing { background: linear-gradient(180deg,#f7f8fc 0,#fff 58%); color: var(--trb-ink); }
 .trb-landing__topbar { align-items: center; background: #081a39; display: flex; justify-content: space-between; min-height: 74px; padding: 0 max(24px, calc((100vw - 1180px) / 2)); }
 .trb-landing__brand img { display: block; height: auto; max-height: 43px; max-width: 132px; }
 .trb-landing__account,
@@ -289,7 +299,7 @@ body.home .mobile_menu { display: none; }
 .trb-landing__access-note { align-self: center; background: linear-gradient(135deg,#fff8ed,#fff1dc); border: 1px solid #ffb35e; border-radius: 18px; box-shadow: 0 18px 45px rgba(8,20,55,.24); padding: 29px; }
 .trb-landing__access-note strong { color: #7a3b00; display: block; font-size: 19px; line-height: 1.25; }
 .trb-landing__access-note p { color: #67360a; font-size: 14px; line-height: 1.6; margin: 13px 0 0; }
-.trb-landing__how { margin: 0 auto; max-width: 1180px; padding: 86px 24px 106px; }
+.trb-landing__how { margin: 0 auto; max-width: 1180px; padding: clamp(56px,7vw,86px) 24px clamp(42px,5vw,62px); }
 .trb-landing__how > p { color: var(--trb-accent); }
 .trb-landing__how h2 { color: var(--trb-ink); font-size: clamp(30px,3.6vw,47px); letter-spacing: -.045em; line-height: 1.08; margin: 0; white-space: nowrap; }
 .trb-landing__how > div { display: grid; gap: 18px; grid-template-columns: repeat(4,minmax(0,1fr)); margin-top: 35px; }
@@ -298,18 +308,38 @@ body.home .mobile_menu { display: none; }
 .trb-landing__how article span { color: var(--trb-accent); font-size: 16px; font-weight: 800; letter-spacing: .1em; }
 .trb-landing__how h3 { font-size: 20px; margin: 18px 0 8px; }
 .trb-landing__how article p { color: var(--trb-ink-soft); font-size: 14px; line-height: 1.55; margin: 0; }
-.trb-registration-page, .trb-login-page { background: linear-gradient(180deg,#f7f8fc 0,#fff 58%); min-height: 100vh; }
-.trb-registration { margin: 0 auto; max-width: 800px; padding: 84px 24px 104px; }
+.trb-registration-page, .trb-login-page { background: linear-gradient(180deg,#f7f8fc 0,#fff 58%); }
+.trb-registration { margin: 0 auto; max-width: 1120px; padding: clamp(58px,7vw,92px) 24px clamp(52px,6vw,78px); }
 .trb-registration > p:first-child, .trb-login__intro > p:first-child { color: var(--trb-accent); font-size: 13px; font-weight: 800; letter-spacing: .13em; margin: 0 0 13px; text-transform: uppercase; }
 .trb-registration h1 { color: var(--trb-ink); font-size: clamp(34px,4vw,52px); letter-spacing: -.045em; line-height: 1.06; margin: 0; }
 .trb-registration__lead { color: var(--trb-ink-soft); font-size: 18px; line-height: 1.55; margin: 18px 0 0; max-width: 680px; }
-.trb-registration__notice { background: linear-gradient(135deg,#fff8ed,#fff1dc); border: 1px solid #ffb35e; border-radius: 17px; box-shadow: 0 12px 30px rgba(24,29,59,.08); color: #67360a; line-height: 1.55; margin-top: 29px; padding: 23px 25px; }
+.trb-registration__notice { background: linear-gradient(135deg,#fff8ed,#fff1dc); border: 1px solid #ffb35e; border-radius: 17px; box-shadow: 0 12px 30px rgba(24,29,59,.08); color: #67360a; line-height: 1.55; margin-top: 29px; max-width: 880px; padding: 23px 25px; }
 .trb-registration__notice strong { color: #7a3b00; display: block; font-size: 17px; }
 .trb-registration__notice p { margin: 8px 0 0; }
-.trb-registration__form, .trb-login__form { background: #fff; border: 1px solid #e4e7f0; border-radius: 18px; box-shadow: 0 18px 42px rgba(24,29,59,.1); margin-top: 24px; padding: 31px; }
+.trb-registration__form, .trb-login__form { background: #fff; border: 1px solid #e4e7f0; border-radius: 18px; box-shadow: 0 18px 42px rgba(24,29,59,.1); margin-top: 24px; padding: clamp(26px,4vw,44px); }
 .trb-registration__form h2, .trb-login__form h2 { color: var(--trb-ink); font-size: 23px; margin: 0 0 6px; }
 .trb-registration__login { color: var(--trb-ink-soft); font-size: 14px; margin-top: 24px; }
 .trb-registration__login a { color: var(--trb-accent); font-weight: 800; }
+.trb-registration__form #wppb-register-user { margin: 25px 0 0; max-width: none; }
+.trb-registration__form #wppb-register-user > ul { display: grid; gap: 18px 22px; grid-template-columns: repeat(2, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+.trb-registration__form #wppb-register-user > ul + ul { display: block; margin-top: 18px; }
+.trb-registration__form #wppb-register-user li { list-style: none; margin: 0; padding: 0; }
+.trb-registration__form #wppb-register-user .wppb-default-username,
+.trb-registration__form #wppb-register-user .wppb-default-e-mail,
+.trb-registration__form #wppb-register-user .wppb-default-contact-info-heading,
+.trb-registration__form #wppb-register-user .wppb-default-password { grid-column: 1 / -1; }
+.trb-registration__form #wppb-register-user .wppb-default-contact-info-heading { border-top: 1px solid var(--trb-line); margin-top: 6px; padding-top: 28px; }
+.trb-registration__form #wppb-register-user .wppb-default-contact-info-heading h4 { color: var(--trb-ink); font-size: 20px; margin: 0; }
+.trb-registration__form #wppb-register-user label { color: var(--trb-ink); display: block; font-size: 14px; font-weight: 800; margin: 0 0 8px; }
+.trb-registration__form #wppb-register-user input[type="text"],
+.trb-registration__form #wppb-register-user input[type="email"],
+.trb-registration__form #wppb-register-user input[type="password"] { background: #fff; border: 1px solid #cfd4e3; border-radius: 9px; box-sizing: border-box; font-size: 16px; min-height: 49px; padding: 12px 14px; width: 100%; }
+.trb-registration__form #wppb-register-user .wppb-password-group { display: block; }
+.trb-registration__form #wppb-register-user .wppb-password-subfield { width: 100%; }
+.trb-registration__form #wppb-register-user .wppb-send-credentials-checkbox label { align-items: center; color: var(--trb-ink-soft); display: flex; font-weight: 600; gap: 8px; }
+.trb-registration__form #wppb-register-user .wppb-send-credentials-checkbox input { height: 16px; margin: 0; width: 16px; }
+.trb-registration__form #wppb-register-user .form-submit { margin: 26px 0 0; }
+.trb-registration__form #wppb-register-user .form-submit input[type="submit"] { background: var(--trb-accent); border: 0; border-radius: 9px; color: #fff; cursor: pointer; font-size: 15px; font-weight: 800; min-height: 50px; padding: 14px 22px; width: 100%; }
 .trb-login { align-items: center; display: grid; gap: 80px; grid-template-columns: minmax(0,1fr) minmax(340px,.72fr); margin: 0 auto; max-width: 1180px; padding: 96px 24px 112px; }
 .trb-login__intro h1 { color: var(--trb-ink); font-size: clamp(38px,4.6vw,61px); letter-spacing: -.055em; line-height: 1.02; margin: 0; }
 .trb-login__intro > p:not(:first-child) { color: var(--trb-ink-soft); font-size: 18px; line-height: 1.6; margin: 22px 0; max-width: 590px; }
@@ -329,6 +359,14 @@ body.home .mobile_menu { display: none; }
   .trb-landing__how > div { grid-template-columns: 1fr; }
   .trb-landing__how h2 { white-space: normal; }
   .trb-login { gap: 38px; grid-template-columns: 1fr; padding-bottom: 82px; padding-top: 68px; }
+  .trb-landing__topbar { min-height: 64px; padding: 0 16px; }
+  .trb-landing__brand img { max-height: 36px; max-width: 112px; }
+  .trb-landing__site-link { font-size: 11px; padding: 8px 10px; text-align: right; }
+  .trb-registration__form #wppb-register-user > ul { grid-template-columns: 1fr; }
+  .trb-registration__form #wppb-register-user .wppb-default-username,
+  .trb-registration__form #wppb-register-user .wppb-default-e-mail,
+  .trb-registration__form #wppb-register-user .wppb-default-contact-info-heading,
+  .trb-registration__form #wppb-register-user .wppb-default-password { grid-column: auto; }
   .trb-portal__hero { align-items: flex-start; flex-direction: column; }
   .trb-portal__profile { min-width: 0; width: 100%; }
 }
