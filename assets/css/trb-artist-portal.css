@@ -273,6 +273,9 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 
 /* Public entry page: no public FAQ or internal search before authentication. */
 .trb-landing { background: #f7f8fc; color: var(--trb-ink); min-height: 100vh; }
+body.home .header,
+body.home .docy-header,
+body.home .mobile_menu { display: none; }
 .trb-landing__topbar { align-items: center; background: #092b57; display: flex; justify-content: space-between; min-height: 74px; padding: 0 max(24px, calc((100vw - 1180px) / 2)); }
 .trb-landing__brand img { display: block; height: auto; max-height: 43px; max-width: 132px; }
 .trb-landing__account { border: 1px solid rgba(255,255,255,.34); border-radius: 8px; color: #fff; font-size: 13px; font-weight: 800; padding: 10px 14px; text-decoration: none; }
