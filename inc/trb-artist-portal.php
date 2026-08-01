@@ -676,6 +676,105 @@ function trb_portal_index_canonical_guides() {
 add_action( 'init', 'trb_portal_index_canonical_guides', 37 );
 
 /**
+ * Keep the concise, in-page answers editable from one source. This is an
+ * update pass, not a second set of FAQ pages: existing guides are found by
+ * their key and refreshed in place.
+ */
+function trb_portal_sync_canonical_guides() {
+	if ( get_option( 'trb_portal_guides_synced_v3' ) ) {
+		return;
+	}
+
+	foreach ( trb_portal_seed_guides() as $key => $guide ) {
+		$existing = get_posts( array(
+			'post_type'   => 'trb_guide',
+			'post_status' => 'publish',
+			'numberposts' => 1,
+			'meta_key'    => '_trb_guide_key',
+			'meta_value'  => $key,
+		) );
+		$post_data = array(
+			'post_title'   => $guide['title'],
+			'post_excerpt' => $guide['excerpt'],
+			'post_content' => $guide['content'],
+		);
+		if ( ! empty( $existing ) ) {
+			$post_data['ID'] = $existing[0]->ID;
+			$guide_id = wp_update_post( $post_data, true );
+		} else {
+			$post_data['post_type'] = 'trb_guide';
+			$post_data['post_status'] = 'publish';
+			$guide_id = wp_insert_post( $post_data, true );
+		}
+		if ( ! is_wp_error( $guide_id ) ) {
+			update_post_meta( $guide_id, '_trb_guide_key', $key );
+			update_post_meta( $guide_id, '_trb_portal_profiles', $guide['profiles'] );
+		}
+	}
+
+	update_option( 'trb_portal_guides_synced_v3', time(), false );
+}
+add_action( 'init', 'trb_portal_sync_canonical_guides', 38 );
+
+/**
+ * EazyDocs Pro holds the detailed reference documents. They are intentionally
+ * different from the short answers above and are protected by the exact same
+ * contractual audience metadata as every other portal resource.
+ */
+function trb_portal_eazydocs_manuals() {
+	return array(
+		'audio-consegna' => array(
+			'title' => 'Manuale tecnico: preparazione e consegna dei file audio',
+			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
+			'excerpt' => 'Specifiche aggiornate per consegnare master o pre-master senza errori di formato.',
+			'content' => '<h2>Formato richiesto</h2><p>Per ogni brano consegna un file stereo <strong>WAV o AIFF a 48.000 Hz / 24 bit</strong>. Questo è il riferimento per le attuali piattaforme ad alta qualità, incluse le modalità lossless.</p><h2>Prima dell’invio</h2><ul><li>Esporta dall’inizio esatto del brano, senza silenzi accidentali o finali tagliati.</li><li>Non inviare MP3, file estratti da streaming, conversioni, audio ricevuti da WhatsApp o screen recording.</li><li>Non cambiare frequenza di campionamento o profondità bit dopo l’approvazione del master.</li><li>Per EP, album e compilation usa lo stesso standard tecnico per tutte le tracce.</li></ul><h2>Quando è previsto il mastering</h2><p>Consegna il pre-master nello stesso formato, evitando limiter aggressivi sul master bus. Se devi inviare stem, usa la stessa durata e lo stesso punto di partenza per ogni file.</p>',
+		),
+		'biografia-artista' => array(
+			'title' => 'Manuale: biografia artistica e materiali stampa',
+			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
+			'excerpt' => 'Come preparare una biografia chiara, aggiornata e utile per le piattaforme e la comunicazione.',
+			'content' => '<h2>Una biografia utile non è un curriculum</h2><p>Scrivi in terza persona, con un linguaggio concreto. Spiega identità, percorso, suono, riferimenti e direzione del progetto senza formule generiche.</p><h2>Struttura consigliata</h2><ol><li>Nome d’arte e collocazione artistica.</li><li>Origine o momento chiave del progetto.</li><li>Suono, influenze e temi ricorrenti.</li><li>Pubblicazioni, collaborazioni o risultati realmente verificabili.</li><li>Focus attuale e prossima release.</li></ol><h2>Foto</h2><p>Carica fino a sei foto nitide ad alta qualità. Devono rappresentare l’identità attuale del progetto e non contenere loghi, scritte aggiunte o filtri che ne riducano l’utilizzo editoriale.</p>',
+		),
+		'profilo-artista' => array(
+			'title' => 'Profilo artista: dati, documenti e aggiornamenti',
+			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
+			'excerpt' => 'Dati necessari alla gestione contrattuale, alla compilazione delle pratiche e all’identità artistica.',
+			'content' => '<h2>Perché il profilo è obbligatorio</h2><p>I dati anagrafici e la documentazione permettono di preparare correttamente le pratiche contrattuali. La biografia e le foto sono invece il nucleo della presentazione artistica.</p><h2>Documenti richiesti</h2><ul><li>Carta d’identità fronte e retro.</li><li>Codice fiscale o tessera sanitaria fronte e retro.</li><li>Solo se pertinenti alla fatturazione: ragione sociale, partita IVA, Codice SDI e sede aziendale.</li></ul><p>I documenti restano privati e non vengono usati come materiali pubblici. Aggiorna il profilo quando cambiano dati, foto o biografia.</p>',
+		),
+		'promozione-release' => array(
+			'title' => 'Preparare il materiale promozionale di una release',
+			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+			'excerpt' => 'Informazioni e materiali da preparare per pitching, comunicazione e pianificazione della pubblicazione.',
+			'content' => '<h2>Il materiale serve prima della pubblicazione</h2><p>Ogni elemento promozionale va collegato alla stessa pratica di release: non inviare dati di brani diversi nella medesima richiesta.</p><h2>Prepara</h2><ul><li>Storia del brano, contesto, significato e elementi distintivi.</li><li>Link corretti a Spotify for Artists, Apple Music for Artists e social dell’artista.</li><li>Biografia aggiornata, foto utilizzabili e crediti verificati.</li><li>Eventuali testi, visual, riferimenti e indicazioni editoriali.</li></ul><p>Il pitching editoriale è una candidatura: la qualità e la puntualità del materiale aiutano il lavoro, ma non costituiscono garanzia di playlist o risultati.</p>',
+		),
+	);
+}
+
+function trb_portal_sync_eazydocs_manuals() {
+	if ( ! post_type_exists( 'docs' ) || get_option( 'trb_portal_eazydocs_manuals_v1' ) ) {
+		return;
+	}
+	foreach ( trb_portal_eazydocs_manuals() as $key => $manual ) {
+		$existing = get_posts( array( 'post_type' => 'docs', 'post_status' => 'publish', 'numberposts' => 1, 'meta_key' => '_trb_portal_doc_key', 'meta_value' => $key ) );
+		$data = array( 'post_title' => $manual['title'], 'post_excerpt' => $manual['excerpt'], 'post_content' => $manual['content'] );
+		if ( ! empty( $existing ) ) {
+			$data['ID'] = $existing[0]->ID;
+			$doc_id = wp_update_post( $data, true );
+		} else {
+			$data['post_type'] = 'docs';
+			$data['post_status'] = 'publish';
+			$doc_id = wp_insert_post( $data, true );
+		}
+		if ( ! is_wp_error( $doc_id ) ) {
+			update_post_meta( $doc_id, '_trb_portal_doc_key', $key );
+			update_post_meta( $doc_id, '_trb_portal_profiles', $manual['profiles'] );
+		}
+	}
+	update_option( 'trb_portal_eazydocs_manuals_v1', time(), false );
+}
+add_action( 'init', 'trb_portal_sync_eazydocs_manuals', 39 );
+
+/**
  * Bring the six surviving legacy download packages into the new library once.
  * Their old category audiences are deliberately consolidated: TRB Basic is
  * included in TRB and the two e-books remain premium material.
