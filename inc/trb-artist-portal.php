@@ -280,9 +280,7 @@ function trb_portal_genres() {
 function trb_portal_artist_profile_fields() {
 	return array(
 		'artist_name' => 'Nome d’arte',
-		'legal_name'  => 'Nome e cognome anagrafici',
-		'email'       => 'E-mail di riferimento',
-		'phone'       => 'Telefono',
+		'phone'       => 'Cellulare abilitato a ricezione SMS',
 		'birth_date'  => 'Data di nascita',
 		'birth_place' => 'Luogo di nascita',
 		'tax_code'    => 'Codice fiscale',
@@ -305,7 +303,11 @@ function trb_portal_artist_profile_value( $key, $user_id = 0 ) {
 
 function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 	$user_id = $user_id ? $user_id : get_current_user_id();
-	$required = array( 'artist_name', 'legal_name', 'email', 'phone', 'birth_date', 'tax_code', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' );
+	$user = get_userdata( $user_id );
+	if ( ! $user || '' === trim( (string) $user->first_name ) || '' === trim( (string) $user->last_name ) || '' === trim( (string) $user->user_email ) ) {
+		return false;
+	}
+	$required = array( 'artist_name', 'phone', 'birth_date', 'tax_code', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' );
 	foreach ( $required as $field ) {
 		if ( '' === trb_portal_artist_profile_value( $field, $user_id ) ) {
 			return false;
@@ -974,11 +976,12 @@ function trb_portal_render_artist_profile_section() {
 	$saved = isset( $_GET['trb_profile'] ) && 'saved' === sanitize_key( wp_unslash( $_GET['trb_profile'] ) );
 	$complete = trb_portal_artist_profile_is_complete();
 	$company_requested = '1' === trb_portal_artist_profile_value( 'invoice_requested' );
+	$user = wp_get_current_user();
 	?>
 	<section id="profilo" class="trb-portal__section trb-portal__profile-section">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Prima della prima release servono dati completi e verificabili. Li riuseremo per preparare le pratiche e, in seguito, i contratti.</p></div>
 		<?php if ( $saved ) : ?><div class="trb-portal__message trb-portal__message--success">Profilo artista aggiornato.</div><?php endif; ?>
-		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release.</div><?php endif; ?>
+		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Per correggere nome, cognome o e-mail dell’account, apri una segnalazione.</div><?php endif; ?>
 		<div class="trb-portal__profile-accordions">
 			<details class="trb-portal__profile-module" open>
 				<summary><span><b>Dati anagrafici e documenti</b><small>Dati necessari ai fini contrattuali</small></span><em>Apri il modulo</em></summary>
@@ -986,9 +989,10 @@ function trb_portal_render_artist_profile_section() {
 					<input type="hidden" name="action" value="trb_portal_save_artist_profile" /><input type="hidden" name="trb_artist_company_section" value="1" />
 					<?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?>
 					<div class="trb-portal__field-grid">
-						<label>Nome e cognome anagrafici <span>*</span><input type="text" name="trb_artist_legal_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'legal_name' ) ); ?>" required /></label>
-						<label>E-mail di riferimento <span>*</span><input type="email" name="trb_artist_email" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'email' ) ); ?>" required /></label>
-						<label>Telefono <span>*</span><input type="tel" name="trb_artist_phone" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" required /></label>
+						<label>Nome anagrafico <span>*</span><input type="text" value="<?php echo esc_attr( $user->first_name ); ?>" autocomplete="given-name" readonly aria-describedby="trb-account-data-note" /></label>
+						<label>Cognome anagrafico <span>*</span><input type="text" value="<?php echo esc_attr( $user->last_name ); ?>" autocomplete="family-name" readonly aria-describedby="trb-account-data-note" /></label>
+						<label>E-mail di riferimento <span>*</span><input type="email" value="<?php echo esc_attr( $user->user_email ); ?>" autocomplete="email" readonly aria-describedby="trb-account-data-note" /></label>
+						<label>Cellulare abilitato a ricezione SMS <span>*</span><input type="tel" name="trb_artist_phone" autocomplete="tel" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" required /></label>
 						<label>Data di nascita <span>*</span><input type="date" name="trb_artist_birth_date" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_date' ) ); ?>" required /></label>
 						<label>Luogo di nascita <input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" /></label>
 						<label>Codice fiscale <span>*</span><input type="text" name="trb_artist_tax_code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_code' ) ); ?>" required /></label>
@@ -998,7 +1002,7 @@ function trb_portal_render_artist_profile_section() {
 						<label>Città <span>*</span><input type="text" name="trb_artist_city" autocomplete="address-level2" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>" required /></label>
 						<label>Provincia <span>*</span><input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" required /></label>
 						<label>Nazione <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ); ?>" required /></label>
-					</div>
+					</div><p id="trb-account-data-note" class="trb-portal__field-help">Nome, cognome ed e-mail sono ripresi dall’anagrafica del tuo account. Per modificarli, usa il pulsante “Apri una segnalazione” in alto.</p>
 					<details class="trb-portal__company-details" <?php echo $company_requested ? 'open' : ''; ?>><summary>Hai una partita IVA o devi ricevere una fattura intestata a un’azienda?</summary><div><label class="trb-portal__invoice-toggle"><input type="checkbox" name="trb_artist_invoice_requested" value="1" <?php checked( $company_requested ); ?> /> Inserisci dati aziendali per fattura specifica</label><div class="trb-portal__field-grid"><label>Ragione sociale <input type="text" name="trb_artist_company_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_name' ) ); ?>" /></label><label>Partita IVA <input type="text" name="trb_artist_company_vat" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_vat' ) ); ?>" /></label><label>Codice SDI <input type="text" name="trb_artist_company_sdi" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_sdi' ) ); ?>" /></label><label>Indirizzo della sede aziendale <input type="text" name="trb_artist_company_address" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_address' ) ); ?>" /></label></div></div></details>
 					<div class="trb-portal__private-documents"><strong>Documenti riservati</strong><p>Carica i quattro documenti richiesti. Restano esclusivamente nella tua pratica e non vengono pubblicati.</p><div class="trb-portal__field-grid"><label>Carta d’identità — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Carta d’identità — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_back" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_back" accept="application/pdf,image/jpeg,image/png" /></label></div><?php trb_portal_render_private_files(); ?></div>
 					<button class="trb-button" type="submit">Salva i dati contrattuali</button>
