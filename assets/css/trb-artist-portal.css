@@ -555,5 +555,7 @@ body:has(.trb-landing) .navbar_fixed_menu { display: none !important; }
 
 /* Public Portal pages deliberately render their own shell: the legacy Docy
    navigation cannot overlap the compact TRB header at any viewport width. */
-body.trb-artist-public-shell { min-height: 100vh; background: #fff; }
-.trb-artist-public-shell .trb-public-footer { margin: 0; padding: 24px 20px; border-top: 1px solid #e7ebf2; background: #fff; color: #64748b; font-size: 12px; line-height: 1.5; text-align: center; }
+body.trb-artist-public-shell { display: flex; flex-direction: column; min-height: 100vh; margin: 0; background: #fff; }
+.trb-artist-public-shell > main { flex: 1 0 auto; min-width: 0; width: 100%; }
+.trb-artist-public-shell .trb-public-footer { align-items: center; display: flex; flex: 0 0 auto; flex-direction: column; gap: 3px; justify-content: center; margin: 0; min-height: 76px; padding: 18px max(20px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); border-top: 1px solid #e7ebf2; background: #fff; color: #64748b; font-size: clamp(11px, 1.15vw, 12px); line-height: 1.45; text-align: center; width: 100%; }
+.trb-artist-public-shell .trb-public-footer span { display: block; max-width: 100%; overflow-wrap: anywhere; }
