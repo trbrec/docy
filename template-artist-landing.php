@@ -11,7 +11,7 @@ $dashboard_url = home_url( '/area-artisti/' );
 <main class="trb-landing">
 	<header class="trb-landing__topbar">
 		<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="trb-landing__brand"><img src="https://faq.trbrec.com/wp-content/uploads/2023/08/Vector-TRB-rec-White.png" alt="TRB rec" width="186" height="62" /></a>
-		<?php if ( is_user_logged_in() ) : ?><a class="trb-landing__account" href="<?php echo esc_url( $dashboard_url ); ?>">Vai alla tua area</a><?php endif; ?>
+		<?php if ( is_user_logged_in() ) : ?><a class="trb-landing__account" href="<?php echo esc_url( $dashboard_url ); ?>">Vai alla tua area</a><?php else : ?><a class="trb-landing__account" href="<?php echo esc_url( wp_login_url( $dashboard_url ) ); ?>">Accedi</a><?php endif; ?>
 	</header>
 	<section class="trb-landing__hero">
 		<div class="trb-landing__hero-copy">
