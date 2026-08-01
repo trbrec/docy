@@ -32,7 +32,7 @@ $login_url = home_url( '/accedi/' );
 		</div>
 	</section>
 </main>
-<footer class="trb-public-footer">&copy; 2008-<?php echo esc_html( wp_date( 'Y' ) ); ?> Tutti i diritti riservati | TRB rec di Andrea Tognassi - Music Publishing</footer>
+<footer class="trb-public-footer"><span>&copy; 2008-<?php echo esc_html( wp_date( 'Y' ) ); ?> TRB rec di Andrea Tognassi - Music Publishing</span><span>Tutti i diritti riservati.</span></footer>
 <?php wp_footer(); ?>
 </body>
 </html>
