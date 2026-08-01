@@ -43,6 +43,9 @@ if ( $object_id ) {
  */
 if ( $show_footer ) {
     $copyright_text = ! empty( $opt['copyright_txt'] ) ? $opt['copyright_txt'] : esc_html__( '©2025 Spider Themes. All rights reserved', 'docy' );
+    // Keep a configured final copyright year current without changing the
+    // initial year in a range such as “2008-2026”.
+    $copyright_text = preg_replace( '/20\\d{2}(?!.*20\\d{2})/', wp_date( 'Y' ), $copyright_text );
     get_template_part( 'template-parts/footers/footer', $footer_style );
 }
 ?>
