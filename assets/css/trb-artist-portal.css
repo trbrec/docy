@@ -480,3 +480,9 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
   .trb-portal__card,
   .trb-portal__steps article { padding: 22px; }
 }
+
+.trb-portal__search-resource { background: #fff; border: 1px solid #dfe2ef; border-radius: 10px; color: inherit; display: grid; gap: 3px; padding: 13px 15px; text-decoration: none; }
+.trb-portal__search-resource:hover { border-color: var(--trb-accent); }
+.trb-portal__search-resource strong { color: var(--trb-ink); font-size: 14px; }
+.trb-portal__search-resource span { color: var(--trb-ink-soft); font-size: 12px; line-height: 1.4; }
+.trb-portal__search-resource em { color: var(--trb-accent); font-size: 12px; font-style: normal; font-weight: 800; margin-top: 3px; }
