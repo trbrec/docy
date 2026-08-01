@@ -942,7 +942,7 @@ function trb_portal_dashboard_shortcode() {
 				<button type="submit">Cerca</button>
 			</form>
 			<p class="trb-portal__search-suggestions">Prova: <a href="?trb_search=formato+audio#risposte">formato audio</a> &middot; <a href="?trb_search=copertina#risposte">copertina</a> &middot; <a href="?trb_search=tempistiche#risposte">tempistiche</a></p>
-			<?php if ( trb_portal_current_search() ) : ?><?php trb_portal_render_search_results( $resources['trb_guide'], trb_portal_current_search() ); ?><?php endif; ?>
+			<?php if ( trb_portal_current_search() ) : ?><?php trb_portal_render_search_results( trb_portal_get_search_results( $profile, trb_portal_current_search() ), trb_portal_current_search() ); ?><?php endif; ?>
 		</section>
 
 		<?php trb_portal_render_artist_profile_section(); ?>
@@ -1170,6 +1170,28 @@ function trb_portal_get_resources( $profile ) {
 	return $resources;
 }
 
+
+/** Search the entire authorised Knowledge Hub, not only the short FAQ cards. */
+function trb_portal_get_search_results( $profile, $search ) {
+	$results = array();
+	foreach ( trb_portal_supported_resource_types() as $post_type ) {
+		$query = new WP_Query( array(
+			'post_type'      => $post_type,
+			'post_status'    => 'publish',
+			'posts_per_page' => 100,
+			'meta_query'     => array( array( 'key' => '_trb_portal_profiles', 'value' => '"' . $profile . '"', 'compare' => 'LIKE' ) ),
+		) );
+		foreach ( $query->posts as $post ) {
+			$score = trb_portal_search_score( $post, $search );
+			if ( $score ) {
+				$results[] = array( 'post' => $post, 'score' => $score );
+			}
+		}
+	}
+	usort( $results, function( $left, $right ) { return $right['score'] <=> $left['score']; } );
+	return array_slice( wp_list_pluck( $results, 'post' ), 0, 12 );
+}
+
 function trb_portal_search_score( $post, $search ) {
 	$search = strtolower( remove_accents( trim( $search ) ) );
 	$tokens = array_filter( preg_split( '/[^[:alnum:]]+/u', $search ) );
@@ -1219,7 +1241,11 @@ function trb_portal_render_search_results( $posts, $query ) {
 		<?php else : ?>
 			<div class="trb-portal__search-result-list">
 				<?php foreach ( $posts as $post ) : ?>
-					<details><summary><strong><?php echo esc_html( get_the_title( $post ) ); ?></strong><span><?php echo esc_html( $post->post_excerpt ); ?></span></summary><div><?php echo apply_filters( 'the_content', $post->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div></details>
+					<?php if ( in_array( $post->post_type, array( 'trb_guide', 'docs' ), true ) ) : ?>
+						<details><summary><strong><?php echo esc_html( get_the_title( $post ) ); ?></strong><span><?php echo esc_html( $post->post_excerpt ); ?></span></summary><div><?php echo apply_filters( 'the_content', $post->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div></details>
+					<?php else : ?>
+						<a class="trb-portal__search-resource" href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener"><strong><?php echo esc_html( get_the_title( $post ) ); ?></strong><span><?php echo esc_html( $post->post_excerpt ); ?></span><em>Apri contenuto ↗</em></a>
+					<?php endif; ?>
 				<?php endforeach; ?>
 			</div>
 		<?php endif; ?>
