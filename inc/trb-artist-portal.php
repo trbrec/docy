@@ -1118,7 +1118,7 @@ function trb_portal_current_search() {
 
 function trb_portal_enqueue_assets() {
 	$post = get_post();
-	if ( is_front_page() || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
+	if ( is_front_page() || is_page( array( 'registrati', 'accedi' ) ) || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
 		$style_path    = get_template_directory() . '/assets/css/trb-artist-portal.css';
 		$style_version = file_exists( $style_path ) ? (string) filemtime( $style_path ) : DOCY_VERSION;
 		wp_enqueue_style( 'trb-artist-portal', get_template_directory_uri() . '/assets/css/trb-artist-portal.css', array(), $style_version );
@@ -1145,6 +1145,16 @@ function trb_portal_force_registration_template( $template ) {
 	return $template;
 }
 add_filter( 'template_include', 'trb_portal_force_registration_template', 91 );
+
+/** Use a dedicated, branded authentication page instead of the WordPress screen. */
+function trb_portal_force_login_template( $template ) {
+	if ( is_page( 'accedi' ) ) {
+		$login_template = locate_template( 'template-artist-login.php' );
+		return $login_template ? $login_template : $template;
+	}
+	return $template;
+}
+add_filter( 'template_include', 'trb_portal_force_login_template', 92 );
 
 /**
  * Retire the former Profile Builder entry page. It exposes a public
@@ -1248,6 +1258,24 @@ function trb_portal_maybe_create_registration_page() {
 	);
 }
 add_action( 'init', 'trb_portal_maybe_create_registration_page', 31 );
+
+/** Create the public entry page for artists that already have credentials. */
+function trb_portal_maybe_create_login_page() {
+	if ( get_page_by_path( 'accedi' ) ) {
+		return;
+	}
+
+	wp_insert_post(
+		array(
+			'post_title'   => 'Accedi al Portale Artisti',
+			'post_name'    => 'accedi',
+			'post_content' => '',
+			'post_status'  => 'publish',
+			'post_type'    => 'page',
+		)
+	);
+}
+add_action( 'init', 'trb_portal_maybe_create_login_page', 32 );
 
 function trb_portal_noindex_private_area() {
 	if ( is_page( get_option( 'trb_portal_dashboard_created' ) ) || is_singular( trb_portal_supported_resource_types() ) ) {
