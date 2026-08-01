@@ -1188,6 +1188,46 @@ function trb_portal_redirect_legacy_account_page() {
 add_action( 'template_redirect', 'trb_portal_redirect_legacy_account_page', 2 );
 
 /**
+ * Keep every retired Elementor route useful after its page has been removed.
+ * The new dashboard is the single destination for contractual material, while
+ * the public entry page explains the approval-only access model.
+ */
+function trb_portal_redirect_retired_elementor_routes() {
+	if ( 'GET' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) || is_admin() ) {
+		return;
+	}
+
+	$path = wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/', PHP_URL_PATH );
+	$path = untrailingslashit( (string) $path );
+	$routes = array(
+		'/homepage-ddb'                  => '/area-artisti/',
+		'/homepage-ddb-trb'              => '/area-artisti/',
+		'/home-page-dds'                 => '/area-artisti/',
+		'/homepage-trb'                  => '/area-artisti/',
+		'/home-page-trb-basic'           => '/area-artisti/',
+		'/video-corsi-ddb'               => '/area-artisti/#video',
+		'/video-corsi-ddb-trb'           => '/area-artisti/#video',
+		'/video-corsi-dds'               => '/area-artisti/#video',
+		'/video-corsi-trb'               => '/area-artisti/#video',
+		'/video-corsi-trb-basic'         => '/area-artisti/#video',
+		'/strumenti-e-utilita-ddb'       => '/area-artisti/#download',
+		'/strumenti-e-utilita-ddb-trb'   => '/area-artisti/#download',
+		'/strumenti-e-utilita-dds'       => '/area-artisti/#download',
+		'/strumenti-e-utilita-trb'       => '/area-artisti/#download',
+		'/strumenti-e-utilita-trb-basic' => '/area-artisti/#download',
+		'/multi-documentations'          => '/area-artisti/#documenti',
+		'/contact'                       => '/',
+		'/login'                         => '/accedi/',
+	);
+
+	if ( isset( $routes[ $path ] ) ) {
+		wp_safe_redirect( home_url( $routes[ $path ] ), 302 );
+		exit;
+	}
+}
+add_action( 'template_redirect', 'trb_portal_redirect_retired_elementor_routes', 1 );
+
+/**
  * The artist dashboard uses its own quiet shell. The public Docy header and
  * its search are intentionally excluded from this one private page.
  */
