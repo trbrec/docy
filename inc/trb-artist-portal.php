@@ -806,7 +806,7 @@ function trb_portal_dashboard_shortcode() {
 			<div>
 				<p class="trb-portal__eyebrow">PORTALE ARTISTI Â· AREA RISERVATA</p>
 				<h1>Ciao <?php echo esc_html( $first_name ); ?>.</h1>
-				<p>La tua Knowledge Hub: procedure per le release, formazione, manuali e supporto tecnico riservati al tuo percorso.</p>
+				<p>Knowledge Hub: Linee guida, procedure, formazione e supporto per il percorso artistico.</p>
 			</div>
 			<div class="trb-portal__profile"><span>Sei un artista:</span><strong><?php echo esc_html( $affiliation ); ?></strong></div>
 		</header>
