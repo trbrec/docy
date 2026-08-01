@@ -11,19 +11,20 @@ $dashboard_url = home_url( '/area-artisti/' );
 <main class="trb-landing">
 	<header class="trb-landing__topbar">
 		<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="trb-landing__brand"><img src="https://faq.trbrec.com/wp-content/uploads/2023/08/Vector-TRB-rec-White.png" alt="TRB rec" width="186" height="62" /></a>
-		<?php if ( is_user_logged_in() ) : ?><a class="trb-landing__account" href="<?php echo esc_url( $dashboard_url ); ?>">Vai alla tua area</a><?php else : ?><a class="trb-landing__account" href="<?php echo esc_url( wp_login_url( $dashboard_url ) ); ?>">Accedi</a><?php endif; ?>
+		<a class="trb-landing__site-link" href="https://trbrec.com">Visita il sito TRB rec - Music Publishing</a>
 	</header>
 	<section class="trb-landing__hero">
 		<div class="trb-landing__hero-copy">
 			<p>PORTALE ARTISTI · AREA RISERVATA</p>
 			<h1>Il punto di riferimento per gli artisti TRB rec e Digital Distribution Bundle.</h1>
-			<p class="trb-landing__lead">Procedure per le release, formazione, documentazione e richieste: un solo spazio privato, personalizzato in base al tuo contratto.</p>
+			<p class="trb-landing__lead">Knowledge Hub Esclusivo: linee guida, procedure, formazione e supporto tecnico per il percorso artistico dei nostri artisti.</p>
 			<div class="trb-landing__actions">
-				<?php if ( is_user_logged_in() ) : ?><a class="trb-button" href="<?php echo esc_url( $dashboard_url ); ?>">Entra nel Portale Artisti</a><?php else : ?><a class="trb-button" href="<?php echo esc_url( wp_login_url( $dashboard_url ) ); ?>">Accedi al Portale Artisti</a><?php endif; ?>
+				<a class="trb-button" href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Registrati</a>
+				<a class="trb-button trb-button--secondary trb-landing__login" href="<?php echo esc_url( wp_login_url( $dashboard_url ) ); ?>">Accedi</a>
 			</div>
 		</div>
-		<aside class="trb-landing__access-note"><strong>Accesso riservato</strong><p>La registrazione e l’accesso sono riservati agli artisti già approvati dalla Direzione TRB rec.</p><p>Non hai ancora ricevuto conferma? Non registrarti autonomamente: attendi le istruzioni ricevute via e-mail.</p></aside>
+		<aside class="trb-landing__access-note"><strong>Attenzione: accesso subordinato ad approvazione</strong><p>La registrazione è ammessa esclusivamente dopo la sottoscrizione dell’accordo contrattuale o dopo espressa autorizzazione della Direzione TRB rec.</p><p>La semplice registrazione <b>non abilita</b> l’Area Artisti, non attiva servizi e non sostituisce alcuna approvazione contrattuale. Gli account non autorizzati restano inattivi.</p></aside>
 	</section>
-	<section class="trb-landing__how"><p>COME FUNZIONA</p><h2>Un portale privato, non una pagina FAQ pubblica.</h2><div><article><span>01</span><h3>Approvazione</h3><p>La Direzione abilita l’accesso soltanto agli artisti con una collaborazione confermata.</p></article><article><span>02</span><h3>Profilo personale</h3><p>Completi dati e materiali necessari per le pratiche contrattuali e per la tua identità artistica.</p></article><article><span>03</span><h3>Release e Knowledge Hub</h3><p>Prepari ogni pubblicazione seguendo passaggi collegati, con guide e risorse previste dal tuo contratto.</p></article></div></section>
+	<section class="trb-landing__how"><p>COME FUNZIONA</p><h2>Un portale privato, non una pagina pubblica.</h2><div><article><span>01</span><h3>Registrazione autorizzata</h3><p>Puoi registrarti solo dopo la sottoscrizione dell’accordo raggiunto o una comunicazione della Direzione.</p></article><article><span>02</span><h3>Approvazione dell’account</h3><p>TRB rec verifica e abilita personalmente il profilo contrattuale corretto.</p></article><article><span>03</span><h3>Profilo personale</h3><p>Completi dati e materiali necessari per le pratiche contrattuali e per la tua identità artistica.</p></article><article><span>04</span><h3>Release e Knowledge Hub</h3><p>Prepari ogni pubblicazione con procedure, risorse e servizi previsti dal tuo contratto.</p></article></div></section>
 </main>
 <?php get_footer(); ?>
