@@ -1118,7 +1118,7 @@ function trb_portal_current_search() {
 
 function trb_portal_enqueue_assets() {
 	$post = get_post();
-	if ( is_front_page() || is_page( array( 'registrati', 'accedi' ) ) || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
+	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password' ) ) || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
 		$style_path    = get_template_directory() . '/assets/css/trb-artist-portal.css';
 		$style_version = file_exists( $style_path ) ? (string) filemtime( $style_path ) : DOCY_VERSION;
 		wp_enqueue_style( 'trb-artist-portal', get_template_directory_uri() . '/assets/css/trb-artist-portal.css', array(), $style_version );
