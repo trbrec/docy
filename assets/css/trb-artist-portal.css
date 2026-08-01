@@ -486,3 +486,38 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
 .trb-portal__search-resource strong { color: var(--trb-ink); font-size: 14px; }
 .trb-portal__search-resource span { color: var(--trb-ink-soft); font-size: 12px; line-height: 1.4; }
 .trb-portal__search-resource em { color: var(--trb-accent); font-size: 12px; font-style: normal; font-weight: 800; margin-top: 3px; }
+
+/* Final layout guardrails: content must take the available width before it
+   wraps, and third-party Profile Builder spacing must not shrink our form. */
+.trb-portal, .trb-portal *, .trb-landing, .trb-landing *,
+.trb-registration, .trb-registration *, .trb-login, .trb-login * { box-sizing: border-box; }
+.trb-portal__hero { gap: 24px; padding: 25px 32px; }
+.trb-portal__hero > :first-child { flex: 1 1 auto; min-width: 0; }
+.trb-portal__hero .trb-portal__profile { flex: 0 1 300px; min-width: 0; }
+.trb-portal__hero p:not(.trb-portal__eyebrow) { max-width: 760px; text-wrap: pretty; }
+.trb-portal__nav { background: #fff; border: 1px solid var(--trb-line); border-radius: 14px; gap: 10px 22px; margin-top: 22px; padding: 13px 18px; }
+.trb-portal__section { margin-top: 54px; }
+.trb-portal__section-heading > p:last-child,
+.trb-portal__demo > p:not(.trb-portal__eyebrow),
+.trb-portal__request-help p,
+.trb-portal__release-gate p { text-wrap: pretty; }
+.trb-portal__cards { align-items: stretch; }
+.trb-portal__card { padding: 25px; }
+.trb-registration__form #wppb-register-user { box-sizing: border-box !important; margin: 25px 0 0 !important; max-width: none !important; padding: 0 !important; width: 100% !important; }
+.trb-registration__form #wppb-register-user > ul,
+.trb-registration__form #wppb-register-user > ul > li { box-sizing: border-box !important; width: 100% !important; }
+.trb-registration__form #wppb-register-user input[type="text"],
+.trb-registration__form #wppb-register-user input[type="email"],
+.trb-registration__form #wppb-register-user input[type="password"],
+.trb-registration__form #wppb-register-user .form-submit input[type="submit"] { float: none !important; max-width: none !important; }
+.trb-landing__how article p,
+.trb-registration__lead,
+.trb-registration__notice p,
+.trb-login__intro > p:not(:first-child) { text-wrap: pretty; }
+@media (max-width: 760px) {
+  .trb-portal__hero { gap: 17px; padding: 23px 22px; }
+  .trb-portal__nav { gap: 8px 14px; margin-top: 16px; padding: 11px 13px; }
+  .trb-portal__section { margin-top: 42px; }
+  .trb-registration, .trb-login { padding-left: 16px; padding-right: 16px; }
+  .trb-registration__form, .trb-login__form { border-radius: 15px; padding: 24px 18px; }
+}
