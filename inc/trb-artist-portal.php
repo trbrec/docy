@@ -804,7 +804,7 @@ function trb_portal_dashboard_shortcode() {
 	<div class="trb-portal" data-profile="<?php echo esc_attr( $profile ); ?>">
 		<header class="trb-portal__hero">
 			<div>
-				<p class="trb-portal__eyebrow">PORTALE ARTISTI Â· AREA RISERVATA</p>
+				<p class="trb-portal__eyebrow">PORTALE ARTISTI &middot; AREA RISERVATA</p>
 				<h1>Ciao <?php echo esc_html( $first_name ); ?>.</h1>
 				<p>Knowledge Hub: Linee guida, procedure, formazione e supporto per il percorso artistico.</p>
 			</div>
@@ -826,7 +826,7 @@ function trb_portal_dashboard_shortcode() {
 				<input id="trb-portal-search" type="search" name="trb_search" value="<?php echo esc_attr( trb_portal_current_search() ); ?>" placeholder="Es. formato audio, copertina, tempi di pubblicazione" />
 				<button type="submit">Cerca</button>
 			</form>
-			<p class="trb-portal__search-suggestions">Prova: <a href="?trb_search=formato+audio#risposte">formato audio</a> Â· <a href="?trb_search=copertina#risposte">copertina</a> Â· <a href="?trb_search=tempistiche#risposte">tempistiche</a></p>
+			<p class="trb-portal__search-suggestions">Prova: <a href="?trb_search=formato+audio#risposte">formato audio</a> &middot; <a href="?trb_search=copertina#risposte">copertina</a> &middot; <a href="?trb_search=tempistiche#risposte">tempistiche</a></p>
 			<?php if ( trb_portal_current_search() ) : ?><?php trb_portal_render_search_results( $resources['trb_guide'], trb_portal_current_search() ); ?><?php endif; ?>
 		</section>
 
@@ -944,7 +944,7 @@ function trb_portal_render_release_section() {
 		</div>
 		<?php endif; ?>
 		<?php if ( ! empty( $releases ) ) : ?>
-			<div class="trb-portal__request-history"><h3>Le tue pratiche</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> Â· Dati contrattuali da completare</span></li><?php endforeach; ?></ul></div>
+			<div class="trb-portal__request-history"><h3>Le tue pratiche</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> &middot; Dati contrattuali da completare</span></li><?php endforeach; ?></ul></div>
 		<?php endif; ?>
 	</section>
 	<template id="trb-portal-track-template"><article class="trb-portal__track" data-track><header><strong>Brano <span data-track-number></span></strong><button type="button" class="trb-portal__remove-track" data-remove-track aria-label="Rimuovi brano">Rimuovi</button></header><div class="trb-portal__field-grid"><label>Titolo del brano <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][title]" required maxlength="160" /></label><label>Featuring <small>facoltativo, solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label><label>Durata <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][duration]" required placeholder="es. 03:42" pattern="[0-9]{1,2}:[0-5][0-9]" /></label><label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required><option value="none">Nessuno</option><option value="clean">Clean</option><option value="explicit">Explicit</option></select></label><label>Genere musicale primario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][primary_genre]" required><option value="">Seleziona genere</option><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label><label>Genere musicale secondario <small>facoltativo</small><select name="trb_tracks[__INDEX__][secondary_genre]"><option value="">Nessuno</option><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label></div><fieldset class="trb-portal__credits"><legend>Crediti completi <button type="button" class="trb-portal__info" aria-label="Come compilare i crediti" data-credit-info>i</button></legend><p class="trb-portal__credit-info" hidden>Indica nome e cognome o nome dâarte di ogni persona e il suo ruolo. <strong>Autori</strong>: chi scrive testo o opera. <strong>Compositori</strong>: chi compone la musica. <strong>Interpreti</strong>: chi esegue/vocalizza. <strong>Produttori</strong>: chi cura la produzione. <strong>Musicisti</strong>: ogni strumentista partecipante. Non inserire etichette, studi o societÃ  come artisti.</p><div class="trb-portal__field-grid"><label>Autori<textarea name="trb_tracks[__INDEX__][credits][authors]" rows="3" required></textarea></label><label>Compositori<textarea name="trb_tracks[__INDEX__][credits][composers]" rows="3" required></textarea></label><label>Interpreti<textarea name="trb_tracks[__INDEX__][credits][performers]" rows="3" required></textarea></label><label>Produttori<textarea name="trb_tracks[__INDEX__][credits][producers]" rows="3" required></textarea></label><label>Singoli musicisti partecipanti<textarea name="trb_tracks[__INDEX__][credits][musicians]" rows="3" placeholder="Es. Mario Rossi â chitarra"></textarea></label></div></fieldset></article></template>
@@ -1277,6 +1277,43 @@ function trb_portal_maybe_create_registration_page() {
 	);
 }
 add_action( 'init', 'trb_portal_maybe_create_registration_page', 31 );
+
+/** Server-verified anti-bot check for the public registration form. */
+function trb_portal_registration_captcha_markup() {
+	$left   = wp_rand( 2, 8 );
+	$right  = wp_rand( 3, 9 );
+	$token  = wp_generate_uuid4();
+	$key    = 'trb_registration_captcha_' . md5( $token );
+	set_transient( $key, (string) ( $left + $right ), 15 * MINUTE_IN_SECONDS );
+
+	return '<fieldset class="trb-registration__captcha"><legend>Verifica di sicurezza</legend><p>Per confermare che non sei un sistema automatico, risolvi questa semplice operazione.</p><label for="trb_registration_answer">Quanto fa ' . esc_html( $left ) . ' + ' . esc_html( $right ) . '? <span>*</span></label><input id="trb_registration_answer" name="trb_registration_answer" type="number" inputmode="numeric" required /><input name="trb_registration_token" type="hidden" value="' . esc_attr( $token ) . '" /><label class="trb-registration__honeypot" aria-hidden="true">Sito web<input name="trb_registration_website" type="text" tabindex="-1" autocomplete="off" /></label></fieldset>';
+}
+
+function trb_portal_validate_registration_captcha() {
+	if ( 'POST' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) || 'register' !== ( isset( $_POST['action'] ) ? sanitize_key( wp_unslash( $_POST['action'] ) ) : '' ) ) {
+		return;
+	}
+
+	$token    = isset( $_POST['trb_registration_token'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_registration_token'] ) ) : '';
+	$answer   = isset( $_POST['trb_registration_answer'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_registration_answer'] ) ) : '';
+	$honeypot = isset( $_POST['trb_registration_website'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_registration_website'] ) ) : '';
+	$expected = $token ? get_transient( 'trb_registration_captcha_' . md5( $token ) ) : false;
+	delete_transient( 'trb_registration_captcha_' . md5( $token ) );
+
+	if ( ! $expected || ! hash_equals( (string) $expected, (string) $answer ) || '' !== $honeypot ) {
+		wp_safe_redirect( add_query_arg( 'trb_registration_error', 'security', home_url( '/registrati/' ) ) );
+		exit;
+	}
+}
+add_action( 'init', 'trb_portal_validate_registration_captcha', 1 );
+
+/** Each registration challenge is single-use, so the page must never be cached. */
+function trb_portal_no_cache_registration() {
+	if ( is_page( 'registrati' ) ) {
+		nocache_headers();
+	}
+}
+add_action( 'template_redirect', 'trb_portal_no_cache_registration', 0 );
 
 /** Create the public entry page for artists that already have credentials. */
 function trb_portal_maybe_create_login_page() {
