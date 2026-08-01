@@ -18,7 +18,7 @@
 $dashboard_url = home_url( '/area-artisti/' );
 ?>
 <main class="trb-login-page">
-	<header class="trb-landing__topbar"><a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="trb-landing__brand"><img src="https://faq.trbrec.com/wp-content/uploads/2023/08/Vector-TRB-rec-White.png" alt="TRB rec" width="186" height="62" /></a><a class="trb-landing__site-link" href="https://trbrec.com" target="_blank" rel="noopener noreferrer"><span class="trb-landing__site-link-full">Visita il sito TRB rec - Music Publishing</span><span class="trb-landing__site-link-short">Visita TRB rec</span></a></header>
+	<header class="trb-landing__topbar"><a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="trb-landing__brand"><img src="https://faq.trbrec.com/wp-content/uploads/2023/08/Vector-TRB-rec-White.png" alt="TRB rec" width="186" height="62" /></a><a class="trb-landing__site-link" href="<?php echo esc_url( home_url( '/contact/' ) ); ?>">Apri una segnalazione</a></header>
 	<section class="trb-login">
 		<div class="trb-login__intro"><p>PORTALE ARTISTI &middot; ACCESSO</p><h1>Accedi al tuo spazio riservato.</h1><p>Procedure, Knowledge Hub e pratiche di release sono disponibili esclusivamente per gli artisti abilitati dalla Direzione TRB rec.</p><a href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Non hai ancora un account? Registrati solo se autorizzato.</a></div>
 		<div class="trb-login__form"><h2>Accedi</h2><p>Usa le credenziali ricevute o create durante la registrazione.</p>
