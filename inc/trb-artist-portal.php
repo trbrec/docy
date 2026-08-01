@@ -598,6 +598,83 @@ function trb_portal_maybe_seed_guides() {
 }
 add_action( 'init', 'trb_portal_maybe_seed_guides', 35 );
 
+/**
+ * Bring the six surviving legacy download packages into the new library once.
+ * Their old category audiences are deliberately consolidated: TRB Basic is
+ * included in TRB and the two e-books remain premium material.
+ */
+function trb_portal_migrate_known_download_audiences() {
+	if ( get_option( 'trb_portal_download_audience_migrated_v1' ) ) {
+		return;
+	}
+
+	$packages = array(
+		11829 => array( 'ddb', 'ddb_trb', 'trb' ), // Biografia artistica.
+		11201 => array( 'ddb', 'ddb_trb', 'trb' ), // E-book: missaggio.
+		11119 => array( 'ddb', 'ddb_trb', 'trb' ), // E-book: brano contemporaneo.
+		11118 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Spotify e streaming.
+		11117 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Social Network Tips base.
+		11116 => array( 'trb' ), // Social Network Tips avanzata.
+	);
+
+	foreach ( $packages as $package_id => $profiles ) {
+		if ( 'wpdmpro' === get_post_type( $package_id ) ) {
+			update_post_meta( $package_id, '_trb_portal_profiles', $profiles );
+		}
+	}
+
+	update_option( 'trb_portal_download_audience_migrated_v1', time(), false );
+}
+add_action( 'init', 'trb_portal_migrate_known_download_audiences', 36 );
+
+/**
+ * The legacy Video CPT is empty: the previous DDB video page stored embeds in
+ * the page builder. Preserve the confirmed YouTube lessons here so they are
+ * shown in the new dashboard and can later be replaced or expanded centrally.
+ */
+function trb_portal_legacy_video_catalogue() {
+	return array(
+		array(
+			'title'    => 'Come Musixmatch ha costruito un prodotto scalabile',
+			'youtube'  => '2Ppuzp_8CyQ',
+			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+		),
+		array(
+			'title'    => 'Come scrivere il testo di una canzone',
+			'youtube'  => 'lpj4wDenbvo',
+			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+		),
+		array(
+			'title'    => 'Scegliere il microfono: dinamico, condensatore e pattern',
+			'youtube'  => 'hXuSELCrHKQ',
+			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+		),
+	);
+}
+
+function trb_portal_render_video_library( $profile ) {
+	$videos = array_filter(
+		trb_portal_legacy_video_catalogue(),
+		function( $video ) use ( $profile ) {
+			return in_array( $profile, $video['profiles'], true );
+		}
+	);
+	?>
+	<section id="video" class="trb-portal__section">
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2>Video e formazione</h2><p>Le lezioni selezionate per il tuo profilo, direttamente dalla precedente videoteca TRB.</p></div>
+		<?php if ( empty( $videos ) ) : ?>
+			<div class="trb-portal__empty"><p>La videoteca essenziale per il tuo profilo è in preparazione.</p></div>
+		<?php else : ?>
+			<div class="trb-portal__video-grid">
+				<?php foreach ( $videos as $video ) : ?>
+					<article class="trb-portal__video-card"><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $video['youtube'] ); ?>" target="_blank" rel="noopener"><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $video['youtube'] ); ?>/hqdefault.jpg" alt="" loading="lazy" /><span aria-hidden="true">▶</span></a><h3><?php echo esc_html( $video['title'] ); ?></h3><p><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $video['youtube'] ); ?>" target="_blank" rel="noopener">Guarda su YouTube <span aria-hidden="true">↗</span></a></p></article>
+				<?php endforeach; ?>
+			</div>
+		<?php endif; ?>
+	</section>
+	<?php
+}
+
 function trb_portal_request_catalogue() {
 	return array(
 		'cover' => array(
@@ -684,7 +761,7 @@ function trb_portal_dashboard_shortcode() {
 
 		<?php trb_portal_render_resource_section( 'risposte', trb_portal_current_search() ? 'Risultati della ricerca' : 'Risposte rapide', trb_portal_current_search() ? 'Le risposte disponibili per il tuo profilo, direttamente in questa pagina.' : 'Le guide essenziali per preparare una release senza passaggi inutili.', $resources['trb_guide'] ); ?>
 		<?php trb_portal_render_resource_section( 'documenti', 'Documenti e procedure', 'Le indicazioni aggiornate per gestire ogni fase della collaborazione.', $resources['docs'] ); ?>
-		<?php trb_portal_render_resource_section( 'video', 'Video e formazione', 'Percorsi video selezionati per il tuo profilo.', $resources['video'] ); ?>
+		<?php trb_portal_render_video_library( $profile ); ?>
 		<?php trb_portal_render_resource_section( 'download', 'Library e download', 'Manuali, e-book e materiali da conservare.', $resources['wpdmpro'] ); ?>
 
 	</div>
