@@ -286,13 +286,16 @@ function trb_portal_artist_profile_fields() {
 		'birth_date'  => 'Data di nascita',
 		'birth_place' => 'Luogo di nascita',
 		'tax_code'    => 'Codice fiscale',
-		'address'     => 'Indirizzo di residenza',
+		'street'      => 'Indirizzo di residenza',
+		'street_number' => 'Numero civico',
 		'city'        => 'Città',
 		'postal_code' => 'CAP',
 		'province'    => 'Provincia',
 		'country'     => 'Nazione',
-		'vat_number'  => 'Partita IVA',
-		'sdi_code'    => 'Codice SDI',
+		'company_name'    => 'Ragione sociale',
+		'company_vat'     => 'Partita IVA',
+		'company_sdi'     => 'Codice SDI',
+		'company_address' => 'Indirizzo della sede aziendale',
 	);
 }
 
@@ -302,7 +305,7 @@ function trb_portal_artist_profile_value( $key, $user_id = 0 ) {
 
 function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 	$user_id = $user_id ? $user_id : get_current_user_id();
-	$required = array( 'artist_name', 'legal_name', 'email', 'phone', 'birth_date', 'tax_code', 'address', 'city', 'postal_code', 'province', 'country' );
+	$required = array( 'artist_name', 'legal_name', 'email', 'phone', 'birth_date', 'tax_code', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' );
 	foreach ( $required as $field ) {
 		if ( '' === trb_portal_artist_profile_value( $field, $user_id ) ) {
 			return false;
@@ -318,15 +321,21 @@ function trb_portal_handle_artist_profile() {
 	check_admin_referer( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' );
 	$user_id = get_current_user_id();
 	foreach ( trb_portal_artist_profile_fields() as $key => $label ) {
-		$value = isset( $_POST[ 'trb_artist_' . $key ] ) ? sanitize_text_field( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) ) : '';
+		if ( ! isset( $_POST[ 'trb_artist_' . $key ] ) ) {
+			continue;
+		}
+		$value = sanitize_text_field( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) );
 		if ( 'email' === $key ) {
 			$value = sanitize_email( $value );
 		}
 		update_user_meta( $user_id, '_trb_artist_' . $key, $value );
 	}
-	update_user_meta( $user_id, '_trb_artist_invoice_requested', isset( $_POST['trb_artist_invoice_requested'] ) ? '1' : '' );
-	$bio = isset( $_POST['trb_artist_bio'] ) ? wp_kses_post( wp_unslash( $_POST['trb_artist_bio'] ) ) : '';
-	update_user_meta( $user_id, '_trb_artist_bio', $bio );
+	if ( isset( $_POST['trb_artist_invoice_requested'] ) || isset( $_POST['trb_artist_company_section'] ) ) {
+		update_user_meta( $user_id, '_trb_artist_invoice_requested', isset( $_POST['trb_artist_invoice_requested'] ) ? '1' : '' );
+	}
+	if ( isset( $_POST['trb_artist_bio'] ) ) {
+		update_user_meta( $user_id, '_trb_artist_bio', wp_kses_post( wp_unslash( $_POST['trb_artist_bio'] ) ) );
+	}
 	trb_portal_remove_private_profile_files( $user_id );
 	trb_portal_handle_private_profile_uploads( $user_id );
 	wp_safe_redirect( add_query_arg( 'trb_profile', 'saved', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
@@ -782,17 +791,24 @@ function trb_portal_dashboard_shortcode() {
 	$resources = trb_portal_get_resources( $profile );
 	$requests  = trb_portal_request_catalogue();
 	$affiliation = trb_portal_profile_affiliation( $profile );
+	$first_name  = trim( (string) get_user_meta( $user->ID, 'first_name', true ) );
+	if ( '' === $first_name ) {
+		$first_name = trim( (string) trb_portal_artist_profile_value( 'legal_name', $user->ID ) );
+	}
+	if ( '' === $first_name ) {
+		$first_name = 'Artista';
+	}
 
 	ob_start();
 	?>
 	<div class="trb-portal" data-profile="<?php echo esc_attr( $profile ); ?>">
 		<header class="trb-portal__hero">
 			<div>
-				<p class="trb-portal__eyebrow">AREA ARTISTI TRB REC</p>
-				<h1>Ciao <?php echo esc_html( $user->display_name ); ?>.</h1>
-				<p>Il tuo spazio riservato per seguire la collaborazione e preparare le release.</p>
+				<p class="trb-portal__eyebrow">PORTALE ARTISTI · AREA RISERVATA</p>
+				<h1>Ciao <?php echo esc_html( $first_name ); ?>.</h1>
+				<p>La tua Knowledge Hub: procedure per le release, formazione, manuali e supporto tecnico riservati al tuo percorso.</p>
 			</div>
-			<div class="trb-portal__profile"><span>Il tuo profilo</span><strong><?php echo esc_html( trb_portal_profile_label( $profile ) ); ?></strong><small><?php echo esc_html( $affiliation ); ?></small></div>
+			<div class="trb-portal__profile"><span>Sei un artista:</span><strong><?php echo esc_html( $affiliation ); ?></strong></div>
 		</header>
 
 		<nav class="trb-portal__nav" aria-label="Sezioni Area Artisti">
@@ -840,31 +856,55 @@ function trb_portal_dashboard_shortcode() {
 add_shortcode( 'trb_artist_portal', 'trb_portal_dashboard_shortcode' );
 
 function trb_portal_render_artist_profile_section() {
-	$fields = trb_portal_artist_profile_fields();
 	$saved = isset( $_GET['trb_profile'] ) && 'saved' === sanitize_key( wp_unslash( $_GET['trb_profile'] ) );
 	$complete = trb_portal_artist_profile_is_complete();
+	$company_requested = '1' === trb_portal_artist_profile_value( 'invoice_requested' );
 	?>
 	<section id="profilo" class="trb-portal__section trb-portal__profile-section">
-		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Compila questi dati prima di richiedere la prima pubblicazione. Li riuseremo per preparare correttamente le pratiche e, in futuro, i contratti.</p></div>
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Prima della prima release servono dati completi e verificabili. Li riuseremo per preparare le pratiche e, in seguito, i contratti.</p></div>
 		<?php if ( $saved ) : ?><div class="trb-portal__message trb-portal__message--success">Profilo artista aggiornato.</div><?php endif; ?>
-		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Prima di avviare la tua prima release completa tutti i campi obbligatori qui sotto, inclusa la biografia.</div><?php endif; ?>
-		<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-			<input type="hidden" name="action" value="trb_portal_save_artist_profile" />
-			<?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?>
-			<div class="trb-portal__field-grid">
-				<?php foreach ( $fields as $key => $label ) : ?>
-					<label class="<?php echo in_array( $key, array( 'vat_number', 'sdi_code' ), true ) ? 'trb-portal__invoice-field' : ''; ?>"><?php echo esc_html( $label ); ?><?php if ( ! in_array( $key, array( 'birth_place', 'vat_number', 'sdi_code' ), true ) ) : ?> <span aria-hidden="true">*</span><?php endif; ?>
-						<input type="<?php echo 'email' === $key ? 'email' : ( 'birth_date' === $key ? 'date' : 'text' ); ?>" name="trb_artist_<?php echo esc_attr( $key ); ?>" value="<?php echo esc_attr( trb_portal_artist_profile_value( $key ) ); ?>" <?php echo ! in_array( $key, array( 'birth_place', 'vat_number', 'sdi_code' ), true ) ? 'required' : ''; ?> />
-					</label>
-				<?php endforeach; ?>
-			</div>
-			<label class="trb-portal__invoice-toggle"><input type="checkbox" name="trb_artist_invoice_requested" value="1" <?php checked( '1' === trb_portal_artist_profile_value( 'invoice_requested' ) ); ?> /> Richiedo fattura <small>Partita IVA e Codice SDI sono facoltativi e vengono richiesti solo se necessari alla fatturazione.</small></label>
-			<label>Biografia artistica aggiornata <span aria-hidden="true">*</span><textarea name="trb_artist_bio" rows="9" required placeholder="Incolla qui la biografia aggiornata: non caricare un file."><?php echo esc_textarea( trb_portal_artist_profile_value( 'bio' ) ); ?></textarea><small>Inserisci testo copiato e incollato, pronto per essere usato nei materiali editoriali.</small></label>
-			<div class="trb-portal__private-documents"><strong>Foto e documenti riservati</strong><p>Carica fino a 6 foto ad alta qualità e i quattro documenti richiesti. Restano riservati al tuo profilo e non vengono pubblicati.</p><div class="trb-portal__field-grid"><label>Foto artista <small>JPG, PNG o WEBP · massimo 6 foto in totale</small><input type="file" name="trb_artist_photos[]" accept="image/jpeg,image/png,image/webp" multiple /></label><label>Carta d’identità — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Carta d’identità — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_back" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_back" accept="application/pdf,image/jpeg,image/png" /></label></div><?php $private_files = trb_portal_private_profile_files(); if ( ! empty( $private_files ) ) : ?><fieldset class="trb-portal__uploaded-files"><legend>File già ricevuti</legend><p>Seleziona un file solo se vuoi eliminarlo e poi caricarne una versione aggiornata.</p><?php foreach ( $private_files as $file ) : ?><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> <?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ); ?></label><?php endforeach; ?></fieldset><?php endif; ?></div>
-			<button class="trb-button" type="submit">Salva il profilo artista</button>
-		</form>
+		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release.</div><?php endif; ?>
+		<div class="trb-portal__profile-accordions">
+			<details class="trb-portal__profile-module" open>
+				<summary><span><b>Dati anagrafici e documenti</b><small>Dati necessari ai fini contrattuali</small></span><em>Apri il modulo</em></summary>
+				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="trb_portal_save_artist_profile" /><input type="hidden" name="trb_artist_company_section" value="1" />
+					<?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?>
+					<div class="trb-portal__field-grid">
+						<label>Nome e cognome anagrafici <span>*</span><input type="text" name="trb_artist_legal_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'legal_name' ) ); ?>" required /></label>
+						<label>E-mail di riferimento <span>*</span><input type="email" name="trb_artist_email" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'email' ) ); ?>" required /></label>
+						<label>Telefono <span>*</span><input type="tel" name="trb_artist_phone" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" required /></label>
+						<label>Data di nascita <span>*</span><input type="date" name="trb_artist_birth_date" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_date' ) ); ?>" required /></label>
+						<label>Luogo di nascita <input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" /></label>
+						<label>Codice fiscale <span>*</span><input type="text" name="trb_artist_tax_code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_code' ) ); ?>" required /></label>
+						<label>Indirizzo di residenza <span>*</span><input type="text" name="trb_artist_street" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street' ) ); ?>" required /></label>
+						<label>Numero civico <span>*</span><input type="text" name="trb_artist_street_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
+						<label>CAP <span>*</span><input type="text" name="trb_artist_postal_code" autocomplete="postal-code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" required /></label>
+						<label>Città <span>*</span><input type="text" name="trb_artist_city" autocomplete="address-level2" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>" required /></label>
+						<label>Provincia <span>*</span><input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" required /></label>
+						<label>Nazione <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ); ?>" required /></label>
+					</div>
+					<details class="trb-portal__company-details" <?php echo $company_requested ? 'open' : ''; ?>><summary>Hai una partita IVA o devi ricevere una fattura intestata a un’azienda?</summary><div><label class="trb-portal__invoice-toggle"><input type="checkbox" name="trb_artist_invoice_requested" value="1" <?php checked( $company_requested ); ?> /> Inserisci dati aziendali per fattura specifica</label><div class="trb-portal__field-grid"><label>Ragione sociale <input type="text" name="trb_artist_company_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_name' ) ); ?>" /></label><label>Partita IVA <input type="text" name="trb_artist_company_vat" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_vat' ) ); ?>" /></label><label>Codice SDI <input type="text" name="trb_artist_company_sdi" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_sdi' ) ); ?>" /></label><label>Indirizzo della sede aziendale <input type="text" name="trb_artist_company_address" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_address' ) ); ?>" /></label></div></div></details>
+					<div class="trb-portal__private-documents"><strong>Documenti riservati</strong><p>Carica i quattro documenti richiesti. Restano esclusivamente nella tua pratica e non vengono pubblicati.</p><div class="trb-portal__field-grid"><label>Carta d’identità — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Carta d’identità — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_back" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_back" accept="application/pdf,image/jpeg,image/png" /></label></div><?php trb_portal_render_private_files(); ?></div>
+					<button class="trb-button" type="submit">Salva i dati contrattuali</button>
+				</form>
+			</details>
+			<details class="trb-portal__profile-module">
+				<summary><span><b>Identità artistica</b><small>Nome d’arte, biografia e immagini ufficiali</small></span><em>Apri il modulo</em></summary>
+				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_save_artist_profile" /><?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?><label>Nome d’arte <span>*</span><input type="text" name="trb_artist_artist_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'artist_name' ) ); ?>" required /></label><label>Biografia artistica aggiornata <span>*</span><textarea name="trb_artist_bio" rows="9" required placeholder="Incolla qui la biografia aggiornata: non caricare un file."><?php echo esc_textarea( trb_portal_artist_profile_value( 'bio' ) ); ?></textarea><small>Inserisci testo copiato e incollato, pronto per materiali editoriali e profili artista.</small></label><div class="trb-portal__private-documents"><strong>Foto artista</strong><p>Carica fino a 6 foto ad alta qualità. Puoi selezionare le immagini già caricate per eliminarle e sostituirle.</p><label>Foto artista <small>JPG, PNG o WEBP · massimo 6 foto in totale</small><input type="file" name="trb_artist_photos[]" accept="image/jpeg,image/png,image/webp" multiple /></label><?php trb_portal_render_private_files( 'photo' ); ?></div><button class="trb-button" type="submit">Salva identità artistica</button></form>
+			</details>
+		</div>
 	</section>
 	<?php
+}
+
+function trb_portal_render_private_files( $group = '' ) {
+	$files = trb_portal_private_profile_files();
+	if ( $group ) {
+		$files = array_filter( $files, function( $file ) use ( $group ) { return isset( $file['group'] ) && $group === $file['group']; } );
+	}
+	if ( empty( $files ) ) return;
+	?><fieldset class="trb-portal__uploaded-files"><legend>File già ricevuti</legend><p>Seleziona un file solo se vuoi eliminarlo e poi caricarne una versione aggiornata.</p><?php foreach ( $files as $file ) : ?><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> <?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ); ?></label><?php endforeach; ?></fieldset><?php
 }
 
 function trb_portal_render_demo_section() {
@@ -1078,13 +1118,24 @@ function trb_portal_current_search() {
 
 function trb_portal_enqueue_assets() {
 	$post = get_post();
-	if ( is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
+	if ( is_front_page() || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
 		$style_path    = get_template_directory() . '/assets/css/trb-artist-portal.css';
 		$style_version = file_exists( $style_path ) ? (string) filemtime( $style_path ) : DOCY_VERSION;
 		wp_enqueue_style( 'trb-artist-portal', get_template_directory_uri() . '/assets/css/trb-artist-portal.css', array(), $style_version );
 	}
 }
 add_action( 'wp_enqueue_scripts', 'trb_portal_enqueue_assets', 30 );
+
+/** The historical FAQ front page is now the public, approval-only portal landing. */
+function trb_portal_force_public_landing_template( $template ) {
+	if ( is_front_page() && ! is_admin() ) {
+		$landing_template = locate_template( 'template-artist-landing.php' );
+		return $landing_template ? $landing_template : $template;
+	}
+
+	return $template;
+}
+add_filter( 'template_include', 'trb_portal_force_public_landing_template', 90 );
 
 /**
  * The artist dashboard uses its own quiet shell. The public Docy header and
