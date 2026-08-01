@@ -694,6 +694,41 @@ function trb_portal_force_artist_dashboard_after_login( $user_login, $user ) {
 }
 add_action( 'wp_login', 'trb_portal_force_artist_dashboard_after_login', 9999, 2 );
 
+/**
+ * Safety net for legacy role home pages.
+ *
+ * Some existing accounts authenticate through Profile Builder/LoginWP rules
+ * that issue their redirect before WordPress' normal login_redirect filter can
+ * take precedence. Do not leave those artists in the old FAQ homes: whenever
+ * one of the retired contract-specific home pages is reached, send the signed
+ * in contractual artist to the single new dashboard instead. Documentation,
+ * demo forms and the rest of the site are deliberately not affected.
+ */
+function trb_portal_redirect_legacy_artist_home() {
+	if ( ! is_user_logged_in() || current_user_can( 'manage_options' ) || ! trb_portal_user_profile() ) {
+		return;
+	}
+
+	$legacy_homes = array(
+		'homepage-dds',
+		'homepage-ddb',
+		'homepage-ddb-trb',
+		'homepage-trb',
+		'homepage-trb-basic',
+		'home-page-dds',
+		'home-page-ddb',
+		'home-page-ddb-trb',
+		'home-page-trb',
+		'home-page-trb-basic',
+	);
+
+	if ( is_page( $legacy_homes ) ) {
+		wp_safe_redirect( home_url( '/area-artisti/' ) );
+		exit;
+	}
+}
+add_action( 'template_redirect', 'trb_portal_redirect_legacy_artist_home', 0 );
+
 function trb_portal_get_resources( $profile ) {
 	$resources = array();
 	$search    = trb_portal_current_search();
