@@ -5,7 +5,16 @@
  * @package docy
  */
 
-get_header();
+?><!doctype html>
+<html <?php language_attributes(); ?>>
+<head>
+	<meta charset="<?php bloginfo( 'charset' ); ?>" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<?php wp_head(); ?>
+</head>
+<body <?php body_class( 'trb-artist-public-shell' ); ?>>
+<?php wp_body_open(); ?>
+<?php
 $dashboard_url = home_url( '/area-artisti/' );
 ?>
 <main class="trb-login-page">
@@ -23,4 +32,7 @@ $dashboard_url = home_url( '/area-artisti/' );
 		</div>
 	</section>
 </main>
-<?php get_footer(); ?>
+<footer class="trb-public-footer">&copy; 2008-<?php echo esc_html( wp_date( 'Y' ) ); ?> Tutti i diritti riservati | TRB rec di Andrea Tognassi - Music Publishing</footer>
+<?php wp_footer(); ?>
+</body>
+</html>
