@@ -121,11 +121,11 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 
 .trb-portal__hero .trb-portal__eyebrow { color: #bec0ff; }
 .trb-portal__hero h1 { color: #fff; font-size: clamp(30px, 3.4vw, 42px); letter-spacing: -.045em; line-height: 1; margin: 0 0 9px; }
-.trb-portal__hero p:not(.trb-portal__eyebrow) { color: rgba(255,255,255,.8); font-size: 15px; line-height: 1.45; margin: 0; max-width: 720px; }
+.trb-portal__hero p:not(.trb-portal__eyebrow) { color: rgba(255,255,255,.8); font-size: 15px; line-height: 1.45; margin: 0; max-width: 650px; }
 
-.trb-portal__profile { backdrop-filter: blur(10px); background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 16px; min-width: 210px; padding: 16px 18px; position: relative; z-index: 1; }
+.trb-portal__profile { backdrop-filter: blur(10px); background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 16px; min-width: 245px; padding: 16px 18px; position: relative; z-index: 1; }
 .trb-portal__profile span { display: block; font-size: 12px; opacity: .7; }
-.trb-portal__profile strong { display: block; font-size: 23px; margin-top: 3px; }
+.trb-portal__profile strong { display: block; font-size: 16px; line-height: 1.25; margin-top: 5px; }
 .trb-portal__profile small { color: rgba(255,255,255,.72); display: block; font-size: 11px; line-height: 1.35; margin-top: 6px; }
 
 .trb-portal__nav { align-items: center; border-bottom: 1px solid var(--trb-line); display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 18px 0 0; padding: 0 4px 15px; }
@@ -255,9 +255,50 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__demo > p:not(.trb-portal__eyebrow) { color: var(--trb-ink-soft); max-width: 690px; }
 .trb-portal__field-grid { display: grid; gap: 15px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .trb-portal__profile-form { gap: 22px; }
+.trb-portal__profile-accordions { display: grid; gap: 14px; }
+.trb-portal__profile-module { border: 1px solid var(--trb-line); border-radius: 16px; overflow: hidden; }
+.trb-portal__profile-module > summary { align-items: center; cursor: pointer; display: flex; justify-content: space-between; list-style: none; padding: 21px 24px; }
+.trb-portal__profile-module > summary::-webkit-details-marker { display: none; }
+.trb-portal__profile-module > summary b { color: var(--trb-ink); display: block; font-size: 17px; }
+.trb-portal__profile-module > summary small { color: var(--trb-ink-soft); display: block; font-size: 13px; margin-top: 4px; }
+.trb-portal__profile-module > summary em { color: var(--trb-accent); font-size: 12px; font-style: normal; font-weight: 800; }
+.trb-portal__profile-module[open] > summary { background: #f7f8ff; border-bottom: 1px solid var(--trb-line); }
+.trb-portal__profile-module .trb-portal__request-form { border: 0; border-radius: 0; }
+.trb-portal__company-details { background: #f7f8fc; border: 1px solid var(--trb-line); border-radius: 10px; padding: 15px; }
+.trb-portal__company-details > summary { color: var(--trb-ink); cursor: pointer; font-size: 14px; font-weight: 800; }
+.trb-portal__company-details > div { display: grid; gap: 16px; margin-top: 16px; }
 .trb-portal__profile-form small,
 .trb-portal__release-form small { color: var(--trb-ink-soft); display: block; font-size: 12px; font-weight: 500; line-height: 1.4; margin-top: 4px; }
 .trb-portal__private-documents { background: #f6f7fb; border: 1px solid var(--trb-line); border-radius: 10px; color: var(--trb-ink-soft); font-size: 14px; line-height: 1.55; padding: 15px 17px; }
+
+/* Public entry page: no public FAQ or internal search before authentication. */
+.trb-landing { background: #f7f8fc; color: var(--trb-ink); min-height: 100vh; }
+.trb-landing__topbar { align-items: center; background: #092b57; display: flex; justify-content: space-between; min-height: 74px; padding: 0 max(24px, calc((100vw - 1180px) / 2)); }
+.trb-landing__brand img { display: block; height: auto; max-height: 43px; max-width: 132px; }
+.trb-landing__account { border: 1px solid rgba(255,255,255,.34); border-radius: 8px; color: #fff; font-size: 13px; font-weight: 800; padding: 10px 14px; text-decoration: none; }
+.trb-landing__hero { background: radial-gradient(circle at 84% 18%, rgba(118,129,255,.55), transparent 27%), linear-gradient(135deg,#101629,#172659 58%,#3641be); color: #fff; display: grid; gap: 48px; grid-template-columns: minmax(0,1.45fr) minmax(280px,.55fr); padding: 90px max(24px, calc((100vw - 1180px) / 2)); }
+.trb-landing__hero-copy > p:first-child, .trb-landing__how > p { color: #bfc3ff; font-size: 11px; font-weight: 800; letter-spacing: .13em; margin: 0 0 14px; text-transform: uppercase; }
+.trb-landing__hero h1 { color: #fff; font-size: clamp(37px,5vw,65px); letter-spacing: -.055em; line-height: 1.02; margin: 0; max-width: 800px; }
+.trb-landing__lead { color: rgba(255,255,255,.78); font-size: 18px; line-height: 1.55; margin: 22px 0 0; max-width: 690px; }
+.trb-landing__actions { margin-top: 30px; }
+.trb-landing__access-note { align-self: center; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.18); border-radius: 18px; padding: 27px; }
+.trb-landing__access-note strong { font-size: 18px; }
+.trb-landing__access-note p { color: rgba(255,255,255,.78); font-size: 14px; line-height: 1.55; margin: 12px 0 0; }
+.trb-landing__how { margin: 0 auto; max-width: 1180px; padding: 76px 24px 96px; }
+.trb-landing__how > p { color: var(--trb-accent); }
+.trb-landing__how h2 { color: var(--trb-ink); font-size: clamp(30px,4vw,47px); letter-spacing: -.045em; line-height: 1.08; margin: 0; max-width: 680px; }
+.trb-landing__how > div { display: grid; gap: 18px; grid-template-columns: repeat(3,minmax(0,1fr)); margin-top: 35px; }
+.trb-landing__how article { background: #fff; border: 1px solid var(--trb-line); border-radius: 16px; padding: 27px; }
+.trb-landing__how article span { color: var(--trb-accent); font-size: 12px; font-weight: 800; letter-spacing: .1em; }
+.trb-landing__how h3 { font-size: 20px; margin: 18px 0 8px; }
+.trb-landing__how article p { color: var(--trb-ink-soft); font-size: 14px; line-height: 1.55; margin: 0; }
+
+@media (max-width: 760px) {
+  .trb-landing__hero { grid-template-columns: 1fr; padding-bottom: 58px; padding-top: 62px; }
+  .trb-landing__how > div { grid-template-columns: 1fr; }
+  .trb-portal__hero { align-items: flex-start; flex-direction: column; }
+  .trb-portal__profile { min-width: 0; width: 100%; }
+}
 .trb-portal__private-documents strong { color: var(--trb-ink); }
 .trb-portal__private-documents p { margin: 5px 0 0; }
 .trb-portal__private-documents .trb-portal__field-grid { margin-top: 15px; }
