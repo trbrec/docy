@@ -679,6 +679,21 @@ function trb_portal_redirect_artist_after_login( $redirect_to, $requested_redire
 }
 add_filter( 'login_redirect', 'trb_portal_redirect_artist_after_login', 9999, 3 );
 
+/**
+ * LoginWP can replace the WordPress login_redirect value with an old
+ * contract-specific destination. This runs after authentication and ends the
+ * browser request for contractual artists, so the legacy rule cannot win.
+ */
+function trb_portal_force_artist_dashboard_after_login( $user_login, $user ) {
+	if ( ! ( $user instanceof WP_User ) || ! trb_portal_user_profile( $user ) || wp_doing_ajax() || is_admin() ) {
+		return;
+	}
+
+	wp_safe_redirect( home_url( '/area-artisti/' ) );
+	exit;
+}
+add_action( 'wp_login', 'trb_portal_force_artist_dashboard_after_login', 9999, 2 );
+
 function trb_portal_get_resources( $profile ) {
 	$resources = array();
 	$search    = trb_portal_current_search();
