@@ -280,6 +280,7 @@ body.trb-artist-public-shell .navbar,
 body.trb-artist-public-shell .navbar_fixed_menu,
 body.trb-artist-public-shell .menu-toggle,
 body.trb-artist-public-shell .doc_footer_menu,
+body.trb-artist-public-shell .eazydocs-assistant-wrapper,
 body.trb-artist-public-shell #back-to-top { display: none !important; }
 body.trb-artist-public-shell #main-content { padding: 0; }
 body.trb-artist-public-shell .body_wrapper { min-height: 0; }
