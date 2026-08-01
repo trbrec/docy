@@ -210,7 +210,7 @@ function trb_portal_protect_tagged_resource() {
 	}
 
 	if ( ! trb_portal_user_can_access( $profiles ) ) {
-		wp_die( 'Questo contenuto non è previsto dal tuo profilo contrattuale.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
+		wp_die( 'Questo contenuto non Ã¨ previsto dal tuo profilo contrattuale.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
 	}
 }
 add_action( 'template_redirect', 'trb_portal_protect_tagged_resource', 1 );
@@ -264,11 +264,11 @@ add_action( 'init', 'trb_portal_register_release_type', 5 );
 function trb_portal_release_types() {
 	return array(
 		'single'       => array( 'label' => 'Singolo', 'range' => '1 brano', 'min' => 1, 'max' => 1 ),
-		'ep'           => array( 'label' => 'EP', 'range' => '4–8 brani', 'min' => 4, 'max' => 8 ),
-		'album'        => array( 'label' => 'Album', 'range' => '9–15 brani', 'min' => 9, 'max' => 15 ),
-		'double_album' => array( 'label' => 'Doppio album', 'range' => '16–30 brani', 'min' => 16, 'max' => 30 ),
-		'compilation'  => array( 'label' => 'Compilation', 'range' => '16–24 brani', 'min' => 16, 'max' => 24 ),
-		'collection'   => array( 'label' => 'Collection', 'range' => '20–40 brani', 'min' => 20, 'max' => 40 ),
+		'ep'           => array( 'label' => 'EP', 'range' => '4â8 brani', 'min' => 4, 'max' => 8 ),
+		'album'        => array( 'label' => 'Album', 'range' => '9â15 brani', 'min' => 9, 'max' => 15 ),
+		'double_album' => array( 'label' => 'Doppio album', 'range' => '16â30 brani', 'min' => 16, 'max' => 30 ),
+		'compilation'  => array( 'label' => 'Compilation', 'range' => '16â24 brani', 'min' => 16, 'max' => 24 ),
+		'collection'   => array( 'label' => 'Collection', 'range' => '20â40 brani', 'min' => 20, 'max' => 40 ),
 		'catalogue'    => array( 'label' => 'Catalogo / repertorio edito', 'range' => 'fino a 60 brani', 'min' => 1, 'max' => 60, 'catalogue' => true ),
 	);
 }
@@ -279,7 +279,7 @@ function trb_portal_genres() {
 
 function trb_portal_artist_profile_fields() {
 	return array(
-		'artist_name' => 'Nome d’arte',
+		'artist_name' => 'Nome dâarte',
 		'legal_name'  => 'Nome e cognome anagrafici',
 		'email'       => 'E-mail di riferimento',
 		'phone'       => 'Telefono',
@@ -288,7 +288,7 @@ function trb_portal_artist_profile_fields() {
 		'tax_code'    => 'Codice fiscale',
 		'street'      => 'Indirizzo di residenza',
 		'street_number' => 'Numero civico',
-		'city'        => 'Città',
+		'city'        => 'CittÃ ',
 		'postal_code' => 'CAP',
 		'province'    => 'Provincia',
 		'country'     => 'Nazione',
@@ -414,10 +414,10 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 	$photos_count   = count( array_filter( $existing, function( $file ) { return isset( $file['group'] ) && 'photo' === $file['group']; } ) );
 	$uploads        = array(
 		'trb_artist_photos'       => array( 'group' => 'photo', 'label' => 'Foto artista', 'mimes' => array( 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp' ) ),
-		'trb_artist_id_front'     => array( 'group' => 'identity', 'label' => 'Carta d’identità — fronte', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
-		'trb_artist_id_back'      => array( 'group' => 'identity', 'label' => 'Carta d’identità — retro', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
-		'trb_artist_tax_front'    => array( 'group' => 'tax_card', 'label' => 'Codice fiscale o tessera sanitaria — fronte', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
-		'trb_artist_tax_back'     => array( 'group' => 'tax_card', 'label' => 'Codice fiscale o tessera sanitaria — retro', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
+		'trb_artist_id_front'     => array( 'group' => 'identity', 'label' => 'Carta dâidentitÃ  â fronte', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
+		'trb_artist_id_back'      => array( 'group' => 'identity', 'label' => 'Carta dâidentitÃ  â retro', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
+		'trb_artist_tax_front'    => array( 'group' => 'tax_card', 'label' => 'Codice fiscale o tessera sanitaria â fronte', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
+		'trb_artist_tax_back'     => array( 'group' => 'tax_card', 'label' => 'Codice fiscale o tessera sanitaria â retro', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
 	);
 
 	foreach ( $uploads as $input_name => $settings ) {
@@ -494,7 +494,7 @@ function trb_portal_start_release() {
 
 	check_admin_referer( 'trb_portal_start_release', 'trb_portal_release_nonce' );
 	if ( ! trb_portal_user_profile() && ! current_user_can( 'manage_options' ) ) {
-		wp_die( 'Il tuo profilo non è ancora configurato.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
+		wp_die( 'Il tuo profilo non Ã¨ ancora configurato.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
 	}
 
 	if ( ! trb_portal_artist_profile_is_complete() && ! current_user_can( 'manage_options' ) ) {
@@ -597,43 +597,43 @@ function trb_portal_seed_guides() {
 			'title' => 'Come avviare e completare una nuova release',
 			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'La sequenza corretta per singoli, EP e album: una pratica per ogni pubblicazione.',
-			'content' => '<p>Ogni pubblicazione ha una pratica distinta. Non inviare file, brief o dati di release diverse nella stessa richiesta.</p><ol><li><strong>Compila i dati contrattuali di distribuzione.</strong> È il primo passaggio obbligatorio.</li><li><strong>Invia il materiale audio.</strong> DDS consegna il master pronto; gli altri profili il pre-master quando è prevista la lavorazione audio.</li><li><strong>Gestisci la copertina.</strong> Carica l’asset definitivo oppure, quando previsto, completa il brief grafico.</li><li><strong>Completa i dati editoriali e promozionali.</strong> Titolo, autori, featuring, testi e informazioni utili alla release.</li><li><strong>Attendi la verifica TRB.</strong> Solo una pratica completa può essere programmata.</li></ol><p>La valutazione demo è facoltativa e separata dalla pratica di pubblicazione.</p>',
+			'content' => '<p>Ogni pubblicazione ha una pratica distinta. Non inviare file, brief o dati di release diverse nella stessa richiesta.</p><ol><li><strong>Compila i dati contrattuali di distribuzione.</strong> Ã il primo passaggio obbligatorio.</li><li><strong>Invia il materiale audio.</strong> DDS consegna il master pronto; gli altri profili il pre-master quando Ã¨ prevista la lavorazione audio.</li><li><strong>Gestisci la copertina.</strong> Carica lâasset definitivo oppure, quando previsto, completa il brief grafico.</li><li><strong>Completa i dati editoriali e promozionali.</strong> Titolo, autori, featuring, testi e informazioni utili alla release.</li><li><strong>Attendi la verifica TRB.</strong> Solo una pratica completa puÃ² essere programmata.</li></ol><p>La valutazione demo Ã¨ facoltativa e separata dalla pratica di pubblicazione.</p>',
 		),
 		'formati-audio' => array(
 			'title' => 'Quale formato audio devo consegnare?',
 			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'Requisiti aggiornati per master e pre-master destinati alla distribuzione.',
-			'content' => '<p>Consegna file <strong>WAV o AIFF stereo a 48.000 Hz / 24 bit</strong>. È il formato di riferimento per pre-master e master destinati alla distribuzione sulle attuali piattaforme ad alta qualità.</p><ul><li>Non inviare MP3, M4A, file WhatsApp, screen recording o conversioni da streaming.</li><li>Non applicare normalizzazione, limiter aggiuntivi o conversioni dopo il master approvato.</li><li>Esporta il brano dall’inizio esatto, senza silenzi accidentali o code tagliate.</li><li>Per EP e album usa la stessa frequenza di campionamento e profondità bit su tutte le tracce.</li></ul><p>Quando il contratto include la lavorazione audio, consegna il <strong>pre-master</strong> nel medesimo formato e senza un master bus eccessivamente limitato.</p>',
+			'content' => '<p>Consegna file <strong>WAV o AIFF stereo a 48.000 Hz / 24 bit</strong>. Ã il formato di riferimento per pre-master e master destinati alla distribuzione sulle attuali piattaforme ad alta qualitÃ .</p><ul><li>Non inviare MP3, M4A, file WhatsApp, screen recording o conversioni da streaming.</li><li>Non applicare normalizzazione, limiter aggiuntivi o conversioni dopo il master approvato.</li><li>Esporta il brano dallâinizio esatto, senza silenzi accidentali o code tagliate.</li><li>Per EP e album usa la stessa frequenza di campionamento e profonditÃ  bit su tutte le tracce.</li></ul><p>Quando il contratto include la lavorazione audio, consegna il <strong>pre-master</strong> nel medesimo formato e senza un master bus eccessivamente limitato.</p>',
 		),
 		'tempistiche-release' => array(
 			'title' => 'Quanto tempo serve per pubblicare una release?',
 			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'Tempi corretti per lavorazione, verifica e distribuzione.',
-			'content' => '<p>Per fissare una data di uscita servono normalmente <strong>tre settimane dalla consegna completa</strong> del master e di tutti i materiali richiesti. La data non può essere confermata quando la pratica è incompleta.</p><ul><li>Il mastering, quando previsto, richiede normalmente <strong>2–3 giorni tecnici</strong>.</li><li>Ad agosto/Ferragosto e nel periodo di fine anno la finestra di distribuzione è di <strong>quattro settimane</strong>.</li><li>Correzioni tardive a audio, copertina, metadati, featuring o testi possono spostare la programmazione.</li></ul>',
+			'content' => '<p>Per fissare una data di uscita servono normalmente <strong>tre settimane dalla consegna completa</strong> del master e di tutti i materiali richiesti. La data non puÃ² essere confermata quando la pratica Ã¨ incompleta.</p><ul><li>Il mastering, quando previsto, richiede normalmente <strong>2â3 giorni tecnici</strong>.</li><li>Ad agosto/Ferragosto e nel periodo di fine anno la finestra di distribuzione Ã¨ di <strong>quattro settimane</strong>.</li><li>Correzioni tardive a audio, copertina, metadati, featuring o testi possono spostare la programmazione.</li></ul>',
 		),
 		'metadati-e-diritti' => array(
-			'title' => 'Metadati, autori, featuring e titolarità: cosa verificare',
+			'title' => 'Metadati, autori, featuring e titolaritÃ : cosa verificare',
 			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'I dati inviati per la distribuzione devono essere completi, coerenti e verificati.',
-			'content' => '<p>Prima dell’invio verifica che titolo, nome d’arte, autori, featuring e titolari dei diritti siano corretti e definitivi.</p><ul><li>Indica tutti gli autori e gli aventi diritto coinvolti.</li><li>Un featuring deve essere concordato e scritto esattamente come verrà pubblicato.</li><li>Per sample, beat, basi o contenuti di terzi servono i diritti necessari prima della consegna.</li><li>Non modificare titolo, artista principale o crediti dopo l’avvio senza comunicarlo.</li></ul>',
+			'content' => '<p>Prima dellâinvio verifica che titolo, nome dâarte, autori, featuring e titolari dei diritti siano corretti e definitivi.</p><ul><li>Indica tutti gli autori e gli aventi diritto coinvolti.</li><li>Un featuring deve essere concordato e scritto esattamente come verrÃ  pubblicato.</li><li>Per sample, beat, basi o contenuti di terzi servono i diritti necessari prima della consegna.</li><li>Non modificare titolo, artista principale o crediti dopo lâavvio senza comunicarlo.</li></ul>',
 		),
 		'copertine' => array(
 			'title' => 'Copertina: requisiti tecnici e brief grafico',
 			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
-			'excerpt' => 'Come preparare l’asset già pronto o il brief per la grafica inclusa.',
-			'content' => '<p>La copertina deve essere quadrata, in <strong>RGB, 3.000 × 3.000 px, 300 DPI</strong>, senza elementi sfocati, bordi involontari o loghi di piattaforme. Titolo e nome d’arte devono coincidere con i metadati della release.</p><p>Per <strong>DDS e DDB</strong> viene richiesto l’upload della copertina definitiva conforme. Per <strong>DDB‑TRB e TRB</strong> viene richiesto il brief grafico collegato alla release: concept, riferimenti, atmosfera, testi e vincoli utili.</p>',
+			'excerpt' => 'Come preparare lâasset giÃ  pronto o il brief per la grafica inclusa.',
+			'content' => '<p>La copertina deve essere quadrata, in <strong>RGB, 3.000 Ã 3.000 px, 300 DPI</strong>, senza elementi sfocati, bordi involontari o loghi di piattaforme. Titolo e nome dâarte devono coincidere con i metadati della release.</p><p>Per <strong>DDS e DDB</strong> viene richiesto lâupload della copertina definitiva conforme. Per <strong>DDBâTRB e TRB</strong> viene richiesto il brief grafico collegato alla release: concept, riferimenti, atmosfera, testi e vincoli utili.</p>',
 		),
 		'spotify-apple' => array(
 			'title' => 'Spotify e Apple Music: profili e pitching editoriale',
 			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'Informazioni necessarie per ottimizzazione e pitching editoriale.',
-			'content' => '<p>DDB, DDB‑TRB e TRB includono l’ottimizzazione del profilo e la strategia di pitching editoriale su Spotify e Apple Music.</p><ul><li>Invia link corretti a profili artista, social e catalogo.</li><li>Spiega in modo concreto storia del brano, contesto, pubblico ed elementi distintivi.</li><li>Consegna i materiali in tempo: il pitching richiede una data programmata con anticipo sufficiente.</li></ul><p>Il pitching è una candidatura editoriale, non una promessa di inserimento in playlist o risultati specifici.</p>',
+			'content' => '<p>DDB, DDBâTRB e TRB includono lâottimizzazione del profilo e la strategia di pitching editoriale su Spotify e Apple Music.</p><ul><li>Invia link corretti a profili artista, social e catalogo.</li><li>Spiega in modo concreto storia del brano, contesto, pubblico ed elementi distintivi.</li><li>Consegna i materiali in tempo: il pitching richiede una data programmata con anticipo sufficiente.</li></ul><p>Il pitching Ã¨ una candidatura editoriale, non una promessa di inserimento in playlist o risultati specifici.</p>',
 		),
 		'knowledge-hub-avanzata' => array(
 			'title' => 'Knowledge Hub avanzata: guide ed e-book',
 			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
-			'excerpt' => 'Approfondimenti riservati ai percorsi DDB, DDB‑TRB e TRB.',
-			'content' => '<p>La Knowledge Hub avanzata raccoglie guide, e-book, checklist e template su lancio, immagine, promozione, organizzazione del progetto e presenza digitale. È riservata ai profili DDB, DDB‑TRB e TRB.</p><p>Questi materiali non sostituiscono i passaggi obbligatori della release: servono a prepararsi meglio e a lavorare in modo più autonomo.</p>',
+			'excerpt' => 'Approfondimenti riservati ai percorsi DDB, DDBâTRB e TRB.',
+			'content' => '<p>La Knowledge Hub avanzata raccoglie guide, e-book, checklist e template su lancio, immagine, promozione, organizzazione del progetto e presenza digitale. Ã riservata ai profili DDB, DDBâTRB e TRB.</p><p>Questi materiali non sostituiscono i passaggi obbligatori della release: servono a prepararsi meglio e a lavorare in modo piÃ¹ autonomo.</p>',
 		),
 	);
 }
@@ -740,11 +740,11 @@ function trb_portal_render_video_library( $profile ) {
 	<section id="video" class="trb-portal__section">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2>Video e formazione</h2><p>Le lezioni selezionate per il tuo profilo, direttamente dalla precedente videoteca TRB.</p></div>
 		<?php if ( empty( $videos ) ) : ?>
-			<div class="trb-portal__empty"><p>La videoteca essenziale per il tuo profilo è in preparazione.</p></div>
+			<div class="trb-portal__empty"><p>La videoteca essenziale per il tuo profilo Ã¨ in preparazione.</p></div>
 		<?php else : ?>
 			<div class="trb-portal__video-grid">
 				<?php foreach ( $videos as $video ) : ?>
-					<article class="trb-portal__video-card"><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $video['youtube'] ); ?>" target="_blank" rel="noopener"><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $video['youtube'] ); ?>/hqdefault.jpg" alt="" loading="lazy" /><span aria-hidden="true">▶</span></a><h3><?php echo esc_html( $video['title'] ); ?></h3><p><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $video['youtube'] ); ?>" target="_blank" rel="noopener">Guarda su YouTube <span aria-hidden="true">↗</span></a></p></article>
+					<article class="trb-portal__video-card"><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $video['youtube'] ); ?>" target="_blank" rel="noopener"><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $video['youtube'] ); ?>/hqdefault.jpg" alt="" loading="lazy" /><span aria-hidden="true">â¶</span></a><h3><?php echo esc_html( $video['title'] ); ?></h3><p><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $video['youtube'] ); ?>" target="_blank" rel="noopener">Guarda su YouTube <span aria-hidden="true">â</span></a></p></article>
 				<?php endforeach; ?>
 			</div>
 		<?php endif; ?>
@@ -778,12 +778,12 @@ function trb_portal_request_catalogue() {
  */
 function trb_portal_dashboard_shortcode() {
 	if ( ! is_user_logged_in() ) {
-		return '<section class="trb-portal-login"><h2>Area Artisti TRB rec</h2><p>Accedi per consultare i materiali riservati al tuo profilo.</p><p><a class="trb-button" href="' . esc_url( wp_login_url( get_permalink() ) ) . '">Accedi all’area riservata</a></p></section>';
+		return '<section class="trb-portal-login"><h2>Area Artisti TRB rec</h2><p>Accedi per consultare i materiali riservati al tuo profilo.</p><p><a class="trb-button" href="' . esc_url( wp_login_url( get_permalink() ) ) . '">Accedi allâarea riservata</a></p></section>';
 	}
 
 	$profile = trb_portal_user_profile();
 	if ( ! $profile && ! current_user_can( 'manage_options' ) ) {
-		return '<section class="trb-portal-notice"><h2>Profilo in attivazione</h2><p>Il tuo accesso è in fase di configurazione. Riceverai conferma via e-mail appena il profilo sarà attivo.</p></section>';
+		return '<section class="trb-portal-notice"><h2>Profilo in attivazione</h2><p>Il tuo accesso Ã¨ in fase di configurazione. Riceverai conferma via e-mail appena il profilo sarÃ  attivo.</p></section>';
 	}
 
 	$user      = wp_get_current_user();
@@ -804,7 +804,7 @@ function trb_portal_dashboard_shortcode() {
 	<div class="trb-portal" data-profile="<?php echo esc_attr( $profile ); ?>">
 		<header class="trb-portal__hero">
 			<div>
-				<p class="trb-portal__eyebrow">PORTALE ARTISTI · AREA RISERVATA</p>
+				<p class="trb-portal__eyebrow">PORTALE ARTISTI Â· AREA RISERVATA</p>
 				<h1>Ciao <?php echo esc_html( $first_name ); ?>.</h1>
 				<p>La tua Knowledge Hub: procedure per le release, formazione, manuali e supporto tecnico riservati al tuo percorso.</p>
 			</div>
@@ -826,7 +826,7 @@ function trb_portal_dashboard_shortcode() {
 				<input id="trb-portal-search" type="search" name="trb_search" value="<?php echo esc_attr( trb_portal_current_search() ); ?>" placeholder="Es. formato audio, copertina, tempi di pubblicazione" />
 				<button type="submit">Cerca</button>
 			</form>
-			<p class="trb-portal__search-suggestions">Prova: <a href="?trb_search=formato+audio#risposte">formato audio</a> · <a href="?trb_search=copertina#risposte">copertina</a> · <a href="?trb_search=tempistiche#risposte">tempistiche</a></p>
+			<p class="trb-portal__search-suggestions">Prova: <a href="?trb_search=formato+audio#risposte">formato audio</a> Â· <a href="?trb_search=copertina#risposte">copertina</a> Â· <a href="?trb_search=tempistiche#risposte">tempistiche</a></p>
 			<?php if ( trb_portal_current_search() ) : ?><?php trb_portal_render_search_results( $resources['trb_guide'], trb_portal_current_search() ); ?><?php endif; ?>
 		</section>
 
@@ -835,7 +835,7 @@ function trb_portal_dashboard_shortcode() {
 		<section id="inizia" class="trb-portal__section trb-portal__start">
 			<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">IL TUO PERCORSO</p><h2>Da dove iniziare</h2></div>
 			<div class="trb-portal__steps">
-				<article><span>01</span><h3>Aggiorna il profilo artista</h3><p>È il primo passaggio obbligatorio prima della prima pubblicazione.</p></article>
+				<article><span>01</span><h3>Aggiorna il profilo artista</h3><p>Ã il primo passaggio obbligatorio prima della prima pubblicazione.</p></article>
 				<article><span>02</span><h3>Apri una pratica release</h3><p>Inserisci i dati della pubblicazione e di tutti i brani, una volta sola.</p></article>
 				<article><span>03</span><h3>Completa la lavorazione</h3><p>Audio, copertina, materiali editoriali e verifica rimangono collegati alla stessa release.</p></article>
 			</div>
@@ -880,18 +880,18 @@ function trb_portal_render_artist_profile_section() {
 						<label>Indirizzo di residenza <span>*</span><input type="text" name="trb_artist_street" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street' ) ); ?>" required /></label>
 						<label>Numero civico <span>*</span><input type="text" name="trb_artist_street_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
 						<label>CAP <span>*</span><input type="text" name="trb_artist_postal_code" autocomplete="postal-code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" required /></label>
-						<label>Città <span>*</span><input type="text" name="trb_artist_city" autocomplete="address-level2" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>" required /></label>
+						<label>CittÃ  <span>*</span><input type="text" name="trb_artist_city" autocomplete="address-level2" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>" required /></label>
 						<label>Provincia <span>*</span><input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" required /></label>
 						<label>Nazione <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ); ?>" required /></label>
 					</div>
-					<details class="trb-portal__company-details" <?php echo $company_requested ? 'open' : ''; ?>><summary>Hai una partita IVA o devi ricevere una fattura intestata a un’azienda?</summary><div><label class="trb-portal__invoice-toggle"><input type="checkbox" name="trb_artist_invoice_requested" value="1" <?php checked( $company_requested ); ?> /> Inserisci dati aziendali per fattura specifica</label><div class="trb-portal__field-grid"><label>Ragione sociale <input type="text" name="trb_artist_company_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_name' ) ); ?>" /></label><label>Partita IVA <input type="text" name="trb_artist_company_vat" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_vat' ) ); ?>" /></label><label>Codice SDI <input type="text" name="trb_artist_company_sdi" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_sdi' ) ); ?>" /></label><label>Indirizzo della sede aziendale <input type="text" name="trb_artist_company_address" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_address' ) ); ?>" /></label></div></div></details>
-					<div class="trb-portal__private-documents"><strong>Documenti riservati</strong><p>Carica i quattro documenti richiesti. Restano esclusivamente nella tua pratica e non vengono pubblicati.</p><div class="trb-portal__field-grid"><label>Carta d’identità — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Carta d’identità — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_back" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_back" accept="application/pdf,image/jpeg,image/png" /></label></div><?php trb_portal_render_private_files(); ?></div>
+					<details class="trb-portal__company-details" <?php echo $company_requested ? 'open' : ''; ?>><summary>Hai una partita IVA o devi ricevere una fattura intestata a unâazienda?</summary><div><label class="trb-portal__invoice-toggle"><input type="checkbox" name="trb_artist_invoice_requested" value="1" <?php checked( $company_requested ); ?> /> Inserisci dati aziendali per fattura specifica</label><div class="trb-portal__field-grid"><label>Ragione sociale <input type="text" name="trb_artist_company_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_name' ) ); ?>" /></label><label>Partita IVA <input type="text" name="trb_artist_company_vat" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_vat' ) ); ?>" /></label><label>Codice SDI <input type="text" name="trb_artist_company_sdi" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_sdi' ) ); ?>" /></label><label>Indirizzo della sede aziendale <input type="text" name="trb_artist_company_address" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_address' ) ); ?>" /></label></div></div></details>
+					<div class="trb-portal__private-documents"><strong>Documenti riservati</strong><p>Carica i quattro documenti richiesti. Restano esclusivamente nella tua pratica e non vengono pubblicati.</p><div class="trb-portal__field-grid"><label>Carta dâidentitÃ  â fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Carta dâidentitÃ  â retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_back" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria â fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria â retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_back" accept="application/pdf,image/jpeg,image/png" /></label></div><?php trb_portal_render_private_files(); ?></div>
 					<button class="trb-button" type="submit">Salva i dati contrattuali</button>
 				</form>
 			</details>
 			<details class="trb-portal__profile-module">
-				<summary><span><b>Identità artistica</b><small>Nome d’arte, biografia e immagini ufficiali</small></span><em>Apri il modulo</em></summary>
-				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_save_artist_profile" /><?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?><label>Nome d’arte <span>*</span><input type="text" name="trb_artist_artist_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'artist_name' ) ); ?>" required /></label><label>Biografia artistica aggiornata <span>*</span><textarea name="trb_artist_bio" rows="9" required placeholder="Incolla qui la biografia aggiornata: non caricare un file."><?php echo esc_textarea( trb_portal_artist_profile_value( 'bio' ) ); ?></textarea><small>Inserisci testo copiato e incollato, pronto per materiali editoriali e profili artista.</small></label><div class="trb-portal__private-documents"><strong>Foto artista</strong><p>Carica fino a 6 foto ad alta qualità. Puoi selezionare le immagini già caricate per eliminarle e sostituirle.</p><label>Foto artista <small>JPG, PNG o WEBP · massimo 6 foto in totale</small><input type="file" name="trb_artist_photos[]" accept="image/jpeg,image/png,image/webp" multiple /></label><?php trb_portal_render_private_files( 'photo' ); ?></div><button class="trb-button" type="submit">Salva identità artistica</button></form>
+				<summary><span><b>IdentitÃ  artistica</b><small>Nome dâarte, biografia e immagini ufficiali</small></span><em>Apri il modulo</em></summary>
+				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_save_artist_profile" /><?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?><label>Nome dâarte <span>*</span><input type="text" name="trb_artist_artist_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'artist_name' ) ); ?>" required /></label><label>Biografia artistica aggiornata <span>*</span><textarea name="trb_artist_bio" rows="9" required placeholder="Incolla qui la biografia aggiornata: non caricare un file."><?php echo esc_textarea( trb_portal_artist_profile_value( 'bio' ) ); ?></textarea><small>Inserisci testo copiato e incollato, pronto per materiali editoriali e profili artista.</small></label><div class="trb-portal__private-documents"><strong>Foto artista</strong><p>Carica fino a 6 foto ad alta qualitÃ . Puoi selezionare le immagini giÃ  caricate per eliminarle e sostituirle.</p><label>Foto artista <small>JPG, PNG o WEBP Â· massimo 6 foto in totale</small><input type="file" name="trb_artist_photos[]" accept="image/jpeg,image/png,image/webp" multiple /></label><?php trb_portal_render_private_files( 'photo' ); ?></div><button class="trb-button" type="submit">Salva identitÃ  artistica</button></form>
 			</details>
 		</div>
 	</section>
@@ -904,13 +904,13 @@ function trb_portal_render_private_files( $group = '' ) {
 		$files = array_filter( $files, function( $file ) use ( $group ) { return isset( $file['group'] ) && $group === $file['group']; } );
 	}
 	if ( empty( $files ) ) return;
-	?><fieldset class="trb-portal__uploaded-files"><legend>File già ricevuti</legend><p>Seleziona un file solo se vuoi eliminarlo e poi caricarne una versione aggiornata.</p><?php foreach ( $files as $file ) : ?><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> <?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ); ?></label><?php endforeach; ?></fieldset><?php
+	?><fieldset class="trb-portal__uploaded-files"><legend>File giÃ  ricevuti</legend><p>Seleziona un file solo se vuoi eliminarlo e poi caricarne una versione aggiornata.</p><?php foreach ( $files as $file ) : ?><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> <?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ); ?></label><?php endforeach; ?></fieldset><?php
 }
 
 function trb_portal_render_demo_section() {
 	?>
 	<section id="demo" class="trb-portal__section">
-		<div class="trb-portal__demo"><p class="trb-portal__eyebrow">PRIMA DELLA RELEASE</p><h2>Vuoi una valutazione del demo?</h2><p>È un percorso facoltativo e resta sempre separato da una pratica di pubblicazione: puoi richiederlo in qualunque momento.</p><p><a class="trb-button trb-button--secondary" href="https://trbrec.com/form-valutazione" target="_blank" rel="noopener">Richiedi una valutazione demo</a></p></div>
+		<div class="trb-portal__demo"><p class="trb-portal__eyebrow">PRIMA DELLA RELEASE</p><h2>Vuoi una valutazione del demo?</h2><p>Ã un percorso facoltativo e resta sempre separato da una pratica di pubblicazione: puoi richiederlo in qualunque momento.</p><p><a class="trb-button trb-button--secondary" href="https://trbrec.com/form-valutazione" target="_blank" rel="noopener">Richiedi una valutazione demo</a></p></div>
 	</section>
 	<?php
 }
@@ -923,31 +923,31 @@ function trb_portal_render_release_section() {
 	$complete = trb_portal_artist_profile_is_complete();
 	?>
 	<section id="release" class="trb-portal__section">
-		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Una pratica contiene tutti i dati della pubblicazione. Prima aggiorni il profilo artista, poi inserisci metadati e brani: audio, copertina e promozione arriveranno solo all’interno della stessa pratica.</p></div>
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Una pratica contiene tutti i dati della pubblicazione. Prima aggiorni il profilo artista, poi inserisci metadati e brani: audio, copertina e promozione arriveranno solo allâinterno della stessa pratica.</p></div>
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata. Ora puoi iniziare dai dati contrattuali della release.</div><?php endif; ?>
-		<?php if ( 'profile_required' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Prima completa il tuo profilo artista. È obbligatorio prima della prima pratica.</div><?php endif; ?>
+		<?php if ( 'profile_required' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Prima completa il tuo profilo artista. Ã obbligatorio prima della prima pratica.</div><?php endif; ?>
 		<?php if ( 'invalid' === $status || 'error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Controlla titolo, tipo di release, stato di pubblicazione e dati del primo brano, poi riprova.</div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
-			<div class="trb-portal__release-gate"><strong>Prima completa “Aggiorna il profilo artista”.</strong><p>Fino ad allora non puoi aprire la tua prima pratica di release.</p><a class="trb-button" href="#profilo">Completa il profilo artista</a></div>
+			<div class="trb-portal__release-gate"><strong>Prima completa âAggiorna il profilo artistaâ.</strong><p>Fino ad allora non puoi aprire la tua prima pratica di release.</p><a class="trb-button" href="#profilo">Completa il profilo artista</a></div>
 		<?php else : ?>
 		<div class="trb-portal__request-grid trb-portal__request-grid--release">
 			<form class="trb-portal__request-form trb-portal__release-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-release-form>
 				<input type="hidden" name="action" value="trb_portal_start_release" />
 				<?php wp_nonce_field( 'trb_portal_start_release', 'trb_portal_release_nonce' ); ?>
 				<fieldset><legend>1. Che tipo di pubblicazione stai preparando?</legend><div class="trb-portal__release-types"><?php foreach ( $types as $key => $type ) : ?><label><input type="radio" name="trb_release_type" value="<?php echo esc_attr( $key ); ?>" required data-catalogue="<?php echo ! empty( $type['catalogue'] ) ? '1' : '0'; ?>" data-min="<?php echo esc_attr( $type['min'] ); ?>" data-max="<?php echo esc_attr( $type['max'] ); ?>" /><span><strong><?php echo esc_html( $type['label'] ); ?></strong><small><?php echo esc_html( $type['range'] ); ?></small></span></label><?php endforeach; ?></div></fieldset>
-				<fieldset><legend>2. La release è nuova o era già stata pubblicata?</legend><div class="trb-portal__radios"><label><input type="radio" name="trb_release_state" value="unreleased" required checked /> Inedita: non è mai stata distribuita prima</label><label><input type="radio" name="trb_release_state" value="previously_released" required /> Già precedentemente rilasciata</label></div><label class="trb-portal__original-date" hidden>Data di pubblicazione originale <small>solo se la release è edita e già precedentemente rilasciata</small><input type="date" name="trb_release_original_date" /></label></fieldset>
-				<label class="trb-portal__release-title">Titolo della release principale <span aria-hidden="true">*</span><input type="text" name="trb_release_title" maxlength="160" required placeholder="Es. Titolo dell’EP o dell’album" /></label>
-				<fieldset class="trb-portal__tracks"><legend>3. Aggiungi i brani della release</legend><p class="trb-portal__field-help">Inserisci subito il primo brano. Puoi poi aggiungere gli altri con il pulsante “+”. I nomi di artista principale e featuring devono essere persone/interpreti reali: etichette e società vanno nei crediti, non nel campo artista.</p><div data-tracks></div><button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button></fieldset>
+				<fieldset><legend>2. La release Ã¨ nuova o era giÃ  stata pubblicata?</legend><div class="trb-portal__radios"><label><input type="radio" name="trb_release_state" value="unreleased" required checked /> Inedita: non Ã¨ mai stata distribuita prima</label><label><input type="radio" name="trb_release_state" value="previously_released" required /> GiÃ  precedentemente rilasciata</label></div><label class="trb-portal__original-date" hidden>Data di pubblicazione originale <small>solo se la release Ã¨ edita e giÃ  precedentemente rilasciata</small><input type="date" name="trb_release_original_date" /></label></fieldset>
+				<label class="trb-portal__release-title">Titolo della release principale <span aria-hidden="true">*</span><input type="text" name="trb_release_title" maxlength="160" required placeholder="Es. Titolo dellâEP o dellâalbum" /></label>
+				<fieldset class="trb-portal__tracks"><legend>3. Aggiungi i brani della release</legend><p class="trb-portal__field-help">Inserisci subito il primo brano. Puoi poi aggiungere gli altri con il pulsante â+â. I nomi di artista principale e featuring devono essere persone/interpreti reali: etichette e societÃ  vanno nei crediti, non nel campo artista.</p><div data-tracks></div><button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button></fieldset>
 				<button class="trb-button" type="submit">Avvia nuova release</button>
 			</form>
-			<aside class="trb-portal__request-help"><h3>Prima di inviare</h3><div><strong>Dati completi, una volta sola</strong><p>Questi campi preparano la pratica e in seguito i dati contrattuali. Non inviare i singoli servizi separatamente.</p></div><div><strong>Crediti</strong><p>Elenca tutte le persone coinvolte. Se un nome o un ruolo non è chiaro, fermati e verificalo prima di inviare.</p></div><div><strong>Numero di brani</strong><p>La tipologia scelta mostra il limite corretto. Il controllo finale avviene prima della distribuzione.</p></div></aside>
+			<aside class="trb-portal__request-help"><h3>Prima di inviare</h3><div><strong>Dati completi, una volta sola</strong><p>Questi campi preparano la pratica e in seguito i dati contrattuali. Non inviare i singoli servizi separatamente.</p></div><div><strong>Crediti</strong><p>Elenca tutte le persone coinvolte. Se un nome o un ruolo non Ã¨ chiaro, fermati e verificalo prima di inviare.</p></div><div><strong>Numero di brani</strong><p>La tipologia scelta mostra il limite corretto. Il controllo finale avviene prima della distribuzione.</p></div></aside>
 		</div>
 		<?php endif; ?>
 		<?php if ( ! empty( $releases ) ) : ?>
-			<div class="trb-portal__request-history"><h3>Le tue pratiche</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> · Dati contrattuali da completare</span></li><?php endforeach; ?></ul></div>
+			<div class="trb-portal__request-history"><h3>Le tue pratiche</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> Â· Dati contrattuali da completare</span></li><?php endforeach; ?></ul></div>
 		<?php endif; ?>
 	</section>
-	<template id="trb-portal-track-template"><article class="trb-portal__track" data-track><header><strong>Brano <span data-track-number></span></strong><button type="button" class="trb-portal__remove-track" data-remove-track aria-label="Rimuovi brano">Rimuovi</button></header><div class="trb-portal__field-grid"><label>Titolo del brano <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][title]" required maxlength="160" /></label><label>Featuring <small>facoltativo, solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label><label>Durata <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][duration]" required placeholder="es. 03:42" pattern="[0-9]{1,2}:[0-5][0-9]" /></label><label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required><option value="none">Nessuno</option><option value="clean">Clean</option><option value="explicit">Explicit</option></select></label><label>Genere musicale primario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][primary_genre]" required><option value="">Seleziona genere</option><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label><label>Genere musicale secondario <small>facoltativo</small><select name="trb_tracks[__INDEX__][secondary_genre]"><option value="">Nessuno</option><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label></div><fieldset class="trb-portal__credits"><legend>Crediti completi <button type="button" class="trb-portal__info" aria-label="Come compilare i crediti" data-credit-info>i</button></legend><p class="trb-portal__credit-info" hidden>Indica nome e cognome o nome d’arte di ogni persona e il suo ruolo. <strong>Autori</strong>: chi scrive testo o opera. <strong>Compositori</strong>: chi compone la musica. <strong>Interpreti</strong>: chi esegue/vocalizza. <strong>Produttori</strong>: chi cura la produzione. <strong>Musicisti</strong>: ogni strumentista partecipante. Non inserire etichette, studi o società come artisti.</p><div class="trb-portal__field-grid"><label>Autori<textarea name="trb_tracks[__INDEX__][credits][authors]" rows="3" required></textarea></label><label>Compositori<textarea name="trb_tracks[__INDEX__][credits][composers]" rows="3" required></textarea></label><label>Interpreti<textarea name="trb_tracks[__INDEX__][credits][performers]" rows="3" required></textarea></label><label>Produttori<textarea name="trb_tracks[__INDEX__][credits][producers]" rows="3" required></textarea></label><label>Singoli musicisti partecipanti<textarea name="trb_tracks[__INDEX__][credits][musicians]" rows="3" placeholder="Es. Mario Rossi — chitarra"></textarea></label></div></fieldset></article></template>
+	<template id="trb-portal-track-template"><article class="trb-portal__track" data-track><header><strong>Brano <span data-track-number></span></strong><button type="button" class="trb-portal__remove-track" data-remove-track aria-label="Rimuovi brano">Rimuovi</button></header><div class="trb-portal__field-grid"><label>Titolo del brano <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][title]" required maxlength="160" /></label><label>Featuring <small>facoltativo, solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label><label>Durata <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][duration]" required placeholder="es. 03:42" pattern="[0-9]{1,2}:[0-5][0-9]" /></label><label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required><option value="none">Nessuno</option><option value="clean">Clean</option><option value="explicit">Explicit</option></select></label><label>Genere musicale primario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][primary_genre]" required><option value="">Seleziona genere</option><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label><label>Genere musicale secondario <small>facoltativo</small><select name="trb_tracks[__INDEX__][secondary_genre]"><option value="">Nessuno</option><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label></div><fieldset class="trb-portal__credits"><legend>Crediti completi <button type="button" class="trb-portal__info" aria-label="Come compilare i crediti" data-credit-info>i</button></legend><p class="trb-portal__credit-info" hidden>Indica nome e cognome o nome dâarte di ogni persona e il suo ruolo. <strong>Autori</strong>: chi scrive testo o opera. <strong>Compositori</strong>: chi compone la musica. <strong>Interpreti</strong>: chi esegue/vocalizza. <strong>Produttori</strong>: chi cura la produzione. <strong>Musicisti</strong>: ogni strumentista partecipante. Non inserire etichette, studi o societÃ  come artisti.</p><div class="trb-portal__field-grid"><label>Autori<textarea name="trb_tracks[__INDEX__][credits][authors]" rows="3" required></textarea></label><label>Compositori<textarea name="trb_tracks[__INDEX__][credits][composers]" rows="3" required></textarea></label><label>Interpreti<textarea name="trb_tracks[__INDEX__][credits][performers]" rows="3" required></textarea></label><label>Produttori<textarea name="trb_tracks[__INDEX__][credits][producers]" rows="3" required></textarea></label><label>Singoli musicisti partecipanti<textarea name="trb_tracks[__INDEX__][credits][musicians]" rows="3" placeholder="Es. Mario Rossi â chitarra"></textarea></label></div></fieldset></article></template>
 	<script>
 	(function(){var form=document.querySelector('[data-release-form]');if(!form)return;var wrap=form.querySelector('[data-tracks]'),template=document.getElementById('trb-portal-track-template'),add=form.querySelector('[data-add-track]'),title=form.querySelector('.trb-portal__release-title'),date=form.querySelector('.trb-portal__original-date'),dateInput=date.querySelector('input'),typeInputs=form.querySelectorAll('input[name="trb_release_type"]'),stateInputs=form.querySelectorAll('input[name="trb_release_state"]');function renumber(){var tracks=wrap.querySelectorAll('[data-track]');tracks.forEach(function(track,index){track.querySelector('[data-track-number]').textContent=index+1;track.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/trb_tracks\\[\\d+\\]/,'trb_tracks['+index+']');});track.querySelector('[data-remove-track]').hidden=tracks.length===1;});var selected=form.querySelector('input[name="trb_release_type"]:checked');if(selected){var max=Number(selected.dataset.max||60);add.disabled=tracks.length>=max;add.textContent=tracks.length>=max?'Limite raggiunto':'+ Aggiungi un altro brano';}}function addTrack(){var index=wrap.querySelectorAll('[data-track]').length,html=template.innerHTML.replace(/__INDEX__/g,index);wrap.insertAdjacentHTML('beforeend',html);renumber();}function updateType(){var selected=form.querySelector('input[name="trb_release_type"]:checked'),catalogue=selected&&selected.dataset.catalogue==='1';title.hidden=!!catalogue;title.querySelector('input').required=!catalogue;if(catalogue){title.querySelector('input').value='';var old=form.querySelector('input[value="previously_released"]');old.checked=true;}renumber();}function updateState(){var old=form.querySelector('input[name="trb_release_state"]:checked').value==='previously_released';date.hidden=!old;dateInput.required=old;}add.addEventListener('click',addTrack);wrap.addEventListener('click',function(e){if(e.target.matches('[data-remove-track]')){e.target.closest('[data-track]').remove();renumber();}if(e.target.matches('[data-credit-info]')){var info=e.target.closest('.trb-portal__credits').querySelector('.trb-portal__credit-info');info.hidden=!info.hidden;}});typeInputs.forEach(function(input){input.addEventListener('change',updateType);});stateInputs.forEach(function(input){input.addEventListener('change',updateState);});addTrack();updateState();}());
 	</script>
@@ -1083,9 +1083,9 @@ function trb_portal_render_resource_section( $id, $title, $description, $posts )
 			<div class="trb-portal__cards">
 				<?php foreach ( $posts as $post ) : ?>
 					<?php if ( 'trb_guide' === $post->post_type ) : ?>
-						<details class="trb-portal__card"><summary><p class="trb-portal__type">Guida Area Artisti</p><h3><?php echo esc_html( get_the_title( $post ) ); ?></h3><p><?php echo esc_html( $post->post_excerpt ); ?></p><span class="trb-portal__link">Leggi la risposta <span aria-hidden="true">↓</span></span></summary><div class="trb-portal__answer"><?php echo apply_filters( 'the_content', $post->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div></details>
+						<details class="trb-portal__card"><summary><p class="trb-portal__type">Guida Area Artisti</p><h3><?php echo esc_html( get_the_title( $post ) ); ?></h3><p><?php echo esc_html( $post->post_excerpt ); ?></p><span class="trb-portal__link">Leggi la risposta <span aria-hidden="true">â</span></span></summary><div class="trb-portal__answer"><?php echo apply_filters( 'the_content', $post->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div></details>
 					<?php else : ?>
-						<article class="trb-portal__card"><p class="trb-portal__type"><?php echo esc_html( get_post_type_object( $post->post_type )->labels->singular_name ); ?></p><h3><a href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title( $post ) ); ?></a></h3><p><?php echo esc_html( wp_trim_words( wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : $post->post_content ), 22 ) ); ?></p><a class="trb-portal__link" href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener">Apri contenuto <span aria-hidden="true">↗</span></a></article>
+						<article class="trb-portal__card"><p class="trb-portal__type"><?php echo esc_html( get_post_type_object( $post->post_type )->labels->singular_name ); ?></p><h3><a href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title( $post ) ); ?></a></h3><p><?php echo esc_html( wp_trim_words( wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : $post->post_content ), 22 ) ); ?></p><a class="trb-portal__link" href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener">Apri contenuto <span aria-hidden="true">â</span></a></article>
 					<?php endif; ?>
 				<?php endforeach; ?>
 			</div>
@@ -1098,9 +1098,9 @@ function trb_portal_render_resource_section( $id, $title, $description, $posts )
 function trb_portal_render_search_results( $posts, $query ) {
 	?>
 	<div id="risposte" class="trb-portal__search-results" aria-live="polite">
-		<p class="trb-portal__search-result-label">Risultati per “<?php echo esc_html( $query ); ?>”</p>
+		<p class="trb-portal__search-result-label">Risultati per â<?php echo esc_html( $query ); ?>â</p>
 		<?php if ( empty( $posts ) ) : ?>
-			<p class="trb-portal__search-empty">Non ho ancora una guida abbastanza precisa per questa ricerca. Prova una parola chiave più diretta oppure consulta le procedure qui sotto.</p>
+			<p class="trb-portal__search-empty">Non ho ancora una guida abbastanza precisa per questa ricerca. Prova una parola chiave piÃ¹ diretta oppure consulta le procedure qui sotto.</p>
 		<?php else : ?>
 			<div class="trb-portal__search-result-list">
 				<?php foreach ( $posts as $post ) : ?>
@@ -1125,6 +1125,16 @@ function trb_portal_enqueue_assets() {
 	}
 }
 add_action( 'wp_enqueue_scripts', 'trb_portal_enqueue_assets', 30 );
+
+/** Keep the public artist entry pages independent from the legacy Docy shell. */
+function trb_portal_public_body_class( $classes ) {
+	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password' ) ) ) {
+		$classes[] = 'trb-artist-public-shell';
+	}
+
+	return $classes;
+}
+add_filter( 'body_class', 'trb_portal_public_body_class' );
 
 /** The historical FAQ front page is now the public, approval-only portal landing. */
 function trb_portal_force_public_landing_template( $template ) {
@@ -1156,13 +1166,22 @@ function trb_portal_force_login_template( $template ) {
 }
 add_filter( 'template_include', 'trb_portal_force_login_template', 92 );
 
+function trb_portal_force_password_template( $template ) {
+	if ( is_page( 'recupera-password' ) ) {
+		$password_template = locate_template( 'template-artist-password.php' );
+		return $password_template ? $password_template : $template;
+	}
+	return $template;
+}
+add_filter( 'template_include', 'trb_portal_force_password_template', 93 );
+
 /**
  * Retire the former Profile Builder entry page. It exposes a public
  * registration form that conflicts with the approval-only Artist Portal.
  */
 function trb_portal_redirect_legacy_account_page() {
 	if ( 'GET' === strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) && is_page( 'my-account' ) ) {
-		wp_safe_redirect( home_url( '/' ), 301 );
+		wp_safe_redirect( home_url( '/accedi/' ), 302 );
 		exit;
 	}
 }
@@ -1276,6 +1295,37 @@ function trb_portal_maybe_create_login_page() {
 	);
 }
 add_action( 'init', 'trb_portal_maybe_create_login_page', 32 );
+
+function trb_portal_maybe_create_password_page() {
+	if ( get_page_by_path( 'recupera-password' ) ) {
+		return;
+	}
+
+	wp_insert_post(
+		array(
+			'post_title'   => 'Recupera la password',
+			'post_name'    => 'recupera-password',
+			'post_content' => '',
+			'post_status'  => 'publish',
+			'post_type'    => 'page',
+		)
+	);
+}
+add_action( 'init', 'trb_portal_maybe_create_password_page', 33 );
+
+/** Preserve the branded recovery journey when someone opens the legacy URL. */
+function trb_portal_redirect_default_password_request() {
+	if ( 'GET' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) ) {
+		return;
+	}
+
+	$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
+	if ( 'lostpassword' === $action ) {
+		wp_safe_redirect( home_url( '/recupera-password/' ), 302 );
+		exit;
+	}
+}
+add_action( 'login_init', 'trb_portal_redirect_default_password_request' );
 
 function trb_portal_noindex_private_area() {
 	if ( is_page( get_option( 'trb_portal_dashboard_created' ) ) || is_singular( trb_portal_supported_resource_types() ) ) {
