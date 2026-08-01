@@ -722,7 +722,9 @@ function trb_portal_redirect_legacy_artist_home() {
 		'home-page-trb-basic',
 	);
 
-	if ( is_page( $legacy_homes ) ) {
+	// A few older login flows fall back to the site's front page rather than a
+	// named role page. For contractual artists the front page is legacy too.
+	if ( is_front_page() || is_page( $legacy_homes ) ) {
 		wp_safe_redirect( home_url( '/area-artisti/' ) );
 		exit;
 	}
