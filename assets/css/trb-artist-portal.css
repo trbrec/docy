@@ -278,23 +278,35 @@ body.home .docy-header,
 body.home .mobile_menu { display: none; }
 .trb-landing__topbar { align-items: center; background: #092b57; display: flex; justify-content: space-between; min-height: 74px; padding: 0 max(24px, calc((100vw - 1180px) / 2)); }
 .trb-landing__brand img { display: block; height: auto; max-height: 43px; max-width: 132px; }
-.trb-landing__account { border: 1px solid rgba(255,255,255,.34); border-radius: 8px; color: #fff; font-size: 13px; font-weight: 800; padding: 10px 14px; text-decoration: none; }
+.trb-landing__account,
+.trb-landing__site-link { border: 1px solid rgba(255,255,255,.34); border-radius: 8px; color: #fff; font-size: 13px; font-weight: 800; padding: 10px 14px; text-decoration: none; }
 .trb-landing__hero { background: radial-gradient(circle at 84% 18%, rgba(118,129,255,.55), transparent 27%), linear-gradient(135deg,#101629,#172659 58%,#3641be); color: #fff; display: grid; gap: 48px; grid-template-columns: minmax(0,1.45fr) minmax(280px,.55fr); padding: 90px max(24px, calc((100vw - 1180px) / 2)); }
 .trb-landing__hero-copy > p:first-child, .trb-landing__how > p { color: #bfc3ff; font-size: 11px; font-weight: 800; letter-spacing: .13em; margin: 0 0 14px; text-transform: uppercase; }
 .trb-landing__hero h1 { color: #fff; font-size: clamp(37px,5vw,65px); letter-spacing: -.055em; line-height: 1.02; margin: 0; max-width: 800px; }
 .trb-landing__lead { color: rgba(255,255,255,.78); font-size: 18px; line-height: 1.55; margin: 22px 0 0; max-width: 690px; }
-.trb-landing__actions { margin-top: 30px; }
-.trb-landing__access-note { align-self: center; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.18); border-radius: 18px; padding: 27px; }
-.trb-landing__access-note strong { font-size: 18px; }
-.trb-landing__access-note p { color: rgba(255,255,255,.78); font-size: 14px; line-height: 1.55; margin: 12px 0 0; }
+.trb-landing__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.trb-landing__login { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.4); }
+.trb-landing__access-note { align-self: center; background: #fff2df; border: 2px solid #ffb35e; border-radius: 18px; box-shadow: 0 16px 38px rgba(8,20,55,.2); padding: 29px; }
+.trb-landing__access-note strong { color: #7a3b00; display: block; font-size: 19px; line-height: 1.25; }
+.trb-landing__access-note p { color: #67360a; font-size: 14px; line-height: 1.6; margin: 13px 0 0; }
 .trb-landing__how { margin: 0 auto; max-width: 1180px; padding: 76px 24px 96px; }
 .trb-landing__how > p { color: var(--trb-accent); }
 .trb-landing__how h2 { color: var(--trb-ink); font-size: clamp(30px,4vw,47px); letter-spacing: -.045em; line-height: 1.08; margin: 0; max-width: 680px; }
-.trb-landing__how > div { display: grid; gap: 18px; grid-template-columns: repeat(3,minmax(0,1fr)); margin-top: 35px; }
+.trb-landing__how > div { display: grid; gap: 18px; grid-template-columns: repeat(4,minmax(0,1fr)); margin-top: 35px; }
 .trb-landing__how article { background: #fff; border: 1px solid var(--trb-line); border-radius: 16px; padding: 27px; }
 .trb-landing__how article span { color: var(--trb-accent); font-size: 12px; font-weight: 800; letter-spacing: .1em; }
 .trb-landing__how h3 { font-size: 20px; margin: 18px 0 8px; }
 .trb-landing__how article p { color: var(--trb-ink-soft); font-size: 14px; line-height: 1.55; margin: 0; }
+.trb-registration-page { background: #f7f8fc; min-height: 100vh; }
+.trb-registration { margin: 0 auto; max-width: 760px; padding: 76px 24px 96px; }
+.trb-registration > p:first-child { color: var(--trb-accent); font-size: 11px; font-weight: 800; letter-spacing: .13em; margin: 0 0 13px; text-transform: uppercase; }
+.trb-registration h1 { color: var(--trb-ink); font-size: clamp(34px,4vw,52px); letter-spacing: -.045em; line-height: 1.06; margin: 0; }
+.trb-registration__notice { background: #fff2df; border: 2px solid #ffb35e; border-radius: 15px; color: #67360a; line-height: 1.55; margin-top: 27px; padding: 21px 23px; }
+.trb-registration__notice strong { color: #7a3b00; display: block; font-size: 17px; }
+.trb-registration__notice p { margin: 8px 0 0; }
+.trb-registration__form { background: #fff; border: 1px solid var(--trb-line); border-radius: 16px; box-shadow: 0 14px 38px rgba(24,29,59,.08); margin-top: 22px; padding: 27px; }
+.trb-registration__login { color: var(--trb-ink-soft); font-size: 14px; margin-top: 24px; }
+.trb-registration__login a { color: var(--trb-accent); font-weight: 800; }
 
 @media (max-width: 760px) {
   .trb-landing__hero { grid-template-columns: 1fr; padding-bottom: 58px; padding-top: 62px; }
