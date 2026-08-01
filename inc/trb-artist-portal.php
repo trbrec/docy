@@ -987,7 +987,7 @@ function trb_portal_get_resources( $profile ) {
 		$args = array(
 				'post_type'      => $post_type,
 				'post_status'    => 'publish',
-				'posts_per_page' => $search ? 100 : 7,
+				'posts_per_page' => ( $search && 'trb_guide' === $post_type ) ? 100 : 7,
 				'meta_query'     => array(
 					array(
 						'key'     => '_trb_portal_profiles',
@@ -998,7 +998,9 @@ function trb_portal_get_resources( $profile ) {
 			);
 		$query = new WP_Query( $args );
 		$posts = $query->posts;
-		if ( $search ) {
+		// Search belongs to the Knowledge Hub answers. It must never make the
+		// artist's Library, videos or downloads appear to have disappeared.
+		if ( $search && 'trb_guide' === $post_type ) {
 			$ranked = array();
 			foreach ( $posts as $post ) {
 				$score = trb_portal_search_score( $post, $search );
