@@ -27,6 +27,10 @@ body.trb-artist-portal-shell .mobile_menu {
   display: none;
 }
 
+body.trb-artist-download-shell .header,
+body.trb-artist-download-shell .docy-header,
+body.trb-artist-download-shell .mobile_menu { display: none; }
+
 .trb-portal-topbar {
   background: #092b57;
   border-bottom: 1px solid #092246;
@@ -69,6 +73,13 @@ body.trb-artist-portal-shell .mobile_menu {
 .trb-portal-topbar__actions a { color: rgba(255,255,255,.82); font-size: 13px; font-weight: 800; text-decoration: none; }
 .trb-portal-topbar__actions a:hover { color: #fff; }
 .trb-portal-topbar__actions .trb-portal-topbar__logout { border-left: 1px solid rgba(255,255,255,.24); padding-left: 18px; }
+.trb-portal-topbar__back { color: rgba(255,255,255,.86); font-size: 14px; font-weight: 800; text-decoration: none; }
+.trb-download-page { background: linear-gradient(135deg,#f6f7ff,#fff); min-height: calc(100vh - 66px); padding: 72px 24px 100px; }
+.trb-download-resource { background: #fff; border: 1px solid var(--trb-line); border-radius: 22px; box-shadow: 0 18px 52px rgba(24,29,59,.09); margin: 0 auto; max-width: 760px; padding: 45px; }
+.trb-download-resource h1 { color: var(--trb-ink); font-size: clamp(30px,4vw,48px); letter-spacing: -.045em; line-height: 1.05; margin: 0 0 14px; }
+.trb-download-resource__intro { color: var(--trb-ink-soft); font-size: 17px; line-height: 1.6; margin: 0; max-width: 650px; }
+.trb-download-resource__actions { border-top: 1px solid var(--trb-line); margin-top: 28px; padding-top: 26px; }
+.trb-download-resource__access { color: var(--trb-ink-soft); font-size: 13px; margin: 22px 0 0; }
 
 .trb-portal__hero {
 	align-items: center;
@@ -125,6 +136,16 @@ body.trb-artist-portal-shell .mobile_menu {
 .trb-portal__search button { background: var(--trb-ink); border: 0; border-radius: 8px; color: #fff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 10px 17px; }
 .trb-portal__search-suggestions { color: var(--trb-ink-soft); font-size: 12px; margin: 12px 0 0; }
 .trb-portal__search-suggestions a { color: var(--trb-accent); font-weight: 800; text-decoration: none; }
+.trb-portal__search-results { border-top: 1px solid #d9dbfa; margin-top: 19px; padding-top: 17px; }
+.trb-portal__search-result-label { color: var(--trb-ink); font-size: 14px; font-weight: 800; margin: 0 0 10px; }
+.trb-portal__search-empty { color: var(--trb-ink-soft); font-size: 14px; margin: 0; }
+.trb-portal__search-result-list { display: grid; gap: 8px; }
+.trb-portal__search-result-list details { background: #fff; border: 1px solid #dfe2ef; border-radius: 10px; }
+.trb-portal__search-result-list summary { cursor: pointer; display: grid; gap: 3px; list-style: none; padding: 13px 15px; }
+.trb-portal__search-result-list summary::-webkit-details-marker { display: none; }
+.trb-portal__search-result-list summary strong { color: var(--trb-ink); font-size: 14px; }
+.trb-portal__search-result-list summary span { color: var(--trb-ink-soft); font-size: 12px; line-height: 1.4; }
+.trb-portal__search-result-list details > div { border-top: 1px solid var(--trb-line); color: var(--trb-ink-soft); font-size: 14px; line-height: 1.6; padding: 15px; }
 
 .trb-portal__section { margin-top: 62px; scroll-margin-top: 30px; }
 .trb-portal__section-heading { margin-bottom: 24px; max-width: 650px; }
@@ -238,6 +259,13 @@ body.trb-artist-portal-shell .mobile_menu {
 .trb-portal__private-documents .trb-portal__field-grid { margin-top: 15px; }
 .trb-portal__private-documents input[type="file"] { background: #fff; border: 1px dashed #aeb5c4; cursor: pointer; padding: 9px; }
 .trb-portal__uploaded-files { border-top: 1px solid var(--trb-line); font-size: 12px; margin-top: 14px !important; padding-top: 12px; }
+.trb-portal__uploaded-files { display: grid; gap: 8px; }
+.trb-portal__uploaded-files legend { color: var(--trb-ink); font-size: 13px; font-weight: 800; padding: 0; }
+.trb-portal__uploaded-files p { font-size: 12px; margin: 0 !important; }
+.trb-portal__uploaded-files label { align-items: center; display: flex !important; font-size: 12px !important; font-weight: 600 !important; gap: 8px; }
+.trb-portal__uploaded-files input { height: auto !important; margin: 0; padding: 0 !important; width: auto !important; }
+.trb-portal__invoice-toggle { align-items: flex-start; background: #f7f8fc; border: 1px solid var(--trb-line); border-radius: 10px; display: block !important; padding: 13px 15px; }
+.trb-portal__invoice-toggle input { height: auto !important; margin: 0 7px 0 0; padding: 0 !important; vertical-align: middle; width: auto !important; }
 .trb-portal__release-gate { background: #fff8e9; border: 1px solid #eed49c; border-radius: 16px; color: #684d16; padding: 23px; }
 .trb-portal__release-gate strong { color: #44310c; font-size: 16px; }
 .trb-portal__release-gate p { margin: 8px 0 16px; }
@@ -274,6 +302,8 @@ body.trb-artist-portal-shell .mobile_menu {
   .trb-portal-topbar__inner { min-height: 58px; padding: 0 16px; }
   .trb-portal-topbar__actions { gap: 12px; }
   .trb-portal-topbar__actions .trb-portal-topbar__logout { padding-left: 12px; }
+  .trb-download-page { padding: 38px 16px 62px; }
+  .trb-download-resource { border-radius: 16px; padding: 28px 22px; }
   .trb-portal { padding: 22px 16px 62px; }
   .trb-portal__hero { align-items: flex-start; border-radius: 20px; flex-direction: column; padding: 27px 24px; }
   .trb-portal__profile { width: 100%; }
