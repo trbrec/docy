@@ -1137,6 +1137,15 @@ function trb_portal_force_public_landing_template( $template ) {
 }
 add_filter( 'template_include', 'trb_portal_force_public_landing_template', 90 );
 
+function trb_portal_force_registration_template( $template ) {
+	if ( is_page( 'registrati' ) ) {
+		$registration_template = locate_template( 'template-artist-registration.php' );
+		return $registration_template ? $registration_template : $template;
+	}
+	return $template;
+}
+add_filter( 'template_include', 'trb_portal_force_registration_template', 91 );
+
 /**
  * Retire the former Profile Builder entry page. It exposes a public
  * registration form that conflicts with the approval-only Artist Portal.
@@ -1221,6 +1230,24 @@ function trb_portal_maybe_create_dashboard_page() {
 	}
 }
 add_action( 'init', 'trb_portal_maybe_create_dashboard_page', 30 );
+
+/** Public request form. New User Approve keeps all new accounts pending. */
+function trb_portal_maybe_create_registration_page() {
+	if ( get_page_by_path( 'registrati' ) ) {
+		return;
+	}
+
+	wp_insert_post(
+		array(
+			'post_title'   => 'Registrati al Portale Artisti',
+			'post_name'    => 'registrati',
+			'post_content' => '[wppb-register]',
+			'post_status'  => 'publish',
+			'post_type'    => 'page',
+		)
+	);
+}
+add_action( 'init', 'trb_portal_maybe_create_registration_page', 31 );
 
 function trb_portal_noindex_private_area() {
 	if ( is_page( get_option( 'trb_portal_dashboard_created' ) ) || is_singular( trb_portal_supported_resource_types() ) ) {
