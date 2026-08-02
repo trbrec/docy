@@ -16,23 +16,15 @@ const TRB_DOCY_REPOSITORY_API = 'https://api.github.com/repos/trbrec/docy/commit
 const TRB_DOCY_DEPLOYED_SHA_OPTION = 'trb_docy_auto_deployed_sha';
 const TRB_DOCY_DEPLOY_STATUS_OPTION = 'trb_docy_auto_deploy_status';
 
-/** Add a five-minute WordPress cron interval. */
-function trb_docy_auto_deploy_interval( $schedules ) {
-	$schedules['trb_five_minutes'] = array(
-		'interval' => 5 * MINUTE_IN_SECONDS,
-		'display'  => 'Every five minutes (TRB deploy)',
-	);
-	return $schedules;
-}
-add_filter( 'cron_schedules', 'trb_docy_auto_deploy_interval' );
-
-/** Schedule the checker once and keep one recurring event. */
-function trb_docy_schedule_auto_deploy() {
-	if ( ! wp_next_scheduled( 'trb_docy_auto_deploy' ) ) {
-		wp_schedule_event( time() + MINUTE_IN_SECONDS, 'trb_five_minutes', 'trb_docy_auto_deploy' );
+/** Remove the former polling event once after switching to push deployments. */
+function trb_docy_remove_legacy_polling_event() {
+	if ( get_option( 'trb_docy_push_deploy_enabled_v1' ) ) {
+		return;
 	}
+	wp_clear_scheduled_hook( 'trb_docy_auto_deploy' );
+	update_option( 'trb_docy_push_deploy_enabled_v1', wp_date( 'c' ), false );
 }
-add_action( 'init', 'trb_docy_schedule_auto_deploy', 30 );
+add_action( 'init', 'trb_docy_remove_legacy_polling_event', 30 );
 
 /** Store a compact, non-sensitive deployment result for diagnostics. */
 function trb_docy_store_deploy_status( $state, $message, $sha = '' ) {
@@ -116,17 +108,6 @@ function trb_docy_get_github_main_sha() {
 	}
 	return $sha;
 }
-
-/** Temporary fallback checker, removed after the push endpoint is verified. */
-function trb_docy_run_auto_deploy() {
-	$sha = trb_docy_get_github_main_sha();
-	if ( is_wp_error( $sha ) ) {
-		trb_docy_store_deploy_status( 'error', $sha->get_error_message() );
-		return;
-	}
-	trb_docy_deploy_verified_sha( $sha );
-}
-add_action( 'trb_docy_auto_deploy', 'trb_docy_run_auto_deploy' );
 
 /** Accept push notifications only for the exact current commit on official main. */
 function trb_docy_receive_push_deploy( WP_REST_Request $request ) {
