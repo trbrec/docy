@@ -154,12 +154,109 @@ function trb_docy_register_push_deploy_route() {
 		array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => 'trb_docy_receive_push_deploy',
-			'permission_callback' => '__return_true',
+			'permission_callback' => 'trb_docy_verify_github_oidc_request',
 			'args'                => array( 'sha' => array( 'required' => true, 'type' => 'string' ) ),
 		)
 	);
 }
 add_action( 'rest_api_init', 'trb_docy_register_push_deploy_route' );
+
+function trb_docy_base64url_decode( $value ) {
+	$padding = strlen( $value ) % 4;
+	if ( $padding ) {
+		$value .= str_repeat( '=', 4 - $padding );
+	}
+	return base64_decode( strtr( $value, '-_', '+/' ), true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+}
+
+function trb_docy_asn1_length( $length ) {
+	if ( $length < 128 ) {
+		return chr( $length );
+	}
+	$encoded = '';
+	while ( $length > 0 ) {
+		$encoded = chr( $length & 0xff ) . $encoded;
+		$length >>= 8;
+	}
+	return chr( 0x80 | strlen( $encoded ) ) . $encoded;
+}
+
+function trb_docy_asn1_integer( $value ) {
+	$value = ltrim( $value, "\x00" );
+	if ( '' === $value || ord( $value[0] ) > 0x7f ) {
+		$value = "\x00" . $value;
+	}
+	return "\x02" . trb_docy_asn1_length( strlen( $value ) ) . $value;
+}
+
+function trb_docy_jwk_to_pem( $jwk ) {
+	if ( empty( $jwk['n'] ) || empty( $jwk['e'] ) ) {
+		return false;
+	}
+	$modulus = trb_docy_base64url_decode( $jwk['n'] );
+	$exponent = trb_docy_base64url_decode( $jwk['e'] );
+	if ( false === $modulus || false === $exponent ) {
+		return false;
+	}
+	$rsa = trb_docy_asn1_integer( $modulus ) . trb_docy_asn1_integer( $exponent );
+	$rsa = "\x30" . trb_docy_asn1_length( strlen( $rsa ) ) . $rsa;
+	$algorithm = hex2bin( '300d06092a864886f70d0101010500' );
+	$bit_string = "\x03" . trb_docy_asn1_length( strlen( $rsa ) + 1 ) . "\x00" . $rsa;
+	$der = "\x30" . trb_docy_asn1_length( strlen( $algorithm . $bit_string ) ) . $algorithm . $bit_string;
+	return "-----BEGIN PUBLIC KEY-----\n" . chunk_split( base64_encode( $der ), 64, "\n" ) . "-----END PUBLIC KEY-----\n";
+}
+
+/** Authenticate the short-lived GitHub Actions OIDC token. */
+function trb_docy_verify_github_oidc_request( WP_REST_Request $request ) {
+	$authorization = (string) $request->get_header( 'authorization' );
+	if ( 0 !== stripos( $authorization, 'Bearer ' ) || ! function_exists( 'openssl_verify' ) ) {
+		return new WP_Error( 'trb_oidc_missing', 'Autenticazione GitHub mancante.', array( 'status' => 401 ) );
+	}
+	$jwt = trim( substr( $authorization, 7 ) );
+	$parts = explode( '.', $jwt );
+	if ( 3 !== count( $parts ) ) {
+		return new WP_Error( 'trb_oidc_invalid', 'Token GitHub non valido.', array( 'status' => 401 ) );
+	}
+	$header = json_decode( trb_docy_base64url_decode( $parts[0] ), true );
+	$claims = json_decode( trb_docy_base64url_decode( $parts[1] ), true );
+	$signature = trb_docy_base64url_decode( $parts[2] );
+	if ( ! is_array( $header ) || ! is_array( $claims ) || false === $signature || 'RS256' !== ( $header['alg'] ?? '' ) || empty( $header['kid'] ) ) {
+		return new WP_Error( 'trb_oidc_invalid', 'Token GitHub non valido.', array( 'status' => 401 ) );
+	}
+
+	$keys = get_transient( 'trb_github_oidc_jwks' );
+	if ( ! is_array( $keys ) ) {
+		$response = wp_remote_get( 'https://token.actions.githubusercontent.com/.well-known/jwks', array( 'timeout' => 15 ) );
+		$keys = ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ? json_decode( wp_remote_retrieve_body( $response ), true ) : array();
+		if ( is_array( $keys ) ) {
+			set_transient( 'trb_github_oidc_jwks', $keys, 12 * HOUR_IN_SECONDS );
+		}
+	}
+	$jwk = null;
+	foreach ( (array) ( $keys['keys'] ?? array() ) as $candidate ) {
+		if ( isset( $candidate['kid'] ) && hash_equals( (string) $candidate['kid'], (string) $header['kid'] ) ) {
+			$jwk = $candidate;
+			break;
+		}
+	}
+	$pem = $jwk ? trb_docy_jwk_to_pem( $jwk ) : false;
+	if ( ! $pem || 1 !== openssl_verify( $parts[0] . '.' . $parts[1], $signature, $pem, OPENSSL_ALGO_SHA256 ) ) {
+		return new WP_Error( 'trb_oidc_signature', 'Firma GitHub non valida.', array( 'status' => 401 ) );
+	}
+
+	$now = time();
+	$audience = 'https://faq.trbrec.com/wp-json/trb/v1/deploy';
+	$audiences = (array) ( $claims['aud'] ?? array() );
+	$valid = 'https://token.actions.githubusercontent.com' === ( $claims['iss'] ?? '' )
+		&& in_array( $audience, $audiences, true )
+		&& 'trbrec/docy' === ( $claims['repository'] ?? '' )
+		&& 'refs/heads/main' === ( $claims['ref'] ?? '' )
+		&& 'push' === ( $claims['event_name'] ?? '' )
+		&& $now < (int) ( $claims['exp'] ?? 0 )
+		&& $now >= (int) ( $claims['nbf'] ?? 0 ) - 30
+		&& hash_equals( (string) ( $claims['sha'] ?? '' ), (string) $request->get_param( 'sha' ) );
+	return $valid ? true : new WP_Error( 'trb_oidc_claims', 'Autorizzazione GitHub non valida.', array( 'status' => 403 ) );
+}
 
 /** Exempt only the SHA-verified deploy endpoint from the portal-wide REST login gate. */
 function trb_docy_allow_push_deploy_authentication( $result ) {
