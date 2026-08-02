@@ -1,5 +1,7 @@
 name: Deploy Docy theme
 
+# Production deployment is triggered by every merged main revision.
+
 on:
   push:
     branches:
