@@ -214,9 +214,7 @@ add_action( 'save_post_video', 'trb_portal_save_resource_audience' );
 add_action( 'save_post_wpdmpro', 'trb_portal_save_resource_audience' );
 add_action( 'save_post_trb_guide', 'trb_portal_save_resource_audience' );
 
-/**
- * Direct links to tagged content respect the same audience policy as the hub.
- */
+/** Direct links obey the same audience policy as the private hub. */
 function trb_portal_protect_tagged_resource() {
 	if ( ! is_singular( trb_portal_supported_resource_types() ) || current_user_can( 'manage_options' ) ) {
 		return;
@@ -225,15 +223,13 @@ function trb_portal_protect_tagged_resource() {
 	$post_id  = get_queried_object_id();
 	$profiles = trb_portal_resource_profiles( $post_id );
 
-	if ( empty( $profiles ) ) {
-		return;
-	}
-
 	if ( ! is_user_logged_in() ) {
-		auth_redirect();
+		wp_safe_redirect( home_url( '/accedi/' ), 302 );
+		exit;
 	}
 
-	if ( ! trb_portal_user_can_access( $profiles ) ) {
+	// Untagged legacy files remain stored, but are never public by accident.
+	if ( empty( $profiles ) || ! trb_portal_user_can_access( $profiles ) ) {
 		wp_die( 'Questo contenuto non è previsto dal tuo profilo contrattuale.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
 	}
 }
