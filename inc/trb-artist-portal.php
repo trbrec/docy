@@ -1601,6 +1601,46 @@ function trb_portal_validate_registration_captcha() {
 }
 add_action( 'init', 'trb_portal_validate_registration_captcha', 1 );
 
+/** Mark only accounts created by the new portal, leaving legacy artists untouched. */
+function trb_portal_mark_new_registration( $user_id ) {
+	update_user_meta( $user_id, '_trb_portal_registration_source', time() );
+}
+add_action( 'user_register', 'trb_portal_mark_new_registration', 999 );
+
+/** Remove portal registrations that the Direction has left pending for 30 days. */
+function trb_portal_schedule_pending_account_cleanup() {
+	if ( ! wp_next_scheduled( 'trb_portal_cleanup_pending_accounts' ) ) {
+		wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'trb_portal_cleanup_pending_accounts' );
+	}
+}
+add_action( 'init', 'trb_portal_schedule_pending_account_cleanup', 40 );
+
+function trb_portal_cleanup_pending_accounts() {
+	if ( ! function_exists( 'pw_new_user_approve' ) ) {
+		return;
+	}
+
+	$cutoff = time() - ( 30 * DAY_IN_SECONDS );
+	$users  = get_users(
+		array(
+			'fields'       => array( 'ID', 'user_registered' ),
+			'meta_key'     => '_trb_portal_registration_source',
+			'meta_value'   => $cutoff,
+			'meta_compare' => '<=',
+			'meta_type'    => 'NUMERIC',
+			'number'       => 100,
+		)
+	);
+	foreach ( $users as $user ) {
+		if ( user_can( $user->ID, 'manage_options' ) || 'pending' !== pw_new_user_approve()->get_user_status( $user->ID ) ) {
+			continue;
+		}
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+		wp_delete_user( $user->ID );
+	}
+}
+add_action( 'trb_portal_cleanup_pending_accounts', 'trb_portal_cleanup_pending_accounts' );
+
 /** Each registration challenge is single-use, so the page must never be cached. */
 function trb_portal_no_cache_registration() {
 	if ( is_page( 'registrati' ) ) {
