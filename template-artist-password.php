@@ -20,7 +20,7 @@ $login_url = home_url( '/accedi/' );
 <main class="trb-login-page trb-password-page">
 	<header class="trb-landing__topbar">
 		<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="trb-landing__brand"><img src="https://faq.trbrec.com/wp-content/uploads/2023/08/Vector-TRB-rec-White.png" alt="TRB rec" width="186" height="62" /></a>
-		<a class="trb-landing__site-link" href="<?php echo esc_url( home_url( '/contact/' ) ); ?>">Apri una segnalazione</a>
+		<a class="trb-landing__site-link" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Apri una segnalazione</a>
 	</header>
 	<section class="trb-login">
 		<div class="trb-login__intro"><p>PORTALE ARTISTI &middot; RECUPERO ACCESSO</p><h1>Recupera la tua password.</h1><p>Inserisci lâe-mail associata al tuo account artista. Riceverai le istruzioni per scegliere una nuova password.</p><a href="<?php echo esc_url( $login_url ); ?>">Torna allâaccesso</a></div>
