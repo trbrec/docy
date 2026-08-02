@@ -23,6 +23,8 @@ foreach ( array( 'username', 'first_name', 'last_name', 'email', 'passw1', 'pass
 		$register_form
 	);
 }
+$register_form = str_replace( 'autocomplete="off"', 'autocomplete="new-password"', $register_form );
+$register_form = str_replace( '</ul></ul>', '</ul>', $register_form );
 $register_form = preg_replace( '#</form>\s*$#', trb_portal_registration_captcha_markup() . '</form>', $register_form, 1 );
 ?>
 <main class="trb-registration-page">
