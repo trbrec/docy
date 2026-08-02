@@ -15,7 +15,7 @@ $sent = isset( $_GET['trb_support'] ) && 'sent' === sanitize_key( wp_unslash( $_
 <head><meta charset="<?php bloginfo( 'charset' ); ?>" /><meta name="viewport" content="width=device-width, initial-scale=1" /><?php wp_head(); ?></head>
 <body <?php body_class( 'trb-artist-public-shell' ); ?>><?php wp_body_open(); ?>
 <main class="trb-support-page">
-<header class="trb-portal-topbar"><div class="trb-portal-topbar__inner"><a class="trb-portal-topbar__brand" href="<?php echo esc_url( home_url( '/area-artisti/' ) ); ?>" aria-label="Torna all'Area Artisti TRB rec"><img src="https://faq.trbrec.com/wp-content/uploads/2023/08/Vector-TRB-rec-White.png" alt="TRB rec" width="186" height="62" /></a><div class="trb-portal-topbar__actions"><a class="trb-portal-topbar__back" href="<?php echo esc_url( home_url( '/area-artisti/' ) ); ?>">← Area Artisti</a></div></div></header>
+<header class="trb-portal-topbar"><div class="trb-portal-topbar__inner"><a class="trb-portal-topbar__brand" href="<?php echo esc_url( home_url( '/area-artisti/' ) ); ?>" aria-label="Torna all'Area Artisti TRB rec"><img src="<?php echo esc_url( trb_portal_logo_url() ); ?>" alt="TRB rec" width="186" height="62" /></a><div class="trb-portal-topbar__actions"><a class="trb-portal-topbar__back" href="<?php echo esc_url( home_url( '/area-artisti/' ) ); ?>">← Area Artisti</a></div></div></header>
 <section class="trb-support">
 <p class="trb-support__eyebrow">AREA ARTISTI · ASSISTENZA</p><h1>Apri una segnalazione</h1>
 <p class="trb-support__lead">Invia una richiesta di supporto oppure chiedi una call di 30 minuti. La Direzione TRB rec riceverà la segnalazione all’indirizzo <strong>info@trbrec.com</strong>.</p>
