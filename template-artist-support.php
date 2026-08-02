@@ -49,7 +49,7 @@ $artist_name = $logged_in ? trb_portal_artist_profile_value( 'artist_name', $use
 				<label class="trb-support__field-wide"><span class="trb-support__label-text">E-mail <b aria-hidden="true">*</b></span><input type="email" name="trb_support_email" value="<?php echo esc_attr( $email ); ?>" <?php echo $logged_in ? 'readonly' : ''; ?> autocomplete="email" required /></label>
 			</div>
 			<label><span class="trb-support__label-text">Tipo di richiesta <b aria-hidden="true">*</b></span>
-				<select name="trb_support_type" required><option value="supporto">Richiesta di supporto via e-mail</option><option value="dati">Modifica dati anagrafici o contatti</option><option value="problema">Problema tecnico del portale</option></select>
+				<select name="trb_support_type" required><option value="supporto">Richiesta di supporto via e-mail</option><option value="dati">Modifica dati anagrafici o contatti</option><option value="problema">Problema tecnico del portale</option><option value="altro">Altro</option></select>
 			</label>
 			<label><span class="trb-support__label-text">Oggetto <b aria-hidden="true">*</b></span><input type="text" name="trb_support_subject" maxlength="160" placeholder="Descrivi brevemente il motivo della richiesta" required /></label>
 			<label><span class="trb-support__label-text">Messaggio <b aria-hidden="true">*</b></span><textarea name="trb_support_message" rows="7" placeholder="Spiega con precisione cosa è successo o di quale assistenza hai bisogno." required></textarea></label>
