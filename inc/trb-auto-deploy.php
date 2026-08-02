@@ -48,48 +48,23 @@ function trb_docy_store_deploy_status( $state, $message, $sha = '' ) {
 	);
 }
 
-/** Check GitHub main and delegate the actual installation to Deployer for Git. */
-function trb_docy_run_auto_deploy() {
+/** Deploy one already verified commit through Deployer for Git. */
+function trb_docy_deploy_verified_sha( $sha ) {
 	if ( get_transient( 'trb_docy_auto_deploy_lock' ) ) {
-		return;
+		return new WP_Error( 'trb_deploy_locked', 'Un altro deploy è già in corso.', array( 'status' => 409 ) );
 	}
 	set_transient( 'trb_docy_auto_deploy_lock', 1, 4 * MINUTE_IN_SECONDS );
-
-	$github = wp_remote_get(
-		TRB_DOCY_REPOSITORY_API,
-		array(
-			'timeout' => 20,
-			'headers' => array(
-				'Accept'     => 'application/vnd.github+json',
-				'User-Agent' => 'TRB-rec-WordPress-Auto-Deploy',
-			),
-		)
-	);
-
-	if ( is_wp_error( $github ) || 200 !== wp_remote_retrieve_response_code( $github ) ) {
-		trb_docy_store_deploy_status( 'error', 'Impossibile controllare il repository GitHub.' );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return;
-	}
-
-	$data = json_decode( wp_remote_retrieve_body( $github ), true );
-	$sha  = isset( $data['sha'] ) ? sanitize_text_field( $data['sha'] ) : '';
-	if ( ! preg_match( '/^[a-f0-9]{40}$/', $sha ) ) {
-		trb_docy_store_deploy_status( 'error', 'GitHub non ha restituito un commit valido.' );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return;
-	}
 
 	if ( hash_equals( (string) get_option( TRB_DOCY_DEPLOYED_SHA_OPTION, '' ), $sha ) ) {
 		trb_docy_store_deploy_status( 'current', 'Il tema è già aggiornato.', $sha );
 		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return;
+		return array( 'success' => true, 'state' => 'current', 'sha' => $sha );
 	}
 
 	if ( ! class_exists( '\\DeployerForGit\\ApiRequests\\PackageUpdate' ) ) {
 		trb_docy_store_deploy_status( 'error', 'Deployer for Git non è attivo.', $sha );
 		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return;
+		return new WP_Error( 'trb_deployer_missing', 'Deployer for Git non è attivo.', array( 'status' => 503 ) );
 	}
 
 	$request = new WP_REST_Request( 'POST', '/dfg/v1/package_update/' );
@@ -103,7 +78,7 @@ function trb_docy_run_auto_deploy() {
 		$message = isset( $payload['message'] ) ? $payload['message'] : 'Deploy non riuscito.';
 		trb_docy_store_deploy_status( 'error', $message, $sha );
 		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return;
+		return new WP_Error( 'trb_deploy_failed', $message, array( 'status' => 500 ) );
 	}
 
 	update_option( TRB_DOCY_DEPLOYED_SHA_OPTION, $sha, false );
@@ -113,8 +88,78 @@ function trb_docy_run_auto_deploy() {
 	}
 	trb_docy_store_deploy_status( 'success', 'Tema aggiornato automaticamente.', $sha );
 	delete_transient( 'trb_docy_auto_deploy_lock' );
+	return array( 'success' => true, 'state' => 'deployed', 'sha' => $sha );
+}
+
+/** Read and validate the current GitHub main SHA. */
+function trb_docy_get_github_main_sha() {
+
+	$github = wp_remote_get(
+		TRB_DOCY_REPOSITORY_API,
+		array(
+			'timeout' => 20,
+			'headers' => array(
+				'Accept'     => 'application/vnd.github+json',
+				'User-Agent' => 'TRB-rec-WordPress-Auto-Deploy',
+			),
+		)
+	);
+
+	if ( is_wp_error( $github ) || 200 !== wp_remote_retrieve_response_code( $github ) ) {
+		return new WP_Error( 'trb_github_unavailable', 'Impossibile controllare il repository GitHub.', array( 'status' => 503 ) );
+	}
+
+	$data = json_decode( wp_remote_retrieve_body( $github ), true );
+	$sha  = isset( $data['sha'] ) ? sanitize_text_field( $data['sha'] ) : '';
+	if ( ! preg_match( '/^[a-f0-9]{40}$/', $sha ) ) {
+		return new WP_Error( 'trb_github_invalid_sha', 'GitHub non ha restituito un commit valido.', array( 'status' => 503 ) );
+	}
+	return $sha;
+}
+
+/** Temporary fallback checker, removed after the push endpoint is verified. */
+function trb_docy_run_auto_deploy() {
+	$sha = trb_docy_get_github_main_sha();
+	if ( is_wp_error( $sha ) ) {
+		trb_docy_store_deploy_status( 'error', $sha->get_error_message() );
+		return;
+	}
+	trb_docy_deploy_verified_sha( $sha );
 }
 add_action( 'trb_docy_auto_deploy', 'trb_docy_run_auto_deploy' );
+
+/** Accept push notifications only for the exact current commit on official main. */
+function trb_docy_receive_push_deploy( WP_REST_Request $request ) {
+	$requested_sha = sanitize_text_field( (string) $request->get_param( 'sha' ) );
+	if ( ! preg_match( '/^[a-f0-9]{40}$/', $requested_sha ) ) {
+		return new WP_Error( 'trb_invalid_sha', 'SHA non valido.', array( 'status' => 400 ) );
+	}
+
+	$current_sha = trb_docy_get_github_main_sha();
+	if ( is_wp_error( $current_sha ) ) {
+		return $current_sha;
+	}
+	if ( ! hash_equals( $current_sha, $requested_sha ) ) {
+		return new WP_Error( 'trb_sha_mismatch', 'Il commit richiesto non coincide con GitHub main.', array( 'status' => 409 ) );
+	}
+
+	$result = trb_docy_deploy_verified_sha( $requested_sha );
+	return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
+}
+
+function trb_docy_register_push_deploy_route() {
+	register_rest_route(
+		'trb/v1',
+		'/deploy',
+		array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => 'trb_docy_receive_push_deploy',
+			'permission_callback' => '__return_true',
+			'args'                => array( 'sha' => array( 'required' => true, 'type' => 'string' ) ),
+		)
+	);
+}
+add_action( 'rest_api_init', 'trb_docy_register_push_deploy_route' );
 
 /** Schedule a one-time cleanup of every standard plugin that is not active. */
 function trb_docy_schedule_inactive_plugin_cleanup() {
