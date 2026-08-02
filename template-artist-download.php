@@ -13,7 +13,7 @@ while ( have_posts() ) :
 	?>
 	<header class="trb-portal-topbar">
 		<div class="trb-portal-topbar__inner">
-			<a class="trb-portal-topbar__brand" href="<?php echo esc_url( home_url( '/area-artisti/' ) ); ?>" aria-label="Torna all'Area Artisti TRB rec"><img src="https://faq.trbrec.com/wp-content/uploads/2023/08/Vector-TRB-rec-White.png" alt="TRB rec" width="186" height="62" /></a>
+			<a class="trb-portal-topbar__brand" href="<?php echo esc_url( home_url( '/area-artisti/' ) ); ?>" aria-label="Torna all'Area Artisti TRB rec"><img src="<?php echo esc_url( trb_portal_logo_url() ); ?>" alt="TRB rec" width="186" height="62" /></a>
 			<div class="trb-portal-topbar__actions"><a class="trb-portal-topbar__support" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Apri una segnalazione</a><a class="trb-portal-topbar__back" href="<?php echo esc_url( home_url( '/area-artisti/#download' ) ); ?>">← Torna alla Library</a></div>
 		</div>
 	</header>
