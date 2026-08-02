@@ -338,7 +338,28 @@ function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 			return false;
 		}
 	}
-	return '' !== (string) get_user_meta( $user_id, '_trb_artist_bio', true );
+	if ( '' === trim( (string) get_user_meta( $user_id, '_trb_artist_bio', true ) ) ) {
+		return false;
+	}
+
+	$required_documents = array(
+		'Carta d’identità — fronte',
+		'Carta d’identità — retro',
+		'Codice fiscale o tessera sanitaria — fronte',
+		'Codice fiscale o tessera sanitaria — retro',
+	);
+	$received_documents = array();
+	$has_photo          = false;
+	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
+		if ( isset( $file['group'] ) && 'photo' === $file['group'] ) {
+			$has_photo = true;
+		}
+		if ( ! empty( $file['label'] ) ) {
+			$received_documents[] = $file['label'];
+		}
+	}
+
+	return $has_photo && empty( array_diff( $required_documents, $received_documents ) );
 }
 
 function trb_portal_handle_artist_profile() {
@@ -536,7 +557,7 @@ function trb_portal_start_release() {
 	$original_date = isset( $_POST['trb_release_original_date'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_original_date'] ) ) : '';
 	$tracks = isset( $_POST['trb_tracks'] ) && is_array( $_POST['trb_tracks'] ) ? (array) wp_unslash( $_POST['trb_tracks'] ) : array();
 	$tracks = trb_portal_sanitize_release_tracks( $tracks );
-	if ( ( ! $is_catalogue && '' === $title ) || ! isset( $types[ $type ] ) || empty( $tracks ) || count( $tracks ) < $types[ $type ]['min'] || ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) || ( 'previously_released' === $release_state && '' === $original_date ) || count( $tracks ) > $types[ $type ]['max'] ) {
+	if ( ( ! $is_catalogue && '' === $title ) || ! isset( $types[ $type ] ) || empty( $tracks ) || count( $tracks ) < $types[ $type ]['min'] || ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) || ( 'previously_released' === $release_state && '' === $original_date ) || ( $is_catalogue && 'previously_released' !== $release_state ) || count( $tracks ) > $types[ $type ]['max'] ) {
 		wp_safe_redirect( add_query_arg( 'trb_release', 'invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
 		exit;
 	}
@@ -573,22 +594,32 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 	$clean = array();
 	foreach ( $tracks as $track ) {
 		$title = isset( $track['title'] ) ? sanitize_text_field( $track['title'] ) : '';
-		if ( '' === $title ) {
+		$credits = isset( $track['credits'] ) && is_array( $track['credits'] ) ? $track['credits'] : array();
+		$duration = isset( $track['duration'] ) ? sanitize_text_field( $track['duration'] ) : '';
+		$primary  = isset( $track['primary_genre'] ) && in_array( $track['primary_genre'], $genres, true ) ? $track['primary_genre'] : '';
+		$authors  = isset( $credits['authors'] ) ? sanitize_textarea_field( $credits['authors'] ) : '';
+		$composers = isset( $credits['composers'] ) ? sanitize_textarea_field( $credits['composers'] ) : '';
+		$performers = isset( $credits['performers'] ) ? sanitize_textarea_field( $credits['performers'] ) : '';
+		$producers = isset( $credits['producers'] ) ? sanitize_textarea_field( $credits['producers'] ) : '';
+		if ( '' === $title || ! preg_match( '/^[0-9]{1,2}:[0-5][0-9]$/', $duration ) || '' === $primary || '' === $authors || '' === $composers || '' === $performers || '' === $producers ) {
 			continue;
 		}
-		$credits = isset( $track['credits'] ) && is_array( $track['credits'] ) ? $track['credits'] : array();
+		$secondary = isset( $track['secondary_genre'] ) && in_array( $track['secondary_genre'], $genres, true ) ? $track['secondary_genre'] : '';
+		if ( $secondary === $primary ) {
+			$secondary = '';
+		}
 		$clean[] = array(
 			'title' => $title,
 			'featuring' => isset( $track['featuring'] ) ? sanitize_text_field( $track['featuring'] ) : '',
-			'duration' => isset( $track['duration'] ) ? sanitize_text_field( $track['duration'] ) : '',
+			'duration' => $duration,
 			'advisory' => isset( $track['advisory'] ) && in_array( $track['advisory'], array( 'none', 'clean', 'explicit' ), true ) ? $track['advisory'] : 'none',
-			'primary_genre' => isset( $track['primary_genre'] ) && in_array( $track['primary_genre'], $genres, true ) ? $track['primary_genre'] : '',
-			'secondary_genre' => isset( $track['secondary_genre'] ) && in_array( $track['secondary_genre'], $genres, true ) ? $track['secondary_genre'] : '',
+			'primary_genre' => $primary,
+			'secondary_genre' => $secondary,
 			'credits' => array(
-				'authors' => isset( $credits['authors'] ) ? sanitize_textarea_field( $credits['authors'] ) : '',
-				'composers' => isset( $credits['composers'] ) ? sanitize_textarea_field( $credits['composers'] ) : '',
-				'performers' => isset( $credits['performers'] ) ? sanitize_textarea_field( $credits['performers'] ) : '',
-				'producers' => isset( $credits['producers'] ) ? sanitize_textarea_field( $credits['producers'] ) : '',
+				'authors' => $authors,
+				'composers' => $composers,
+				'performers' => $performers,
+				'producers' => $producers,
 				'musicians' => isset( $credits['musicians'] ) ? sanitize_textarea_field( $credits['musicians'] ) : '',
 			),
 		);
