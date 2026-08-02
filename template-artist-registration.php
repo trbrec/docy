@@ -16,6 +16,11 @@
 <?php
 $login_url = home_url( '/accedi/' );
 $register_form = do_shortcode( '[wppb-register]' );
+$register_form = preg_replace(
+	'/<input([^>]+name="(?:username|first_name|last_name|email|passw1|passw2)"[^>]*)>/i',
+	'<input$1 required aria-required="true">',
+	$register_form
+);
 $register_form = preg_replace( '#</form>\s*$#', trb_portal_registration_captcha_markup() . '</form>', $register_form, 1 );
 ?>
 <main class="trb-registration-page">
