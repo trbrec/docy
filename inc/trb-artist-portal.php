@@ -83,6 +83,11 @@ function trb_portal_profile_affiliation( $profile = null ) {
 	return 'trb' === $profile ? 'TRB rec - Music Publishing' : 'Digital Distribution Bundle';
 }
 
+/** Keep brand assets portable when the canonical host changes. */
+function trb_portal_logo_url() {
+	return content_url( '/uploads/2023/08/Vector-TRB-rec-White.png' );
+}
+
 function trb_portal_allowed_profiles() {
 	return array_keys( trb_portal_profiles() );
 }
@@ -1439,7 +1444,7 @@ function trb_portal_redirect_retired_elementor_routes() {
 	);
 
 	if ( isset( $routes[ $path ] ) ) {
-		wp_safe_redirect( home_url( $routes[ $path ] ), 302 );
+		wp_safe_redirect( home_url( $routes[ $path ] ), 301 );
 		exit;
 	}
 }
