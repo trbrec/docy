@@ -650,50 +650,61 @@ function trb_portal_register_guide_type() {
 add_action( 'init', 'trb_portal_register_guide_type', 6 );
 
 function trb_portal_seed_guides() {
-	return array(
-		'nuova-release' => array(
-			'title' => 'Come avviare e completare una nuova release',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
-			'excerpt' => 'La sequenza corretta per singoli, EP e album: una pratica per ogni pubblicazione.',
-			'content' => '<p>Ogni pubblicazione ha una pratica distinta. Non inviare file, brief o dati di release diverse nella stessa richiesta.</p><ol><li><strong>Compila i dati contrattuali di distribuzione.</strong> È il primo passaggio obbligatorio.</li><li><strong>Invia il materiale audio.</strong> DDS consegna il master pronto; gli altri profili il pre-master quando è prevista la lavorazione audio.</li><li><strong>Gestisci la copertina.</strong> Carica l’asset definitivo oppure, quando previsto, completa il brief grafico.</li><li><strong>Completa i dati editoriali e promozionali.</strong> Titolo, autori, featuring, testi e informazioni utili alla release.</li><li><strong>Attendi la verifica TRB.</strong> Solo una pratica completa può essere programmata.</li></ol><p>La valutazione demo è facoltativa e separata dalla pratica di pubblicazione.</p>',
+	$profiles = array(
+		'dds' => array(
+			'label' => 'DDS',
+			'audio' => '<p>Per la distribuzione devi consegnare il <strong>master definitivo</strong> in WAV o AIFF stereo a <strong>48.000 Hz / 24 bit</strong>. Il file deve essere già approvato e pronto per la pubblicazione.</p><ul><li>Non inviare MP3, M4A, audio WhatsApp o file estratti da piattaforme streaming.</li><li>Non normalizzare o convertire nuovamente il master dopo l’approvazione.</li><li>Esporta dall’inizio corretto e controlla che intro, dissolvenze e code non siano tagliate.</li><li>Per pubblicazioni con più brani usa lo stesso standard tecnico per ogni traccia.</li></ul>',
+			'cover' => '<p>Devi caricare la <strong>copertina definitiva già realizzata</strong>, collegandola alla pratica della release.</p><ul><li>Formato quadrato RGB, 3.000 × 3.000 px, 300 DPI.</li><li>Niente immagini sfocate, bordi involontari, URL, loghi di store o contenuti non autorizzati.</li><li>Nome d’arte e titolo devono coincidere esattamente con i metadati inseriti.</li></ul><p>Controlla attentamente il file prima dell’invio: una copertina non conforme blocca la programmazione.</p>',
+			'platforms' => '<p>Il tuo percorso comprende la distribuzione sulle piattaforme digitali previste. Inserisci link corretti ai profili artista già esistenti per evitare la creazione di pagine duplicate.</p><p>La consegna dei materiali non costituisce candidatura editoriale alle playlist ufficiali. Puoi comunque curare autonomamente Spotify for Artists e gli strumenti messi a disposizione dalle piattaforme.</p>',
+			'promo' => '<p>Prepara una biografia aggiornata, fotografie ad alta qualità e link social corretti. Questi elementi permettono di identificare il progetto e accompagnare correttamente la pubblicazione.</p><p>Le eventuali opportunità nel network interno dipendono dall’idoneità della release e non costituiscono un risultato garantito.</p>',
 		),
-		'formati-audio' => array(
-			'title' => 'Quale formato audio devo consegnare?',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
-			'excerpt' => 'Requisiti aggiornati per master e pre-master destinati alla distribuzione.',
-			'content' => '<p>Consegna file <strong>WAV o AIFF stereo a 48.000 Hz / 24 bit</strong>. È il formato di riferimento per pre-master e master destinati alla distribuzione sulle attuali piattaforme ad alta qualità.</p><ul><li>Non inviare MP3, M4A, file WhatsApp, screen recording o conversioni da streaming.</li><li>Non applicare normalizzazione, limiter aggiuntivi o conversioni dopo il master approvato.</li><li>Esporta il brano dall’inizio esatto, senza silenzi accidentali o code tagliate.</li><li>Per EP e album usa la stessa frequenza di campionamento e profondità bit su tutte le tracce.</li></ul><p>Quando il contratto include la lavorazione audio, consegna il <strong>pre-master</strong> nel medesimo formato e senza un master bus eccessivamente limitato.</p>',
+		'ddb' => array(
+			'label' => 'DDB',
+			'audio' => '<p>Quando richiedi la lavorazione inclusa, consegna il <strong>pre-master WAV o AIFF stereo a 48.000 Hz / 24 bit</strong>, privo di limiter aggressivi e con margine dinamico sufficiente.</p><ul><li>Non inviare MP3, conversioni o audio provenienti da applicazioni di messaggistica.</li><li>Evita clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Dopo l’approvazione utilizza esclusivamente il master definitivo ricevuto.</li></ul>',
+			'cover' => '<p>La copertina grafica non è compresa nel tuo percorso: devi caricare l’asset definitivo nella pratica della release.</p><ul><li>RGB, 3.000 × 3.000 px, 300 DPI.</li><li>Titolo e nome d’arte identici ai metadati.</li><li>Nessun URL, logo di piattaforma, bordo involontario o immagine non autorizzata.</li></ul><p>Se acquisti separatamente una realizzazione grafica, le indicazioni verranno gestite nella relativa richiesta.</p>',
+			'platforms' => '<p>Il tuo percorso comprende l’ottimizzazione del profilo e la strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci i link esatti ai profili artista e segnala eventuali omonimie.</li><li>Descrivi storia, contesto, pubblico ed elementi distintivi del brano.</li><li>Consegna tutto con sufficiente anticipo rispetto alla data programmata.</li></ul><p>Il pitching è una candidatura editoriale: non garantisce playlist, copertura o risultati specifici.</p>',
+			'promo' => '<p>Collega alla release biografia, fotografie, storia del brano, testi, link e materiali richiesti per le attività editoriali e promozionali comprese.</p><p>Campagne, opportunità di booking e ulteriori attività dipendono dalle condizioni previste e dalla valutazione del progetto o della singola pubblicazione.</p>',
 		),
-		'tempistiche-release' => array(
-			'title' => 'Quanto tempo serve per pubblicare una release?',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
-			'excerpt' => 'Tempi corretti per lavorazione, verifica e distribuzione.',
-			'content' => '<p>Per fissare una data di uscita servono normalmente <strong>tre settimane dalla consegna completa</strong> del master e di tutti i materiali richiesti. La data non può essere confermata quando la pratica è incompleta.</p><ul><li>Il mastering, quando previsto, richiede normalmente <strong>2–3 giorni tecnici</strong>.</li><li>Ad agosto/Ferragosto e nel periodo di fine anno la finestra di distribuzione è di <strong>quattro settimane</strong>.</li><li>Correzioni tardive a audio, copertina, metadati, featuring o testi possono spostare la programmazione.</li></ul>',
+		'ddb_trb' => array(
+			'label' => 'DDB-TRB',
+			'audio' => '<p>Consegna il <strong>pre-master WAV o AIFF stereo a 48.000 Hz / 24 bit</strong> per la lavorazione prevista dal tuo percorso.</p><ul><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Non inviare MP3, conversioni o file provenienti da applicazioni di messaggistica.</li><li>Dopo l’approvazione non modificare né riconvertire il master definitivo.</li></ul>',
+			'cover' => '<p>La realizzazione della copertina è compresa: nella pratica della release devi compilare il <strong>brief grafico</strong>, non caricare una richiesta scollegata.</p><ul><li>Spiega concept, atmosfera e messaggio del progetto.</li><li>Allega riferimenti visivi pertinenti e indica gli elementi da evitare.</li><li>Verifica titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>Le proposte vengono preparate sulla base delle informazioni definitive fornite.</p>',
+			'platforms' => '<p>Il tuo percorso comprende ottimizzazione del profilo e strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci link esatti e segnala eventuali profili duplicati.</li><li>Descrivi storia, contesto, pubblico e punti distintivi della release.</li><li>Consegna i materiali prima della finestra utile al pitching.</li></ul><p>La candidatura non costituisce garanzia di playlist o risultati specifici.</p>',
+			'promo' => '<p>Prepara biografia, fotografie, storia del brano, testi e materiali editoriali completi. Le attività avanzate di comunicazione, radio e ufficio stampa vengono organizzate secondo idoneità e condizioni della singola release.</p><p>Il percorso accompagna lo sviluppo fino all’inserimento previsto nel roster; ogni pubblicazione deve comunque rispettare la procedura e le verifiche indicate.</p>',
 		),
-		'metadati-e-diritti' => array(
-			'title' => 'Metadati, autori, featuring e titolarità: cosa verificare',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
-			'excerpt' => 'I dati inviati per la distribuzione devono essere completi, coerenti e verificati.',
-			'content' => '<p>Prima dell’invio verifica che titolo, nome d’arte, autori, featuring e titolari dei diritti siano corretti e definitivi.</p><ul><li>Indica tutti gli autori e gli aventi diritto coinvolti.</li><li>Un featuring deve essere concordato e scritto esattamente come verrà pubblicato.</li><li>Per sample, beat, basi o contenuti di terzi servono i diritti necessari prima della consegna.</li><li>Non modificare titolo, artista principale o crediti dopo l’avvio senza comunicarlo.</li></ul>',
-		),
-		'copertine' => array(
-			'title' => 'Copertina: requisiti tecnici e brief grafico',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
-			'excerpt' => 'Come preparare l’asset già pronto o il brief per la grafica inclusa.',
-			'content' => '<p>La copertina deve essere quadrata, in <strong>RGB, 3.000 × 3.000 px, 300 DPI</strong>, senza elementi sfocati, bordi involontari o loghi di piattaforme. Titolo e nome d’arte devono coincidere con i metadati della release.</p><p>Per <strong>DDS e DDB</strong> viene richiesto l’upload della copertina definitiva conforme. Per <strong>DDB‑TRB e TRB</strong> viene richiesto il brief grafico collegato alla release: concept, riferimenti, atmosfera, testi e vincoli utili.</p>',
-		),
-		'spotify-apple' => array(
-			'title' => 'Spotify e Apple Music: profili e pitching editoriale',
-			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
-			'excerpt' => 'Informazioni necessarie per ottimizzazione e pitching editoriale.',
-			'content' => '<p>DDB, DDB‑TRB e TRB includono l’ottimizzazione del profilo e la strategia di pitching editoriale su Spotify e Apple Music.</p><ul><li>Invia link corretti a profili artista, social e catalogo.</li><li>Spiega in modo concreto storia del brano, contesto, pubblico ed elementi distintivi.</li><li>Consegna i materiali in tempo: il pitching richiede una data programmata con anticipo sufficiente.</li></ul><p>Il pitching è una candidatura editoriale, non una promessa di inserimento in playlist o risultati specifici.</p>',
-		),
-		'knowledge-hub-avanzata' => array(
-			'title' => 'Knowledge Hub avanzata: guide ed e-book',
-			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
-			'excerpt' => 'Approfondimenti riservati ai percorsi DDB, DDB‑TRB e TRB.',
-			'content' => '<p>La Knowledge Hub avanzata raccoglie guide, e-book, checklist e template su lancio, immagine, promozione, organizzazione del progetto e presenza digitale. È riservata ai profili DDB, DDB‑TRB e TRB.</p><p>Questi materiali non sostituiscono i passaggi obbligatori della release: servono a prepararsi meglio e a lavorare in modo più autonomo.</p>',
+		'trb' => array(
+			'label' => 'TRB',
+			'audio' => '<p>Per la lavorazione prevista dal tuo percorso consegna il <strong>pre-master WAV o AIFF stereo a 48.000 Hz / 24 bit</strong>.</p><ul><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Non inviare MP3, conversioni o file provenienti da applicazioni di messaggistica.</li><li>Utilizza esclusivamente il master definitivo approvato per la distribuzione.</li></ul>',
+			'cover' => '<p>La realizzazione della copertina è compresa nel tuo percorso. Compila il <strong>brief grafico dentro la pratica della release</strong>.</p><ul><li>Descrivi concept, atmosfera, riferimenti e messaggio artistico.</li><li>Indica chiaramente gli elementi obbligatori e quelli da evitare.</li><li>Conferma titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>La grafica deve rappresentare coerentemente l’identità del progetto nel roster.</p>',
+			'platforms' => '<p>Il tuo percorso comprende ottimizzazione del profilo e strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci link esatti ai profili e segnala omonimie o duplicazioni.</li><li>Descrivi in modo concreto storia, contesto e posizionamento della release.</li><li>Completa i materiali prima della finestra utile alla candidatura.</li></ul><p>Il pitching non garantisce inserimenti editoriali o risultati specifici.</p>',
+			'promo' => '<p>Come artista del roster, collega alla pratica biografia, fotografie, storia del brano, testi, crediti e materiali completi. Promozione avanzata, comunicazione, radio e ufficio stampa vengono pianificati in relazione alla singola release.</p><p>Le opportunità restano soggette a valutazione artistica, editoriale e strategica: non inviare richieste promozionali scollegate dalla pubblicazione.</p>',
 		),
 	);
+
+	$guides = array();
+	foreach ( $profiles as $profile => $copy ) {
+		$prefix = $profile . '-';
+		$guides[ $prefix . 'nuova-release' ] = array(
+			'title' => 'Come avviare e completare una nuova release', 'profiles' => array( $profile ),
+			'excerpt' => 'La sequenza corretta prevista dal tuo percorso ' . $copy['label'] . '.',
+			'content' => '<p>Ogni pubblicazione deve avere una pratica distinta. Non mescolare dati, audio o materiali appartenenti a release diverse.</p><ol><li><strong>Aggiorna il profilo artista.</strong> I dati devono essere completi e verificabili.</li><li><strong>Apri la pratica.</strong> Scegli la tipologia e inserisci metadati e brani.</li><li><strong>Completa audio e copertina.</strong> Segui esclusivamente le istruzioni mostrate nel tuo percorso.</li><li><strong>Inserisci crediti e materiali editoriali.</strong> Ogni informazione deve essere definitiva.</li><li><strong>Attendi la verifica.</strong> La data viene programmata solo quando la pratica è completa.</li></ol><p>La valutazione demo rimane facoltativa, sempre disponibile e separata dalla pubblicazione.</p>',
+		);
+		$guides[ $prefix . 'audio' ] = array( 'title' => 'File audio: formato e consegna', 'profiles' => array( $profile ), 'excerpt' => 'Lo standard audio e il file richiesto per il tuo percorso.', 'content' => $copy['audio'] );
+		$guides[ $prefix . 'copertina' ] = array( 'title' => 'Copertina: preparazione e consegna', 'profiles' => array( $profile ), 'excerpt' => 'Come gestire correttamente la copertina della tua release.', 'content' => $copy['cover'] );
+		$guides[ $prefix . 'metadati' ] = array(
+			'title' => 'Metadati, crediti e diritti: controlli obbligatori', 'profiles' => array( $profile ),
+			'excerpt' => 'Titoli, featuring, autori, compositori e titolarità senza errori.',
+			'content' => '<p>Prima dell’invio verifica che titolo, nome d’arte, versione, featuring e crediti siano corretti e definitivi.</p><ul><li>Indica tutti gli autori, compositori, interpreti, produttori e musicisti coinvolti.</li><li>Scrivi il featuring esattamente come deve comparire sulle piattaforme.</li><li>Per sample, beat, basi e contenuti di terzi devi possedere autorizzazioni e diritti necessari.</li><li>Segnala se la release è già stata pubblicata e inserisci la data originale.</li><li>Non cambiare metadati dopo l’avvio senza aprire una segnalazione.</li></ul>',
+		);
+		$guides[ $prefix . 'tempistiche' ] = array(
+			'title' => 'Tempistiche e programmazione della pubblicazione', 'profiles' => array( $profile ),
+			'excerpt' => 'Quando può essere confermata la data della release.',
+			'content' => '<p>Servono normalmente <strong>tre settimane dalla consegna completa</strong> del master approvato e di tutti i materiali richiesti. Una pratica incompleta non consente di confermare la data.</p><ul><li>Le eventuali lavorazioni audio richiedono normalmente 2–3 giorni tecnici.</li><li>Ad agosto, Ferragosto e nel periodo di fine anno considera almeno quattro settimane.</li><li>Correzioni tardive a audio, copertina, metadati, testi o featuring possono spostare la programmazione.</li></ul>',
+		);
+		$guides[ $prefix . 'piattaforme' ] = array( 'title' => 'Piattaforme, profili artista e pitching', 'profiles' => array( $profile ), 'excerpt' => 'Cosa è previsto per distribuzione e profili digitali.', 'content' => $copy['platforms'] );
+		$guides[ $prefix . 'promozione' ] = array( 'title' => 'Materiali promozionali e supporto alla release', 'profiles' => array( $profile ), 'excerpt' => 'Come preparare i materiali previsti dal tuo percorso.', 'content' => $copy['promo'] );
+	}
+	return $guides;
 }
 
 function trb_portal_maybe_seed_guides() {
@@ -739,11 +750,12 @@ add_action( 'init', 'trb_portal_index_canonical_guides', 37 );
  * their key and refreshed in place.
  */
 function trb_portal_sync_canonical_guides() {
-	if ( get_option( 'trb_portal_guides_synced_v4' ) ) {
+	if ( get_option( 'trb_portal_guides_synced_v6' ) ) {
 		return;
 	}
 
-	foreach ( trb_portal_seed_guides() as $key => $guide ) {
+	$canonical = trb_portal_seed_guides();
+	foreach ( $canonical as $key => $guide ) {
 		$existing = get_posts( array(
 			'post_type'   => 'trb_guide',
 			'post_status' => 'publish',
@@ -767,10 +779,29 @@ function trb_portal_sync_canonical_guides() {
 		if ( ! is_wp_error( $guide_id ) ) {
 			update_post_meta( $guide_id, '_trb_guide_key', $key );
 			update_post_meta( $guide_id, '_trb_portal_profiles', $guide['profiles'] );
+			$topic = preg_replace( '/^(dds|ddb|ddb_trb|trb)-/', '', $key );
+			$terms = array(
+				'nuova-release' => 'nuova release pubblicazione contratto distribuzione iniziare singolo ep album compilation collection catalogo pratica',
+				'audio' => 'formato audio file master premaster pre master wav aiff 48 khz 48000 24 bit lossless mastering stem',
+				'copertina' => 'copertina cover grafica 3000 rgb dpi brief immagine artwork',
+				'metadati' => 'metadati autori compositori interpreti musicisti produttori featuring diritti sample beat titolarita',
+				'tempistiche' => 'tempi tempistiche data uscita pubblicare settimane agosto ferragosto fine anno programmazione',
+				'piattaforme' => 'spotify apple music profilo artista pitching editoriale playlist distribuzione store',
+				'promozione' => 'promozione biografia foto comunicazione radio ufficio stampa materiali supporto',
+			);
+			update_post_meta( $guide_id, '_trb_portal_search_terms', isset( $terms[ $topic ] ) ? $terms[ $topic ] : '' );
 		}
 	}
 
-	update_option( 'trb_portal_guides_synced_v4', time(), false );
+	$legacy = get_posts( array( 'post_type' => 'trb_guide', 'post_status' => 'publish', 'numberposts' => -1, 'meta_key' => '_trb_guide_key' ) );
+	foreach ( $legacy as $post ) {
+		$key = (string) get_post_meta( $post->ID, '_trb_guide_key', true );
+		if ( ! isset( $canonical[ $key ] ) ) {
+			wp_trash_post( $post->ID );
+		}
+	}
+
+	update_option( 'trb_portal_guides_synced_v6', time(), false );
 }
 add_action( 'init', 'trb_portal_sync_canonical_guides', 38 );
 
@@ -911,7 +942,7 @@ function trb_portal_render_video_library( $profile ) {
 	);
 	?>
 	<section id="video" class="trb-portal__section">
-		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2>Video e formazione</h2><p>Le lezioni selezionate per il tuo profilo, direttamente dalla precedente videoteca TRB.</p></div>
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2>Video e formazione</h2><p>Lezioni e approfondimenti selezionati per il tuo percorso artistico.</p></div>
 		<?php if ( empty( $videos ) ) : ?>
 			<div class="trb-portal__empty"><p>La videoteca essenziale per il tuo profilo è in preparazione.</p></div>
 		<?php else : ?>
@@ -989,7 +1020,8 @@ function trb_portal_dashboard_shortcode() {
 			<a href="#release">Le tue release</a>
 			<a href="#demo">Valuta un demo</a>
 			<a href="#risposte">Risposte rapide</a>
-			<a href="#documenti">Procedure</a>
+			<a href="#download">Guide ed e-book</a>
+			<a href="#video">Video</a>
 		</nav>
 
 		<section class="trb-portal__search-panel" aria-labelledby="trb-portal-search-title">
@@ -1018,9 +1050,8 @@ function trb_portal_dashboard_shortcode() {
 		<?php trb_portal_render_release_section(); ?>
 
 		<?php if ( ! trb_portal_current_search() ) : ?><?php trb_portal_render_resource_section( 'risposte', 'Risposte rapide', 'Le guide essenziali per preparare una release senza passaggi inutili.', $resources['trb_guide'] ); ?><?php endif; ?>
-		<?php trb_portal_render_resource_section( 'documenti', 'Documenti e procedure', 'Le indicazioni aggiornate per gestire ogni fase della collaborazione.', $resources['docs'] ); ?>
+		<?php trb_portal_render_resource_section( 'download', 'Guide ed e-book', 'Manuali e approfondimenti scaricabili selezionati per il tuo percorso.', $resources['wpdmpro'] ); ?>
 		<?php trb_portal_render_video_library( $profile ); ?>
-		<?php trb_portal_render_resource_section( 'download', 'Library e download', 'Manuali, e-book e materiali da conservare.', $resources['wpdmpro'] ); ?>
 
 	</div>
 	<?php
@@ -1233,7 +1264,7 @@ function trb_portal_get_resources( $profile ) {
 /** Search the entire authorised Knowledge Hub, not only the short FAQ cards. */
 function trb_portal_get_search_results( $profile, $search ) {
 	$results = array();
-	foreach ( trb_portal_supported_resource_types() as $post_type ) {
+	foreach ( array( 'trb_guide', 'wpdmpro' ) as $post_type ) {
 		$query = new WP_Query( array(
 			'post_type'      => $post_type,
 			'post_status'    => 'publish',
@@ -1300,7 +1331,7 @@ function trb_portal_render_search_results( $posts, $query ) {
 		<?php else : ?>
 			<div class="trb-portal__search-result-list">
 			<?php foreach ( $posts as $post ) : ?>
-				<?php if ( in_array( $post->post_type, array( 'trb_guide', 'docs' ), true ) ) : ?>
+				<?php if ( 'trb_guide' === $post->post_type ) : ?>
 					<details><summary><strong><?php echo esc_html( get_the_title( $post ) ); ?></strong><span><?php echo esc_html( $post->post_excerpt ); ?></span></summary><div><?php echo apply_filters( 'the_content', $post->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div></details>
 				<?php else : ?>
 					<a class="trb-portal__search-resource" href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener"><strong><?php echo esc_html( get_the_title( $post ) ); ?></strong><span><?php echo esc_html( $post->post_excerpt ); ?></span><em>Apri contenuto ↗</em></a>
@@ -1319,7 +1350,7 @@ function trb_portal_current_search() {
 function trb_portal_enqueue_assets() {
 	$post = get_post();
 	wp_enqueue_style( 'trb-inter-font', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap', array(), null );
-	wp_add_inline_style( 'trb-inter-font', 'body,button,input,select,textarea{font-family:\"Inter\",-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif!important}' );
+	wp_add_inline_style( 'trb-inter-font', 'body,button,input,select,textarea{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif!important}' );
 	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) ) || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
 		$style_path    = get_template_directory() . '/assets/css/trb-artist-portal.css';
 		$style_version = file_exists( $style_path ) ? (string) filemtime( $style_path ) : DOCY_VERSION;
