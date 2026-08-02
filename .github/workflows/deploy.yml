@@ -1,6 +1,6 @@
 name: Deploy Docy theme
 
-# Production deployment is triggered by every merged main revision. Revision: profile-knowledge-hub.
+# Production deployment is triggered by every merged main revision. Revision: expanded-profile-guides.
 
 on:
   push:
