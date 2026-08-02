@@ -1424,6 +1424,8 @@ function trb_portal_filter_eazydocs_assistant( $html ) {
 	if ( ! is_page( 'registrati' ) ) {
 		$html = preg_replace( "#<link[^>]+id=['\"]wppb_stylesheet-css['\"][^>]*>\s*#i", '', $html );
 	}
+	$html = preg_replace( "#<style[^>]+id=['\"]global-styles-inline-css['\"][^>]*>.*?</style>\s*#is", '', $html );
+	$html = preg_replace( '#<script>\s*const abmsg = .*?</script>\s*<div id="fb-root"></div>\s*#is', '', $html );
 	return $html;
 }
 
@@ -1449,6 +1451,18 @@ function trb_portal_send_security_headers() {
 	}
 }
 add_action( 'template_redirect', 'trb_portal_send_security_headers', 998 );
+
+/** Remove the emoji runtime from the bespoke screens; native emoji remain usable. */
+function trb_portal_remove_emoji_assets() {
+	if ( ! is_front_page() && ! trb_portal_is_private_screen() ) {
+		return;
+	}
+	remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
+	remove_action( 'wp_print_styles', 'print_emoji_styles' );
+	remove_action( 'admin_print_scripts', 'print_emoji_detection_script' );
+	remove_action( 'admin_print_styles', 'print_emoji_styles' );
+}
+add_action( 'template_redirect', 'trb_portal_remove_emoji_assets', -1000 );
 
 // This private portal does not expose a remote publishing API. Keeping XML-RPC
 // disabled removes an unnecessary authentication attack surface.
