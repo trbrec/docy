@@ -1402,7 +1402,7 @@ function trb_portal_redirect_retired_elementor_routes() {
 		'/strumenti-e-utilita-trb'       => '/area-artisti/#download',
 		'/strumenti-e-utilita-trb-basic' => '/area-artisti/#download',
 		'/multi-documentations'          => '/area-artisti/#documenti',
-		'/contact'                       => '/',
+		'/contact'                       => '/segnalazione/',
 		'/login'                         => '/accedi/',
 	);
 
