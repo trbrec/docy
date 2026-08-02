@@ -739,7 +739,7 @@ add_action( 'init', 'trb_portal_index_canonical_guides', 37 );
  * their key and refreshed in place.
  */
 function trb_portal_sync_canonical_guides() {
-	if ( get_option( 'trb_portal_guides_synced_v3' ) ) {
+	if ( get_option( 'trb_portal_guides_synced_v4' ) ) {
 		return;
 	}
 
@@ -770,7 +770,7 @@ function trb_portal_sync_canonical_guides() {
 		}
 	}
 
-	update_option( 'trb_portal_guides_synced_v3', time(), false );
+	update_option( 'trb_portal_guides_synced_v4', time(), false );
 }
 add_action( 'init', 'trb_portal_sync_canonical_guides', 38 );
 
@@ -809,7 +809,7 @@ function trb_portal_eazydocs_manuals() {
 }
 
 function trb_portal_sync_eazydocs_manuals() {
-	if ( ! post_type_exists( 'docs' ) || get_option( 'trb_portal_eazydocs_manuals_v1' ) ) {
+	if ( ! post_type_exists( 'docs' ) || get_option( 'trb_portal_eazydocs_manuals_v2' ) ) {
 		return;
 	}
 	foreach ( trb_portal_eazydocs_manuals() as $key => $manual ) {
@@ -828,7 +828,7 @@ function trb_portal_sync_eazydocs_manuals() {
 			update_post_meta( $doc_id, '_trb_portal_profiles', $manual['profiles'] );
 		}
 	}
-	update_option( 'trb_portal_eazydocs_manuals_v1', time(), false );
+	update_option( 'trb_portal_eazydocs_manuals_v2', time(), false );
 }
 add_action( 'init', 'trb_portal_sync_eazydocs_manuals', 39 );
 
