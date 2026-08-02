@@ -9,10 +9,16 @@
  * @package docy
  */
 
-get_header();
-
 $portal_page_url = get_permalink();
-?>
+?><!doctype html>
+<html <?php language_attributes(); ?>>
+<head>
+	<meta charset="<?php bloginfo( 'charset' ); ?>" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<?php wp_head(); ?>
+</head>
+<body <?php body_class( 'trb-artist-portal-shell' ); ?>>
+<?php wp_body_open(); ?>
 <header class="trb-portal-topbar">
 	<div class="trb-portal-topbar__inner">
 		<a class="trb-portal-topbar__brand" href="<?php echo esc_url( $portal_page_url ); ?>" aria-label="Area Artisti TRB rec">
@@ -37,5 +43,8 @@ while ( have_posts() ) :
 	</main>
 	<?php
 endwhile;
-
-get_footer();
+?>
+<footer class="trb-public-footer"><span>&copy; 2008-<?php echo esc_html( wp_date( 'Y' ) ); ?> TRB rec di Andrea Tognassi - Music Publishing</span><span>Tutti i diritti riservati.</span></footer>
+<?php wp_footer(); ?>
+</body>
+</html>
