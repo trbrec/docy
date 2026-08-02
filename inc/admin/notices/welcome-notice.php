@@ -365,8 +365,6 @@ function docy_check_required_plugins_status() {
 
 	// Fallback: Check for core required plugins manually.
 	$required_plugins = array(
-		'elementor/elementor.php',
-		'docy-core/docy-core.php',
 		'eazydocs/eazydocs.php',
 	);
 
