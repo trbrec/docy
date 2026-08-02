@@ -82,6 +82,26 @@ function trb_docy_deploy_verified_sha( $sha ) {
 		return new WP_Error( 'trb_deploy_failed', $message, array( 'status' => 500 ) );
 	}
 
+	// Deployer for Git can report success before its GitHub archive cache has
+	// caught up with main. Verify a commit-specific source file before marking
+	// the workflow green, so GitHub Actions retries instead of accepting a
+	// stale theme as deployed.
+	$remote_marker = wp_remote_get(
+		'https://raw.githubusercontent.com/trbrec/docy/' . rawurlencode( $sha ) . '/inc/trb-artist-portal.php',
+		array( 'timeout' => 30, 'headers' => array( 'User-Agent' => 'TRB-rec-WordPress-Auto-Deploy' ) )
+	);
+	$local_marker = trailingslashit( get_template_directory() ) . 'inc/trb-artist-portal.php';
+	$verified = ! is_wp_error( $remote_marker )
+		&& 200 === wp_remote_retrieve_response_code( $remote_marker )
+		&& is_file( $local_marker )
+		&& hash_equals( hash( 'sha256', wp_remote_retrieve_body( $remote_marker ) ), hash_file( 'sha256', $local_marker ) );
+	if ( ! $verified ) {
+		$message = 'Deployer ha restituito successo, ma i file locali non corrispondono ancora al commit richiesto.';
+		trb_docy_store_deploy_status( 'error', $message, $sha );
+		delete_transient( 'trb_docy_auto_deploy_lock' );
+		return new WP_Error( 'trb_deploy_stale', $message, array( 'status' => 503 ) );
+	}
+
 	update_option( TRB_DOCY_DEPLOYED_SHA_OPTION, $sha, false );
 	wp_cache_flush();
 	if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
