@@ -833,9 +833,9 @@ function trb_portal_sync_eazydocs_manuals() {
 add_action( 'init', 'trb_portal_sync_eazydocs_manuals', 39 );
 
 /**
- * Bring the six surviving legacy download packages into the new library once.
- * Their old category audiences are deliberately consolidated: TRB Basic is
- * included in TRB and the two e-books remain premium material.
+ * Bring the surviving legacy download packages into the one Library once.
+ * The two Social Network Tips are deliberately separate documents: one is
+ * for DDB/DDB-TRB and the other is a TRB-only advanced guide.
  */
 function trb_portal_migrate_known_download_audiences() {
 	if ( get_option( 'trb_portal_download_audience_migrated_v2' ) ) {
@@ -843,10 +843,10 @@ function trb_portal_migrate_known_download_audiences() {
 	}
 
 	$packages = array(
-		11829 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Guida: biografia artistica.
+		11829 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Biografia artistica.
 		11201 => array( 'ddb', 'ddb_trb', 'trb' ), // E-book: missaggio.
 		11119 => array( 'ddb', 'ddb_trb', 'trb' ), // E-book: brano contemporaneo.
-		11118 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Guida: Spotify e streaming.
+		11118 => array( 'dds', 'ddb', 'ddb_trb', 'trb' ), // Spotify e streaming.
 		11117 => array( 'ddb', 'ddb_trb' ), // Social Network Tips: DDB / DDB-TRB.
 		11116 => array( 'trb' ), // Social Network Tips: TRB.
 	);
@@ -864,7 +864,7 @@ function trb_portal_migrate_known_download_audiences() {
 		),
 		11116 => array(
 			'post_title'   => '[GUIDA] SOCIAL NETWORK TIPS · TRB',
-			'post_excerpt' => 'Approfondimento per il progetto TRB: identità, pianificazione editoriale e presenza social.',
+			'post_excerpt' => 'Approfondimento dedicato al progetto TRB per identità, pianificazione editoriale e presenza social.',
 		),
 	);
 	foreach ( $revisions as $package_id => $revision ) {
@@ -1230,7 +1230,6 @@ function trb_portal_get_resources( $profile ) {
 	return $resources;
 }
 
-
 /** Search the entire authorised Knowledge Hub, not only the short FAQ cards. */
 function trb_portal_get_search_results( $profile, $search ) {
 	$results = array();
@@ -1300,13 +1299,13 @@ function trb_portal_render_search_results( $posts, $query ) {
 			<p class="trb-portal__search-empty">Non ho ancora una guida abbastanza precisa per questa ricerca. Prova una parola chiave più diretta oppure consulta le procedure qui sotto.</p>
 		<?php else : ?>
 			<div class="trb-portal__search-result-list">
-				<?php foreach ( $posts as $post ) : ?>
-					<?php if ( in_array( $post->post_type, array( 'trb_guide', 'docs' ), true ) ) : ?>
-						<details><summary><strong><?php echo esc_html( get_the_title( $post ) ); ?></strong><span><?php echo esc_html( $post->post_excerpt ); ?></span></summary><div><?php echo apply_filters( 'the_content', $post->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div></details>
-					<?php else : ?>
-						<a class="trb-portal__search-resource" href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener"><strong><?php echo esc_html( get_the_title( $post ) ); ?></strong><span><?php echo esc_html( $post->post_excerpt ); ?></span><em>Apri contenuto ↗</em></a>
-					<?php endif; ?>
-				<?php endforeach; ?>
+			<?php foreach ( $posts as $post ) : ?>
+				<?php if ( in_array( $post->post_type, array( 'trb_guide', 'docs' ), true ) ) : ?>
+					<details><summary><strong><?php echo esc_html( get_the_title( $post ) ); ?></strong><span><?php echo esc_html( $post->post_excerpt ); ?></span></summary><div><?php echo apply_filters( 'the_content', $post->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div></details>
+				<?php else : ?>
+					<a class="trb-portal__search-resource" href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener"><strong><?php echo esc_html( get_the_title( $post ) ); ?></strong><span><?php echo esc_html( $post->post_excerpt ); ?></span><em>Apri contenuto ↗</em></a>
+				<?php endif; ?>
+			<?php endforeach; ?>
 			</div>
 		<?php endif; ?>
 	</div>
@@ -1334,6 +1333,26 @@ function trb_portal_enqueue_assets() {
 	}
 }
 add_action( 'wp_enqueue_scripts', 'trb_portal_enqueue_assets', 30 );
+
+/** Remove theme and plugin bundles that the bespoke portal screens do not use. */
+function trb_portal_dequeue_unused_custom_screen_assets() {
+	$post = get_post();
+	$is_portal_screen = is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) ) || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) );
+	if ( ! $is_portal_screen ) {
+		return;
+	}
+
+	$styles = array( 'wpdm-gutenberg-blocks-frontend', 'wpdm-fonticon', 'wpdm-front', 'wpdm-front-dark', 'wpdm-modal', 'eazydocs-subscription', 'bootstrap', 'elegant-icon', 'font-awesome-6', 'animate', 'docy-essential', 'docy-main', 'docy-root', 'docy-responsive', 'eazydocs-assistant' );
+	$scripts = array( 'wpdm-modal', 'wpdm-frontend-js', 'wpdm-frontjs', 'eazydocs-assistant', 'eazydocs-subscription', 'bootstrap', 'wow', 'imagesloaded', 'masonry', 'docy-main', 'docy-ajax-search-form' );
+
+	foreach ( $styles as $handle ) {
+		wp_dequeue_style( $handle );
+	}
+	foreach ( $scripts as $handle ) {
+		wp_dequeue_script( $handle );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'trb_portal_dequeue_unused_custom_screen_assets', PHP_INT_MAX );
 
 /**
  * Retire the legacy plugins that have been replaced by the Artist Portal.
@@ -1410,6 +1429,10 @@ function trb_portal_send_security_headers() {
 	header( 'X-Frame-Options: SAMEORIGIN' );
 	header( 'Referrer-Policy: strict-origin-when-cross-origin' );
 	header( 'Permissions-Policy: camera=(), geolocation=(), microphone=()' );
+	header( 'X-Permitted-Cross-Domain-Policies: none' );
+	if ( is_ssl() ) {
+		header( 'Strict-Transport-Security: max-age=31536000; includeSubDomains' );
+	}
 }
 add_action( 'template_redirect', 'trb_portal_send_security_headers', 998 );
 
@@ -1462,7 +1485,7 @@ function trb_portal_force_password_template( $template ) {
 }
 add_filter( 'template_include', 'trb_portal_force_password_template', 93 );
 
-/** Render a dedicated artist-only support page without a legacy builder route. */
+/** Render a dedicated artist-only support page without relying on a legacy page builder route. */
 function trb_portal_force_support_template( $template ) {
 	if ( is_page( 'segnalazione' ) ) {
 		$support_template = locate_template( 'template-artist-support.php' );
@@ -1493,10 +1516,13 @@ function trb_portal_render_public_support_early() {
 }
 add_action( 'template_redirect', 'trb_portal_render_public_support_early', -999 );
 
-/** Create the support endpoint once, independently from Elementor. */
+/** Create the support endpoint once, so it remains available independently from Elementor. */
 function trb_portal_maybe_create_support_page() {
-	if ( get_option( 'trb_portal_support_page_created' ) || ! current_user_can( 'manage_options' ) ) return;
-	if ( ! get_page_by_path( 'segnalazione' ) ) {
+	if ( get_option( 'trb_portal_support_page_created' ) || ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	$page = get_page_by_path( 'segnalazione' );
+	if ( ! $page ) {
 		$page_id = wp_insert_post( array( 'post_title' => 'Apri una segnalazione', 'post_name' => 'segnalazione', 'post_status' => 'publish', 'post_type' => 'page' ) );
 		if ( is_wp_error( $page_id ) ) return;
 	}
@@ -1504,21 +1530,21 @@ function trb_portal_maybe_create_support_page() {
 }
 add_action( 'admin_init', 'trb_portal_maybe_create_support_page' );
 
-/** Store every request and notify the TRB mailbox. */
+/** Store every support request in WordPress and notify the TRB mailbox. */
 function trb_portal_submit_support_request() {
 	check_admin_referer( 'trb_portal_submit_support', 'trb_support_nonce' );
-	$user = wp_get_current_user();
+	$user    = wp_get_current_user();
 	$logged_in = is_user_logged_in();
-	$name = $logged_in ? trim( $user->first_name . ' ' . $user->last_name ) : ( isset( $_POST['trb_support_name'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_name'] ) ) : '' );
-	$email = $logged_in ? $user->user_email : ( isset( $_POST['trb_support_email'] ) ? sanitize_email( wp_unslash( $_POST['trb_support_email'] ) ) : '' );
+	$name    = $logged_in ? trim( $user->first_name . ' ' . $user->last_name ) : ( isset( $_POST['trb_support_name'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_name'] ) ) : '' );
+	$email   = $logged_in ? $user->user_email : ( isset( $_POST['trb_support_email'] ) ? sanitize_email( wp_unslash( $_POST['trb_support_email'] ) ) : '' );
 	$artist_name = isset( $_POST['trb_support_artist_name'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_artist_name'] ) ) : '';
-	$type = isset( $_POST['trb_support_type'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_type'] ) ) : 'supporto';
+	$type    = isset( $_POST['trb_support_type'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_type'] ) ) : 'supporto';
 	$subject = isset( $_POST['trb_support_subject'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_subject'] ) ) : '';
 	$message = isset( $_POST['trb_support_message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['trb_support_message'] ) ) : '';
 	$website = isset( $_POST['trb_support_website'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_support_website'] ) ) ) : '';
 	$started = isset( $_POST['trb_support_started'] ) ? absint( $_POST['trb_support_started'] ) : 0;
-	$labels = array( 'supporto' => 'Supporto via e-mail', 'call' => 'Richiesta call di 30 minuti', 'dati' => 'Modifica dati anagrafici o contatti', 'problema' => 'Problema tecnico del portale' );
-	$type = isset( $labels[ $type ] ) ? $type : 'supporto';
+	$labels  = array( 'supporto' => 'Supporto via e-mail', 'call' => 'Richiesta call di 30 minuti', 'dati' => 'Modifica dati anagrafici o contatti', 'problema' => 'Problema tecnico del portale' );
+	$type    = isset( $labels[ $type ] ) ? $type : 'supporto';
 	if ( '' !== $website || ! $started || time() - $started < 3 || '' === $name || '' === $artist_name || ! is_email( $email ) || '' === $subject || '' === $message ) {
 		wp_safe_redirect( add_query_arg( 'trb_support', 'invalid', home_url( '/segnalazione/' ) ) );
 		exit;
@@ -1533,7 +1559,6 @@ function trb_portal_submit_support_request() {
 add_action( 'admin_post_trb_portal_submit_support', 'trb_portal_submit_support_request' );
 add_action( 'admin_post_nopriv_trb_portal_submit_support', 'trb_portal_submit_support_request' );
 
-
 /**
  * Retire the former Profile Builder entry page. It exposes a public
  * registration form that conflicts with the approval-only Artist Portal.
@@ -1546,17 +1571,6 @@ function trb_portal_redirect_legacy_account_page() {
 	}
 }
 add_action( 'template_redirect', 'trb_portal_redirect_legacy_account_page', 2 );
-
-/** Catch the removed account endpoint before a legacy plugin renders its 404. */
-function trb_portal_early_account_route_redirect() {
-	if ( is_admin() || 'GET' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) ) return;
-	$path = untrailingslashit( (string) wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/', PHP_URL_PATH ) );
-	if ( '/my-account' === $path ) {
-		wp_safe_redirect( home_url( '/accedi/' ), 302 );
-		exit;
-	}
-}
-add_action( 'wp_loaded', 'trb_portal_early_account_route_redirect', 1 );
 
 /**
  * Keep every retired Elementor route useful after its page has been removed.
@@ -1571,25 +1585,35 @@ function trb_portal_redirect_retired_elementor_routes() {
 	$path = wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/', PHP_URL_PATH );
 	$path = untrailingslashit( (string) $path );
 	$routes = array(
-		'/homepage-ddb'                  => '/area-artisti/',
-		'/homepage-ddb-trb'              => '/area-artisti/',
-		'/home-page-dds'                 => '/area-artisti/',
-		'/homepage-trb'                  => '/area-artisti/',
-		'/home-page-trb-basic'           => '/area-artisti/',
-		'/video-corsi-ddb'               => '/area-artisti/#video',
-		'/video-corsi-ddb-trb'           => '/area-artisti/#video',
-		'/video-corsi-dds'               => '/area-artisti/#video',
-		'/video-corsi-trb'               => '/area-artisti/#video',
-		'/video-corsi-trb-basic'         => '/area-artisti/#video',
-		'/strumenti-e-utilita-ddb'       => '/area-artisti/#download',
-		'/strumenti-e-utilita-ddb-trb'   => '/area-artisti/#download',
-		'/strumenti-e-utilita-dds'       => '/area-artisti/#download',
-		'/strumenti-e-utilita-trb'       => '/area-artisti/#download',
+		'/homepage-ddb'                 => '/area-artisti/',
+		'/home-page-ddb'                => '/area-artisti/',
+		'/homepage-ddb-trb'             => '/area-artisti/',
+		'/home-page-ddb-trb'            => '/area-artisti/',
+		'/home-page-dds'                => '/area-artisti/',
+		'/homepage-dds'                 => '/area-artisti/',
+		'/homepage-trb'                 => '/area-artisti/',
+		'/home-page-trb'                => '/area-artisti/',
+		'/home-page-trb-basic'          => '/area-artisti/',
+		'/video-corsi-ddb'              => '/area-artisti/#video',
+		'/video-corsi-ddb-trb'          => '/area-artisti/#video',
+		'/video-corsi-dds'              => '/area-artisti/#video',
+		'/video-corsi-trb'              => '/area-artisti/#video',
+		'/video-corsi-trb-basic'        => '/area-artisti/#video',
+		'/strumenti-e-utilita-ddb'      => '/area-artisti/#download',
+		'/strumenti-e-utilita-ddb-trb'  => '/area-artisti/#download',
+		'/strumenti-e-utilita-dds'      => '/area-artisti/#download',
+		'/strumenti-e-utilita-trb'      => '/area-artisti/#download',
 		'/strumenti-e-utilita-trb-basic' => '/area-artisti/#download',
-		'/multi-documentations'          => '/area-artisti/#documenti',
-		'/contact'                       => '/segnalazione/',
-		'/my-account'                    => '/accedi/',
-		'/login'                         => '/accedi/',
+		'/multi-documentations'         => '/area-artisti/#documenti',
+		'/domande-e-risposte'           => '/area-artisti/#risposte-rapide',
+		'/video-corsi'                  => '/area-artisti/#video',
+		'/strumenti-e-utilita'          => '/area-artisti/#download',
+		'/forums'                       => '/area-artisti/',
+		'/mio-account'                  => '/accedi/',
+		'/password-dimenticata'         => '/recupera-password/',
+		'/area-artisti-2'               => '/area-artisti/',
+		'/contact'                      => '/segnalazione/',
+		'/login'                        => '/accedi/',
 	);
 
 	if ( isset( $routes[ $path ] ) ) {
@@ -1778,12 +1802,12 @@ function trb_portal_cleanup_pending_accounts() {
 	$cutoff = time() - ( 30 * DAY_IN_SECONDS );
 	$users  = get_users(
 		array(
-			'fields'       => array( 'ID', 'user_registered' ),
-			'meta_key'     => '_trb_portal_registration_source',
-			'meta_value'   => $cutoff,
+			'fields'     => array( 'ID', 'user_registered' ),
+			'meta_key'   => '_trb_portal_registration_source',
+			'meta_value' => $cutoff,
 			'meta_compare' => '<=',
-			'meta_type'    => 'NUMERIC',
-			'number'       => 100,
+			'meta_type'  => 'NUMERIC',
+			'number'     => 100,
 		)
 	);
 	foreach ( $users as $user ) {
