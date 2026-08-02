@@ -1581,7 +1581,7 @@ function trb_portal_submit_support_request() {
 	$message = isset( $_POST['trb_support_message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['trb_support_message'] ) ) : '';
 	$website = isset( $_POST['trb_support_website'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_support_website'] ) ) ) : '';
 	$started = isset( $_POST['trb_support_started'] ) ? absint( $_POST['trb_support_started'] ) : 0;
-	$labels  = array( 'supporto' => 'Supporto via e-mail', 'dati' => 'Modifica dati anagrafici o contatti', 'problema' => 'Problema tecnico del portale' );
+	$labels  = array( 'supporto' => 'Supporto via e-mail', 'dati' => 'Modifica dati anagrafici o contatti', 'problema' => 'Problema tecnico del portale', 'altro' => 'Altra richiesta' );
 	$type    = isset( $labels[ $type ] ) ? $type : 'supporto';
 	if ( '' !== $website || ! $started || time() - $started < 3 || '' === $name || '' === $artist_name || ! is_email( $email ) || '' === $subject || '' === $message ) {
 		wp_safe_redirect( add_query_arg( 'trb_support', 'invalid', home_url( '/segnalazione/' ) ) );
