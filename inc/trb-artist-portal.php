@@ -887,17 +887,17 @@ function trb_portal_legacy_video_catalogue() {
 		array(
 			'title'    => 'Come Musixmatch ha costruito un prodotto scalabile',
 			'youtube'  => '2Ppuzp_8CyQ',
-			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 		),
 		array(
 			'title'    => 'Come scrivere il testo di una canzone',
 			'youtube'  => 'lpj4wDenbvo',
-			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 		),
 		array(
 			'title'    => 'Scegliere il microfono: dinamico, condensatore e pattern',
 			'youtube'  => 'hXuSELCrHKQ',
-			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 		),
 	);
 }
@@ -934,12 +934,12 @@ function trb_portal_request_catalogue() {
 		),
 		'profile' => array(
 			'label'    => 'Aggiorna i profili artista',
-			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 			'copy'     => 'Segnala biografia, immagini, link e materiali da aggiornare su Spotify e Apple Music.',
 		),
 		'demo' => array(
 			'label'    => 'Invia un demo per valutazione',
-			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 			'copy'     => 'Richiedi una valutazione artistica e tecnica prima di avviare la release.',
 		),
 	);
