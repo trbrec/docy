@@ -111,3 +111,63 @@ function trb_docy_run_auto_deploy() {
 	delete_transient( 'trb_docy_auto_deploy_lock' );
 }
 add_action( 'trb_docy_auto_deploy', 'trb_docy_run_auto_deploy' );
+
+/** Schedule a one-time cleanup of every standard plugin that is not active. */
+function trb_docy_schedule_inactive_plugin_cleanup() {
+	if ( get_option( 'trb_docy_inactive_plugins_cleaned_v1' ) || wp_next_scheduled( 'trb_docy_cleanup_inactive_plugins' ) ) {
+		return;
+	}
+	wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'trb_docy_cleanup_inactive_plugins' );
+}
+add_action( 'init', 'trb_docy_schedule_inactive_plugin_cleanup', 31 );
+
+/** Delete inactive plugins and expose a short-lived audit report for verification. */
+function trb_docy_cleanup_inactive_plugins() {
+	require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+	$active = (array) get_option( 'active_plugins', array() );
+	if ( is_multisite() ) {
+		$active = array_unique( array_merge( $active, array_keys( (array) get_site_option( 'active_sitewide_plugins', array() ) ) ) );
+	}
+
+	$installed = get_plugins();
+	$inactive  = array_values( array_diff( array_keys( $installed ), $active ) );
+	$report    = array(
+		'time'    => wp_date( 'c' ),
+		'removed' => array(),
+		'errors'  => array(),
+	);
+
+	foreach ( $inactive as $plugin_file ) {
+		$name   = isset( $installed[ $plugin_file ]['Name'] ) ? $installed[ $plugin_file ]['Name'] : $plugin_file;
+		$result = delete_plugins( array( $plugin_file ) );
+		if ( is_wp_error( $result ) ) {
+			$report['errors'][] = array( 'file' => $plugin_file, 'name' => $name, 'message' => $result->get_error_message() );
+		} else {
+			$report['removed'][] = array( 'file' => $plugin_file, 'name' => $name );
+		}
+	}
+
+	update_option( 'trb_docy_inactive_plugins_cleaned_v1', $report, false );
+	$uploads = wp_upload_dir();
+	if ( empty( $uploads['error'] ) ) {
+		$directory = trailingslashit( $uploads['basedir'] ) . 'trb-audit';
+		if ( wp_mkdir_p( $directory ) ) {
+			$file = trailingslashit( $directory ) . 'plugin-cleanup-20260802.json';
+			file_put_contents( $file, wp_json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			wp_schedule_single_event( time() + DAY_IN_SECONDS, 'trb_docy_remove_plugin_cleanup_report', array( $file ) );
+		}
+	}
+}
+add_action( 'trb_docy_cleanup_inactive_plugins', 'trb_docy_cleanup_inactive_plugins' );
+
+/** Remove only the generated cleanup report from the uploads directory. */
+function trb_docy_remove_plugin_cleanup_report( $file ) {
+	$uploads = wp_upload_dir();
+	$base    = realpath( $uploads['basedir'] );
+	$target  = realpath( $file );
+	if ( $base && $target && 0 === strpos( $target, $base . DIRECTORY_SEPARATOR ) && is_file( $target ) ) {
+		unlink( $target ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+	}
+}
+add_action( 'trb_docy_remove_plugin_cleanup_report', 'trb_docy_remove_plugin_cleanup_report' );
