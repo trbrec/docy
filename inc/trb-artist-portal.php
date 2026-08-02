@@ -1485,22 +1485,31 @@ add_action( 'admin_init', 'trb_portal_maybe_create_support_page' );
 
 /** Store every request and notify the TRB mailbox. */
 function trb_portal_submit_support_request() {
-	if ( ! is_user_logged_in() ) auth_redirect();
 	check_admin_referer( 'trb_portal_submit_support', 'trb_support_nonce' );
 	$user = wp_get_current_user();
+	$logged_in = is_user_logged_in();
+	$name = $logged_in ? trim( $user->first_name . ' ' . $user->last_name ) : ( isset( $_POST['trb_support_name'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_name'] ) ) : '' );
+	$email = $logged_in ? $user->user_email : ( isset( $_POST['trb_support_email'] ) ? sanitize_email( wp_unslash( $_POST['trb_support_email'] ) ) : '' );
 	$type = isset( $_POST['trb_support_type'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_type'] ) ) : 'supporto';
 	$subject = isset( $_POST['trb_support_subject'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_subject'] ) ) : '';
 	$message = isset( $_POST['trb_support_message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['trb_support_message'] ) ) : '';
+	$website = isset( $_POST['trb_support_website'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_support_website'] ) ) ) : '';
+	$started = isset( $_POST['trb_support_started'] ) ? absint( $_POST['trb_support_started'] ) : 0;
 	$labels = array( 'supporto' => 'Supporto via e-mail', 'call' => 'Richiesta call di 30 minuti', 'dati' => 'Modifica dati anagrafici o contatti', 'problema' => 'Problema tecnico del portale' );
 	$type = isset( $labels[ $type ] ) ? $type : 'supporto';
-	if ( '' === $subject || '' === $message ) { wp_safe_redirect( home_url( '/segnalazione/' ) ); exit; }
-	$body = "Tipo: {$labels[ $type ]}\nArtista: " . trim( $user->first_name . ' ' . $user->last_name ) . "\nE-mail: {$user->user_email}\nProfilo: " . trb_portal_user_profile( $user ) . "\n\n{$message}";
-	wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Supporto] ' . $subject, 'post_content' => $body, 'post_author' => $user->ID ) );
-	wp_mail( 'info@trbrec.com', '[Portale Artisti] ' . $labels[ $type ] . ' — ' . $subject, $body, array( 'Reply-To: ' . $user->user_email ) );
+	if ( '' !== $website || ! $started || time() - $started < 3 || '' === $name || ! is_email( $email ) || '' === $subject || '' === $message ) {
+		wp_safe_redirect( add_query_arg( 'trb_support', 'invalid', home_url( '/segnalazione/' ) ) );
+		exit;
+	}
+	$profile = $logged_in ? trb_portal_user_profile( $user ) : 'Utente non autenticato';
+	$body = "Tipo: {$labels[ $type ]}\nNome: {$name}\nE-mail: {$email}\nProfilo: {$profile}\n\n{$message}";
+	wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Supporto] ' . $subject, 'post_content' => $body, 'post_author' => $logged_in ? $user->ID : 0 ) );
+	wp_mail( 'info@trbrec.com', '[Portale Artisti] ' . $labels[ $type ] . ' — ' . $subject, $body, array( 'Reply-To: ' . $email ) );
 	wp_safe_redirect( add_query_arg( 'trb_support', 'sent', home_url( '/segnalazione/' ) ) );
 	exit;
 }
 add_action( 'admin_post_trb_portal_submit_support', 'trb_portal_submit_support_request' );
+add_action( 'admin_post_nopriv_trb_portal_submit_support', 'trb_portal_submit_support_request' );
 
 
 /**
