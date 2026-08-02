@@ -169,7 +169,6 @@ if ( ! function_exists( 'docy_forumax_core_version_check' ) ) {
 			}
 		}
 	}
-	add_action( 'admin_notices', 'docy_forumax_core_version_check' );
 }
 
 
