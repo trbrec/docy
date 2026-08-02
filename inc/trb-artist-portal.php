@@ -1318,6 +1318,8 @@ function trb_portal_current_search() {
 
 function trb_portal_enqueue_assets() {
 	$post = get_post();
+	wp_enqueue_style( 'trb-inter-font', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap', array(), null );
+	wp_add_inline_style( 'trb-inter-font', 'body,button,input,select,textarea{font-family:\"Inter\",-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif!important}' );
 	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) ) || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
 		$style_path    = get_template_directory() . '/assets/css/trb-artist-portal.css';
 		$style_version = file_exists( $style_path ) ? (string) filemtime( $style_path ) : DOCY_VERSION;
@@ -1579,7 +1581,7 @@ function trb_portal_submit_support_request() {
 	$message = isset( $_POST['trb_support_message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['trb_support_message'] ) ) : '';
 	$website = isset( $_POST['trb_support_website'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_support_website'] ) ) ) : '';
 	$started = isset( $_POST['trb_support_started'] ) ? absint( $_POST['trb_support_started'] ) : 0;
-	$labels  = array( 'supporto' => 'Supporto via e-mail', 'call' => 'Richiesta call di 30 minuti', 'dati' => 'Modifica dati anagrafici o contatti', 'problema' => 'Problema tecnico del portale' );
+	$labels  = array( 'supporto' => 'Supporto via e-mail', 'dati' => 'Modifica dati anagrafici o contatti', 'problema' => 'Problema tecnico del portale' );
 	$type    = isset( $labels[ $type ] ) ? $type : 'supporto';
 	if ( '' !== $website || ! $started || time() - $started < 3 || '' === $name || '' === $artist_name || ! is_email( $email ) || '' === $subject || '' === $message ) {
 		wp_safe_redirect( add_query_arg( 'trb_support', 'invalid', home_url( '/segnalazione/' ) ) );
