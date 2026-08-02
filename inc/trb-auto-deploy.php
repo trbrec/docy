@@ -161,6 +161,17 @@ function trb_docy_register_push_deploy_route() {
 }
 add_action( 'rest_api_init', 'trb_docy_register_push_deploy_route' );
 
+/** Exempt only the SHA-verified deploy endpoint from the portal-wide REST login gate. */
+function trb_docy_allow_push_deploy_authentication( $result ) {
+	$route  = isset( $GLOBALS['wp']->query_vars['rest_route'] ) ? untrailingslashit( (string) $GLOBALS['wp']->query_vars['rest_route'] ) : '';
+	$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
+	if ( '/trb/v1/deploy' === $route && 'POST' === $method ) {
+		return null;
+	}
+	return $result;
+}
+add_filter( 'rest_authentication_errors', 'trb_docy_allow_push_deploy_authentication', PHP_INT_MAX );
+
 /** Schedule a one-time cleanup of every standard plugin that is not active. */
 function trb_docy_schedule_inactive_plugin_cleanup() {
 	if ( get_option( 'trb_docy_inactive_plugins_cleaned_v1' ) || wp_next_scheduled( 'trb_docy_cleanup_inactive_plugins' ) ) {
