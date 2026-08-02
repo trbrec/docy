@@ -4,6 +4,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/** Automatic GitHub main deployment through the installed Deployer plugin. */
+require_once get_template_directory() . '/inc/trb-auto-deploy.php';
+
 /**
  * docy functions and definitions
  *
