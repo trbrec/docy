@@ -1645,6 +1645,7 @@ function trb_portal_redirect_retired_elementor_routes() {
 		'/video-corsi'                  => '/area-artisti/#video',
 		'/strumenti-e-utilita'          => '/area-artisti/#download',
 		'/forums'                       => '/area-artisti/',
+		'/my-account'                   => '/accedi/',
 		'/mio-account'                  => '/accedi/',
 		'/password-dimenticata'         => '/recupera-password/',
 		'/area-artisti-2'               => '/area-artisti/',
