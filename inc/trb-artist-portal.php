@@ -1413,7 +1413,9 @@ function trb_portal_filter_eazydocs_assistant( $html ) {
 	if ( false !== $start ) {
 		$end = strpos( $html, '<style type="text/css">', $start );
 		if ( false !== $end ) {
-			$html = substr( $html, 0, $start ) . substr( $html, $end );
+			$style_end = strpos( $html, '</style>', $end );
+			$resume    = false !== $style_end ? $style_end + strlen( '</style>' ) : $end;
+			$html      = substr( $html, 0, $start ) . substr( $html, $resume );
 		}
 	}
 
