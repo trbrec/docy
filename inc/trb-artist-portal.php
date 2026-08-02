@@ -1450,6 +1450,10 @@ function trb_portal_send_security_headers() {
 }
 add_action( 'template_redirect', 'trb_portal_send_security_headers', 998 );
 
+// This private portal does not expose a remote publishing API. Keeping XML-RPC
+// disabled removes an unnecessary authentication attack surface.
+add_filter( 'xmlrpc_enabled', '__return_false' );
+
 /** Keep the public artist entry pages independent from the legacy Docy shell. */
 function trb_portal_public_body_class( $classes ) {
 	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) ) ) {
