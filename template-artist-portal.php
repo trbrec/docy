@@ -20,7 +20,7 @@ $portal_page_url = get_permalink();
 		</a>
 		<?php if ( is_user_logged_in() ) : ?>
 			<div class="trb-portal-topbar__actions">
-				<a class="trb-portal-topbar__support" href="<?php echo esc_url( home_url( '/contact/' ) ); ?>">Apri una segnalazione</a>
+				<a class="trb-portal-topbar__support" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Apri una segnalazione</a>
 				<a href="<?php echo esc_url( home_url( '/my-account/' ) ); ?>">Account</a>
 				<a class="trb-portal-topbar__logout" href="<?php echo esc_url( wp_logout_url( $portal_page_url ) ); ?>">Esci</a>
 			</div>
