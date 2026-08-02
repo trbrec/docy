@@ -107,6 +107,10 @@ function trb_docy_run_auto_deploy() {
 	}
 
 	update_option( TRB_DOCY_DEPLOYED_SHA_OPTION, $sha, false );
+	wp_cache_flush();
+	if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
+		sg_cachepress_purge_cache();
+	}
 	trb_docy_store_deploy_status( 'success', 'Tema aggiornato automaticamente.', $sha );
 	delete_transient( 'trb_docy_auto_deploy_lock' );
 }
