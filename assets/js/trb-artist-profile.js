@@ -77,8 +77,83 @@
     });
   }
 
+  function initBirthplace() {
+    var input = document.querySelector('[data-trb-birthplace]');
+    if (!input || !window.trbArtistProfile) return;
+    var province = document.querySelector('[data-trb-birth-province]');
+    var list = document.getElementById('trb-birthplace-options');
+    var status = document.querySelector('[data-trb-birthplace-status]');
+    var places = [];
+    var timer;
+
+    function selectPlace() {
+      var value = input.value.toLocaleLowerCase('it');
+      var match = places.find(function (place) { return (place.city + ' (' + place.province + ')').toLocaleLowerCase('it') === value || place.city.toLocaleLowerCase('it') === value; });
+      if (match) input.value = match.city;
+      province.value = match ? match.province : '';
+      status.textContent = match ? 'Comune verificato nell’archivio italiano.' : 'Seleziona uno dei Comuni proposti.';
+      status.classList.toggle('is-error', !match && input.value.length > 1);
+    }
+
+    input.addEventListener('input', function () {
+      province.value = '';
+      clearTimeout(timer);
+      if (input.value.trim().length < 2) return;
+      timer = setTimeout(function () {
+        fetch(window.trbArtistProfile.municipalityEndpoint + '?search=' + encodeURIComponent(input.value.trim()), {
+          credentials: 'same-origin', headers: { 'X-WP-Nonce': window.trbArtistProfile.restNonce }
+        }).then(function (response) { return response.json(); }).then(function (data) {
+          places = data.places || [];
+          list.innerHTML = '';
+          places.forEach(function (place) {
+            var option = document.createElement('option');
+            option.value = place.city + ' (' + place.province + ')';
+            list.appendChild(option);
+          });
+          selectPlace();
+        });
+      }, 180);
+    });
+    input.addEventListener('change', selectPlace);
+  }
+
+  function initIdentityValidation() {
+    var phone = document.querySelector('input[name="trb_artist_phone"]');
+    var taxCode = document.querySelector('[data-trb-tax-code]');
+
+    if (phone) {
+      phone.addEventListener('input', function () {
+        var normalized = phone.value.replace(/[\s.\-()]/g, '').replace(/^0039/, '+39');
+        phone.setCustomValidity(/^(?:\+39)?3\d{9}$/.test(normalized) ? '' : 'Inserisci un cellulare italiano valido: 10 cifre con iniziale 3; +39 è facoltativo.');
+      });
+      phone.dispatchEvent(new Event('input'));
+    }
+
+    function validTaxCode(value) {
+      var code = value.toUpperCase().replace(/\s/g, '');
+      if (!/^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/.test(code)) return false;
+      var odd = {0:1,1:0,2:5,3:7,4:9,5:13,6:15,7:17,8:19,9:21,A:1,B:0,C:5,D:7,E:9,F:13,G:15,H:17,I:19,J:21,K:2,L:4,M:18,N:20,O:11,P:3,Q:6,R:8,S:12,T:14,U:16,V:10,W:22,X:25,Y:24,Z:23};
+      var sum = 0;
+      for (var index = 0; index < 15; index += 1) {
+        var character = code.charAt(index);
+        sum += index % 2 === 0 ? odd[character] : (/[0-9]/.test(character) ? Number(character) : character.charCodeAt(0) - 65);
+      }
+      return String.fromCharCode(65 + (sum % 26)) === code.charAt(15);
+    }
+
+    if (taxCode) {
+      taxCode.addEventListener('input', function () {
+        taxCode.value = taxCode.value.toUpperCase().replace(/\s/g, '').slice(0, 16);
+        taxCode.setCustomValidity(taxCode.value.length === 16 && validTaxCode(taxCode.value) ? '' : 'Controlla il codice fiscale: devono essere validi tutti i 16 caratteri, compresa la lettera finale.');
+      });
+      taxCode.dispatchEvent(new Event('input'));
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initAddress();
+    initBirthplace();
+    initIdentityValidation();
     initPlatforms();
   });
 }());
