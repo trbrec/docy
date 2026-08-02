@@ -684,6 +684,26 @@ function trb_portal_seed_guides() {
 	$guides = array();
 	foreach ( $profiles as $profile => $copy ) {
 		$prefix = $profile . '-';
+		$guides[ $prefix . 'profilo-artista' ] = array(
+			'title' => 'Profilo artista: dati, documenti e identità', 'profiles' => array( $profile ),
+			'excerpt' => 'Il primo passaggio obbligatorio prima di aprire una pratica.',
+			'content' => '<p>Completa il profilo prima della prima pubblicazione. Nome, cognome ed e-mail provengono dall’account; gli altri dati devono essere inseriti e verificati.</p><ul><li>Dati anagrafici, residenza, codice fiscale e cellulare abilitato alla ricezione SMS.</li><li>Carta d’identità fronte e retro.</li><li>Codice fiscale o tessera sanitaria fronte e retro.</li><li>Biografia artistica aggiornata e fino a sei fotografie ad alta qualità.</li><li>Dati aziendali solo quando pertinenti alla fatturazione.</li></ul><p>Per modificare nome, cognome o e-mail dell’account devi aprire una segnalazione.</p>',
+		);
+		$guides[ $prefix . 'tipologie-release' ] = array(
+			'title' => 'Quale tipologia di release devo scegliere?', 'profiles' => array( $profile ),
+			'excerpt' => 'Singolo, EP, album, compilation, collection e catalogo.',
+			'content' => '<p>Scegli la tipologia in base al numero effettivo di brani della pratica:</p><ul><li><strong>Singolo:</strong> 1 brano.</li><li><strong>EP:</strong> da 4 a 8 brani.</li><li><strong>Album:</strong> da 9 a 15 brani.</li><li><strong>Doppio album:</strong> da 16 a 30 brani.</li><li><strong>Compilation:</strong> da 16 a 24 brani.</li><li><strong>Collection:</strong> da 20 a 40 brani.</li><li><strong>Catalogo o repertorio musicale edito:</strong> fino a 60 brani.</li></ul><p>Non dividere artificialmente un progetto e non scegliere una categoria incompatibile con il numero delle tracce.</p>',
+		);
+		$guides[ $prefix . 'inedita-o-edita' ] = array(
+			'title' => 'Release inedita o già pubblicata: come indicarla', 'profiles' => array( $profile ),
+			'excerpt' => 'La differenza da dichiarare prima di inserire i brani.',
+			'content' => '<p>Se la release non è mai comparsa ufficialmente sulle piattaforme, seleziona <strong>inedita</strong>. Se è stata distribuita in precedenza, seleziona <strong>già pubblicata</strong> e indica la data di pubblicazione originale.</p><p>Una presenza precedente su store o servizi streaming non deve essere nascosta: serve per valutare correttamente metadati, codici e continuità del catalogo. Non considerare “inedita” una registrazione già pubblicata soltanto perché verrà caricata da un nuovo distributore.</p>',
+		);
+		$guides[ $prefix . 'firma-otp' ] = array(
+			'title' => 'Dati contrattuali, firma e codice OTP', 'profiles' => array( $profile ),
+			'excerpt' => 'Come vengono usati i dati inseriti nel profilo e nella pratica.',
+			'content' => '<p>I dati anagrafici del profilo e i metadati della release vengono utilizzati per predisporre la documentazione contrattuale. Controllali prima dell’invio: informazioni incomplete o incoerenti bloccano la pratica.</p><p>Il cellulare indicato deve poter ricevere SMS perché la firma digitale può richiedere un codice OTP personale. Non condividere il codice e non utilizzare il numero di una persona estranea al firmatario.</p>',
+		);
 		$guides[ $prefix . 'nuova-release' ] = array(
 			'title' => 'Come avviare e completare una nuova release', 'profiles' => array( $profile ),
 			'excerpt' => 'La sequenza corretta prevista dal tuo percorso ' . $copy['label'] . '.',
@@ -703,6 +723,11 @@ function trb_portal_seed_guides() {
 		);
 		$guides[ $prefix . 'piattaforme' ] = array( 'title' => 'Piattaforme, profili artista e pitching', 'profiles' => array( $profile ), 'excerpt' => 'Cosa è previsto per distribuzione e profili digitali.', 'content' => $copy['platforms'] );
 		$guides[ $prefix . 'promozione' ] = array( 'title' => 'Materiali promozionali e supporto alla release', 'profiles' => array( $profile ), 'excerpt' => 'Come preparare i materiali previsti dal tuo percorso.', 'content' => $copy['promo'] );
+		$guides[ $prefix . 'correzioni' ] = array(
+			'title' => 'Correzioni, sostituzioni e variazioni dopo l’invio', 'profiles' => array( $profile ),
+			'excerpt' => 'Cosa fare quando un dato o un file deve essere modificato.',
+			'content' => '<p>Non aprire una seconda pratica per correggere quella esistente. Apri una segnalazione indicando titolo della release, dato errato e correzione richiesta.</p><ul><li>Prima della consegna alle piattaforme, la modifica viene valutata nella pratica corrente.</li><li>Dopo la consegna, una sostituzione può richiedere nuovi tempi tecnici o lo spostamento della data.</li><li>Dopo la pubblicazione, modifiche sostanziali e rimozioni seguono procedure specifiche e non sono immediate.</li></ul><p>Non inviare autonomamente versioni alternative senza aver ricevuto indicazioni.</p>',
+		);
 	}
 	return $guides;
 }
@@ -750,7 +775,7 @@ add_action( 'init', 'trb_portal_index_canonical_guides', 37 );
  * their key and refreshed in place.
  */
 function trb_portal_sync_canonical_guides() {
-	if ( get_option( 'trb_portal_guides_synced_v6' ) ) {
+	if ( get_option( 'trb_portal_guides_synced_v7' ) ) {
 		return;
 	}
 
@@ -782,12 +807,17 @@ function trb_portal_sync_canonical_guides() {
 			$topic = preg_replace( '/^(dds|ddb|ddb_trb|trb)-/', '', $key );
 			$terms = array(
 				'nuova-release' => 'nuova release pubblicazione contratto distribuzione iniziare singolo ep album compilation collection catalogo pratica',
+				'profilo-artista' => 'profilo artista dati anagrafici documenti carta identita codice fiscale tessera sanitaria foto biografia cellulare',
+				'tipologie-release' => 'tipologia singolo ep album doppio album compilation collection catalogo repertorio numero brani',
+				'inedita-o-edita' => 'inedita edita gia pubblicata data originale redistribuzione catalogo precedente uscita',
+				'firma-otp' => 'contratto firma digitale otp sms cellulare dati contrattuali documentazione',
 				'audio' => 'formato audio file master premaster pre master wav aiff 48 khz 48000 24 bit lossless mastering stem',
 				'copertina' => 'copertina cover grafica 3000 rgb dpi brief immagine artwork',
 				'metadati' => 'metadati autori compositori interpreti musicisti produttori featuring diritti sample beat titolarita',
 				'tempistiche' => 'tempi tempistiche data uscita pubblicare settimane agosto ferragosto fine anno programmazione',
 				'piattaforme' => 'spotify apple music profilo artista pitching editoriale playlist distribuzione store',
 				'promozione' => 'promozione biografia foto comunicazione radio ufficio stampa materiali supporto',
+				'correzioni' => 'correzione modifica sostituzione variazione errore rimozione takedown data file metadati',
 			);
 			update_post_meta( $guide_id, '_trb_portal_search_terms', isset( $terms[ $topic ] ) ? $terms[ $topic ] : '' );
 		}
@@ -801,7 +831,7 @@ function trb_portal_sync_canonical_guides() {
 		}
 	}
 
-	update_option( 'trb_portal_guides_synced_v6', time(), false );
+	update_option( 'trb_portal_guides_synced_v7', time(), false );
 }
 add_action( 'init', 'trb_portal_sync_canonical_guides', 38 );
 
@@ -1233,7 +1263,7 @@ function trb_portal_get_resources( $profile ) {
 		$args = array(
 				'post_type'      => $post_type,
 				'post_status'    => 'publish',
-				'posts_per_page' => ( $search && 'trb_guide' === $post_type ) ? 100 : 7,
+				'posts_per_page' => ( $search && 'trb_guide' === $post_type ) ? 100 : ( 'trb_guide' === $post_type ? 20 : 7 ),
 				'meta_query'     => array(
 					array(
 						'key'     => '_trb_portal_profiles',
