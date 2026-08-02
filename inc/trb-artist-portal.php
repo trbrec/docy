@@ -1636,6 +1636,12 @@ add_action( 'init', 'trb_portal_validate_registration_captcha', 1 );
 
 /** Mark only accounts created by the new portal, leaving legacy artists untouched. */
 function trb_portal_mark_new_registration( $user_id ) {
+	$action = isset( $_POST['action'] ) ? sanitize_key( wp_unslash( $_POST['action'] ) ) : '';
+	$referer = wp_get_referer();
+	$referer_path = $referer ? untrailingslashit( (string) wp_parse_url( $referer, PHP_URL_PATH ) ) : '';
+	if ( 'register' !== $action || '/registrati' !== $referer_path ) {
+		return;
+	}
 	update_user_meta( $user_id, '_trb_portal_registration_source', time() );
 }
 add_action( 'user_register', 'trb_portal_mark_new_registration', 999 );
