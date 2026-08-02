@@ -319,12 +319,53 @@ function trb_portal_artist_profile_fields() {
 		'company_vat'     => 'Partita IVA',
 		'company_sdi'     => 'Codice SDI',
 		'company_address' => 'Indirizzo della sede aziendale',
+		'spotify_url'     => 'Profilo Spotify',
+		'apple_music_url' => 'Profilo Apple Music',
+		'youtube_url'     => 'Canale YouTube',
+		'soundcloud_url'  => 'Profilo SoundCloud',
+		'facebook_url'    => 'Facebook',
+		'instagram_url'   => 'Instagram',
+		'linkedin_url'    => 'LinkedIn',
+		'tiktok_url'      => 'TikTok',
+		'discord_url'     => 'Discord',
+		'twitch_url'      => 'Twitch',
+		'x_url'           => 'X',
+		'live_fee'        => 'Cachet per esibizioni live o DJ set',
 	);
 }
 
 function trb_portal_artist_profile_value( $key, $user_id = 0 ) {
 	return (string) get_user_meta( $user_id ? $user_id : get_current_user_id(), '_trb_artist_' . $key, true );
 }
+
+/** Resolve an Italian postcode locally, without transmitting profile data. */
+function trb_portal_lookup_postcode( $postcode ) {
+	$postcode = preg_replace( '/\D+/', '', (string) $postcode );
+	if ( 5 !== strlen( $postcode ) ) return new WP_Error( 'invalid_postcode', 'Inserisci un CAP italiano di 5 cifre.' );
+	static $archive = null;
+	if ( null === $archive ) {
+		$file = get_template_directory() . '/assets/data/italian-postcodes.json';
+		$data = file_exists( $file ) ? json_decode( file_get_contents( $file ), true ) : array(); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$archive = isset( $data['postcodes'] ) && is_array( $data['postcodes'] ) ? $data['postcodes'] : array();
+	}
+	$places = isset( $archive[ $postcode ] ) ? $archive[ $postcode ] : array();
+	if ( empty( $places ) ) return new WP_Error( 'postcode_not_found', 'CAP non trovato nell’archivio nazionale.' );
+	return $places;
+}
+
+function trb_portal_rest_postcode( WP_REST_Request $request ) {
+	$result = trb_portal_lookup_postcode( $request['postcode'] );
+	return is_wp_error( $result ) ? new WP_REST_Response( array( 'message' => $result->get_error_message() ), 404 ) : rest_ensure_response( array( 'places' => $result, 'country' => 'Italia' ) );
+}
+
+function trb_portal_register_rest_routes() {
+	register_rest_route( 'trb/v1', '/postcode/(?P<postcode>\d{5})', array(
+		'methods' => WP_REST_Server::READABLE,
+		'callback' => 'trb_portal_rest_postcode',
+		'permission_callback' => function() { return is_user_logged_in() && ( trb_portal_user_profile() || current_user_can( 'manage_options' ) ); },
+	) );
+}
+add_action( 'rest_api_init', 'trb_portal_register_rest_routes' );
 
 function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 	$user_id = $user_id ? $user_id : get_current_user_id();
@@ -339,6 +380,20 @@ function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 		}
 	}
 	if ( '' === trim( (string) get_user_meta( $user_id, '_trb_artist_bio', true ) ) ) {
+		return false;
+	}
+	$platform_requirements = array(
+		array( 'spotify_url', 'spotify_new' ),
+		array( 'apple_music_url', 'apple_music_new' ),
+		array( 'youtube_url', 'youtube_none' ),
+		array( 'soundcloud_url', 'soundcloud_none' ),
+	);
+	foreach ( $platform_requirements as $requirement ) {
+		if ( '' === trb_portal_artist_profile_value( $requirement[0], $user_id ) && '1' !== trb_portal_artist_profile_value( $requirement[1], $user_id ) ) {
+			return false;
+		}
+	}
+	if ( '' === trb_portal_artist_profile_value( 'live_fee', $user_id ) ) {
 		return false;
 	}
 
@@ -368,18 +423,46 @@ function trb_portal_handle_artist_profile() {
 	}
 	check_admin_referer( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' );
 	$user_id = get_current_user_id();
+	$profile = trb_portal_user_profile();
+	$company_fields = array( 'company_name', 'company_vat', 'company_sdi', 'company_address' );
+	$url_fields = array( 'spotify_url', 'apple_music_url', 'youtube_url', 'soundcloud_url', 'facebook_url', 'instagram_url', 'linkedin_url', 'tiktok_url', 'discord_url', 'twitch_url', 'x_url' );
+	if ( isset( $_POST['trb_artist_company_section'] ) ) {
+		$postcode = isset( $_POST['trb_artist_postal_code'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_postal_code'] ) ) : '';
+		$city = isset( $_POST['trb_artist_city'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_city'] ) ) : '';
+		$places = trb_portal_lookup_postcode( $postcode );
+		$matched = false;
+		if ( ! is_wp_error( $places ) ) foreach ( $places as $place ) {
+			if ( strtolower( remove_accents( $city ) ) === strtolower( remove_accents( $place['city'] ) ) ) { $matched = $place; break; }
+		}
+		if ( ! $matched ) {
+			wp_safe_redirect( add_query_arg( 'trb_profile', 'invalid_address', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+			exit;
+		}
+		$_POST['trb_artist_city'] = $matched['city'];
+		$_POST['trb_artist_province'] = $matched['province'];
+		$_POST['trb_artist_country'] = 'Italia';
+	}
 	foreach ( trb_portal_artist_profile_fields() as $key => $label ) {
 		if ( ! isset( $_POST[ 'trb_artist_' . $key ] ) ) {
 			continue;
 		}
-		$value = sanitize_text_field( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) );
-		if ( 'email' === $key ) {
-			$value = sanitize_email( $value );
+		if ( 'artist_name' === $key && '' !== trb_portal_artist_profile_value( 'artist_name', $user_id ) ) {
+			continue;
 		}
+		if ( 'trb' === $profile && in_array( $key, $company_fields, true ) ) continue;
+		$value = in_array( $key, $url_fields, true ) ? esc_url_raw( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) ) : sanitize_text_field( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) );
 		update_user_meta( $user_id, '_trb_artist_' . $key, $value );
 	}
-	if ( isset( $_POST['trb_artist_invoice_requested'] ) || isset( $_POST['trb_artist_company_section'] ) ) {
+	if ( 'trb' === $profile ) {
+		delete_user_meta( $user_id, '_trb_artist_invoice_requested' );
+		foreach ( $company_fields as $company_field ) delete_user_meta( $user_id, '_trb_artist_' . $company_field );
+	} elseif ( isset( $_POST['trb_artist_invoice_requested'] ) || isset( $_POST['trb_artist_company_section'] ) ) {
 		update_user_meta( $user_id, '_trb_artist_invoice_requested', isset( $_POST['trb_artist_invoice_requested'] ) ? '1' : '' );
+	}
+	if ( isset( $_POST['trb_artist_identity_section'] ) ) {
+		foreach ( array( 'spotify_new', 'apple_music_new', 'youtube_none', 'soundcloud_none' ) as $choice ) {
+			update_user_meta( $user_id, '_trb_artist_' . $choice, isset( $_POST[ 'trb_artist_' . $choice ] ) ? '1' : '' );
+		}
 	}
 	if ( isset( $_POST['trb_artist_bio'] ) ) {
 		update_user_meta( $user_id, '_trb_artist_bio', wp_kses_post( wp_unslash( $_POST['trb_artist_bio'] ) ) );
@@ -1091,13 +1174,17 @@ add_shortcode( 'trb_artist_portal', 'trb_portal_dashboard_shortcode' );
 
 function trb_portal_render_artist_profile_section() {
 	$saved = isset( $_GET['trb_profile'] ) && 'saved' === sanitize_key( wp_unslash( $_GET['trb_profile'] ) );
+	$invalid_address = isset( $_GET['trb_profile'] ) && 'invalid_address' === sanitize_key( wp_unslash( $_GET['trb_profile'] ) );
 	$complete = trb_portal_artist_profile_is_complete();
 	$company_requested = '1' === trb_portal_artist_profile_value( 'invoice_requested' );
 	$user = wp_get_current_user();
+	$profile = trb_portal_user_profile();
+	$artist_name = trb_portal_artist_profile_value( 'artist_name' );
 	?>
 	<section id="profilo" class="trb-portal__section trb-portal__profile-section">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Prima della prima release servono dati completi e verificabili. Li riuseremo per preparare le pratiche e, in seguito, i contratti.</p></div>
 		<?php if ( $saved ) : ?><div class="trb-portal__message trb-portal__message--success">Profilo artista aggiornato.</div><?php endif; ?>
+		<?php if ( $invalid_address ) : ?><div class="trb-portal__message trb-portal__message--error">Indirizzo non salvato: il Comune non corrisponde al CAP indicato. Inserisci nuovamente il CAP e seleziona il Comune proposto.</div><?php endif; ?>
 		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Per correggere nome, cognome o e-mail dell’account, apri una segnalazione.</div><?php endif; ?>
 		<div class="trb-portal__profile-accordions">
 			<details class="trb-portal__profile-module" open>
@@ -1115,32 +1202,79 @@ function trb_portal_render_artist_profile_section() {
 						<label>Codice fiscale <span>*</span><input type="text" name="trb_artist_tax_code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_code' ) ); ?>" required /></label>
 						<label>Indirizzo di residenza <span>*</span><input type="text" name="trb_artist_street" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street' ) ); ?>" required /></label>
 						<label>Numero civico <span>*</span><input type="text" name="trb_artist_street_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
-						<label>CAP <span>*</span><input type="text" name="trb_artist_postal_code" autocomplete="postal-code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" required /></label>
-						<label>Città <span>*</span><input type="text" name="trb_artist_city" autocomplete="address-level2" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>" required /></label>
-						<label>Provincia <span>*</span><input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" required /></label>
-						<label>Nazione <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ); ?>" required /></label>
+						<label>CAP <span>*</span><input type="text" name="trb_artist_postal_code" autocomplete="postal-code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" data-trb-postcode required /><small data-trb-postcode-status>Inserisci il CAP: Comune e provincia saranno ricavati dall’archivio nazionale.</small></label>
+						<label>Città <span>*</span><select name="trb_artist_city" autocomplete="address-level2" data-trb-city required><option value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>"><?php echo esc_html( trb_portal_artist_profile_value( 'city' ) ? trb_portal_artist_profile_value( 'city' ) : 'Inserisci prima il CAP' ); ?></option></select></label>
+						<label>Provincia <span>*</span><input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" data-trb-province readonly required /></label>
+						<label>Nazione <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ? trb_portal_artist_profile_value( 'country' ) : 'Italia' ); ?>" data-trb-country readonly required /></label>
 					</div><p id="trb-account-data-note" class="trb-portal__field-help">Nome, cognome ed e-mail sono ripresi dall’anagrafica del tuo account. Per modificarli, usa il pulsante “Apri una segnalazione” in alto.</p>
-					<details class="trb-portal__company-details" <?php echo $company_requested ? 'open' : ''; ?>><summary>Hai una partita IVA o devi ricevere una fattura intestata a un’azienda?</summary><div><label class="trb-portal__invoice-toggle"><input type="checkbox" name="trb_artist_invoice_requested" value="1" <?php checked( $company_requested ); ?> /> Inserisci dati aziendali per fattura specifica</label><div class="trb-portal__field-grid"><label>Ragione sociale <input type="text" name="trb_artist_company_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_name' ) ); ?>" /></label><label>Partita IVA <input type="text" name="trb_artist_company_vat" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_vat' ) ); ?>" /></label><label>Codice SDI <input type="text" name="trb_artist_company_sdi" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_sdi' ) ); ?>" /></label><label>Indirizzo della sede aziendale <input type="text" name="trb_artist_company_address" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_address' ) ); ?>" /></label></div></div></details>
-					<div class="trb-portal__private-documents"><strong>Documenti riservati</strong><p>Carica i quattro documenti richiesti. Restano esclusivamente nella tua pratica e non vengono pubblicati.</p><div class="trb-portal__field-grid"><label>Carta d’identità — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Carta d’identità — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_back" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_back" accept="application/pdf,image/jpeg,image/png" /></label></div><?php trb_portal_render_private_files(); ?></div>
+					<?php if ( 'trb' !== $profile ) : ?><details class="trb-portal__company-details" <?php echo $company_requested ? 'open' : ''; ?>><summary>Hai una partita IVA o devi ricevere una fattura intestata a un’azienda?</summary><div><label class="trb-portal__invoice-toggle"><input type="checkbox" name="trb_artist_invoice_requested" value="1" <?php checked( $company_requested ); ?> /> Inserisci dati aziendali per fattura specifica</label><div class="trb-portal__field-grid"><label>Ragione sociale <input type="text" name="trb_artist_company_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_name' ) ); ?>" /></label><label>Partita IVA <input type="text" name="trb_artist_company_vat" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_vat' ) ); ?>" /></label><label>Codice SDI <input type="text" name="trb_artist_company_sdi" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_sdi' ) ); ?>" /></label><label>Indirizzo della sede aziendale <input type="text" name="trb_artist_company_address" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_address' ) ); ?>" /></label></div></div></details><?php endif; ?>
+					<div class="trb-portal__private-documents"><strong>Documenti riservati</strong><p>Carica i quattro documenti richiesti. Restano esclusivamente nella tua pratica e non vengono pubblicati.</p><div class="trb-portal__field-grid"><label>Carta d’identità — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Carta d’identità — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_back" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_back" accept="application/pdf,image/jpeg,image/png" /></label></div><?php trb_portal_render_private_files( 'documents' ); ?></div>
 					<button class="trb-button" type="submit">Salva i dati contrattuali</button>
 				</form>
 			</details>
 			<details class="trb-portal__profile-module">
 				<summary><span><b>Identità artistica</b><small>Nome d’arte, biografia e immagini ufficiali</small></span><em>Apri il modulo</em></summary>
-				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_save_artist_profile" /><?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?><label>Nome d’arte <span>*</span><input type="text" name="trb_artist_artist_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'artist_name' ) ); ?>" required /></label><label>Biografia artistica aggiornata <span>*</span><textarea name="trb_artist_bio" rows="9" required placeholder="Incolla qui la biografia aggiornata: non caricare un file."><?php echo esc_textarea( trb_portal_artist_profile_value( 'bio' ) ); ?></textarea><small>Inserisci testo copiato e incollato, pronto per materiali editoriali e profili artista.</small></label><div class="trb-portal__private-documents"><strong>Foto artista</strong><p>Carica fino a 6 foto ad alta qualità. Puoi selezionare le immagini già caricate per eliminarle e sostituirle.</p><label>Foto artista <small>JPG, PNG o WEBP · massimo 6 foto in totale</small><input type="file" name="trb_artist_photos[]" accept="image/jpeg,image/png,image/webp" multiple /></label><?php trb_portal_render_private_files( 'photo' ); ?></div><button class="trb-button" type="submit">Salva identità artistica</button></form>
+				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="trb_portal_save_artist_profile" /><input type="hidden" name="trb_artist_identity_section" value="1" /><?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?>
+					<label>Nome d’arte <span>*</span><input type="text" name="trb_artist_artist_name" value="<?php echo esc_attr( $artist_name ); ?>" <?php echo $artist_name ? 'readonly' : ''; ?> required /><small>Deve corrispondere esattamente al nome indicato nell’accordo contrattuale. Dopo il primo salvataggio potrà essere modificato soltanto previa autorizzazione della Direzione, tramite una segnalazione.</small></label>
+					<label>Biografia artistica aggiornata <span>*</span><textarea name="trb_artist_bio" rows="9" required placeholder="Incolla qui la biografia aggiornata: non caricare un file."><?php echo esc_textarea( trb_portal_artist_profile_value( 'bio' ) ); ?></textarea><small>Testo pronto per materiali editoriali, comunicazione e profili ufficiali; descrivi il progetto in modo adatto a solisti, duo, gruppi o formazioni.</small></label>
+					<fieldset class="trb-portal__platforms"><legend>Profili musicali ufficiali</legend><div class="trb-portal__field-grid">
+						<?php trb_portal_render_platform_field( 'spotify', 'Profilo Spotify', 'Copia il link al profilo artista Spotify, se esistente.', 'spotify_new', 'Richiedo un nuovo profilo artista Spotify' ); ?>
+						<?php trb_portal_render_platform_field( 'apple_music', 'Profilo Apple Music', 'Copia il link al profilo artista Apple Music, se esistente.', 'apple_music_new', 'Richiedo un nuovo profilo artista Apple Music' ); ?>
+						<?php trb_portal_render_platform_field( 'youtube', 'Canale YouTube', 'Copia il link al canale YouTube ufficiale, se esistente.', 'youtube_none', 'Non ho un canale YouTube' ); ?>
+						<?php trb_portal_render_platform_field( 'soundcloud', 'Profilo SoundCloud', 'Copia il link al profilo SoundCloud ufficiale, se esistente.', 'soundcloud_none', 'Non ho un canale SoundCloud' ); ?>
+					</div></fieldset>
+					<fieldset class="trb-portal__platforms"><legend>Social e contatti pubblici <small>facoltativi</small></legend><div class="trb-portal__social-grid"><?php foreach ( array( 'facebook' => 'Facebook', 'instagram' => 'Instagram', 'linkedin' => 'LinkedIn', 'tiktok' => 'TikTok', 'discord' => 'Discord', 'twitch' => 'Twitch', 'x' => 'X' ) as $social_key => $social_label ) : ?><label><?php echo esc_html( $social_label ); ?><input type="url" name="trb_artist_<?php echo esc_attr( $social_key ); ?>_url" value="<?php echo esc_attr( trb_portal_artist_profile_value( $social_key . '_url' ) ); ?>" placeholder="https://" /></label><?php endforeach; ?></div></fieldset>
+					<label>Cachet per esibizioni live o DJ set <span>*</span><input type="text" name="trb_artist_live_fee" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'live_fee' ) ); ?>" required placeholder="Es. € 800 + viaggio e alloggio" /><small>Indica il compenso normalmente richiesto per una singola esibizione dal vivo o DJ set e specifica cosa comprende: durata, organico, esigenze tecniche, viaggio, vitto, alloggio e imposte. Il dato serve per valutare correttamente eventuali proposte di booking e non costituisce un prezzo pubblico o definitivo.</small></label>
+					<div class="trb-portal__private-documents"><strong>Foto artista</strong><p>Carica immagini ufficiali ad alta qualità. Puoi conservare fino a 6 fotografie, eliminarne una o più e sostituirle in qualsiasi momento.</p><label>Aggiungi fotografie <small>JPG, PNG o WEBP · massimo 6 immagini complessive</small><input type="file" name="trb_artist_photos[]" accept="image/jpeg,image/png,image/webp" multiple /></label><?php trb_portal_render_private_files( 'photo' ); ?></div>
+					<button class="trb-button" type="submit">Salva identità artistica</button>
+				</form>
 			</details>
 		</div>
 	</section>
 	<?php
 }
 
+function trb_portal_render_platform_field( $key, $label, $placeholder, $choice_key, $choice_label ) {
+	$value = trb_portal_artist_profile_value( $key . '_url' );
+	$choice = '1' === trb_portal_artist_profile_value( $choice_key );
+	?><div class="trb-portal__platform-field" data-trb-platform><label><?php echo esc_html( $label ); ?> <span>*</span><input type="url" name="trb_artist_<?php echo esc_attr( $key ); ?>_url" value="<?php echo esc_attr( $value ); ?>" placeholder="<?php echo esc_attr( $placeholder ); ?>" <?php echo $choice ? 'disabled' : 'required'; ?> data-trb-platform-url /></label><label class="trb-portal__choice"><input type="checkbox" name="trb_artist_<?php echo esc_attr( $choice_key ); ?>" value="1" <?php checked( $choice ); ?> data-trb-platform-choice /> <?php echo esc_html( $choice_label ); ?></label></div><?php
+}
+
+function trb_portal_private_photo_url( $file_id ) {
+	return wp_nonce_url( admin_url( 'admin-post.php?action=trb_portal_private_photo&file_id=' . rawurlencode( $file_id ) ), 'trb_portal_private_photo_' . $file_id );
+}
+
+function trb_portal_serve_private_photo() {
+	if ( ! is_user_logged_in() ) auth_redirect();
+	$file_id = isset( $_GET['file_id'] ) ? sanitize_text_field( wp_unslash( $_GET['file_id'] ) ) : '';
+	check_admin_referer( 'trb_portal_private_photo_' . $file_id );
+	foreach ( trb_portal_private_profile_files() as $file ) {
+		if ( empty( $file['id'] ) || $file_id !== $file['id'] || 'photo' !== $file['group'] ) continue;
+		$uploads = wp_upload_dir();
+		$private_dir = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' );
+		$target = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) );
+		if ( ! $private_dir || ! $target || 0 !== strpos( $target, $private_dir . DIRECTORY_SEPARATOR ) || ! is_file( $target ) ) break;
+		nocache_headers();
+		header( 'Content-Type: ' . sanitize_mime_type( $file['type'] ) );
+		header( 'Content-Disposition: inline; filename="' . sanitize_file_name( $file['name'] ) . '"' );
+		header( 'X-Content-Type-Options: nosniff' );
+		readfile( $target ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
+		exit;
+	}
+	wp_die( 'Immagine non disponibile.', 'File non disponibile', array( 'response' => 404 ) );
+}
+add_action( 'admin_post_trb_portal_private_photo', 'trb_portal_serve_private_photo' );
+
 function trb_portal_render_private_files( $group = '' ) {
 	$files = trb_portal_private_profile_files();
-	if ( $group ) {
+	if ( 'documents' === $group ) {
+		$files = array_filter( $files, function( $file ) { return isset( $file['group'] ) && in_array( $file['group'], array( 'identity', 'tax_card' ), true ); } );
+	} elseif ( $group ) {
 		$files = array_filter( $files, function( $file ) use ( $group ) { return isset( $file['group'] ) && $group === $file['group']; } );
 	}
 	if ( empty( $files ) ) return;
-	?><fieldset class="trb-portal__uploaded-files"><legend>File già ricevuti</legend><p>Seleziona un file solo se vuoi eliminarlo e poi caricarne una versione aggiornata.</p><?php foreach ( $files as $file ) : ?><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> <?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ); ?></label><?php endforeach; ?></fieldset><?php
+	?><fieldset class="trb-portal__uploaded-files <?php echo 'photo' === $group ? 'trb-portal__uploaded-photos' : ''; ?>"><legend><?php echo 'photo' === $group ? 'Fotografie attualmente salvate' : 'File già ricevuti'; ?></legend><p>Seleziona “Elimina” solo per i file che vuoi rimuovere al prossimo salvataggio.</p><div class="<?php echo 'photo' === $group ? 'trb-portal__photo-grid' : 'trb-portal__file-list'; ?>"><?php foreach ( $files as $file ) : ?><?php if ( 'photo' === $group ) : ?><article class="trb-portal__photo-card"><img src="<?php echo esc_url( trb_portal_private_photo_url( $file['id'] ) ); ?>" alt="Anteprima foto artista" loading="lazy" /><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label></article><?php else : ?><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> <?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ); ?></label><?php endif; ?><?php endforeach; ?></div></fieldset><?php
 }
 
 function trb_portal_render_demo_section() {
@@ -1385,6 +1519,9 @@ function trb_portal_enqueue_assets() {
 		$style_path    = get_template_directory() . '/assets/css/trb-artist-portal.css';
 		$style_version = file_exists( $style_path ) ? (string) filemtime( $style_path ) : DOCY_VERSION;
 		wp_enqueue_style( 'trb-artist-portal', get_template_directory_uri() . '/assets/css/trb-artist-portal.css', array(), $style_version );
+		$script_path = get_template_directory() . '/assets/js/trb-artist-profile.js';
+		wp_enqueue_script( 'trb-artist-profile', get_template_directory_uri() . '/assets/js/trb-artist-profile.js', array(), file_exists( $script_path ) ? (string) filemtime( $script_path ) : DOCY_VERSION, true );
+		wp_localize_script( 'trb-artist-profile', 'trbArtistProfile', array( 'postcodeEndpoint' => esc_url_raw( rest_url( 'trb/v1/postcode/' ) ), 'restNonce' => wp_create_nonce( 'wp_rest' ) ) );
 
 		// The retired forum is not part of the Artist Portal. Some legacy plugins
 		// enqueue their assets globally, so prevent them from affecting or slowing
