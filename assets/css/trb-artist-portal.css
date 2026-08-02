@@ -551,7 +551,7 @@ body:has(.trb-landing) .navbar_fixed_menu { display: none !important; }
 @media (max-width: 980px) {
   .trb-portal__profile-form > .trb-portal__field-grid { grid-template-columns: 1fr; }
   .trb-portal__profile-form .trb-portal__company-details .trb-portal__field-grid { grid-template-columns: 1fr; }
-
+}
 
 /* Public Portal pages deliberately render their own shell: the legacy Docy
    navigation cannot overlap the compact TRB header at any viewport width. */
