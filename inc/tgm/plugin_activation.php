@@ -37,20 +37,6 @@ function docy_register_required_plugins() {
 	 */
 	$plugins = array(
         array(
-            'name'          => esc_html__( 'Elementor', 'docy' ),
-            'slug'          => 'elementor',
-            'required'      => true,
-        ),
-
-        array(
-            'name'          => esc_html__( 'Docy Core', 'docy' ), // The plugin name.
-            'slug'          => 'docy-core', // The plugin slug (typically the folder name).
-            'source'        => 'https://wordpress-theme.spider-themes.net/resources/docy/docy-core.zip', // The plugin source.
-            'required'      => true, // If false, the plugin is only 'recommended' instead of required.
-            'version'       => '4.7.0', // The plugin version.
-        ),
-
-        array(
             'name'          => esc_html__( 'Advanced Custom Fields-pro', 'docy' ), // The plugin name.
             'slug'          => 'advanced-custom-fields-pro', // The plugin slug (typically the folder name).
             'source'        => 'https://wordpress-theme.spider-themes.net/3rd-plugins/advanced-custom-fields-pro.zip', // The plugin source.
@@ -140,19 +126,6 @@ function docy_ocdi_register_plugins( $plugins ) {
     $import = isset( $_GET['import'] ) ? sanitize_text_field( wp_unslash( $_GET['import'] ) ) : '';
 
     $theme_plugins = [
-        [
-            'name'          => 'Elementor',
-            'slug'          => 'elementor',
-            'required'      => true,
-            'description'   => esc_html__( 'Elementor is a free drag & drop page builder plugin that will help you to create any layout you can imagine with WordPress.', 'docy' ),
-        ],
-        [
-            'name'          => 'Docy Core',
-            'slug'          => 'docy-core',
-            'source'        => 'https://wordpress-theme.spider-themes.net/resources/docy/docy-core.zip',
-            'description'   => esc_html__( 'Docy Core is a required plugin for Docy theme.', 'docy'),
-            'required'      => true,
-        ],
         [
             'name'          => esc_html__( 'Advanced Custom Fields-pro', 'docy' ), // The plugin name.
             'description'   => esc_html__( 'Advanced Custom Fields Pro is a premium plugin that allows you to add custom fields to your WordPress edit screens.', 'docy' ),
