@@ -1351,6 +1351,13 @@ function trb_portal_dequeue_unused_custom_screen_assets() {
 	foreach ( $scripts as $handle ) {
 		wp_dequeue_script( $handle );
 	}
+	if ( ! is_page( 'registrati' ) ) {
+		wp_dequeue_style( 'wppb_stylesheet' );
+		wp_dequeue_script( 'wppb_front_end_script' );
+		wp_dequeue_script( 'jquery-form' );
+		wp_dequeue_script( 'wp-hooks' );
+		wp_dequeue_script( 'wp-i18n' );
+	}
 }
 add_action( 'wp_enqueue_scripts', 'trb_portal_dequeue_unused_custom_screen_assets', PHP_INT_MAX );
 
@@ -1414,7 +1421,7 @@ function trb_portal_filter_eazydocs_assistant( $html ) {
 }
 
 function trb_portal_start_private_output_filter() {
-	if ( is_front_page() || trb_portal_is_private_screen() ) {
+	if ( is_front_page() || trb_portal_is_private_screen() || is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) ) ) {
 		ob_start( 'trb_portal_filter_eazydocs_assistant' );
 	}
 }
