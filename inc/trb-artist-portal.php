@@ -1323,6 +1323,14 @@ function trb_portal_enqueue_assets() {
 		$style_path    = get_template_directory() . '/assets/css/trb-artist-portal.css';
 		$style_version = file_exists( $style_path ) ? (string) filemtime( $style_path ) : DOCY_VERSION;
 		wp_enqueue_style( 'trb-artist-portal', get_template_directory_uri() . '/assets/css/trb-artist-portal.css', array(), $style_version );
+
+		// The retired forum is not part of the Artist Portal. Some legacy plugins
+		// enqueue their assets globally, so prevent them from affecting or slowing
+		// down the custom public and authenticated screens.
+		wp_dequeue_style( 'bbp-default' );
+		wp_dequeue_style( 'sbv-render-css' );
+		wp_dequeue_script( 'sbv-mask' );
+		wp_dequeue_script( 'sbv-render' );
 	}
 }
 add_action( 'wp_enqueue_scripts', 'trb_portal_enqueue_assets', 30 );
