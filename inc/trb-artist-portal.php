@@ -1472,6 +1472,27 @@ function trb_portal_force_support_template( $template ) {
 }
 add_filter( 'template_include', 'trb_portal_force_support_template', 94 );
 
+/**
+ * Render the support screen before Profile Builder applies its legacy
+ * authenticated-page redirect. Only this endpoint is made public.
+ */
+function trb_portal_render_public_support_early() {
+	if ( is_admin() || ! is_page( 'segnalazione' ) ) {
+		return;
+	}
+
+	$support_template = locate_template( 'template-artist-support.php' );
+	if ( ! $support_template ) {
+		return;
+	}
+
+	status_header( 200 );
+	nocache_headers();
+	include $support_template;
+	exit;
+}
+add_action( 'template_redirect', 'trb_portal_render_public_support_early', -999 );
+
 /** Create the support endpoint once, independently from Elementor. */
 function trb_portal_maybe_create_support_page() {
 	if ( get_option( 'trb_portal_support_page_created' ) || ! current_user_can( 'manage_options' ) ) return;
