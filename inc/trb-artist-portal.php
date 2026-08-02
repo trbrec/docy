@@ -1327,6 +1327,31 @@ function trb_portal_enqueue_assets() {
 }
 add_action( 'wp_enqueue_scripts', 'trb_portal_enqueue_assets', 30 );
 
+/**
+ * EazyDocs Pro remains the document engine, but its global assistant does not
+ * understand the portal's contractual audiences and can expose private titles
+ * inside otherwise public HTML. The portal already provides an audience-aware
+ * in-page search, so remove that one global widget from every custom shell.
+ */
+function trb_portal_filter_eazydocs_assistant( $html ) {
+	$start = strpos( $html, '<div class="eazydocs-assistant-wrapper' );
+	if ( false === $start ) {
+		return $html;
+	}
+	$end = strpos( $html, '<style type="text/css">', $start );
+	if ( false === $end ) {
+		return $html;
+	}
+	return substr( $html, 0, $start ) . substr( $html, $end );
+}
+
+function trb_portal_start_private_output_filter() {
+	if ( is_front_page() || trb_portal_is_private_screen() ) {
+		ob_start( 'trb_portal_filter_eazydocs_assistant' );
+	}
+}
+add_action( 'template_redirect', 'trb_portal_start_private_output_filter', 999 );
+
 /** Keep the public artist entry pages independent from the legacy Docy shell. */
 function trb_portal_public_body_class( $classes ) {
 	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) ) ) {
