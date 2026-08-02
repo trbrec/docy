@@ -1263,7 +1263,7 @@ function trb_portal_current_search() {
 
 function trb_portal_enqueue_assets() {
 	$post = get_post();
-	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password' ) ) || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
+	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) ) || is_singular( 'wpdmpro' ) || ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) ) ) {
 		$style_path    = get_template_directory() . '/assets/css/trb-artist-portal.css';
 		$style_version = file_exists( $style_path ) ? (string) filemtime( $style_path ) : DOCY_VERSION;
 		wp_enqueue_style( 'trb-artist-portal', get_template_directory_uri() . '/assets/css/trb-artist-portal.css', array(), $style_version );
@@ -1273,7 +1273,7 @@ add_action( 'wp_enqueue_scripts', 'trb_portal_enqueue_assets', 30 );
 
 /** Keep the public artist entry pages independent from the legacy Docy shell. */
 function trb_portal_public_body_class( $classes ) {
-	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password' ) ) ) {
+	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) ) ) {
 		$classes[] = 'trb-artist-public-shell';
 	}
 
@@ -1319,6 +1319,47 @@ function trb_portal_force_password_template( $template ) {
 	return $template;
 }
 add_filter( 'template_include', 'trb_portal_force_password_template', 93 );
+
+/** Render a dedicated artist-only support page without a legacy builder route. */
+function trb_portal_force_support_template( $template ) {
+	if ( is_page( 'segnalazione' ) ) {
+		$support_template = locate_template( 'template-artist-support.php' );
+		return $support_template ? $support_template : $template;
+	}
+	return $template;
+}
+add_filter( 'template_include', 'trb_portal_force_support_template', 94 );
+
+/** Create the support endpoint once, independently from Elementor. */
+function trb_portal_maybe_create_support_page() {
+	if ( get_option( 'trb_portal_support_page_created' ) || ! current_user_can( 'manage_options' ) ) return;
+	if ( ! get_page_by_path( 'segnalazione' ) ) {
+		$page_id = wp_insert_post( array( 'post_title' => 'Apri una segnalazione', 'post_name' => 'segnalazione', 'post_status' => 'publish', 'post_type' => 'page' ) );
+		if ( is_wp_error( $page_id ) ) return;
+	}
+	update_option( 'trb_portal_support_page_created', 1, false );
+}
+add_action( 'admin_init', 'trb_portal_maybe_create_support_page' );
+
+/** Store every request and notify the TRB mailbox. */
+function trb_portal_submit_support_request() {
+	if ( ! is_user_logged_in() ) auth_redirect();
+	check_admin_referer( 'trb_portal_submit_support', 'trb_support_nonce' );
+	$user = wp_get_current_user();
+	$type = isset( $_POST['trb_support_type'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_type'] ) ) : 'supporto';
+	$subject = isset( $_POST['trb_support_subject'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_support_subject'] ) ) : '';
+	$message = isset( $_POST['trb_support_message'] ) ? sanitize_textarea_field( wp_unslash( $_POST['trb_support_message'] ) ) : '';
+	$labels = array( 'supporto' => 'Supporto via e-mail', 'call' => 'Richiesta call di 30 minuti', 'dati' => 'Modifica dati anagrafici o contatti', 'problema' => 'Problema tecnico del portale' );
+	$type = isset( $labels[ $type ] ) ? $type : 'supporto';
+	if ( '' === $subject || '' === $message ) { wp_safe_redirect( home_url( '/segnalazione/' ) ); exit; }
+	$body = "Tipo: {$labels[ $type ]}\nArtista: " . trim( $user->first_name . ' ' . $user->last_name ) . "\nE-mail: {$user->user_email}\nProfilo: " . trb_portal_user_profile( $user ) . "\n\n{$message}";
+	wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Supporto] ' . $subject, 'post_content' => $body, 'post_author' => $user->ID ) );
+	wp_mail( 'info@trbrec.com', '[Portale Artisti] ' . $labels[ $type ] . ' — ' . $subject, $body, array( 'Reply-To: ' . $user->user_email ) );
+	wp_safe_redirect( add_query_arg( 'trb_support', 'sent', home_url( '/segnalazione/' ) ) );
+	exit;
+}
+add_action( 'admin_post_trb_portal_submit_support', 'trb_portal_submit_support_request' );
+
 
 /**
  * Retire the former Profile Builder entry page. It exposes a public
