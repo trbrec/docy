@@ -584,10 +584,14 @@ body:has(.trb-landing) .navbar_fixed_menu { display: none !important; }
 
 /* These public pages render their own shell: the legacy Docy navigation can
    therefore never overlap the compact TRB header on small screens. */
-body.trb-artist-public-shell { display: flex; flex-direction: column; min-height: 100vh; margin: 0; background: #fff; }
-.trb-artist-public-shell > main { flex: 1 0 auto; min-width: 0; width: 100%; }
-.trb-artist-public-shell .trb-public-footer { align-items: center; display: flex; flex: 0 0 auto; flex-direction: column; gap: 3px; justify-content: center; margin: 0; min-height: 76px; padding: 18px max(20px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); border-top: 1px solid #e7ebf2; background: #fff; color: #64748b; font-size: clamp(11px, 1.15vw, 12px); line-height: 1.45; text-align: center; width: 100%; }
-.trb-artist-public-shell .trb-public-footer span { display: block; max-width: 100%; overflow-wrap: anywhere; }
+body.trb-artist-public-shell,
+body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height: 100vh; margin: 0; background: #fff; }
+.trb-artist-public-shell > main,
+.trb-artist-portal-shell > main { flex: 1 0 auto; min-width: 0; width: 100%; }
+.trb-artist-public-shell .trb-public-footer,
+.trb-artist-portal-shell .trb-public-footer { align-items: center; display: flex; flex: 0 0 auto; flex-direction: column; gap: 3px; justify-content: center; margin: 0; min-height: 76px; padding: 18px max(20px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); border-top: 1px solid #e7ebf2; background: #fff; color: #64748b; font-size: clamp(11px, 1.15vw, 12px); line-height: 1.45; text-align: center; width: 100%; }
+.trb-artist-public-shell .trb-public-footer span,
+.trb-artist-portal-shell .trb-public-footer span { display: block; max-width: 100%; overflow-wrap: anywhere; }
 @media (max-width: 760px) {
   .trb-portal__hero { gap: 17px; padding: 23px 22px; }
   .trb-portal__nav { gap: 8px 14px; margin-top: 16px; padding: 11px 13px; }
