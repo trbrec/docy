@@ -583,3 +583,13 @@ body.trb-artist-portal-shell .doc_footer_area,
 body.trb-artist-download-shell .doc_footer_area { align-items: center; background: #fff; border-top: 1px solid #e7ebf2; box-sizing: border-box; color: #64748b; display: flex; font-size: clamp(11px,1.15vw,12px); justify-content: center; line-height: 1.45; margin: 0; min-height: 76px; padding: 18px max(20px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); text-align: center; width: 100%; }
 body.trb-artist-portal-shell .doc_footer_area *,
 body.trb-artist-download-shell .doc_footer_area * { margin-left: auto; margin-right: auto; max-width: 100%; overflow-wrap: anywhere; text-align: center; }
+
+@media (max-width: 560px) {
+  .trb-portal-topbar__inner { gap: 12px; min-height: 64px; }
+  .trb-portal-topbar__brand img { max-height: 32px; max-width: 96px; }
+  .trb-portal-topbar__actions { flex: 1 1 auto; gap: 9px; justify-content: flex-end; min-width: 0; }
+  .trb-portal-topbar__actions a { font-size: 11px; line-height: 1.2; }
+  .trb-portal-topbar__support { border: 1px solid rgba(255,255,255,.34); border-radius: 8px; padding: 8px 9px; text-align: center; }
+  .trb-portal-topbar__account { display: none; }
+  .trb-portal-topbar__actions .trb-portal-topbar__logout { padding-left: 9px; }
+}
