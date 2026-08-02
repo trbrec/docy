@@ -308,6 +308,7 @@ function trb_portal_artist_profile_fields() {
 		'phone'       => 'Cellulare abilitato a ricezione SMS',
 		'birth_date'  => 'Data di nascita',
 		'birth_place' => 'Luogo di nascita',
+		'birth_province' => 'Provincia di nascita',
 		'tax_code'    => 'Codice fiscale',
 		'street'      => 'Indirizzo di residenza',
 		'street_number' => 'Numero civico',
@@ -330,6 +331,8 @@ function trb_portal_artist_profile_fields() {
 		'discord_url'     => 'Discord',
 		'twitch_url'      => 'Twitch',
 		'x_url'           => 'X',
+		'snapchat_url'    => 'Snapchat',
+		'threads_url'     => 'Threads',
 		'live_fee'        => 'Cachet per esibizioni live o DJ set',
 	);
 }
@@ -353,9 +356,70 @@ function trb_portal_lookup_postcode( $postcode ) {
 	return $places;
 }
 
+function trb_portal_territorial_archive() {
+	static $archive = null;
+	if ( null === $archive ) {
+		$postcodes_file = get_template_directory() . '/assets/data/italian-postcodes.json';
+		$municipalities_file = get_template_directory() . '/assets/data/italian-municipalities.json';
+		$postcodes = file_exists( $postcodes_file ) ? json_decode( file_get_contents( $postcodes_file ), true ) : array(); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$municipalities = file_exists( $municipalities_file ) ? json_decode( file_get_contents( $municipalities_file ), true ) : array(); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$archive = is_array( $postcodes ) ? $postcodes : array();
+		$archive['municipalities'] = array();
+		foreach ( isset( $municipalities['municipalities'] ) ? $municipalities['municipalities'] : array() as $item ) {
+			$parts = explode( '|', $item, 2 );
+			if ( 2 === count( $parts ) ) $archive['municipalities'][] = array( 'city' => $parts[0], 'province' => $parts[1] );
+		}
+	}
+	return $archive;
+}
+
+function trb_portal_find_municipalities( $search ) {
+	$search = strtolower( remove_accents( trim( (string) $search ) ) );
+	if ( strlen( $search ) < 2 ) return array();
+	$archive = trb_portal_territorial_archive();
+	$results = array();
+	foreach ( isset( $archive['municipalities'] ) ? $archive['municipalities'] : array() as $municipality ) {
+		$name = strtolower( remove_accents( $municipality['city'] ) );
+		if ( 0 === strpos( $name, $search ) ) $results[] = $municipality;
+		if ( count( $results ) >= 20 ) break;
+	}
+	return $results;
+}
+
+function trb_portal_find_municipality_exact( $city, $province = '' ) {
+	$needle = strtolower( remove_accents( trim( (string) $city ) ) );
+	$archive = trb_portal_territorial_archive();
+	foreach ( isset( $archive['municipalities'] ) ? $archive['municipalities'] : array() as $municipality ) {
+		if ( $needle === strtolower( remove_accents( $municipality['city'] ) ) && ( ! $province || strtoupper( $province ) === strtoupper( $municipality['province'] ) ) ) return $municipality;
+	}
+	return false;
+}
+
+function trb_portal_validate_mobile( $value ) {
+	$value = preg_replace( '/[\s\.\-\(\)]+/', '', (string) $value );
+	if ( 0 === strpos( $value, '0039' ) ) $value = '+39' . substr( $value, 4 );
+	return preg_match( '/^(?:\+39)?3\d{9}$/', $value ) ? $value : false;
+}
+
+function trb_portal_validate_tax_code( $value ) {
+	$value = strtoupper( preg_replace( '/\s+/', '', (string) $value ) );
+	if ( ! preg_match( '/^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/', $value ) ) return false;
+	$odd = array( '0'=>1,'1'=>0,'2'=>5,'3'=>7,'4'=>9,'5'=>13,'6'=>15,'7'=>17,'8'=>19,'9'=>21,'A'=>1,'B'=>0,'C'=>5,'D'=>7,'E'=>9,'F'=>13,'G'=>15,'H'=>17,'I'=>19,'J'=>21,'K'=>2,'L'=>4,'M'=>18,'N'=>20,'O'=>11,'P'=>3,'Q'=>6,'R'=>8,'S'=>12,'T'=>14,'U'=>16,'V'=>10,'W'=>22,'X'=>25,'Y'=>24,'Z'=>23 );
+	$even = array();
+	foreach ( range( '0', '9' ) as $char ) $even[ $char ] = (int) $char;
+	foreach ( range( 'A', 'Z' ) as $index => $char ) $even[ $char ] = $index;
+	$sum = 0;
+	for ( $i = 0; $i < 15; $i++ ) $sum += 0 === $i % 2 ? $odd[ $value[ $i ] ] : $even[ $value[ $i ] ];
+	return chr( 65 + ( $sum % 26 ) ) === $value[15] ? $value : false;
+}
+
 function trb_portal_rest_postcode( WP_REST_Request $request ) {
 	$result = trb_portal_lookup_postcode( $request['postcode'] );
 	return is_wp_error( $result ) ? new WP_REST_Response( array( 'message' => $result->get_error_message() ), 404 ) : rest_ensure_response( array( 'places' => $result, 'country' => 'Italia' ) );
+}
+
+function trb_portal_rest_municipalities( WP_REST_Request $request ) {
+	return rest_ensure_response( array( 'places' => trb_portal_find_municipalities( $request->get_param( 'search' ) ) ) );
 }
 
 function trb_portal_register_rest_routes() {
@@ -363,6 +427,12 @@ function trb_portal_register_rest_routes() {
 		'methods' => WP_REST_Server::READABLE,
 		'callback' => 'trb_portal_rest_postcode',
 		'permission_callback' => function() { return is_user_logged_in() && ( trb_portal_user_profile() || current_user_can( 'manage_options' ) ); },
+	) );
+	register_rest_route( 'trb/v1', '/municipalities', array(
+		'methods' => WP_REST_Server::READABLE,
+		'callback' => 'trb_portal_rest_municipalities',
+		'permission_callback' => function() { return is_user_logged_in() && ( trb_portal_user_profile() || current_user_can( 'manage_options' ) ); },
+		'args' => array( 'search' => array( 'required' => true, 'sanitize_callback' => 'sanitize_text_field' ) ),
 	) );
 }
 add_action( 'rest_api_init', 'trb_portal_register_rest_routes' );
@@ -373,7 +443,7 @@ function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 	if ( ! $user || '' === trim( (string) $user->first_name ) || '' === trim( (string) $user->last_name ) || '' === trim( (string) $user->user_email ) ) {
 		return false;
 	}
-	$required = array( 'artist_name', 'phone', 'birth_date', 'tax_code', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' );
+	$required = array( 'artist_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'tax_code', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' );
 	foreach ( $required as $field ) {
 		if ( '' === trb_portal_artist_profile_value( $field, $user_id ) ) {
 			return false;
@@ -425,7 +495,7 @@ function trb_portal_handle_artist_profile() {
 	$user_id = get_current_user_id();
 	$profile = trb_portal_user_profile();
 	$company_fields = array( 'company_name', 'company_vat', 'company_sdi', 'company_address' );
-	$url_fields = array( 'spotify_url', 'apple_music_url', 'youtube_url', 'soundcloud_url', 'facebook_url', 'instagram_url', 'linkedin_url', 'tiktok_url', 'discord_url', 'twitch_url', 'x_url' );
+	$url_fields = array( 'spotify_url', 'apple_music_url', 'youtube_url', 'soundcloud_url', 'facebook_url', 'instagram_url', 'linkedin_url', 'tiktok_url', 'discord_url', 'twitch_url', 'x_url', 'snapchat_url', 'threads_url' );
 	if ( isset( $_POST['trb_artist_company_section'] ) ) {
 		$postcode = isset( $_POST['trb_artist_postal_code'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_postal_code'] ) ) : '';
 		$city = isset( $_POST['trb_artist_city'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_city'] ) ) : '';
@@ -441,6 +511,22 @@ function trb_portal_handle_artist_profile() {
 		$_POST['trb_artist_city'] = $matched['city'];
 		$_POST['trb_artist_province'] = $matched['province'];
 		$_POST['trb_artist_country'] = 'Italia';
+	}
+	if ( isset( $_POST['trb_artist_company_section'] ) ) {
+		$birth_place = isset( $_POST['trb_artist_birth_place'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_place'] ) ) : '';
+		$birth_province = isset( $_POST['trb_artist_birth_province'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_province'] ) ) : '';
+		$birth_match = trb_portal_find_municipality_exact( $birth_place, $birth_province );
+		$phone = isset( $_POST['trb_artist_phone'] ) ? trb_portal_validate_mobile( wp_unslash( $_POST['trb_artist_phone'] ) ) : false;
+		$tax_code = isset( $_POST['trb_artist_tax_code'] ) ? trb_portal_validate_tax_code( wp_unslash( $_POST['trb_artist_tax_code'] ) ) : false;
+		$error = ! $birth_match ? 'invalid_birthplace' : ( ! $phone ? 'invalid_phone' : ( ! $tax_code ? 'invalid_tax_code' : '' ) );
+		if ( $error ) {
+			wp_safe_redirect( add_query_arg( 'trb_profile', $error, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+			exit;
+		}
+		$_POST['trb_artist_birth_place'] = $birth_match['city'];
+		$_POST['trb_artist_birth_province'] = $birth_match['province'];
+		$_POST['trb_artist_phone'] = $phone;
+		$_POST['trb_artist_tax_code'] = $tax_code;
 	}
 	foreach ( trb_portal_artist_profile_fields() as $key => $label ) {
 		if ( ! isset( $_POST[ 'trb_artist_' . $key ] ) ) {
@@ -1021,53 +1107,155 @@ function trb_portal_migrate_known_download_audiences() {
 }
 add_action( 'init', 'trb_portal_migrate_known_download_audiences', 36 );
 
-/**
- * The legacy Video CPT is empty: the previous DDB video page stored embeds in
- * the page builder. Preserve the confirmed YouTube lessons here so they are
- * shown in the new dashboard and can later be replaced or expanded centrally.
- */
-function trb_portal_legacy_video_catalogue() {
+function trb_portal_video_seed_data() {
 	return array(
-		array(
-			'title'    => 'Come Musixmatch ha costruito un prodotto scalabile',
-			'youtube'  => '2Ppuzp_8CyQ',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
-		),
-		array(
-			'title'    => 'Come scrivere il testo di una canzone',
-			'youtube'  => 'lpj4wDenbvo',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
-		),
-		array(
-			'title'    => 'Scegliere il microfono: dinamico, condensatore e pattern',
-			'youtube'  => 'hXuSELCrHKQ',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
-		),
+		array( '2Ppuzp_8CyQ', 'Come Musixmatch ha costruito un prodotto scalabile', 'Music business', 'Comprendi come una piattaforma musicale sviluppa prodotto, community e servizi per artisti.', 'Intermedio', 21 ),
+		array( 'LZX3Ma2Oass', 'Come nasce una canzone: dall’idea al brano', 'Scrittura e composizione', 'Un percorso completo da idea, testo e musica fino alla struttura definitiva della canzone.', 'Base', 1 ),
+		array( 'lpj4wDenbvo', 'Come scrivere il testo di una canzone', 'Scrittura e composizione', 'Principi e scelte utili per costruire un testo coerente, personale e cantabile.', 'Base', 2 ),
+		array( 'rovW0nBWOpQ', 'Strofa, ritornello e bridge: costruire la struttura', 'Scrittura e composizione', 'Organizza le sezioni del brano per renderlo dinamico, chiaro e riconoscibile.', 'Base', 3 ),
+		array( 'LmBoaRMht_s', 'Come creare una melodia da zero', 'Scrittura e composizione', 'Un metodo accessibile per costruire melodie e accordi senza teoria musicale avanzata.', 'Base', 4 ),
+		array( 'IPoEIBBrnPQ', 'Trasformare gli accordi in una melodia efficace', 'Scrittura e composizione', 'Individua le note adatte sopra una progressione e crea una linea coerente e cantabile.', 'Base/intermedio', 5 ),
+		array( 'zRFp15k9Ryw', 'I principi fondamentali dell’arrangiamento', 'Scrittura e composizione', 'Distribuisci strumenti, parti e dinamiche valorizzando la canzone senza sovraccaricarla.', 'Base/intermedio', 6 ),
+		array( 'fZdG6yGGtVU', 'I fondamenti della tecnica vocale', 'Canto e interpretazione', 'Postura, respiro, intonazione, timbro, dizione e controllo in una panoramica completa.', 'Base', 7 ),
+		array( 'A-3K-vGbPO0', 'Riscaldamento vocale prima di cantare o registrare', 'Canto e interpretazione', 'Una routine guidata per preparare la voce e ridurre lo sforzo prima della sessione.', 'Base', 8 ),
+		array( 'JQ8aGLMtUjs', 'Migliorare l’intonazione con scale e intervalli', 'Canto e interpretazione', 'Esercizi per allenare orecchio, precisione delle note e controllo dell’intonazione.', 'Base', 9 ),
+		array( 'QOJur8lRSdU', 'Respirazione e appoggio nel canto', 'Canto e interpretazione', 'Comprendi il sostegno del fiato e controlla intensità, durata e stabilità della voce.', 'Base', 10 ),
+		array( 'DqLh_Dc6cLY', 'Interpretazione vocale: comunicare il significato del testo', 'Canto e interpretazione', 'Usa intenzione, fraseggio, dinamica ed emozione per personalizzare l’esecuzione.', 'Base/intermedio', 11 ),
+		array( 'PRplUNPRTSU', 'Come scegliere la tonalità adatta alla propria voce', 'Canto e interpretazione', 'Riconosci il range utile e scegli una tonalità naturale, controllabile e credibile.', 'Base', 12 ),
+		array( 'hXuSELCrHKQ', 'Scegliere il microfono: dinamico, condensatore e pattern', 'Registrazione', 'Comprendi tipologie e caratteristiche dei microfoni per scegliere la soluzione adatta.', 'Base', 13 ),
+		array( 'Fcpllu0SAFg', 'Registrare la voce in home studio', 'Registrazione', 'Livelli, distanza e accorgimenti essenziali per ottenere tracce vocali utilizzabili.', 'Base', 14 ),
+		array( 'yxyYwgylNSM', 'Gain staging: registrare e mixare senza distorsioni', 'Registrazione', 'Gestisci i livelli dalla ripresa al mix evitando clipping e catene fuori controllo.', 'Base', 15 ),
+		array( 'YrpxrgQFVGY', 'Come iniziare correttamente un mix', 'Mixaggio e mastering', 'Prepara la sessione, stabilisci le priorità e costruisci un primo bilanciamento ordinato.', 'Base', 16 ),
+		array( 'baJE7zsNW-I', 'Cinque errori di mixaggio da evitare', 'Mixaggio e mastering', 'Riconosci gli sbagli che rendono il mix confuso, sbilanciato o poco efficace.', 'Base', 17 ),
+		array( '21vchwZhX3w', 'Volumi e clipping: preparare correttamente il mix', 'Mixaggio e mastering', 'Gestisci picchi e livelli lasciando al mastering un segnale tecnicamente adeguato.', 'Base', 18 ),
+		array( 'fsCKKraAUw0', 'Che cos’è il mastering e come si prepara un brano', 'Mixaggio e mastering', 'Una panoramica delle finalità del mastering e delle verifiche prima della pubblicazione.', 'Base/intermedio', 19 ),
+		array( 'Y5b8ul2mmU8', 'Loudness e LUFS spiegati in modo semplice', 'Mixaggio e mastering', 'Comprendi volume percepito, picco e dinamica e perché non indicano la stessa cosa.', 'Intermedio', 20 ),
 	);
 }
 
+function trb_portal_seed_video_lessons() {
+	if ( get_option( 'trb_portal_video_lessons_seeded_v2' ) ) return;
+	foreach ( trb_portal_video_seed_data() as $lesson ) {
+		$existing = get_posts( array( 'post_type' => 'video', 'post_status' => 'any', 'meta_key' => '_trb_video_youtube', 'meta_value' => $lesson[0], 'fields' => 'ids', 'posts_per_page' => 1 ) );
+		$post_id = $existing ? $existing[0] : wp_insert_post( array( 'post_type' => 'video', 'post_status' => 'publish', 'post_title' => $lesson[1], 'post_excerpt' => $lesson[3] ) );
+		if ( ! $post_id || is_wp_error( $post_id ) ) continue;
+		update_post_meta( $post_id, '_trb_video_youtube', $lesson[0] );
+		update_post_meta( $post_id, '_trb_video_category', $lesson[2] );
+		update_post_meta( $post_id, '_trb_video_level', $lesson[4] );
+		update_post_meta( $post_id, '_trb_video_order', $lesson[5] );
+		update_post_meta( $post_id, '_trb_video_language', 'Italiano' );
+		update_post_meta( $post_id, '_trb_video_why', $lesson[3] );
+		update_post_meta( $post_id, '_trb_video_objectives', "Comprendere i principi presentati nella lezione.\nRiconoscere gli errori più frequenti.\nApplicare il metodo al proprio progetto musicale." );
+		update_post_meta( $post_id, '_trb_video_exercise', 'Applica un principio della lezione a un brano o a una sessione reale e annota il risultato prima e dopo la modifica.' );
+		update_post_meta( $post_id, '_trb_video_available', '1' );
+		update_post_meta( $post_id, '_trb_portal_profiles', trb_portal_allowed_profiles() );
+	}
+	update_option( 'trb_portal_video_lessons_seeded_v2', time(), false );
+	if ( ! wp_next_scheduled( 'trb_portal_initial_video_check' ) ) wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'trb_portal_initial_video_check' );
+}
+add_action( 'init', 'trb_portal_seed_video_lessons', 38 );
+
+function trb_portal_video_lessons( $profile ) {
+	$posts = get_posts( array( 'post_type' => 'video', 'post_status' => 'publish', 'posts_per_page' => -1, 'meta_key' => '_trb_video_order', 'orderby' => 'meta_value_num', 'order' => 'ASC' ) );
+	return array_values( array_filter( $posts, function( $post ) use ( $profile ) { return trb_portal_resource_is_visible( $post->ID ) && '0' !== get_post_meta( $post->ID, '_trb_video_available', true ); } ) );
+}
+
+function trb_portal_video_progress() {
+	$progress = get_user_meta( get_current_user_id(), '_trb_video_progress', true );
+	return is_array( $progress ) ? $progress : array();
+}
+
 function trb_portal_render_video_library( $profile ) {
-	$videos = array_filter(
-		trb_portal_legacy_video_catalogue(),
-		function( $video ) use ( $profile ) {
-			return in_array( $profile, $video['profiles'], true );
-		}
-	);
+	$videos = trb_portal_video_lessons( $profile );
+	$progress = trb_portal_video_progress();
+	$completed = count( array_filter( $progress, function( $item ) { return ! empty( $item['completed_at'] ); } ) );
 	?>
 	<section id="video" class="trb-portal__section">
-		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2>Video e formazione</h2><p>Lezioni e approfondimenti selezionati per il tuo percorso artistico.</p></div>
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2>Video e formazione</h2><p>Un percorso consigliato, ma non obbligatorio, che accompagna il progetto dall’idea alla preparazione finale.</p></div>
 		<?php if ( empty( $videos ) ) : ?>
 			<div class="trb-portal__empty"><p>La videoteca essenziale per il tuo profilo è in preparazione.</p></div>
 		<?php else : ?>
-			<div class="trb-portal__video-grid">
-				<?php foreach ( $videos as $video ) : ?>
-					<article class="trb-portal__video-card"><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $video['youtube'] ); ?>" target="_blank" rel="noopener"><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $video['youtube'] ); ?>/hqdefault.jpg" alt="" loading="lazy" /><span aria-hidden="true">▶</span></a><h3><?php echo esc_html( $video['title'] ); ?></h3><p><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $video['youtube'] ); ?>" target="_blank" rel="noopener">Guarda su YouTube <span aria-hidden="true">↗</span></a></p></article>
+			<div class="trb-video__toolbar"><div class="trb-video__progress"><strong><?php echo esc_html( $completed ); ?> lezioni completate su <?php echo esc_html( count( $videos ) ); ?></strong><span><i style="width:<?php echo esc_attr( count( $videos ) ? round( $completed / count( $videos ) * 100 ) : 0 ); ?>%"></i></span></div><div class="trb-video__search-row"><input type="search" placeholder="Cerca una lezione" aria-label="Cerca una lezione" data-video-search /><select data-video-state aria-label="Filtra per stato"><option value="">Tutti gli stati</option><option value="Da iniziare">Da iniziare</option><option value="In corso">In corso</option><option value="Completato">Completati</option></select></div><div class="trb-video__filters" role="group" aria-label="Filtra le lezioni"><button type="button" data-video-category="" class="is-active">Tutte</button><?php foreach ( array( 'Scrittura e composizione', 'Canto e interpretazione', 'Registrazione', 'Mixaggio e mastering', 'Music business' ) as $category ) : ?><button type="button" data-video-category="<?php echo esc_attr( $category ); ?>"><?php echo esc_html( $category ); ?></button><?php endforeach; ?></div></div>
+			<div class="trb-portal__video-grid" data-video-grid>
+				<?php foreach ( $videos as $video ) : $youtube = get_post_meta( $video->ID, '_trb_video_youtube', true ); $category = get_post_meta( $video->ID, '_trb_video_category', true ); $item_progress = isset( $progress[ $video->ID ] ) ? $progress[ $video->ID ] : array(); $state = ! empty( $item_progress['completed_at'] ) ? 'Completato' : ( ! empty( $item_progress['started_at'] ) ? 'In corso' : 'Da iniziare' ); ?>
+					<article class="trb-portal__video-card" data-video-card data-category="<?php echo esc_attr( $category ); ?>" data-state="<?php echo esc_attr( $state ); ?>" data-search="<?php echo esc_attr( strtolower( $video->post_title . ' ' . $video->post_excerpt . ' ' . $category ) ); ?>"><button type="button" class="trb-video__open" data-video-open="<?php echo esc_attr( $video->ID ); ?>"><span class="trb-video__thumb"><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $youtube ); ?>/hqdefault.jpg" alt="" loading="lazy" /><i aria-hidden="true">▶</i></span><small><?php echo esc_html( $category ); ?></small><h3><?php echo esc_html( $video->post_title ); ?></h3><p><?php echo esc_html( $video->post_excerpt ); ?></p><span class="trb-video__meta"><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_level', true ) ); ?> · Italiano · <?php echo esc_html( $state ); ?></span><b><?php echo 'Completato' === $state ? 'Rivedi' : ( 'In corso' === $state ? 'Continua' : 'Inizia la lezione' ); ?></b></button></article>
+					<template id="trb-video-<?php echo esc_attr( $video->ID ); ?>"><div class="trb-video__lesson" data-lesson-id="<?php echo esc_attr( $video->ID ); ?>" data-youtube="<?php echo esc_attr( $youtube ); ?>" data-last-position="<?php echo esc_attr( isset( $item_progress['last_position_seconds'] ) ? $item_progress['last_position_seconds'] : 0 ); ?>"><p class="trb-portal__eyebrow"><?php echo esc_html( $category ); ?></p><h2><?php echo esc_html( $video->post_title ); ?></h2><p class="trb-video__lesson-meta"><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_level', true ) ); ?> · Italiano · Lezione <?php echo esc_html( get_post_meta( $video->ID, '_trb_video_order', true ) ); ?> di <?php echo esc_html( count( $videos ) ); ?></p><div class="trb-video__player" data-video-player><button type="button" data-video-play><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $youtube ); ?>/hqdefault.jpg" alt="Avvia <?php echo esc_attr( $video->post_title ); ?>" /><span>Avvia la lezione</span></button></div><p class="trb-video__author">Contenuto realizzato dal canale originale indicato su YouTube<?php $author = get_post_meta( $video->ID, '_trb_video_author', true ); echo $author ? ': ' . esc_html( $author ) : ''; ?>.</p><h3>Perché guardare questa lezione</h3><p><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_why', true ) ); ?></p><h3>Cosa imparerai</h3><ul><?php foreach ( preg_split( '/\r\n|\r|\n/', get_post_meta( $video->ID, '_trb_video_objectives', true ) ) as $objective ) : if ( trim( $objective ) ) : ?><li><?php echo esc_html( $objective ); ?></li><?php endif; endforeach; ?></ul><h3>Mettilo in pratica</h3><p><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_exercise', true ) ); ?></p><div class="trb-video__lesson-actions"><button type="button" class="trb-button" data-video-complete>Ho completato questa lezione</button><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $youtube ); ?>" target="_blank" rel="noopener">Apri su YouTube ↗</a></div><p class="trb-video__completion" data-video-completion hidden></p></div></template>
 				<?php endforeach; ?>
 			</div>
+			<dialog class="trb-video__dialog" data-video-dialog><button type="button" class="trb-video__close" data-video-close aria-label="Chiudi la lezione">×</button><div data-video-dialog-content></div></dialog>
 		<?php endif; ?>
 	</section>
 	<?php
 }
+
+function trb_portal_video_lesson_metabox() {
+	add_meta_box( 'trb-video-lesson', 'Dati della lezione', 'trb_portal_render_video_lesson_metabox', 'video', 'normal', 'high' );
+}
+add_action( 'add_meta_boxes_video', 'trb_portal_video_lesson_metabox' );
+
+function trb_portal_render_video_lesson_metabox( $post ) {
+	wp_nonce_field( 'trb_video_lesson_meta', 'trb_video_lesson_nonce' );
+	$fields = array( 'youtube' => 'ID video YouTube', 'category' => 'Categoria', 'level' => 'Livello', 'duration' => 'Durata', 'language' => 'Lingua', 'order' => 'Ordine', 'author' => 'Canale / autore originale', 'why' => 'Perché guardare questa lezione', 'objectives' => 'Obiettivi didattici (uno per riga)', 'exercise' => 'Esercizio finale' );
+	foreach ( $fields as $key => $label ) : $value = get_post_meta( $post->ID, '_trb_video_' . $key, true ); ?>
+		<p><label><strong><?php echo esc_html( $label ); ?></strong><br /><?php if ( in_array( $key, array( 'why', 'objectives', 'exercise' ), true ) ) : ?><textarea name="trb_video_<?php echo esc_attr( $key ); ?>" rows="4" style="width:100%"><?php echo esc_textarea( $value ); ?></textarea><?php else : ?><input type="text" name="trb_video_<?php echo esc_attr( $key ); ?>" value="<?php echo esc_attr( $value ); ?>" style="width:100%" /><?php endif; ?></label></p>
+	<?php endforeach;
+}
+
+function trb_portal_save_video_lesson_meta( $post_id ) {
+	if ( ! isset( $_POST['trb_video_lesson_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['trb_video_lesson_nonce'] ) ), 'trb_video_lesson_meta' ) || ! current_user_can( 'edit_post', $post_id ) ) return;
+	foreach ( array( 'youtube', 'category', 'level', 'duration', 'language', 'order', 'author', 'why', 'objectives', 'exercise' ) as $key ) {
+		if ( isset( $_POST[ 'trb_video_' . $key ] ) ) update_post_meta( $post_id, '_trb_video_' . $key, 'objectives' === $key ? sanitize_textarea_field( wp_unslash( $_POST[ 'trb_video_' . $key ] ) ) : sanitize_text_field( wp_unslash( $_POST[ 'trb_video_' . $key ] ) ) );
+	}
+}
+add_action( 'save_post_video', 'trb_portal_save_video_lesson_meta' );
+
+function trb_portal_rest_video_progress( WP_REST_Request $request ) {
+	$lesson_id = absint( $request->get_param( 'lesson_id' ) );
+	if ( 'video' !== get_post_type( $lesson_id ) || ! trb_portal_resource_is_visible( $lesson_id ) ) return new WP_Error( 'invalid_lesson', 'Lezione non disponibile.', array( 'status' => 403 ) );
+	$progress = trb_portal_video_progress();
+	$item = isset( $progress[ $lesson_id ] ) ? $progress[ $lesson_id ] : array();
+	if ( empty( $item['started_at'] ) ) $item['started_at'] = time();
+	$item['last_position_seconds'] = max( 0, (float) $request->get_param( 'position' ) );
+	$item['watched_percentage'] = min( 100, max( 0, (float) $request->get_param( 'percentage' ) ) );
+	$duration = max( 0, (float) $request->get_param( 'duration' ) );
+	if ( $duration ) update_post_meta( $lesson_id, '_trb_video_duration_seconds', round( $duration ) );
+	$manual = (bool) $request->get_param( 'manual' );
+	if ( $manual || $item['watched_percentage'] >= 80 ) {
+		$item['completed_at'] = time();
+		$item['completion_method'] = $manual ? 'manual' : 'watched_80_percent';
+	}
+	$progress[ $lesson_id ] = $item;
+	update_user_meta( get_current_user_id(), '_trb_video_progress', $progress );
+	return rest_ensure_response( array( 'success' => true, 'progress' => $item ) );
+}
+
+function trb_portal_register_video_progress_route() {
+	register_rest_route( 'trb/v1', '/video-progress', array( 'methods' => WP_REST_Server::CREATABLE, 'callback' => 'trb_portal_rest_video_progress', 'permission_callback' => function() { return is_user_logged_in() && ( trb_portal_user_profile() || current_user_can( 'manage_options' ) ); } ) );
+}
+add_action( 'rest_api_init', 'trb_portal_register_video_progress_route' );
+
+function trb_portal_schedule_video_checks() {
+	if ( ! wp_next_scheduled( 'trb_portal_weekly_video_check' ) ) wp_schedule_event( time() + HOUR_IN_SECONDS, 'weekly', 'trb_portal_weekly_video_check' );
+}
+function trb_portal_weekly_schedule( $schedules ) {
+	$schedules['weekly'] = array( 'interval' => WEEK_IN_SECONDS, 'display' => 'Una volta alla settimana' );
+	return $schedules;
+}
+add_filter( 'cron_schedules', 'trb_portal_weekly_schedule' );
+add_action( 'init', 'trb_portal_schedule_video_checks', 40 );
+
+function trb_portal_check_video_availability() {
+	foreach ( get_posts( array( 'post_type' => 'video', 'post_status' => 'publish', 'posts_per_page' => -1 ) ) as $video ) {
+		$id = get_post_meta( $video->ID, '_trb_video_youtube', true );
+		$response = wp_remote_get( 'https://www.youtube.com/oembed?format=json&url=' . rawurlencode( 'https://www.youtube.com/watch?v=' . $id ), array( 'timeout' => 12 ) );
+		$available = ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response );
+		update_post_meta( $video->ID, '_trb_video_available', $available ? '1' : '0' );
+		update_post_meta( $video->ID, '_trb_video_last_check', time() );
+		if ( $available ) { $data = json_decode( wp_remote_retrieve_body( $response ), true ); if ( ! empty( $data['author_name'] ) ) update_post_meta( $video->ID, '_trb_video_author', sanitize_text_field( $data['author_name'] ) ); }
+	}
+}
+add_action( 'trb_portal_weekly_video_check', 'trb_portal_check_video_availability' );
+add_action( 'trb_portal_initial_video_check', 'trb_portal_check_video_availability' );
 
 function trb_portal_request_catalogue() {
 	return array(
@@ -1175,6 +1363,7 @@ add_shortcode( 'trb_artist_portal', 'trb_portal_dashboard_shortcode' );
 function trb_portal_render_artist_profile_section() {
 	$saved = isset( $_GET['trb_profile'] ) && 'saved' === sanitize_key( wp_unslash( $_GET['trb_profile'] ) );
 	$invalid_address = isset( $_GET['trb_profile'] ) && 'invalid_address' === sanitize_key( wp_unslash( $_GET['trb_profile'] ) );
+	$profile_error = isset( $_GET['trb_profile'] ) ? sanitize_key( wp_unslash( $_GET['trb_profile'] ) ) : '';
 	$complete = trb_portal_artist_profile_is_complete();
 	$company_requested = '1' === trb_portal_artist_profile_value( 'invoice_requested' );
 	$user = wp_get_current_user();
@@ -1185,6 +1374,9 @@ function trb_portal_render_artist_profile_section() {
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Prima della prima release servono dati completi e verificabili. Li riuseremo per preparare le pratiche e, in seguito, i contratti.</p></div>
 		<?php if ( $saved ) : ?><div class="trb-portal__message trb-portal__message--success">Profilo artista aggiornato.</div><?php endif; ?>
 		<?php if ( $invalid_address ) : ?><div class="trb-portal__message trb-portal__message--error">Indirizzo non salvato: il Comune non corrisponde al CAP indicato. Inserisci nuovamente il CAP e seleziona il Comune proposto.</div><?php endif; ?>
+		<?php if ( 'invalid_birthplace' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: seleziona Comune e Provincia di nascita fra i risultati dell’archivio italiano.</div><?php endif; ?>
+		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero di cellulare italiano valido, con 10 cifre e iniziale 3; il prefisso +39 è facoltativo.</div><?php endif; ?>
+		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: il codice fiscale non supera il controllo formale e della lettera finale. Verifica attentamente i 16 caratteri.</div><?php endif; ?>
 		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Per correggere nome, cognome o e-mail dell’account, apri una segnalazione.</div><?php endif; ?>
 		<div class="trb-portal__profile-accordions">
 			<details class="trb-portal__profile-module" open>
@@ -1196,10 +1388,11 @@ function trb_portal_render_artist_profile_section() {
 						<label>Nome anagrafico <span>*</span><input type="text" value="<?php echo esc_attr( $user->first_name ); ?>" autocomplete="given-name" readonly aria-describedby="trb-account-data-note" /></label>
 						<label>Cognome anagrafico <span>*</span><input type="text" value="<?php echo esc_attr( $user->last_name ); ?>" autocomplete="family-name" readonly aria-describedby="trb-account-data-note" /></label>
 						<label>E-mail di riferimento <span>*</span><input type="email" value="<?php echo esc_attr( $user->user_email ); ?>" autocomplete="email" readonly aria-describedby="trb-account-data-note" /></label>
-						<label>Cellulare abilitato a ricezione SMS <span>*</span><input type="tel" name="trb_artist_phone" autocomplete="tel" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" required /></label>
+						<label>Cellulare abilitato a ricezione SMS <span>*</span><input type="tel" name="trb_artist_phone" autocomplete="tel" inputmode="tel" pattern="(?:\+39)?3[0-9]{9}" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" placeholder="Es. +39 333 1234567" required /><small>Numero italiano utilizzabile anche per la ricezione degli OTP contrattuali.</small></label>
 						<label>Data di nascita <span>*</span><input type="date" name="trb_artist_birth_date" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_date' ) ); ?>" required /></label>
-						<label>Luogo di nascita <input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" /></label>
-						<label>Codice fiscale <span>*</span><input type="text" name="trb_artist_tax_code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_code' ) ); ?>" required /></label>
+						<label>Comune di nascita <span>*</span><input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" autocomplete="off" list="trb-birthplace-options" data-trb-birthplace required /><datalist id="trb-birthplace-options"></datalist><small data-trb-birthplace-status>Digita almeno due lettere e seleziona il Comune dall’archivio italiano.</small></label>
+						<label>Provincia di nascita <span>*</span><input type="text" name="trb_artist_birth_province" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_province' ) ); ?>" data-trb-birth-province readonly required /></label>
+						<label>Codice fiscale <span>*</span><input type="text" name="trb_artist_tax_code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_code' ) ); ?>" minlength="16" maxlength="16" autocapitalize="characters" spellcheck="false" data-trb-tax-code required /><small>Il sistema controlla struttura e carattere finale prima del salvataggio.</small></label>
 						<label>Indirizzo di residenza <span>*</span><input type="text" name="trb_artist_street" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street' ) ); ?>" required /></label>
 						<label>Numero civico <span>*</span><input type="text" name="trb_artist_street_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
 						<label>CAP <span>*</span><input type="text" name="trb_artist_postal_code" autocomplete="postal-code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" data-trb-postcode required /><small data-trb-postcode-status>Inserisci il CAP: Comune e provincia saranno ricavati dall’archivio nazionale.</small></label>
@@ -1224,7 +1417,7 @@ function trb_portal_render_artist_profile_section() {
 						<?php trb_portal_render_platform_field( 'youtube', 'Canale YouTube', 'Copia il link al canale YouTube ufficiale, se esistente.', 'youtube_none', 'Non ho un canale YouTube' ); ?>
 						<?php trb_portal_render_platform_field( 'soundcloud', 'Profilo SoundCloud', 'Copia il link al profilo SoundCloud ufficiale, se esistente.', 'soundcloud_none', 'Non ho un canale SoundCloud' ); ?>
 					</div></fieldset>
-					<fieldset class="trb-portal__platforms"><legend>Social e contatti pubblici <small>facoltativi</small></legend><div class="trb-portal__social-grid"><?php foreach ( array( 'facebook' => 'Facebook', 'instagram' => 'Instagram', 'linkedin' => 'LinkedIn', 'tiktok' => 'TikTok', 'discord' => 'Discord', 'twitch' => 'Twitch', 'x' => 'X' ) as $social_key => $social_label ) : ?><label><?php echo esc_html( $social_label ); ?><input type="url" name="trb_artist_<?php echo esc_attr( $social_key ); ?>_url" value="<?php echo esc_attr( trb_portal_artist_profile_value( $social_key . '_url' ) ); ?>" placeholder="https://" /></label><?php endforeach; ?></div></fieldset>
+					<fieldset class="trb-portal__platforms"><legend>Social e contatti pubblici <small>facoltativi</small></legend><div class="trb-portal__social-grid"><?php foreach ( array( 'facebook' => 'Facebook', 'instagram' => 'Instagram', 'linkedin' => 'LinkedIn', 'tiktok' => 'TikTok', 'discord' => 'Discord', 'twitch' => 'Twitch', 'x' => 'X (ex Twitter)', 'snapchat' => 'Snapchat', 'threads' => 'Threads' ) as $social_key => $social_label ) : ?><label><?php echo esc_html( $social_label ); ?><input type="url" name="trb_artist_<?php echo esc_attr( $social_key ); ?>_url" value="<?php echo esc_attr( trb_portal_artist_profile_value( $social_key . '_url' ) ); ?>" placeholder="https://" /></label><?php endforeach; ?></div></fieldset>
 					<label>Cachet per esibizioni live o DJ set <span>*</span><input type="text" name="trb_artist_live_fee" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'live_fee' ) ); ?>" required placeholder="Es. € 800 + viaggio e alloggio" /><small>Indica il compenso normalmente richiesto per una singola esibizione dal vivo o DJ set e specifica cosa comprende: durata, organico, esigenze tecniche, viaggio, vitto, alloggio e imposte. Il dato serve per valutare correttamente eventuali proposte di booking e non costituisce un prezzo pubblico o definitivo.</small></label>
 					<div class="trb-portal__private-documents"><strong>Foto artista</strong><p>Carica immagini ufficiali ad alta qualità. Puoi conservare fino a 6 fotografie, eliminarne una o più e sostituirle in qualsiasi momento.</p><label>Aggiungi fotografie <small>JPG, PNG o WEBP · massimo 6 immagini complessive</small><input type="file" name="trb_artist_photos[]" accept="image/jpeg,image/png,image/webp" multiple /></label><?php trb_portal_render_private_files( 'photo' ); ?></div>
 					<button class="trb-button" type="submit">Salva identità artistica</button>
@@ -1521,7 +1714,10 @@ function trb_portal_enqueue_assets() {
 		wp_enqueue_style( 'trb-artist-portal', get_template_directory_uri() . '/assets/css/trb-artist-portal.css', array(), $style_version );
 		$script_path = get_template_directory() . '/assets/js/trb-artist-profile.js';
 		wp_enqueue_script( 'trb-artist-profile', get_template_directory_uri() . '/assets/js/trb-artist-profile.js', array(), file_exists( $script_path ) ? (string) filemtime( $script_path ) : DOCY_VERSION, true );
-		wp_localize_script( 'trb-artist-profile', 'trbArtistProfile', array( 'postcodeEndpoint' => esc_url_raw( rest_url( 'trb/v1/postcode/' ) ), 'restNonce' => wp_create_nonce( 'wp_rest' ) ) );
+		wp_localize_script( 'trb-artist-profile', 'trbArtistProfile', array( 'postcodeEndpoint' => esc_url_raw( rest_url( 'trb/v1/postcode/' ) ), 'municipalityEndpoint' => esc_url_raw( rest_url( 'trb/v1/municipalities' ) ), 'restNonce' => wp_create_nonce( 'wp_rest' ) ) );
+		$academy_path = get_template_directory() . '/assets/js/trb-video-academy.js';
+		wp_enqueue_script( 'trb-video-academy', get_template_directory_uri() . '/assets/js/trb-video-academy.js', array(), file_exists( $academy_path ) ? (string) filemtime( $academy_path ) : DOCY_VERSION, true );
+		wp_localize_script( 'trb-video-academy', 'trbVideoAcademy', array( 'restRoot' => esc_url_raw( rest_url( 'trb/v1/' ) ), 'restNonce' => wp_create_nonce( 'wp_rest' ) ) );
 
 		// The retired forum is not part of the Artist Portal. Some legacy plugins
 		// enqueue their assets globally, so prevent them from affecting or slowing
