@@ -1410,14 +1410,19 @@ add_action( 'admin_init', 'trb_portal_retire_legacy_plugins', 40 );
  */
 function trb_portal_filter_eazydocs_assistant( $html ) {
 	$start = strpos( $html, '<div class="eazydocs-assistant-wrapper' );
-	if ( false === $start ) {
-		return $html;
+	if ( false !== $start ) {
+		$end = strpos( $html, '<style type="text/css">', $start );
+		if ( false !== $end ) {
+			$html = substr( $html, 0, $start ) . substr( $html, $end );
+		}
 	}
-	$end = strpos( $html, '<style type="text/css">', $start );
-	if ( false === $end ) {
-		return $html;
+
+	// Profile Builder injects this stylesheet globally even though only the
+	// dedicated registration form needs it.
+	if ( ! is_page( 'registrati' ) ) {
+		$html = preg_replace( "#<link[^>]+id=['\"]wppb_stylesheet-css['\"][^>]*>\s*#i", '', $html );
 	}
-	return substr( $html, 0, $start ) . substr( $html, $end );
+	return $html;
 }
 
 function trb_portal_start_private_output_filter() {
@@ -1518,7 +1523,11 @@ function trb_portal_render_public_support_early() {
 
 	status_header( 200 );
 	nocache_headers();
+	trb_portal_send_security_headers();
+	ob_start();
 	include $support_template;
+	$html = ob_get_clean();
+	echo trb_portal_filter_eazydocs_assistant( $html ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	exit;
 }
 add_action( 'template_redirect', 'trb_portal_render_public_support_early', -999 );
