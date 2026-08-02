@@ -124,6 +124,30 @@ function trb_portal_supported_resource_types() {
 	return array( 'trb_guide', 'docs', 'video', 'wpdmpro' );
 }
 
+/**
+ * Preserve the legacy Video entries after retiring Docy Core.
+ * Docy Core registered this post type only as part of its Elementor bundle;
+ * the Artist Portal needs the data, not that page-builder dependency.
+ */
+function trb_portal_register_legacy_video_type() {
+	if ( post_type_exists( 'video' ) ) {
+		return;
+	}
+
+	register_post_type(
+		'video',
+		array(
+			'labels'       => array( 'name' => 'Video', 'singular_name' => 'Video' ),
+			'public'       => false,
+			'show_ui'      => true,
+			'show_in_menu' => true,
+			'supports'     => array( 'title', 'editor', 'excerpt', 'thumbnail' ),
+			'show_in_rest' => true,
+		)
+	);
+}
+add_action( 'init', 'trb_portal_register_legacy_video_type', 9 );
+
 function trb_portal_resource_profiles( $post_id ) {
 	$profiles = get_post_meta( $post_id, '_trb_portal_profiles', true );
 	$profiles = is_array( $profiles ) ? $profiles : array();
@@ -1602,9 +1626,22 @@ function trb_portal_redirect_default_password_request() {
 }
 add_action( 'login_init', 'trb_portal_redirect_default_password_request' );
 
-function trb_portal_noindex_private_area() {
-	if ( is_page( get_option( 'trb_portal_dashboard_created' ) ) || is_singular( trb_portal_supported_resource_types() ) ) {
-		echo "<meta name=\"robots\" content=\"noindex,nofollow\" />\n";
-	}
+function trb_portal_is_private_screen() {
+	$post = get_post();
+
+	return is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) )
+		|| is_singular( trb_portal_supported_resource_types() )
+		|| ( is_page() && $post && has_shortcode( $post->post_content, 'trb_artist_portal' ) );
 }
-add_action( 'wp_head', 'trb_portal_noindex_private_area', 1 );
+
+/** Keep authentication, support and contractual resources out of search engines. */
+function trb_portal_noindex_private_area( $robots ) {
+	if ( trb_portal_is_private_screen() ) {
+		$robots['noindex']  = true;
+		$robots['nofollow'] = true;
+		unset( $robots['index'], $robots['follow'] );
+	}
+
+	return $robots;
+}
+add_filter( 'wp_robots', 'trb_portal_noindex_private_area', 99 );
