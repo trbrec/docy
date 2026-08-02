@@ -593,3 +593,11 @@ body.trb-artist-download-shell .doc_footer_area * { margin-left: auto; margin-ri
   .trb-portal-topbar__account { display: none; }
   .trb-portal-topbar__actions .trb-portal-topbar__logout { padding-left: 9px; }
 }
+
+.trb-support__website {
+  position: absolute !important;
+  left: -10000px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+}
