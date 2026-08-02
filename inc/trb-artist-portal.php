@@ -1373,6 +1373,17 @@ function trb_portal_redirect_legacy_account_page() {
 }
 add_action( 'template_redirect', 'trb_portal_redirect_legacy_account_page', 2 );
 
+/** Catch the removed account endpoint before a legacy plugin renders its 404. */
+function trb_portal_early_account_route_redirect() {
+	if ( is_admin() || 'GET' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) ) return;
+	$path = untrailingslashit( (string) wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/', PHP_URL_PATH ) );
+	if ( '/my-account' === $path ) {
+		wp_safe_redirect( home_url( '/accedi/' ), 302 );
+		exit;
+	}
+}
+add_action( 'wp_loaded', 'trb_portal_early_account_route_redirect', 1 );
+
 /**
  * Keep every retired Elementor route useful after its page has been removed.
  * The new dashboard is the single destination for contractual material, while
