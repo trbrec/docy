@@ -26,6 +26,15 @@ function trb_docy_remove_legacy_polling_event() {
 }
 add_action( 'init', 'trb_docy_remove_legacy_polling_event', 30 );
 
+/** Remove the one-time verification artifact left by overwrite-style deploys. */
+function trb_docy_remove_push_verification_artifact() {
+	$file = trailingslashit( get_template_directory() ) . 'trb-push-deploy-check.txt';
+	if ( is_file( $file ) ) {
+		unlink( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+	}
+}
+add_action( 'init', 'trb_docy_remove_push_verification_artifact', 1 );
+
 /** Store a compact, non-sensitive deployment result for diagnostics. */
 function trb_docy_store_deploy_status( $state, $message, $sha = '' ) {
 	update_option(
