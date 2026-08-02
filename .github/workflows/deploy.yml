@@ -1,6 +1,6 @@
 name: Deploy Docy theme
 
-# Production deployment is triggered by every merged main revision. Revision: verified-deploy-bridge-stable.
+# Production deployment is triggered by every merged main revision. Revision: verified-deploy-bridge-tested.
 
 on:
   push:
