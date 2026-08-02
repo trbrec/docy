@@ -1483,6 +1483,38 @@ function trb_portal_redirect_retired_elementor_routes() {
 add_action( 'template_redirect', 'trb_portal_redirect_retired_elementor_routes', 1 );
 
 /**
+ * Unpublish the surviving page-builder shells after the new routes have been
+ * verified and backed up. Their URLs remain covered by the redirects above.
+ */
+function trb_portal_retire_legacy_pages() {
+	if ( get_option( 'trb_portal_legacy_pages_retired_v1' ) || ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	$slugs = array(
+		'mio-account',
+		'password-dimenticata',
+		'video-corsi-dds',
+		'video-corsi-ddb',
+		'video-corsi-ddb-trb',
+		'video-corsi-trb',
+		'video-corsi-trb-basic',
+		'strumenti-e-utilita-dds',
+		'strumenti-e-utilita-ddb',
+		'area-artisti-2',
+	);
+	foreach ( $slugs as $slug ) {
+		$page = get_page_by_path( $slug );
+		if ( $page instanceof WP_Post && 'publish' === $page->post_status ) {
+			wp_trash_post( $page->ID );
+		}
+	}
+
+	update_option( 'trb_portal_legacy_pages_retired_v1', time(), false );
+}
+add_action( 'admin_init', 'trb_portal_retire_legacy_pages' );
+
+/**
  * The artist dashboard uses its own quiet shell. The public Docy header and
  * its search are intentionally excluded from this one private page.
  */
