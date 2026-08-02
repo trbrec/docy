@@ -36,58 +36,10 @@ function docy_register_required_plugins() {
 	 * If the source is NOT from the .org repo, then source is also required.
 	 */
 	$plugins = array(
-        array(
-            'name'          => esc_html__( 'Advanced Custom Fields-pro', 'docy' ), // The plugin name.
-            'slug'          => 'advanced-custom-fields-pro', // The plugin slug (typically the folder name).
-            'source'        => 'https://wordpress-theme.spider-themes.net/3rd-plugins/advanced-custom-fields-pro.zip', // The plugin source.
-            'required'      => true, // If false, the plugin is only 'recommended' instead of required.
-        ),
-
 		array(
-			'name'          => esc_html__( 'EazyDocs', 'docy' ),
-			'slug'          => 'eazydocs',
-			'required'      => true,
-		),
-
-		array(
-			'name'          => esc_html__( 'Jobus', 'docy' ),
-			'slug'          => 'jobus',
-			'required'      => true,
-		),
-        array(
-            'name'          => esc_html__( 'Forumax', 'docy' ),
-            'slug'          => 'bbp-core',
-            'required'      => true,
-        ),
-
-		array(
-			'name'          => esc_html__( 'Spider Elements', 'docy' ),
-			'slug'          => 'spider-elements',
-			'required'      => false,
-		),
-
-		array(
-			'name'          => esc_html__( 'wooCommerce', 'docy' ),
-			'slug'          => 'woocommerce',
-			'required'      => false,
-		),
-
-        array(
-            'name'          => esc_html__( 'One Click Demo Import', 'docy' ),
-            'slug'          => 'one-click-demo-import',
-            'required'      => false,
-        ),
-
-		array(
-			'name'          => esc_html__( 'Changeloger', 'docy' ),
-			'slug'          => 'changeloger',
-			'required'      => false,
-		),
-
-		array(
-			'name'          => esc_html__( 'Antimanual – The Ultimate AI Solution for Your Site', 'docy' ),
-			'slug'          => 'antimanual',
-			'required'      => false,
+			'name'     => esc_html__( 'EazyDocs', 'docy' ),
+			'slug'     => 'eazydocs',
+			'required' => true,
 		),
 	);
 
