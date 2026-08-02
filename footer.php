@@ -19,6 +19,13 @@ $is_back2top_btn = $opt['is_back_to_top_btn_switcher'] ?? '1';
 $bt_position     = $opt['bt_position'] ?? '';
 $footer_style    = ! empty( $opt['footer_style'] ) ? $opt['footer_style'] : 'normal';
 
+// The Artist Portal no longer depends on Elementor. Preserve a complete
+// footer if an old theme option still points to an Elementor template after
+// the retired builder plugins have been removed.
+if ( 'elementor' === $footer_style && ! did_action( 'elementor/loaded' ) ) {
+    $footer_style = 'normal';
+}
+
 /**
  * Footer is visible by default
  * - If current object has footer_visibility = '0' → hide footer
