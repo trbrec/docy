@@ -32,7 +32,7 @@ $artist_name = $logged_in ? trb_portal_artist_profile_value( 'artist_name', $use
 	<section class="trb-support">
 		<p class="trb-support__eyebrow">AREA ARTISTI · ASSISTENZA</p>
 		<h1>Apri una segnalazione</h1>
-		<p class="trb-support__lead">Segnala un problema di registrazione o accesso, richiedi assistenza oppure proponi una call di 30 minuti. La richiesta sarà inviata direttamente alla Direzione TRB rec.</p>
+		<p class="trb-support__lead">Segnala un problema di registrazione o accesso oppure richiedi assistenza. La richiesta sarà inviata direttamente alla Direzione TRB rec.</p>
 		<?php if ( $sent ) : ?><div class="trb-support__message">Segnalazione inviata. Riceverai riscontro via e-mail.</div><?php endif; ?>
 		<?php if ( $invalid ) : ?><div class="trb-support__message trb-support__message--error">Non è stato possibile inviare la richiesta. Verifica tutti i campi e riprova.</div><?php endif; ?>
 		<div class="trb-support__layout">
@@ -49,13 +49,13 @@ $artist_name = $logged_in ? trb_portal_artist_profile_value( 'artist_name', $use
 				<label class="trb-support__field-wide"><span class="trb-support__label-text">E-mail <b aria-hidden="true">*</b></span><input type="email" name="trb_support_email" value="<?php echo esc_attr( $email ); ?>" <?php echo $logged_in ? 'readonly' : ''; ?> autocomplete="email" required /></label>
 			</div>
 			<label><span class="trb-support__label-text">Tipo di richiesta <b aria-hidden="true">*</b></span>
-				<select name="trb_support_type" required><option value="supporto">Richiesta di supporto via e-mail</option><option value="call">Richiesta call di 30 minuti</option><option value="dati">Modifica dati anagrafici o contatti</option><option value="problema">Problema tecnico del portale</option></select>
+				<select name="trb_support_type" required><option value="supporto">Richiesta di supporto via e-mail</option><option value="dati">Modifica dati anagrafici o contatti</option><option value="problema">Problema tecnico del portale</option></select>
 			</label>
 			<label><span class="trb-support__label-text">Oggetto <b aria-hidden="true">*</b></span><input type="text" name="trb_support_subject" maxlength="160" placeholder="Descrivi brevemente il motivo della richiesta" required /></label>
 			<label><span class="trb-support__label-text">Messaggio <b aria-hidden="true">*</b></span><textarea name="trb_support_message" rows="7" placeholder="Spiega con precisione cosa è successo o di quale assistenza hai bisogno." required></textarea></label>
 			<button class="trb-button" type="submit">Invia la segnalazione</button>
 		</form>
-		<aside class="trb-support__aside"><p>ASSISTENZA DIRETTA</p><h2>La richiesta giusta, al reparto giusto.</h2><ul><li><strong>Problemi di accesso</strong><span>Registrazione, approvazione, password e login.</span></li><li><strong>Dati dell’artista</strong><span>Modifiche anagrafiche, referente ed e-mail.</span></li><li><strong>Supporto tecnico</strong><span>Problemi del portale, procedure e servizi.</span></li><li><strong>Call di 30 minuti</strong><span>Indica nel messaggio motivazione e disponibilità.</span></li></ul><small>Le richieste vengono recapitate a <strong>info@trbrec.com</strong>.</small></aside>
+		<aside class="trb-support__aside"><p>ASSISTENZA DIRETTA</p><h2>La richiesta giusta, al reparto giusto.</h2><ul><li><strong>Problemi di accesso</strong><span>Registrazione, approvazione, password e login.</span></li><li><strong>Dati dell’artista</strong><span>Modifiche anagrafiche, referente ed e-mail.</span></li><li><strong>Supporto tecnico</strong><span>Problemi del portale, procedure e servizi.</span></li></ul></aside>
 		</div>
 	</section>
 </main>
