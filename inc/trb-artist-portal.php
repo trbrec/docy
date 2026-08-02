@@ -951,7 +951,7 @@ function trb_portal_request_catalogue() {
  */
 function trb_portal_dashboard_shortcode() {
 	if ( ! is_user_logged_in() ) {
-		return '<section class="trb-portal-login"><h2>Area Artisti TRB rec</h2><p>Accedi per consultare i materiali riservati al tuo profilo.</p><p><a class="trb-button" href="' . esc_url( wp_login_url( get_permalink() ) ) . '">Accedi all’area riservata</a></p></section>';
+		return '<section class="trb-portal-login"><h2>Area Artisti TRB rec</h2><p>Accedi per consultare i materiali riservati al tuo profilo.</p><p><a class="trb-button" href="' . esc_url( add_query_arg( 'redirect_to', get_permalink(), home_url( '/accedi/' ) ) ) . '">Accedi all’area riservata</a></p></section>';
 	}
 
 	$profile = trb_portal_user_profile();
@@ -1423,7 +1423,8 @@ add_action( 'admin_post_trb_portal_submit_support', 'trb_portal_submit_support_r
  */
 function trb_portal_redirect_legacy_account_page() {
 	if ( 'GET' === strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) && is_page( 'my-account' ) ) {
-		wp_safe_redirect( home_url( '/accedi/' ), 302 );
+		$destination = is_user_logged_in() && ( trb_portal_user_profile() || current_user_can( 'manage_options' ) ) ? '/area-artisti/#profilo' : '/accedi/';
+		wp_safe_redirect( home_url( $destination ), 302 );
 		exit;
 	}
 }
