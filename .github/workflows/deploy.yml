@@ -1,6 +1,6 @@
 name: Deploy Docy theme
 
-# Production deployment is triggered by every merged main revision. Revision: standalone-portal-shell.
+# Production deployment is triggered by every merged main revision. Revision: artist-profile-national-postcodes.
 
 on:
   push:
