@@ -576,3 +576,10 @@ body.trb-artist-public-shell { display: flex; flex-direction: column; min-height
 .trb-support__form textarea { min-height: 160px; resize: vertical; }
 .trb-support__form .trb-button { border: 0; cursor: pointer; justify-self: start; }
 @media (max-width: 760px) { .trb-support { padding-left: 16px; padding-right: 16px; } .trb-support__field-grid { grid-template-columns: 1fr; } }
+
+
+/* Dashboard and resource templates still use Docy's footer markup. */
+body.trb-artist-portal-shell .doc_footer_area,
+body.trb-artist-download-shell .doc_footer_area { align-items: center; background: #fff; border-top: 1px solid #e7ebf2; box-sizing: border-box; color: #64748b; display: flex; font-size: clamp(11px,1.15vw,12px); justify-content: center; line-height: 1.45; margin: 0; min-height: 76px; padding: 18px max(20px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); text-align: center; width: 100%; }
+body.trb-artist-portal-shell .doc_footer_area *,
+body.trb-artist-download-shell .doc_footer_area * { margin-left: auto; margin-right: auto; max-width: 100%; overflow-wrap: anywhere; text-align: center; }
