@@ -96,6 +96,15 @@
     }
 
     input.addEventListener('input', function () {
+      var selected = places.find(function (place) { return (place.city + ' (' + place.province + ')').toLocaleLowerCase('it') === input.value.toLocaleLowerCase('it'); });
+      if (selected) {
+        input.value = selected.city;
+        province.value = selected.province;
+        status.textContent = 'Comune verificato nell’archivio italiano.';
+        status.classList.remove('is-error');
+        clearTimeout(timer);
+        return;
+      }
       province.value = '';
       clearTimeout(timer);
       if (input.value.trim().length < 2) return;
@@ -125,6 +134,10 @@
       phone.addEventListener('input', function () {
         var normalized = phone.value.replace(/[\s.\-()]/g, '').replace(/^0039/, '+39');
         phone.setCustomValidity(/^(?:\+39)?3\d{9}$/.test(normalized) ? '' : 'Inserisci un cellulare italiano valido: 10 cifre con iniziale 3; +39 è facoltativo.');
+      });
+      phone.addEventListener('blur', function () {
+        var normalized = phone.value.replace(/[\s.\-()]/g, '').replace(/^0039/, '+39');
+        if (/^(?:\+39)?3\d{9}$/.test(normalized)) phone.value = normalized.indexOf('+39') === 0 ? normalized : '+39' + normalized;
       });
       phone.dispatchEvent(new Event('input'));
     }
