@@ -1336,6 +1336,47 @@ function trb_portal_enqueue_assets() {
 add_action( 'wp_enqueue_scripts', 'trb_portal_enqueue_assets', 30 );
 
 /**
+ * Retire the legacy plugins that have been replaced by the Artist Portal.
+ *
+ * The cleanup runs once, only during an authenticated administrator request,
+ * and resolves installed plugins by directory so minor main-file name changes
+ * cannot cause the wrong package to be removed.
+ */
+function trb_portal_retire_legacy_plugins() {
+	if ( get_option( 'trb_portal_legacy_plugins_retired_v1' ) || ! current_user_can( 'delete_plugins' ) ) {
+		return;
+	}
+
+	require_once ABSPATH . 'wp-admin/includes/plugin.php';
+	$target_directories = array(
+		'bbp-core',
+		'smart-bbpress-nverify',
+		'duplicate-page',
+		'string-locator',
+		'classic-widgets',
+	);
+	$plugin_files = array();
+
+	foreach ( array_keys( get_plugins() ) as $plugin_file ) {
+		if ( in_array( dirname( $plugin_file ), $target_directories, true ) ) {
+			$plugin_files[] = $plugin_file;
+		}
+	}
+
+	if ( $plugin_files ) {
+		deactivate_plugins( $plugin_files, true );
+		$errors = delete_plugins( $plugin_files );
+		if ( is_wp_error( $errors ) ) {
+			update_option( 'trb_portal_legacy_plugins_cleanup_error', $errors->get_error_message(), false );
+			return;
+		}
+	}
+
+	update_option( 'trb_portal_legacy_plugins_retired_v1', wp_date( 'c' ), false );
+}
+add_action( 'admin_init', 'trb_portal_retire_legacy_plugins', 40 );
+
+/**
  * EazyDocs Pro remains the document engine, but its global assistant does not
  * understand the portal's contractual audiences and can expose private titles
  * inside otherwise public HTML. The portal already provides an audience-aware
