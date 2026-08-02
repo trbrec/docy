@@ -1793,3 +1793,24 @@ function trb_portal_noindex_private_area( $robots ) {
 	return $robots;
 }
 add_filter( 'wp_robots', 'trb_portal_noindex_private_area', 99 );
+
+/** Concise browser titles for the custom entry and account screens. */
+function trb_portal_document_title( $title ) {
+	if ( is_front_page() ) {
+		return 'Portale Artisti | TRB rec';
+	}
+	$titles = array(
+		'registrati'        => 'Registrati | Portale Artisti TRB rec',
+		'accedi'            => 'Accedi | Portale Artisti TRB rec',
+		'recupera-password' => 'Recupera password | Portale Artisti TRB rec',
+		'segnalazione'      => 'Apri una segnalazione | Portale Artisti TRB rec',
+		'area-artisti'      => 'Area Artisti | TRB rec',
+	);
+	foreach ( $titles as $slug => $screen_title ) {
+		if ( is_page( $slug ) ) {
+			return $screen_title;
+		}
+	}
+	return $title;
+}
+add_filter( 'pre_get_document_title', 'trb_portal_document_title', 99 );
