@@ -1352,6 +1352,18 @@ function trb_portal_start_private_output_filter() {
 }
 add_action( 'template_redirect', 'trb_portal_start_private_output_filter', 999 );
 
+/** Baseline browser protections for every custom portal screen. */
+function trb_portal_send_security_headers() {
+	if ( ! is_front_page() && ! trb_portal_is_private_screen() ) {
+		return;
+	}
+	header( 'X-Content-Type-Options: nosniff' );
+	header( 'X-Frame-Options: SAMEORIGIN' );
+	header( 'Referrer-Policy: strict-origin-when-cross-origin' );
+	header( 'Permissions-Policy: camera=(), geolocation=(), microphone=()' );
+}
+add_action( 'template_redirect', 'trb_portal_send_security_headers', 998 );
+
 /** Keep the public artist entry pages independent from the legacy Docy shell. */
 function trb_portal_public_body_class( $classes ) {
 	if ( is_front_page() || is_page( array( 'registrati', 'accedi', 'recupera-password', 'segnalazione' ) ) ) {
