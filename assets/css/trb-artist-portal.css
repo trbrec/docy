@@ -150,37 +150,42 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__search-result-list summary strong { color: var(--trb-ink); font-size: 14px; }
 .trb-portal__search-result-list summary span { color: var(--trb-ink-soft); font-size: 12px; line-height: 1.4; }
 .trb-portal__search-result-list details > div { border-top: 1px solid var(--trb-line); color: var(--trb-ink-soft); font-size: 14px; line-height: 1.6; padding: 15px; }
+.trb-portal__search-resource { background: #fff; border: 1px solid #dfe2ef; border-radius: 10px; color: inherit; display: grid; gap: 3px; padding: 13px 15px; text-decoration: none; }
+.trb-portal__search-resource:hover { border-color: var(--trb-accent); }
+.trb-portal__search-resource strong { color: var(--trb-ink); font-size: 14px; }
+.trb-portal__search-resource span { color: var(--trb-ink-soft); font-size: 12px; line-height: 1.4; }
+.trb-portal__search-resource em { color: var(--trb-accent); font-size: 12px; font-style: normal; font-weight: 800; margin-top: 3px; }
 
 .trb-portal__section { margin-top: 62px; scroll-margin-top: 30px; }
-.trb-portal__section-heading { margin-bottom: 24px; max-width: 650px; }
+.trb-portal__section-heading { margin-bottom: 24px; max-width: 900px; }
 .trb-portal__section-heading h2 { color: var(--trb-ink); font-size: clamp(27px, 3vw, 38px); letter-spacing: -.035em; line-height: 1.1; margin: 0 0 9px; }
 .trb-portal__section-heading > p:last-child { color: var(--trb-ink-soft); font-size: 16px; line-height: 1.55; margin: 0; }
 
-.trb-portal__steps,
-.trb-portal__cards { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.trb-portal__steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)); }
+.trb-portal__cards { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
 .trb-portal__steps article { background: var(--trb-surface); border-radius: 16px; padding: 27px; }
 .trb-portal__steps span { color: var(--trb-accent); font-size: 12px; font-weight: 800; letter-spacing: .1em; }
 .trb-portal__steps h3,
-.trb-portal__card h3 { color: var(--trb-ink); font-size: 20px; letter-spacing: -.02em; line-height: 1.2; margin: 23px 0 9px; }
+.trb-portal__card h3 { color: var(--trb-ink); font-size: clamp(18px, 1.55vw, 20px); hyphens: none; letter-spacing: -.02em; line-height: 1.22; margin: 23px 0 9px; overflow-wrap: normal; text-wrap: pretty; }
 .trb-portal__steps p,
-.trb-portal__card p { color: var(--trb-ink-soft); font-size: 14px; line-height: 1.58; margin: 0; }
+.trb-portal__card p { color: var(--trb-ink-soft); font-size: 14px; line-height: 1.58; margin: 0; text-wrap: pretty; }
 
 .trb-portal__service-grid { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .trb-portal__service-grid article { background: linear-gradient(140deg, #f7f7ff, #fff); border: 1px solid #e1e3ff; border-radius: 16px; min-height: 170px; padding: 26px; }
 .trb-portal__service-grid h3 { color: var(--trb-ink); font-size: 19px; letter-spacing: -.025em; line-height: 1.2; margin: 0 0 10px; }
 .trb-portal__service-grid p { color: var(--trb-ink-soft); font-size: 14px; line-height: 1.58; margin: 0; }
 
-.trb-portal__video-grid { display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.trb-portal__video-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
 .trb-portal__video-card { border: 1px solid var(--trb-line); border-radius: 16px; overflow: hidden; padding: 0 0 18px; }
 .trb-portal__video-card > a { display: block; overflow: hidden; position: relative; }
 .trb-portal__video-card img { display: block; height: auto; transition: transform .25s ease; width: 100%; }
 .trb-portal__video-card > a:hover img { transform: scale(1.04); }
 .trb-portal__video-card > a span { align-items: center; background: rgba(16,19,29,.82); border-radius: 50%; color: #fff; display: flex; font-size: 18px; height: 48px; justify-content: center; left: 50%; padding-left: 3px; position: absolute; top: 50%; transform: translate(-50%,-50%); width: 48px; }
-.trb-portal__video-card h3 { color: var(--trb-ink); font-size: 18px; letter-spacing: -.02em; line-height: 1.25; margin: 17px 18px 8px; }
+.trb-portal__video-card h3 { color: var(--trb-ink); font-size: clamp(17px, 1.5vw, 18px); hyphens: none; letter-spacing: -.02em; line-height: 1.25; margin: 17px 18px 8px; overflow-wrap: normal; text-wrap: pretty; }
 .trb-portal__video-card p { margin: 0 18px; }
 .trb-portal__video-card p a { color: var(--trb-accent); font-size: 13px; font-weight: 800; text-decoration: none; }
 
-.trb-portal__card { border: 1px solid var(--trb-line); border-radius: 16px; display: flex; flex-direction: column; min-height: 220px; padding: 27px; }
+.trb-portal__card { border: 1px solid var(--trb-line); border-radius: 16px; display: flex; flex-direction: column; min-height: 240px; min-width: 0; padding: 27px; }
 .trb-portal__card h3 { margin-top: 6px; }
 .trb-portal__card h3 a { color: inherit; text-decoration: none; }
 .trb-portal__card h3 a:hover { color: var(--trb-accent); }
@@ -372,6 +377,37 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
 .trb-login__form input[type="submit"] { background: var(--trb-accent); border: 0; border-radius: 9px; color: #fff; cursor: pointer; font-size: 15px; font-weight: 800; padding: 14px 18px; width: 100%; }
 .trb-login__form .login-remember label { color: var(--trb-ink-soft); font-weight: 600; }
 .trb-login__lost { margin-top: 18px !important; }
+.trb-support-page { background: linear-gradient(180deg,#f7f8fc 0,#fff 58%); min-height: 0; }
+.trb-support { margin: 0 auto; max-width: 1240px; padding: clamp(54px,5vw,76px) 32px clamp(52px,5vw,72px); width: 100%; }
+.trb-support__eyebrow { color: var(--trb-accent); font-size: 13px; font-weight: 800; letter-spacing: .13em; margin: 0 0 13px; text-transform: uppercase; }
+.trb-support h1 { color: var(--trb-ink); font-size: clamp(34px,4vw,52px); letter-spacing: -.045em; line-height: 1.06; margin: 0; }
+.trb-support__lead { color: var(--trb-ink-soft); font-size: 18px; line-height: 1.55; margin: 18px 0 0; max-width: 760px; }
+.trb-support__message { background: #e9f8ef; border: 1px solid #a4d9b5; border-radius: 12px; color: #176537; font-weight: 700; margin-top: 24px; padding: 15px 18px; }
+.trb-support__message--error { background: #fff1f1; border-color: #efb2b2; color: #9a2525; }
+.trb-support__layout { align-items: start; display: grid; gap: 24px; grid-template-columns: minmax(0,1.55fr) minmax(280px,.65fr); margin-top: 32px; }
+.trb-support__form { background: #fff; border: 1px solid #e4e7f0; border-radius: 20px; box-shadow: 0 22px 54px rgba(24,29,59,.1); display: grid; gap: 21px; margin: 0; padding: clamp(28px,4vw,44px); }
+.trb-support__form-heading { border-bottom: 1px solid #e8eaf2; margin-bottom: 3px; padding-bottom: 22px; }
+.trb-support__form-heading p, .trb-support__aside > p { color: var(--trb-accent); font-size: 12px; font-weight: 900; letter-spacing: .13em; margin: 0 0 9px; }
+.trb-support__form-heading h2, .trb-support__aside h2 { color: var(--trb-ink); font-size: clamp(24px,2.3vw,31px); letter-spacing: -.035em; line-height: 1.12; margin: 0; }
+.trb-support__form-heading span { color: var(--trb-ink-soft); display: block; font-size: 13px; margin-top: 9px; }
+.trb-support__form label { color: var(--trb-ink); display: grid; font-size: 14px; font-weight: 800; gap: 8px; margin: 0; }
+.trb-support__label-text { align-items: baseline; display: inline-flex; gap: 4px; line-height: 1.35; white-space: nowrap; }
+.trb-support__label-text b { color: #d7263d; font-size: 15px; line-height: 1; }
+.trb-support__field-grid { display: grid; gap: 18px; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.trb-support__field-wide { grid-column: 1 / -1; }
+.trb-support__form input, .trb-support__form select, .trb-support__form textarea { background: #fff; border: 1px solid #cfd4e3; border-radius: 9px; box-sizing: border-box; color: var(--trb-ink); font: inherit; font-size: 16px; min-height: 49px; padding: 12px 14px; width: 100%; }
+.trb-support__form input:focus, .trb-support__form select:focus, .trb-support__form textarea:focus { border-color: var(--trb-accent); box-shadow: 0 0 0 3px rgba(75,80,245,.13); outline: 0; }
+.trb-support__form input[readonly] { background: #f4f6fb; color: #697386; }
+.trb-support__form textarea { min-height: 160px; resize: vertical; }
+.trb-support__form .trb-button { border: 0; cursor: pointer; justify-self: start; min-width: 210px; }
+.trb-support__aside { background: linear-gradient(145deg,#131a32,#252f70); border-radius: 20px; box-shadow: 0 22px 50px rgba(16,22,52,.18); color: #fff; padding: 32px; position: sticky; top: 24px; }
+.trb-support__aside h2 { color: #fff; }
+.trb-support__aside ul { display: grid; gap: 0; list-style: none; margin: 27px 0 23px; padding: 0; }
+.trb-support__aside li { border-top: 1px solid rgba(255,255,255,.14); display: grid; gap: 5px; padding: 17px 0; }
+.trb-support__aside li:last-child { border-bottom: 1px solid rgba(255,255,255,.14); }
+.trb-support__aside li strong { color: #fff; font-size: 14px; }
+.trb-support__aside li span, .trb-support__aside small { color: rgba(255,255,255,.72); font-size: 13px; line-height: 1.5; }
+.trb-support__aside small strong { color: #fff; }
 
 @media (max-width: 760px) {
   .trb-landing__hero { grid-template-columns: 1fr; padding-bottom: 58px; padding-top: 62px; }
@@ -386,8 +422,38 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
   .trb-registration__form #wppb-register-user .wppb-default-e-mail,
   .trb-registration__form #wppb-register-user .wppb-default-contact-info-heading,
   .trb-registration__form #wppb-register-user .wppb-default-password { grid-column: auto; }
+	.trb-support { padding-left: 16px; padding-right: 16px; }
+	.trb-support__layout { grid-template-columns: 1fr; }
+	.trb-support__aside { position: static; }
+	.trb-support__field-grid { grid-template-columns: 1fr; }
+	.trb-support__field-wide { grid-column: auto; }
   .trb-portal__hero { align-items: flex-start; flex-direction: column; }
   .trb-portal__profile { min-width: 0; width: 100%; }
+}
+
+/* The Artist entry pages own their header. Never let Docy's legacy navigation
+   render above it, including when a cached front-page body class is stale. */
+body:has(.trb-landing) .header,
+body:has(.trb-landing) .docy-header,
+body:has(.trb-landing) .navbar,
+body:has(.trb-landing) .mobile_nav_bottom,
+body:has(.trb-landing) .mobile_menu,
+body:has(.trb-landing) .menu-toggle,
+body:has(.trb-landing) .navbar_fixed_menu { display: none !important; }
+.trb-landing__site-link-short { display: none; }
+@media (max-width: 760px) {
+  .trb-landing__topbar { gap: 12px; min-height: 68px; }
+  .trb-landing__brand { flex: 0 0 auto; }
+  .trb-landing__brand img { max-height: 34px; max-width: 108px; }
+  .trb-landing__site-link { flex: 0 0 auto; font-size: 12px; line-height: 1; padding: 11px 13px; white-space: nowrap; }
+  .trb-landing__site-link-full { display: none; }
+  .trb-landing__site-link-short { display: inline; }
+  .trb-landing__hero { gap: 32px; padding: 48px 24px 44px; }
+  .trb-landing__hero h1 { font-size: clamp(34px, 10vw, 47px); line-height: 1.04; }
+  .trb-landing__lead { font-size: 17px; line-height: 1.5; margin-top: 18px; }
+  .trb-landing__actions { margin-top: 24px; }
+  .trb-landing__access-note { border-radius: 16px; padding: 22px; }
+  .trb-landing__access-note strong { font-size: 18px; }
 }
 
 /* A two-column legal form is too tight on tablets even though it technically fits. */
@@ -462,30 +528,15 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
   .trb-portal__section { margin-top: 52px; }
 }
 
-
-/* Resource grids must widen before text is compressed or broken arbitrarily. */
-.trb-portal__section-heading { max-width: 900px; }
-.trb-portal__steps,
-.trb-portal__cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)); }
-.trb-portal__cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
-.trb-portal__card { min-height: 240px; min-width: 0; }
-.trb-portal__steps h3,
-.trb-portal__card h3 { font-size: clamp(18px, 1.55vw, 20px); hyphens: none; overflow-wrap: normal; text-wrap: pretty; }
-.trb-portal__steps p,
-.trb-portal__card p,
-.trb-portal__section-heading > p:last-child { text-wrap: pretty; }
-.trb-portal__video-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
-.trb-portal__video-card h3 { font-size: clamp(17px, 1.35vw, 19px); hyphens: none; overflow-wrap: normal; text-wrap: pretty; }
-@media (max-width: 520px) {
-  .trb-portal__card,
-  .trb-portal__steps article { padding: 22px; }
+@media (max-width: 560px) {
+  .trb-portal-topbar__inner { gap: 12px; min-height: 64px; }
+  .trb-portal-topbar__brand img { max-height: 32px; max-width: 96px; }
+  .trb-portal-topbar__actions { flex: 1 1 auto; gap: 9px; justify-content: flex-end; min-width: 0; }
+  .trb-portal-topbar__actions a { font-size: 11px; line-height: 1.2; }
+  .trb-portal-topbar__support { border: 1px solid rgba(255,255,255,.34); border-radius: 8px; padding: 8px 9px; text-align: center; }
+  .trb-portal-topbar__account { display: none; }
+  .trb-portal-topbar__actions .trb-portal-topbar__logout { padding-left: 9px; }
 }
-
-.trb-portal__search-resource { background: #fff; border: 1px solid #dfe2ef; border-radius: 10px; color: inherit; display: grid; gap: 3px; padding: 13px 15px; text-decoration: none; }
-.trb-portal__search-resource:hover { border-color: var(--trb-accent); }
-.trb-portal__search-resource strong { color: var(--trb-ink); font-size: 14px; }
-.trb-portal__search-resource span { color: var(--trb-ink-soft); font-size: 12px; line-height: 1.4; }
-.trb-portal__search-resource em { color: var(--trb-accent); font-size: 12px; font-style: normal; font-weight: 800; margin-top: 3px; }
 
 /* Final layout guardrails: content must take the available width before it
    wraps, and third-party Profile Builder spacing must not shrink our form. */
@@ -514,6 +565,13 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
 .trb-registration__lead,
 .trb-registration__notice p,
 .trb-login__intro > p:not(:first-child) { text-wrap: pretty; }
+
+/* These public pages render their own shell: the legacy Docy navigation can
+   therefore never overlap the compact TRB header on small screens. */
+body.trb-artist-public-shell { display: flex; flex-direction: column; min-height: 100vh; margin: 0; background: #fff; }
+.trb-artist-public-shell > main { flex: 1 0 auto; min-width: 0; width: 100%; }
+.trb-artist-public-shell .trb-public-footer { align-items: center; display: flex; flex: 0 0 auto; flex-direction: column; gap: 3px; justify-content: center; margin: 0; min-height: 76px; padding: 18px max(20px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); border-top: 1px solid #e7ebf2; background: #fff; color: #64748b; font-size: clamp(11px, 1.15vw, 12px); line-height: 1.45; text-align: center; width: 100%; }
+.trb-artist-public-shell .trb-public-footer span { display: block; max-width: 100%; overflow-wrap: anywhere; }
 @media (max-width: 760px) {
   .trb-portal__hero { gap: 17px; padding: 23px 22px; }
   .trb-portal__nav { gap: 8px 14px; margin-top: 16px; padding: 11px 13px; }
@@ -521,83 +579,10 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
   .trb-registration, .trb-login { padding-left: 16px; padding-right: 16px; }
   .trb-registration__form, .trb-login__form { border-radius: 15px; padding: 24px 18px; }
 }
-
-/* The Artist entry pages own their header. Never let Docy's legacy navigation
-   render above it, including when a cached front-page body class is stale. */
-body:has(.trb-landing) .header,
-body:has(.trb-landing) .docy-header,
-body:has(.trb-landing) .navbar,
-body:has(.trb-landing) .mobile_nav_bottom,
-body:has(.trb-landing) .mobile_menu,
-body:has(.trb-landing) .menu-toggle,
-body:has(.trb-landing) .navbar_fixed_menu { display: none !important; }
-.trb-landing__site-link-short { display: none; }
-@media (max-width: 760px) {
-  .trb-landing__topbar { gap: 12px; min-height: 68px; }
-  .trb-landing__brand { flex: 0 0 auto; }
-  .trb-landing__brand img { max-height: 34px; max-width: 108px; }
-  .trb-landing__site-link { flex: 0 0 auto; font-size: 12px; line-height: 1; padding: 11px 13px; white-space: nowrap; }
-  .trb-landing__site-link-full { display: none; }
-  .trb-landing__site-link-short { display: inline; }
-  .trb-landing__hero { gap: 32px; padding: 48px 24px 44px; }
-  .trb-landing__hero h1 { font-size: clamp(34px, 10vw, 47px); line-height: 1.04; }
-  .trb-landing__lead { font-size: 17px; line-height: 1.5; margin-top: 18px; }
-  .trb-landing__actions { margin-top: 24px; }
-  .trb-landing__access-note { border-radius: 16px; padding: 22px; }
-  .trb-landing__access-note strong { font-size: 18px; }
-}
-
-/* A two-column legal form is too tight on tablets even though it technically fits. */
-@media (max-width: 980px) {
-  .trb-portal__profile-form > .trb-portal__field-grid { grid-template-columns: 1fr; }
-  .trb-portal__profile-form .trb-portal__company-details .trb-portal__field-grid { grid-template-columns: 1fr; }
-}
-
-/* Public Portal pages deliberately render their own shell: the legacy Docy
-   navigation cannot overlap the compact TRB header at any viewport width. */
-body.trb-artist-public-shell { display: flex; flex-direction: column; min-height: 100vh; margin: 0; background: #fff; }
-.trb-artist-public-shell > main { flex: 1 0 auto; min-width: 0; width: 100%; }
-.trb-artist-public-shell .trb-public-footer { align-items: center; display: flex; flex: 0 0 auto; flex-direction: column; gap: 3px; justify-content: center; margin: 0; min-height: 76px; padding: 18px max(20px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); border-top: 1px solid #e7ebf2; background: #fff; color: #64748b; font-size: clamp(11px, 1.15vw, 12px); line-height: 1.45; text-align: center; width: 100%; }
-.trb-artist-public-shell .trb-public-footer span { display: block; max-width: 100%; overflow-wrap: anywhere; }
-
-
-/* Artist support page */
-.trb-support-page { background: linear-gradient(180deg,#f7f8fc 0,#fff 58%); min-height: 0; }
-.trb-support { margin: 0 auto; max-width: 980px; padding: clamp(54px,5vw,76px) 32px clamp(52px,5vw,72px); }
-.trb-support__eyebrow { color: var(--trb-accent); font-size: 13px; font-weight: 800; letter-spacing: .13em; margin: 0 0 13px; text-transform: uppercase; }
-.trb-support h1 { color: var(--trb-ink); font-size: clamp(34px,4vw,52px); letter-spacing: -.045em; line-height: 1.06; margin: 0; }
-.trb-support__lead { color: var(--trb-ink-soft); font-size: 18px; line-height: 1.55; margin: 18px 0 0; max-width: 760px; }
-.trb-support__message { background: #e9f8ef; border: 1px solid #a4d9b5; border-radius: 12px; color: #176537; font-weight: 700; margin-top: 24px; padding: 15px 18px; }
-.trb-support__form { background: #fff; border: 1px solid #e4e7f0; border-radius: 18px; box-shadow: 0 18px 42px rgba(24,29,59,.1); display: grid; gap: 20px; margin-top: 30px; padding: clamp(26px,4vw,42px); }
-.trb-support__form label { color: var(--trb-ink); display: grid; font-size: 14px; font-weight: 800; gap: 8px; }
-.trb-support__field-grid { display: grid; gap: 18px; grid-template-columns: repeat(2,minmax(0,1fr)); }
-.trb-support__form input, .trb-support__form select, .trb-support__form textarea { background: #fff; border: 1px solid #cfd4e3; border-radius: 9px; box-sizing: border-box; color: var(--trb-ink); font: inherit; font-size: 16px; min-height: 49px; padding: 12px 14px; width: 100%; }
-.trb-support__form input[readonly] { background: #f4f6fb; color: #697386; }
-.trb-support__form textarea { min-height: 160px; resize: vertical; }
-.trb-support__form .trb-button { border: 0; cursor: pointer; justify-self: start; }
-@media (max-width: 760px) { .trb-support { padding-left: 16px; padding-right: 16px; } .trb-support__field-grid { grid-template-columns: 1fr; } }
-
-
-/* Dashboard and resource templates still use Docy's footer markup. */
-body.trb-artist-portal-shell .doc_footer_area,
-body.trb-artist-download-shell .doc_footer_area { align-items: center; background: #fff; border-top: 1px solid #e7ebf2; box-sizing: border-box; color: #64748b; display: flex; font-size: clamp(11px,1.15vw,12px); justify-content: center; line-height: 1.45; margin: 0; min-height: 76px; padding: 18px max(20px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); text-align: center; width: 100%; }
-body.trb-artist-portal-shell .doc_footer_area *,
-body.trb-artist-download-shell .doc_footer_area * { margin-left: auto; margin-right: auto; max-width: 100%; overflow-wrap: anywhere; text-align: center; }
-
-@media (max-width: 560px) {
-  .trb-portal-topbar__inner { gap: 12px; min-height: 64px; }
-  .trb-portal-topbar__brand img { max-height: 32px; max-width: 96px; }
-  .trb-portal-topbar__actions { flex: 1 1 auto; gap: 9px; justify-content: flex-end; min-width: 0; }
-  .trb-portal-topbar__actions a { font-size: 11px; line-height: 1.2; }
-  .trb-portal-topbar__support { border: 1px solid rgba(255,255,255,.34); border-radius: 8px; padding: 8px 9px; text-align: center; }
-  .trb-portal-topbar__account { display: none; }
-  .trb-portal-topbar__actions .trb-portal-topbar__logout { padding-left: 9px; }
-}
-
 .trb-support__website {
-  position: absolute !important;
-  left: -10000px !important;
-  width: 1px !important;
-  height: 1px !important;
-  overflow: hidden !important;
+	position: absolute !important;
+	left: -10000px !important;
+	width: 1px !important;
+	height: 1px !important;
+	overflow: hidden !important;
 }
