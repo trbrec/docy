@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', function () {
       setProgress(0, 'Preparazione dei file…');
 
       var request = new XMLHttpRequest();
-      request.open((form.method || 'POST').toUpperCase(), form.action, true);
+      request.open((form.method || 'POST').toUpperCase(), form.getAttribute('action'), true);
       request.setRequestHeader('X-TRB-Upload', '1');
       request.setRequestHeader('Accept', 'application/json');
       request.timeout = 5 * 60 * 1000;
