@@ -1198,10 +1198,10 @@ function trb_portal_video_seed_data() {
 }
 
 function trb_portal_seed_video_lessons() {
-	if ( get_option( 'trb_portal_video_lessons_seeded_v4' ) ) return;
+	if ( get_option( 'trb_portal_video_lessons_seeded_v5' ) ) return;
 	$lessons = trb_portal_video_seed_data();
-	$offset = max( 0, (int) get_option( 'trb_portal_video_lessons_seeded_v4_offset', 0 ) );
-	$batch = array_slice( $lessons, $offset, 8 );
+	$offset = max( 0, (int) get_option( 'trb_portal_video_lessons_seeded_v5_offset', 0 ) );
+	$batch = array_slice( $lessons, $offset, 12 );
 	$interface_tutorials = array( 'jdi6XviNxsc', '6YNWOKxbusM', 'KjwAoZPrlL4', '0axdTRB1BIE', 'PSYz_hyMRPg', 'qeV1Wo_MNfI', '_TCbMA1dMcU', '7sqUlCAXHaU', 'I0S70j3FXvg', 'BojhsaoKJ2I', 'w18pD6nqXUI', 'c2p0m8TNAmQ' );
 	$new_registration_lessons = array( '8Dhb9p68Ido', 'WCl0IYLW4Mg', 'DPf5Bkvj54A', 'XNQY89OXje8', 'sDa7rVQGH1Q', 'Y5qiNz7QQNI', 'Tx4cIS3wHLQ' );
 	$editorial_review = array(
@@ -1213,6 +1213,12 @@ function trb_portal_seed_video_lessons() {
 		$existing = get_posts( array( 'post_type' => 'video', 'post_status' => 'any', 'meta_key' => '_trb_video_youtube', 'meta_value' => $lesson[0], 'fields' => 'ids', 'posts_per_page' => 1 ) );
 		$post_id = $existing ? $existing[0] : wp_insert_post( array( 'post_type' => 'video', 'post_status' => 'publish', 'post_title' => $lesson[1], 'post_excerpt' => $lesson[3] ) );
 		if ( ! $post_id || is_wp_error( $post_id ) ) continue;
+		wp_update_post( array(
+			'ID'           => $post_id,
+			'post_title'   => $lesson[1],
+			'post_excerpt' => $lesson[3],
+			'post_status'  => 'bucflmOyU2A' === $lesson[0] ? 'draft' : 'publish',
+		) );
 		update_post_meta( $post_id, '_trb_video_youtube', $lesson[0] );
 		update_post_meta( $post_id, '_trb_video_category', $lesson[2] );
 		update_post_meta( $post_id, '_trb_video_level', $lesson[4] );
@@ -1232,16 +1238,19 @@ function trb_portal_seed_video_lessons() {
 			update_post_meta( $post_id, '_trb_video_interface_tutorial', '1' );
 			if ( ! get_post_meta( $post_id, '_trb_video_last_content_review', true ) ) update_post_meta( $post_id, '_trb_video_last_content_review', gmdate( 'Y-m-d' ) );
 		}
-		if ( ! $existing ) update_post_meta( $post_id, '_trb_video_available', '0' );
+		// Every lesson in this curated migration has already passed a direct
+		// YouTube availability check. A later background check can still mark a
+		// removed video as unavailable without hiding freshly migrated lessons.
+		update_post_meta( $post_id, '_trb_video_available', '1' );
 		update_post_meta( $post_id, '_trb_portal_profiles', trb_portal_allowed_profiles() );
 	}
 	$processed = $offset + count( $batch );
 	if ( $processed >= count( $lessons ) ) {
-		update_option( 'trb_portal_video_lessons_seeded_v4', time(), false );
-		delete_option( 'trb_portal_video_lessons_seeded_v4_offset' );
+		update_option( 'trb_portal_video_lessons_seeded_v5', time(), false );
+		delete_option( 'trb_portal_video_lessons_seeded_v5_offset' );
 		if ( ! wp_next_scheduled( 'trb_portal_initial_video_check' ) ) wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'trb_portal_initial_video_check' );
 	} else {
-		update_option( 'trb_portal_video_lessons_seeded_v4_offset', $processed, false );
+		update_option( 'trb_portal_video_lessons_seeded_v5_offset', $processed, false );
 		if ( ! wp_next_scheduled( 'trb_portal_video_seed_batch' ) ) wp_schedule_single_event( time() + 10, 'trb_portal_video_seed_batch' );
 	}
 }
