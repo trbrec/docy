@@ -104,6 +104,12 @@ function trb_docy_deploy_verified_sha( $sha ) {
 
 	update_option( TRB_DOCY_DEPLOYED_SHA_OPTION, $sha, false );
 	wp_cache_flush();
+	// Some SiteGround PHP workers keep executing the previous opcode after an
+	// overwrite-style theme deploy. Reset it only after source verification, so
+	// the next request cannot serve stale PHP while GitHub already reports green.
+	if ( function_exists( 'opcache_reset' ) ) {
+		@opcache_reset(); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+	}
 	if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
 		sg_cachepress_purge_cache();
 	}
