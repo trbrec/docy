@@ -268,6 +268,21 @@ function trb_demo_render_settings_page() {
 			$openai = wp_remote_get( 'https://api.openai.com/v1/models/' . rawurlencode( $model ), array( 'timeout' => 30, 'headers' => array( 'Authorization' => 'Bearer ' . $settings['openai_key'] ) ) );
 			$test_results['OpenAI'] = ! is_wp_error( $openai ) && 200 === wp_remote_retrieve_response_code( $openai );
 		}
+		if ( empty( $settings['sheet_webhook_url'] ) || empty( $settings['sheet_webhook_secret'] ) ) {
+			$test_results['Google Sheets'] = false;
+		} else {
+			$test_row = array(
+				'informazioni_cronologiche' => wp_date( 'd/m/Y H:i' ),
+				'nome' => 'TEST', 'cognome' => 'CONFIGURAZIONE', 'nome_arte' => 'TRB AUTOMATION',
+				'email' => 'info@trbrec.com', 'titolo' => 'TEST COLLEGAMENTO - eliminabile',
+				'link_provino' => '', 'request_id' => 'test-' . gmdate( 'YmdHis' ),
+			);
+			$test_json = wp_json_encode( $test_row );
+			$test_envelope = array( 'payload' => $test_row, 'signature' => hash_hmac( 'sha256', $test_json, $settings['sheet_webhook_secret'] ) );
+			$sheet = wp_remote_post( $settings['sheet_webhook_url'], array( 'timeout' => 30, 'headers' => array( 'Content-Type' => 'application/json' ), 'body' => wp_json_encode( $test_envelope ) ) );
+			$sheet_data = is_wp_error( $sheet ) ? array() : json_decode( wp_remote_retrieve_body( $sheet ), true );
+			$test_results['Google Sheets'] = ! is_wp_error( $sheet ) && ! empty( $sheet_data['success'] );
+		}
 	}
 
 	$defaults = array(
@@ -312,7 +327,7 @@ function trb_demo_render_settings_page() {
 			<?php endforeach; ?>
 			</tbody></table>
 			<?php submit_button( 'Salva configurazione', 'primary', 'trb_demo_save_settings' ); ?>
-			<?php submit_button( 'Testa pCloud e OpenAI', 'secondary', 'trb_demo_test_settings', false ); ?>
+			<?php submit_button( 'Testa tutti i collegamenti', 'secondary', 'trb_demo_test_settings', false ); ?>
 		</form>
 	</div>
 	<?php
