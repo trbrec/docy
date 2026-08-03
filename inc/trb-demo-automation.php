@@ -280,8 +280,11 @@ function trb_demo_render_settings_page() {
 			$test_json = wp_json_encode( $test_row );
 			$test_envelope = array( 'payload_base64' => base64_encode( $test_json ), 'signature' => hash_hmac( 'sha256', $test_json, $settings['sheet_webhook_secret'] ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 			$sheet = wp_remote_post( $settings['sheet_webhook_url'], array( 'timeout' => 30, 'headers' => array( 'Content-Type' => 'application/json' ), 'body' => wp_json_encode( $test_envelope ) ) );
-			$sheet_data = is_wp_error( $sheet ) ? array() : json_decode( wp_remote_retrieve_body( $sheet ), true );
-			$test_results['Google Sheets'] = ! is_wp_error( $sheet ) && ! empty( $sheet_data['success'] );
+			$sheet_body = is_wp_error( $sheet ) ? '' : wp_remote_retrieve_body( $sheet );
+			$sheet_data = $sheet_body ? json_decode( $sheet_body, true ) : array();
+			$sheet_ok = ! is_wp_error( $sheet ) && ! empty( $sheet_data['success'] );
+			$sheet_detail = $sheet_ok ? '' : ( is_wp_error( $sheet ) ? $sheet->get_error_message() : ( $sheet_data['error'] ?? 'risposta non valida' ) );
+			$test_results[ 'Google Sheets' . ( $sheet_detail ? ' — ' . sanitize_text_field( $sheet_detail ) : '' ) ] = $sheet_ok;
 		}
 	}
 
