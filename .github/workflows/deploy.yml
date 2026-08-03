@@ -1,6 +1,6 @@
 name: Deploy Docy theme
 
-# Production deployment is triggered by every merged main revision. Revision: academy-seed-v5-oidc-fixed.
+# Production deployment is triggered by every merged main revision. Revision: academy-seed-v5-production.
 
 on:
   push:
@@ -39,9 +39,6 @@ jobs:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           payload=$(jq -nc --arg sha "${GITHUB_SHA}" '{sha: $sha}')
-          token_payload=$(printf '%s' "${OIDC_TOKEN}" | cut -d. -f2)
-          token_payload="${token_payload}$(printf '=%.0s' $(seq 1 $(( (4 - ${#token_payload} % 4) % 4 ))))"
-          printf '%s' "${token_payload}" | base64 -d 2>/dev/null | jq '{iss, aud, repository, ref, event_name, sha, exp, nbf}'
           curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 20 \
             --retry 3 --retry-delay 20 --retry-all-errors \
             -X POST \
