@@ -95,6 +95,12 @@ document.addEventListener('DOMContentLoaded', function () {
       });
 
       request.addEventListener('load', function () {
+        window.trbDemoLastResponse = {
+          status: request.status,
+          url: request.responseURL,
+          contentType: request.getResponseHeader('Content-Type') || '',
+          body: request.responseText.slice(0, 1000)
+        };
         var payload = null;
         try { payload = JSON.parse(request.responseText); } catch (parseError) {}
         if (!payload) {
