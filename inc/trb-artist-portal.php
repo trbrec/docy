@@ -1124,7 +1124,14 @@ function trb_portal_video_seed_data() {
 		array( 'PRplUNPRTSU', 'Come scegliere la tonalità adatta alla propria voce', 'Canto e interpretazione', 'Riconosci il range utile e scegli una tonalità naturale, controllabile e credibile.', 'Base', 12 ),
 		array( 'hXuSELCrHKQ', 'Scegliere il microfono: dinamico, condensatore e pattern', 'Registrazione', 'Comprendi tipologie e caratteristiche dei microfoni per scegliere la soluzione adatta.', 'Base', 13 ),
 		array( 'Fcpllu0SAFg', 'Registrare la voce in home studio', 'Registrazione', 'Livelli, distanza e accorgimenti essenziali per ottenere tracce vocali utilizzabili.', 'Base', 14 ),
-		array( 'yxyYwgylNSM', 'Gain staging: registrare e mixare senza distorsioni', 'Registrazione', 'Gestisci i livelli dalla ripresa al mix evitando clipping e catene fuori controllo.', 'Base', 15 ),
+		array( '8Dhb9p68Ido', 'Microfono, asta, filtro antipop e accessori essenziali', 'Registrazione', 'Conosci il microfono e gli accessori fondamentali per preparare una ripresa ordinata e affidabile.', 'Base', 15 ),
+		array( 'WCl0IYLW4Mg', 'L’attrezzatura necessaria per registrare da casa', 'Registrazione', 'Computer, interfaccia audio, cuffie, monitor, microfono e software: una panoramica per iniziare senza acquisti casuali.', 'Base', 16 ),
+		array( 'DPf5Bkvj54A', 'Preparare una stanza per registrare correttamente', 'Registrazione', 'Comprendi come ambiente, riflessioni e trattamento acustico influenzano la qualità della ripresa.', 'Base', 17 ),
+		array( 'XNQY89OXje8', 'Come microfonare una chitarra acustica', 'Registrazione', 'Scelta e posizionamento dei microfoni per ottenere una ripresa naturale e utilizzabile.', 'Base/intermedio', 18 ),
+		array( 'sDa7rVQGH1Q', 'Quattro posizioni microfoniche per la chitarra acustica', 'Registrazione', 'Confronta quattro collocazioni con un solo microfono e riconosci come cambia il timbro registrato.', 'Base/intermedio', 19 ),
+		array( 'Y5qiNz7QQNI', 'Registrare voce e chitarra con un solo microfono', 'Registrazione', 'Imposta una ripresa semplice per provini e preproduzioni bilanciando voce e strumento.', 'Base', 20 ),
+		array( 'Tx4cIS3wHLQ', '16, 24 e 32 bit: scegliere il formato di registrazione', 'Registrazione', 'Comprendi la profondità di bit e perché le consegne TRB devono rispettare il formato richiesto.', 'Base', 21 ),
+		array( 'yxyYwgylNSM', 'Gain staging: gestire correttamente i livelli', 'Mixaggio e mastering', 'Gestisci i livelli lungo la catena audio evitando clipping e processori alimentati in modo scorretto.', 'Base', 15 ),
 		array( 'YrpxrgQFVGY', 'Come iniziare correttamente un mix', 'Mixaggio e mastering', 'Prepara la sessione, stabilisci le priorità e costruisci un primo bilanciamento ordinato.', 'Base', 16 ),
 		array( 'baJE7zsNW-I', 'Cinque errori di mixaggio da evitare', 'Mixaggio e mastering', 'Riconosci gli sbagli che rendono il mix confuso, sbilanciato o poco efficace.', 'Base', 17 ),
 		array( '21vchwZhX3w', 'Volumi e clipping: preparare correttamente il mix', 'Mixaggio e mastering', 'Gestisci picchi e livelli lasciando al mastering un segnale tecnicamente adeguato.', 'Base', 18 ),
@@ -1163,12 +1170,42 @@ function trb_portal_video_seed_data() {
 		array( '5v0oO4mr7Co', 'Come promuovere la propria musica', 'Music business', 'Una panoramica di music marketing e sviluppo consapevole del progetto.', 'Base/intermedio', 52 ),
 		array( 'B7u-FBQUqkI', 'Come presentare la propria musica ai curatori', 'Music business', 'Prepara un invio chiaro e pertinente per playlist e curatori editoriali.', 'Base', 53 ),
 		array( 'bucflmOyU2A', 'Come pubblicare una cover senza violare il copyright', 'Music business', 'Comprendi autorizzazioni e principali cautele per distribuire una reinterpretazione.', 'Base/intermedio', 54 ),
+		array( '91_SFWpiihw', 'Tre esercizi per allenare la scrittura di un testo', 'Scrittura e composizione', 'Esercizi guidati per superare il blocco iniziale e sviluppare immagini, lessico e continuità narrativa.', 'Base', 62 ),
+		array( 'YxWdz4z0q8w', 'Costruire la dinamica di un arrangiamento', 'Scrittura e composizione', 'Organizza densità, intensità e contrasti affinché le sezioni del brano accompagnino l’ascolto.', 'Base/intermedio', 63 ),
+		array( 'pGDF-5U4UHk', 'Scrittura musicale: metodo, intenzione e riconoscibilità', 'Scrittura e composizione', 'Una masterclass sulla costruzione delle idee e sulle scelte che rendono personale una canzone.', 'Intermedio', 64 ),
+		array( '-ObFU8gsdkA', 'Creare un hook riconoscibile', 'Scrittura e composizione', 'Comprendi la funzione del gancio melodico o testuale e usalo senza rendere artificiale il brano.', 'Base/intermedio', 65 ),
+		array( '6Ay9Y_g5X64', 'Proteggere e mantenere sana la voce', 'Canto e interpretazione', 'Dieci indicazioni di igiene vocale per affrontare prove, registrazioni ed esibizioni con maggiore consapevolezza.', 'Base', 66 ),
+		array( 'vG7QmEX2fN0', 'Dizione e chiarezza nella voce cantata', 'Canto e interpretazione', 'Articola parole e consonanti preservando naturalezza, intenzione e qualità del suono.', 'Base/intermedio', 67 ),
+		array( 'LK5j3Cohp3w', 'Creare cori e armonizzazioni vocali', 'Canto e interpretazione', 'Esercizi pratici per riconoscere gli intervalli e costruire seconde voci coerenti con la melodia.', 'Base/intermedio', 68 ),
+		array( 'AwkCX7rIgzA', 'Prepararsi a una sessione di registrazione vocale', 'Canto e interpretazione', 'Organizza testo, tonalità, riscaldamento e ascolto in cuffia prima di iniziare le riprese.', 'Base', 69 ),
+		array( 'Gc11_a_UOdE', 'Controllare fase e compatibilità mono', 'Mixaggio e mastering', 'Verifica correlazione e cancellazioni affinché il mix rimanga solido anche fuori dall’ascolto stereo ideale.', 'Intermedio', 70 ),
+		array( '8BPu8dFygOw', 'Comprendere e usare correttamente la compressione', 'Mixaggio e mastering', 'Impara funzione e parametri del compressore evitando di ridurre la dinamica senza una finalità precisa.', 'Base/intermedio', 71 ),
+		array( 'dWANq78ntnM', 'Equalizzazione: principi e metodo di ascolto', 'Mixaggio e mastering', 'Riconosci frequenze, filtri e interventi utili senza affidarti a correzioni casuali.', 'Base', 72 ),
+		array( 'AA66AIBGhuw', 'Usare una traccia di riferimento nel mix', 'Mixaggio e mastering', 'Confronta equilibrio, dinamica e immagine sonora mantenendo l’identità della produzione.', 'Intermedio', 73 ),
+		array( '7S9uyrQcGgQ', 'Soundcheck, palco e monitor: istruzioni essenziali', 'Live e DJ set', 'Comunica con il fonico e prepara livelli, monitoraggio e disposizione sul palco senza rallentare il soundcheck.', 'Base', 74 ),
+		array( 'POaJ5Thpk34', 'Costruire una scaletta efficace per un concerto', 'Live e DJ set', 'Ordina repertorio, pause e cambi di intensità per sostenere attenzione e coerenza dello spettacolo.', 'Base', 75 ),
+		array( 'c2p0m8TNAmQ', 'Spotify for Artists: funzioni e gestione del profilo', 'Social e profili artista', 'Panoramica degli strumenti disponibili per controllare informazioni, pubblico e presentazione del profilo ufficiale.', 'Base', 76 ),
+		array( 'Djd-TSGihuU', 'Branding musicale: rendere riconoscibile il progetto', 'Identità e branding', 'Collega identità, immagine, tono e continuità visiva senza imitare modelli estranei al progetto.', 'Base', 77 ),
+		array( 'Xg5Yb3yLJpQ', 'Illuminare correttamente reel e video verticali', 'Contenuti video', 'Imposta una luce semplice e leggibile per migliorare i contenuti realizzati con smartphone e attrezzatura accessibile.', 'Base', 78 ),
+		array( 'pLgHqI3ED6I', 'Diritto d’autore e società di collecting', 'Music business', 'Matteo Fedeli di SIAE spiega funzione del diritto d’autore, tutela delle opere e gestione collettiva dei compensi.', 'Base', 79 ),
+		array( 'DWM2DVM12pg', 'Il ruolo dell’A&R nello sviluppo di un progetto', 'Music business', 'Comprendi valutazione, repertorio e rapporto tra artista e struttura attraverso l’esperienza di Sony Music Italy.', 'Base', 80 ),
+		array( 'Y62DH2aENHQ', 'Il ruolo del manager musicale', 'Music business', 'Paola Zukar descrive responsabilità, relazioni professionali e collaborazioni che accompagnano la crescita artistica.', 'Base', 81 ),
+		array( 'O1dt42cW6U8', 'Codice ISRC: identità e tracciamento di una registrazione', 'Music business', 'Comprendi perché ogni registrazione necessita di un identificativo corretto e perché non deve essere duplicato o inventato.', 'Base', 82 ),
+		array( 'sCuuqAjJz-8', 'Autore, artista e produttore di fonogrammi', 'Music business', 'Distingui ruoli e diritti delle principali figure coinvolte nella creazione e pubblicazione di una registrazione.', 'Base', 83 ),
+		array( 'ldzX7Oret68', 'Autori, compositori, arrangiatori e interpreti', 'Music business', 'Riconosci correttamente i contributi creativi ed esecutivi da dichiarare nei crediti e nei metadati.', 'Base', 84 ),
+		array( 'U5qC6u2MYtw', 'Streaming artificiale: rischi e conseguenze', 'Music business', 'Spotify for Artists spiega come riconoscere pratiche non autentiche e perché compromettono dati, royalty e distribuzione.', 'Base/intermedio · sottotitoli', 85 ),
 	);
 }
 
 function trb_portal_seed_video_lessons() {
-	if ( get_option( 'trb_portal_video_lessons_seeded_v3' ) ) return;
-	$interface_tutorials = array( 'jdi6XviNxsc', '6YNWOKxbusM', 'KjwAoZPrlL4', '0axdTRB1BIE', 'PSYz_hyMRPg', 'qeV1Wo_MNfI', '_TCbMA1dMcU', '7sqUlCAXHaU', 'I0S70j3FXvg', 'BojhsaoKJ2I', 'w18pD6nqXUI' );
+	if ( get_option( 'trb_portal_video_lessons_seeded_v4' ) ) return;
+	$interface_tutorials = array( 'jdi6XviNxsc', '6YNWOKxbusM', 'KjwAoZPrlL4', '0axdTRB1BIE', 'PSYz_hyMRPg', 'qeV1Wo_MNfI', '_TCbMA1dMcU', '7sqUlCAXHaU', 'I0S70j3FXvg', 'BojhsaoKJ2I', 'w18pD6nqXUI', 'c2p0m8TNAmQ' );
+	$new_registration_lessons = array( '8Dhb9p68Ido', 'WCl0IYLW4Mg', 'DPf5Bkvj54A', 'XNQY89OXje8', 'sDa7rVQGH1Q', 'Y5qiNz7QQNI', 'Tx4cIS3wHLQ' );
+	$editorial_review = array(
+		'fHiiX7dZq6E' => array( 'distribuzione_autonoma', 'informazioni_legali_non_verificate' ),
+		'5v0oO4mr7Co' => array( 'distribuzione_autonoma', 'promesse_streaming' ),
+		'B7u-FBQUqkI' => array( 'pitching_diretto' ),
+	);
 	foreach ( trb_portal_video_seed_data() as $lesson ) {
 		$existing = get_posts( array( 'post_type' => 'video', 'post_status' => 'any', 'meta_key' => '_trb_video_youtube', 'meta_value' => $lesson[0], 'fields' => 'ids', 'posts_per_page' => 1 ) );
 		$post_id = $existing ? $existing[0] : wp_insert_post( array( 'post_type' => 'video', 'post_status' => 'publish', 'post_title' => $lesson[1], 'post_excerpt' => $lesson[3] ) );
@@ -1176,11 +1213,18 @@ function trb_portal_seed_video_lessons() {
 		update_post_meta( $post_id, '_trb_video_youtube', $lesson[0] );
 		update_post_meta( $post_id, '_trb_video_category', $lesson[2] );
 		update_post_meta( $post_id, '_trb_video_level', $lesson[4] );
-		update_post_meta( $post_id, '_trb_video_order', $lesson[5] );
+		$order = $lesson[5];
+		if ( $order >= 15 && $order <= 54 && ! in_array( $lesson[0], $new_registration_lessons, true ) ) $order += 7;
+		update_post_meta( $post_id, '_trb_video_order', $order );
 		update_post_meta( $post_id, '_trb_video_language', 'Italiano' );
 		update_post_meta( $post_id, '_trb_video_why', $lesson[3] );
 		update_post_meta( $post_id, '_trb_video_objectives', "Comprendere i principi presentati nella lezione.\nRiconoscere gli errori più frequenti.\nApplicare il metodo al proprio progetto musicale." );
 		update_post_meta( $post_id, '_trb_video_exercise', 'Applica un principio della lezione a un brano o a una sessione reale e annota il risultato prima e dopo la modifica.' );
+		$status = isset( $editorial_review[ $lesson[0] ] ) ? 'review' : ( 'bucflmOyU2A' === $lesson[0] ? 'rejected' : 'approved' );
+		update_post_meta( $post_id, '_trb_video_editorial_status', $status );
+		update_post_meta( $post_id, '_trb_video_content_risks', isset( $editorial_review[ $lesson[0] ] ) ? $editorial_review[ $lesson[0] ] : ( 'bucflmOyU2A' === $lesson[0] ? array( 'cover_remix', 'informazioni_legali_non_verificate' ) : array() ) );
+		if ( 'approved' === $status && ! get_post_meta( $post_id, '_trb_video_editorial_reviewed_at', true ) ) update_post_meta( $post_id, '_trb_video_editorial_reviewed_at', gmdate( 'Y-m-d' ) );
+		if ( 'bucflmOyU2A' === $lesson[0] ) wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ) );
 		if ( in_array( $lesson[0], $interface_tutorials, true ) ) {
 			update_post_meta( $post_id, '_trb_video_interface_tutorial', '1' );
 			if ( ! get_post_meta( $post_id, '_trb_video_last_content_review', true ) ) update_post_meta( $post_id, '_trb_video_last_content_review', gmdate( 'Y-m-d' ) );
@@ -1188,14 +1232,14 @@ function trb_portal_seed_video_lessons() {
 		if ( ! $existing ) update_post_meta( $post_id, '_trb_video_available', '0' );
 		update_post_meta( $post_id, '_trb_portal_profiles', trb_portal_allowed_profiles() );
 	}
-	update_option( 'trb_portal_video_lessons_seeded_v3', time(), false );
+	update_option( 'trb_portal_video_lessons_seeded_v4', time(), false );
 	if ( ! wp_next_scheduled( 'trb_portal_initial_video_check' ) ) wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'trb_portal_initial_video_check' );
 }
 add_action( 'init', 'trb_portal_seed_video_lessons', 38 );
 
 function trb_portal_video_lessons( $profile ) {
 	$posts = get_posts( array( 'post_type' => 'video', 'post_status' => 'publish', 'posts_per_page' => -1, 'meta_key' => '_trb_video_order', 'orderby' => 'meta_value_num', 'order' => 'ASC' ) );
-	return array_values( array_filter( $posts, function( $post ) use ( $profile ) { return trb_portal_resource_is_visible( $post->ID ) && '0' !== get_post_meta( $post->ID, '_trb_video_available', true ); } ) );
+	return array_values( array_filter( $posts, function( $post ) use ( $profile ) { return trb_portal_resource_is_visible( $post->ID ) && 'approved' === get_post_meta( $post->ID, '_trb_video_editorial_status', true ) && '0' !== get_post_meta( $post->ID, '_trb_video_available', true ); } ) );
 }
 
 function trb_portal_video_progress() {
@@ -1239,6 +1283,16 @@ function trb_portal_render_video_lesson_metabox( $post ) {
 	<?php endforeach; ?>
 	<p><label><strong>Ultima revisione del contenuto</strong><br /><input type="date" name="trb_video_last_content_review" value="<?php echo esc_attr( get_post_meta( $post->ID, '_trb_video_last_content_review', true ) ); ?>" style="width:100%" /></label><small style="display:block;margin-top:5px">Obbligatoria almeno ogni sei mesi per tutorial su Spotify, Apple Music, YouTube, social e software.</small></p>
 	<?php
+	$status = get_post_meta( $post->ID, '_trb_video_editorial_status', true );
+	$risks = (array) get_post_meta( $post->ID, '_trb_video_content_risks', true );
+	$risk_options = array( 'critica_etichette' => 'Critica alle etichette', 'distribuzione_autonoma' => 'Distribuzione autonoma', 'pitching_diretto' => 'Pitching diretto', 'cover_remix' => 'Cover / remix', 'trasferimento_catalogo' => 'Trasferimento catalogo', 'promesse_streaming' => 'Promesse di streaming', 'acquisto_follower_playlist' => 'Acquisto follower / playlist', 'informazioni_legali_non_verificate' => 'Informazioni legali non verificate' );
+	?>
+	<hr /><p><label><strong>Compatibilità con TRB</strong><br /><select name="trb_video_editorial_status" style="width:100%"><option value="review" <?php selected( $status, 'review' ); ?>>Da revisionare</option><option value="approved" <?php selected( $status, 'approved' ); ?>>Approvato</option><option value="rejected" <?php selected( $status, 'rejected' ); ?>>Respinto</option></select></label></p>
+	<fieldset><legend><strong>Rischi del contenuto</strong></legend><?php foreach ( $risk_options as $risk_key => $risk_label ) : ?><label style="display:block;margin:6px 0"><input type="checkbox" name="trb_video_content_risks[]" value="<?php echo esc_attr( $risk_key ); ?>" <?php checked( in_array( $risk_key, $risks, true ) ); ?> /> <?php echo esc_html( $risk_label ); ?></label><?php endforeach; ?></fieldset>
+	<p><label><strong>Revisionato da</strong><br /><input type="text" name="trb_video_editorial_reviewed_by" value="<?php echo esc_attr( get_post_meta( $post->ID, '_trb_video_editorial_reviewed_by', true ) ); ?>" style="width:100%" /></label></p>
+	<p><label><strong>Data revisione editoriale</strong><br /><input type="date" name="trb_video_editorial_reviewed_at" value="<?php echo esc_attr( get_post_meta( $post->ID, '_trb_video_editorial_reviewed_at', true ) ); ?>" style="width:100%" /></label></p>
+	<p><label><strong>Note interne</strong><br /><textarea name="trb_video_editorial_notes" rows="4" style="width:100%"><?php echo esc_textarea( get_post_meta( $post->ID, '_trb_video_editorial_notes', true ) ); ?></textarea></label></p>
+	<?php
 }
 
 function trb_portal_save_video_lesson_meta( $post_id ) {
@@ -1247,6 +1301,13 @@ function trb_portal_save_video_lesson_meta( $post_id ) {
 		if ( isset( $_POST[ 'trb_video_' . $key ] ) ) update_post_meta( $post_id, '_trb_video_' . $key, 'objectives' === $key ? sanitize_textarea_field( wp_unslash( $_POST[ 'trb_video_' . $key ] ) ) : sanitize_text_field( wp_unslash( $_POST[ 'trb_video_' . $key ] ) ) );
 	}
 	if ( isset( $_POST['trb_video_last_content_review'] ) ) update_post_meta( $post_id, '_trb_video_last_content_review', sanitize_text_field( wp_unslash( $_POST['trb_video_last_content_review'] ) ) );
+	if ( isset( $_POST['trb_video_editorial_status'] ) ) update_post_meta( $post_id, '_trb_video_editorial_status', in_array( sanitize_key( wp_unslash( $_POST['trb_video_editorial_status'] ) ), array( 'approved', 'review', 'rejected' ), true ) ? sanitize_key( wp_unslash( $_POST['trb_video_editorial_status'] ) ) : 'review' );
+	$risk_options = array( 'critica_etichette', 'distribuzione_autonoma', 'pitching_diretto', 'cover_remix', 'trasferimento_catalogo', 'promesse_streaming', 'acquisto_follower_playlist', 'informazioni_legali_non_verificate' );
+	$risks = isset( $_POST['trb_video_content_risks'] ) ? array_intersect( array_map( 'sanitize_key', (array) wp_unslash( $_POST['trb_video_content_risks'] ) ), $risk_options ) : array();
+	update_post_meta( $post_id, '_trb_video_content_risks', array_values( $risks ) );
+	if ( isset( $_POST['trb_video_editorial_reviewed_by'] ) ) update_post_meta( $post_id, '_trb_video_editorial_reviewed_by', sanitize_text_field( wp_unslash( $_POST['trb_video_editorial_reviewed_by'] ) ) );
+	if ( isset( $_POST['trb_video_editorial_reviewed_at'] ) ) update_post_meta( $post_id, '_trb_video_editorial_reviewed_at', sanitize_text_field( wp_unslash( $_POST['trb_video_editorial_reviewed_at'] ) ) );
+	if ( isset( $_POST['trb_video_editorial_notes'] ) ) update_post_meta( $post_id, '_trb_video_editorial_notes', sanitize_textarea_field( wp_unslash( $_POST['trb_video_editorial_notes'] ) ) );
 }
 add_action( 'save_post_video', 'trb_portal_save_video_lesson_meta' );
 
