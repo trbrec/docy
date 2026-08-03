@@ -1130,11 +1130,45 @@ function trb_portal_video_seed_data() {
 		array( '21vchwZhX3w', 'Volumi e clipping: preparare correttamente il mix', 'Mixaggio e mastering', 'Gestisci picchi e livelli lasciando al mastering un segnale tecnicamente adeguato.', 'Base', 18 ),
 		array( 'fsCKKraAUw0', 'Che cos’è il mastering e come si prepara un brano', 'Mixaggio e mastering', 'Una panoramica delle finalità del mastering e delle verifiche prima della pubblicazione.', 'Base/intermedio', 19 ),
 		array( 'Y5b8ul2mmU8', 'Loudness e LUFS spiegati in modo semplice', 'Mixaggio e mastering', 'Comprendi volume percepito, picco e dinamica e perché non indicano la stessa cosa.', 'Intermedio', 20 ),
+		array( 'uyNy0Lw5Fd0', 'Come preparare un DJ set', 'Live e DJ set', 'Organizza selezione musicale, materiali e sviluppo del set prima dell’esibizione.', 'Base', 22 ),
+		array( '1tSbsRI0UYU', 'Le regole fondamentali di un buon DJ set', 'Live e DJ set', 'Costruisci una scaletta coerente e gestisci con criterio ritmo, transizioni e pubblico.', 'Base', 23 ),
+		array( 'gN9sOSbwwGc', 'Cinque errori da evitare durante un DJ set', 'Live e DJ set', 'Previeni gli errori più frequenti nella preparazione e nella gestione dell’esibizione.', 'Base', 24 ),
+		array( 'uzGN_8tlxqQ', 'Come affrontare l’ansia da esibizione', 'Live e DJ set', 'Strategie concrete per gestire tensione, concentrazione e presenza davanti al pubblico.', 'Base', 25 ),
+		array( 'nnlWxEvqMXw', 'Suonare davanti al pubblico con maggiore sicurezza', 'Live e DJ set', 'Prepara l’esibizione e sviluppa sicurezza senza perdere naturalezza e attenzione musicale.', 'Base', 26 ),
+		array( '6z9NmF2HhR8', 'Come comunicare e muoversi sul palco', 'Live e DJ set', 'Introduzione alla presenza scenica, alla comunicazione e all’uso consapevole dello spazio.', 'Base/intermedio', 27 ),
+		array( 'UY1k-zoO_bg', 'In-ear monitor: ascoltarsi correttamente dal vivo', 'Live e DJ set', 'Comprendi funzione, vantaggi e impostazione generale del monitoraggio personale.', 'Base', 28 ),
+		array( 'jdi6XviNxsc', 'Come richiedere e gestire Spotify for Artists', 'Social e profili artista', 'Ottieni il controllo del profilo artista e gestisci correttamente le funzioni principali.', 'Base', 29 ),
+		array( '6YNWOKxbusM', 'Come ottenere Apple Music for Artists', 'Social e profili artista', 'Richiedi direttamente l’accesso al profilo e distinguilo da un normale account Apple Music.', 'Base', 30 ),
+		array( 'KjwAoZPrlL4', 'Come ottenere il Canale ufficiale artista YouTube', 'Social e profili artista', 'Comprendi requisiti e differenze tra canale personale, tematico e Official Artist Channel.', 'Base', 31 ),
+		array( '0axdTRB1BIE', 'Che cos’è il canale tematico YouTube', 'Social e profili artista', 'Riconosci il canale generato automaticamente da YouTube ed evita di confonderlo con quello ufficiale.', 'Base', 32 ),
+		array( 'PSYz_hyMRPg', 'Come caricare un Canvas su Spotify', 'Social e profili artista', 'Associa correttamente un contenuto verticale al brano tramite Spotify for Artists.', 'Base', 33 ),
+		array( 'qeV1Wo_MNfI', 'Come rendere disponibile la propria musica su Instagram', 'Social e profili artista', 'Comprendi la presenza dei brani nella libreria musicale di storie e reel.', 'Base', 34 ),
+		array( '_TCbMA1dMcU', 'Come recuperare o correggere un profilo Spotify', 'Social e profili artista', 'Intervieni quando una pubblicazione è associata a un omonimo o manca l’accesso al profilo corretto.', 'Base', 35 ),
+		array( 'uR-UgAIQQRw', 'Come sviluppare un’identità artistica riconoscibile', 'Identità e branding', 'Definisci direzione, obiettivi e caratteristiche distintive del progetto artistico.', 'Base', 36 ),
+		array( 'zifxjQiuFIg', 'Come esprimere concretamente la propria identità artistica', 'Identità e branding', 'Trasforma l’identità in scelte coerenti di repertorio, immagine e comunicazione.', 'Base', 37 ),
+		array( 'tuEwiKbh29c', 'Come può evolvere l’identità di un artista', 'Identità e branding', 'Comprendi come far crescere il progetto mantenendo riconoscibilità e coerenza.', 'Base/intermedio', 38 ),
+		array( '0uB7_YiA_UA', 'Come scrivere la biografia per il press kit', 'Identità e branding', 'Imposta una biografia utile a stampa, addetti ai lavori e presentazioni professionali.', 'Base', 39 ),
+		array( '_tZY7b0_ZgU', 'Rendere coerenti musica, immagini e comunicazione', 'Identità e branding', 'Allinea cover, video, linguaggio e percezione complessiva del progetto musicale.', 'Base', 40 ),
+		array( 'yQyV31WeS-c', 'Come realizzare un portfolio artistico efficace', 'Identità e branding', 'Organizza materiali e informazioni per una presentazione chiara e credibile.', 'Base', 41 ),
+		array( '6zoIEd9HgLk', 'Come viene costruito e posizionato un progetto musicale', 'Identità e branding', 'Introduzione a management, posizionamento e costruzione del brand musicale.', 'Intermedio', 42 ),
+		array( 'PBMYvZbDTu4', 'Creare contenuti senza trasformarsi in influencer', 'Contenuti video', 'Costruisci una presenza editoriale sostenibile senza snaturare l’attività artistica.', 'Base', 43 ),
+		array( '7sqUlCAXHaU', 'Come creare reel e TikTok per un progetto musicale', 'Contenuti video', 'Imposta contenuti verticali adatti a solisti, gruppi e altre formazioni musicali.', 'Base', 44 ),
+		array( 'I0S70j3FXvg', 'Come realizzare un reel efficace', 'Contenuti video', 'Dall’idea al montaggio: principi essenziali per un video verticale chiaro e coinvolgente.', 'Base', 45 ),
+		array( 'BojhsaoKJ2I', 'Montare un video verticale con CapCut', 'Contenuti video', 'Usa gli strumenti essenziali per tagliare, montare e completare reel e TikTok.', 'Base', 46 ),
+		array( 'w18pD6nqXUI', 'Creare un visual video con Canva', 'Contenuti video', 'Realizza teaser, annunci e visualizer semplici combinando immagini, musica e testi.', 'Base', 47 ),
+		array( 'zYHZJBMvW6Y', 'Quando serve davvero un videoclip musicale', 'Contenuti video', 'Valuta quando investire in un videoclip e quando privilegiare contenuti verticali più frequenti.', 'Base/intermedio', 48 ),
+		array( 'At2haa6sQ2A', 'Creare un video musicale con l’intelligenza artificiale', 'Contenuti video', 'Introduzione alla generazione di immagini e sequenze per un contenuto musicale.', 'Base', 49 ),
+		array( 'fHiiX7dZq6E', 'Master, copyright e distribuzione musicale', 'Music business', 'Comprendi proprietà dei master, tutela dei diritti e funzione della distribuzione.', 'Base', 50 ),
+		array( 'LNTJvB9ihoQ', 'Come pianificare l’uscita di un nuovo singolo', 'Music business', 'Prepara pubblicazione, materiali e comunicazione con una sequenza coerente.', 'Base', 51 ),
+		array( '5v0oO4mr7Co', 'Come promuovere la propria musica', 'Music business', 'Una panoramica di music marketing e sviluppo consapevole del progetto.', 'Base/intermedio', 52 ),
+		array( 'B7u-FBQUqkI', 'Come presentare la propria musica ai curatori', 'Music business', 'Prepara un invio chiaro e pertinente per playlist e curatori editoriali.', 'Base', 53 ),
+		array( 'bucflmOyU2A', 'Come pubblicare una cover senza violare il copyright', 'Music business', 'Comprendi autorizzazioni e principali cautele per distribuire una reinterpretazione.', 'Base/intermedio', 54 ),
 	);
 }
 
 function trb_portal_seed_video_lessons() {
-	if ( get_option( 'trb_portal_video_lessons_seeded_v2' ) ) return;
+	if ( get_option( 'trb_portal_video_lessons_seeded_v3' ) ) return;
+	$interface_tutorials = array( 'jdi6XviNxsc', '6YNWOKxbusM', 'KjwAoZPrlL4', '0axdTRB1BIE', 'PSYz_hyMRPg', 'qeV1Wo_MNfI', '_TCbMA1dMcU', '7sqUlCAXHaU', 'I0S70j3FXvg', 'BojhsaoKJ2I', 'w18pD6nqXUI' );
 	foreach ( trb_portal_video_seed_data() as $lesson ) {
 		$existing = get_posts( array( 'post_type' => 'video', 'post_status' => 'any', 'meta_key' => '_trb_video_youtube', 'meta_value' => $lesson[0], 'fields' => 'ids', 'posts_per_page' => 1 ) );
 		$post_id = $existing ? $existing[0] : wp_insert_post( array( 'post_type' => 'video', 'post_status' => 'publish', 'post_title' => $lesson[1], 'post_excerpt' => $lesson[3] ) );
@@ -1147,10 +1181,14 @@ function trb_portal_seed_video_lessons() {
 		update_post_meta( $post_id, '_trb_video_why', $lesson[3] );
 		update_post_meta( $post_id, '_trb_video_objectives', "Comprendere i principi presentati nella lezione.\nRiconoscere gli errori più frequenti.\nApplicare il metodo al proprio progetto musicale." );
 		update_post_meta( $post_id, '_trb_video_exercise', 'Applica un principio della lezione a un brano o a una sessione reale e annota il risultato prima e dopo la modifica.' );
-		update_post_meta( $post_id, '_trb_video_available', '1' );
+		if ( in_array( $lesson[0], $interface_tutorials, true ) ) {
+			update_post_meta( $post_id, '_trb_video_interface_tutorial', '1' );
+			if ( ! get_post_meta( $post_id, '_trb_video_last_content_review', true ) ) update_post_meta( $post_id, '_trb_video_last_content_review', gmdate( 'Y-m-d' ) );
+		}
+		if ( ! $existing ) update_post_meta( $post_id, '_trb_video_available', '0' );
 		update_post_meta( $post_id, '_trb_portal_profiles', trb_portal_allowed_profiles() );
 	}
-	update_option( 'trb_portal_video_lessons_seeded_v2', time(), false );
+	update_option( 'trb_portal_video_lessons_seeded_v3', time(), false );
 	if ( ! wp_next_scheduled( 'trb_portal_initial_video_check' ) ) wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'trb_portal_initial_video_check' );
 }
 add_action( 'init', 'trb_portal_seed_video_lessons', 38 );
@@ -1175,7 +1213,7 @@ function trb_portal_render_video_library( $profile ) {
 		<?php if ( empty( $videos ) ) : ?>
 			<div class="trb-portal__empty"><p>La videoteca essenziale per il tuo profilo è in preparazione.</p></div>
 		<?php else : ?>
-			<div class="trb-video__toolbar"><div class="trb-video__progress"><strong><?php echo esc_html( $completed ); ?> lezioni completate su <?php echo esc_html( count( $videos ) ); ?></strong><span><i style="width:<?php echo esc_attr( count( $videos ) ? round( $completed / count( $videos ) * 100 ) : 0 ); ?>%"></i></span></div><div class="trb-video__search-row"><input type="search" placeholder="Cerca una lezione" aria-label="Cerca una lezione" data-video-search /><select data-video-state aria-label="Filtra per stato"><option value="">Tutti gli stati</option><option value="Da iniziare">Da iniziare</option><option value="In corso">In corso</option><option value="Completato">Completati</option></select></div><div class="trb-video__filters" role="group" aria-label="Filtra le lezioni"><button type="button" data-video-category="" class="is-active">Tutte</button><?php foreach ( array( 'Scrittura e composizione', 'Canto e interpretazione', 'Registrazione', 'Mixaggio e mastering', 'Music business' ) as $category ) : ?><button type="button" data-video-category="<?php echo esc_attr( $category ); ?>"><?php echo esc_html( $category ); ?></button><?php endforeach; ?></div></div>
+			<div class="trb-video__toolbar"><div class="trb-video__progress"><strong><?php echo esc_html( $completed ); ?> lezioni completate su <?php echo esc_html( count( $videos ) ); ?></strong><span><i style="width:<?php echo esc_attr( count( $videos ) ? round( $completed / count( $videos ) * 100 ) : 0 ); ?>%"></i></span></div><div class="trb-video__search-row"><input type="search" placeholder="Cerca una lezione" aria-label="Cerca una lezione" data-video-search /><select data-video-state aria-label="Filtra per stato"><option value="">Tutti gli stati</option><option value="Da iniziare">Da iniziare</option><option value="In corso">In corso</option><option value="Completato">Completati</option></select></div><div class="trb-video__filters" role="group" aria-label="Filtra le lezioni"><button type="button" data-video-category="" class="is-active">Tutte</button><?php foreach ( array( 'Scrittura e composizione', 'Canto e interpretazione', 'Registrazione', 'Mixaggio e mastering', 'Live e DJ set', 'Social e profili artista', 'Identità e branding', 'Contenuti video', 'Music business' ) as $category ) : ?><button type="button" data-video-category="<?php echo esc_attr( $category ); ?>"><?php echo esc_html( $category ); ?></button><?php endforeach; ?></div></div>
 			<div class="trb-portal__video-grid" data-video-grid>
 				<?php foreach ( $videos as $video ) : $youtube = get_post_meta( $video->ID, '_trb_video_youtube', true ); $category = get_post_meta( $video->ID, '_trb_video_category', true ); $item_progress = isset( $progress[ $video->ID ] ) ? $progress[ $video->ID ] : array(); $state = ! empty( $item_progress['completed_at'] ) ? 'Completato' : ( ! empty( $item_progress['started_at'] ) ? 'In corso' : 'Da iniziare' ); ?>
 					<article class="trb-portal__video-card" data-video-card data-category="<?php echo esc_attr( $category ); ?>" data-state="<?php echo esc_attr( $state ); ?>" data-search="<?php echo esc_attr( strtolower( $video->post_title . ' ' . $video->post_excerpt . ' ' . $category ) ); ?>"><button type="button" class="trb-video__open" data-video-open="<?php echo esc_attr( $video->ID ); ?>"><span class="trb-video__thumb"><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $youtube ); ?>/hqdefault.jpg" alt="" loading="lazy" /><i aria-hidden="true">▶</i></span><small><?php echo esc_html( $category ); ?></small><h3><?php echo esc_html( $video->post_title ); ?></h3><p><?php echo esc_html( $video->post_excerpt ); ?></p><span class="trb-video__meta"><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_level', true ) ); ?> · Italiano · <?php echo esc_html( $state ); ?></span><b><?php echo 'Completato' === $state ? 'Rivedi' : ( 'In corso' === $state ? 'Continua' : 'Inizia la lezione' ); ?></b></button></article>
@@ -1198,7 +1236,9 @@ function trb_portal_render_video_lesson_metabox( $post ) {
 	$fields = array( 'youtube' => 'ID video YouTube', 'category' => 'Categoria', 'level' => 'Livello', 'duration' => 'Durata', 'language' => 'Lingua', 'order' => 'Ordine', 'author' => 'Canale / autore originale', 'why' => 'Perché guardare questa lezione', 'objectives' => 'Obiettivi didattici (uno per riga)', 'exercise' => 'Esercizio finale' );
 	foreach ( $fields as $key => $label ) : $value = get_post_meta( $post->ID, '_trb_video_' . $key, true ); ?>
 		<p><label><strong><?php echo esc_html( $label ); ?></strong><br /><?php if ( in_array( $key, array( 'why', 'objectives', 'exercise' ), true ) ) : ?><textarea name="trb_video_<?php echo esc_attr( $key ); ?>" rows="4" style="width:100%"><?php echo esc_textarea( $value ); ?></textarea><?php else : ?><input type="text" name="trb_video_<?php echo esc_attr( $key ); ?>" value="<?php echo esc_attr( $value ); ?>" style="width:100%" /><?php endif; ?></label></p>
-	<?php endforeach;
+	<?php endforeach; ?>
+	<p><label><strong>Ultima revisione del contenuto</strong><br /><input type="date" name="trb_video_last_content_review" value="<?php echo esc_attr( get_post_meta( $post->ID, '_trb_video_last_content_review', true ) ); ?>" style="width:100%" /></label><small style="display:block;margin-top:5px">Obbligatoria almeno ogni sei mesi per tutorial su Spotify, Apple Music, YouTube, social e software.</small></p>
+	<?php
 }
 
 function trb_portal_save_video_lesson_meta( $post_id ) {
@@ -1206,6 +1246,7 @@ function trb_portal_save_video_lesson_meta( $post_id ) {
 	foreach ( array( 'youtube', 'category', 'level', 'duration', 'language', 'order', 'author', 'why', 'objectives', 'exercise' ) as $key ) {
 		if ( isset( $_POST[ 'trb_video_' . $key ] ) ) update_post_meta( $post_id, '_trb_video_' . $key, 'objectives' === $key ? sanitize_textarea_field( wp_unslash( $_POST[ 'trb_video_' . $key ] ) ) : sanitize_text_field( wp_unslash( $_POST[ 'trb_video_' . $key ] ) ) );
 	}
+	if ( isset( $_POST['trb_video_last_content_review'] ) ) update_post_meta( $post_id, '_trb_video_last_content_review', sanitize_text_field( wp_unslash( $_POST['trb_video_last_content_review'] ) ) );
 }
 add_action( 'save_post_video', 'trb_portal_save_video_lesson_meta' );
 
