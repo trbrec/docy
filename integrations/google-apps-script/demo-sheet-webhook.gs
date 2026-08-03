@@ -19,15 +19,15 @@ function setWebhookSecret(secret) {
 function doPost(e) {
   try {
     const raw = e && e.postData && e.postData.contents ? e.postData.contents : '';
-    const headers = (e && e.headers) || {};
-    const supplied = String(headers['X-TRB-Signature'] || headers['x-trb-signature'] || '');
     const secret = PropertiesService.getScriptProperties().getProperty('TRB_WEBHOOK_SECRET');
+    const envelope = raw ? JSON.parse(raw) : {};
+    const data = envelope.payload || {};
+    const supplied = String(envelope.signature || '');
+    const canonical = JSON.stringify(data);
 
-    if (!raw || !secret || !supplied || !safeEquals_(supplied, hmacHex_(raw, secret))) {
+    if (!secret || !supplied || !safeEquals_(supplied, hmacHex_(canonical, secret))) {
       return json_({ success: false, error: 'unauthorized' });
     }
-
-    const data = JSON.parse(raw);
     const required = [
       'informazioni_cronologiche', 'nome', 'cognome', 'nome_arte',
       'email', 'titolo', 'link_provino', 'request_id'
