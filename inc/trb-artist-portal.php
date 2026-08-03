@@ -1408,7 +1408,7 @@ function trb_portal_request_catalogue() {
 		),
 		'demo' => array(
 			'label'    => 'Invia un demo per valutazione',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
 			'copy'     => 'Richiedi una valutazione artistica e tecnica prima di avviare la release.',
 		),
 	);
@@ -1456,7 +1456,7 @@ function trb_portal_dashboard_shortcode() {
 		<nav class="trb-portal__nav" aria-label="Sezioni Area Artisti">
 			<a href="#profilo">Profilo artista</a>
 			<a href="#release">Le tue release</a>
-			<a href="#demo">Valuta un demo</a>
+			<?php if ( 'dds' !== $profile ) : ?><a href="#demo">Valuta un demo</a><?php endif; ?>
 			<a href="#risposte">Risposte rapide</a>
 			<a href="#download">Guide ed e-book</a>
 			<a href="#video">Video</a>
@@ -1484,7 +1484,7 @@ function trb_portal_dashboard_shortcode() {
 			</div>
 		</section>
 
-		<?php trb_portal_render_demo_section(); ?>
+		<?php if ( 'dds' !== $profile ) trb_portal_render_demo_section(); ?>
 		<?php trb_portal_render_release_section(); ?>
 
 		<?php if ( ! trb_portal_current_search() ) : ?><?php trb_portal_render_resource_section( 'risposte', 'Risposte rapide', 'Le guide essenziali per preparare una release senza passaggi inutili.', $resources['trb_guide'] ); ?><?php endif; ?>
@@ -1607,14 +1607,23 @@ function trb_portal_render_private_files( $group = '' ) {
 	?><fieldset class="trb-portal__uploaded-files <?php echo 'photo' === $group ? 'trb-portal__uploaded-photos' : ''; ?>"><legend><?php echo 'photo' === $group ? 'Fotografie attualmente salvate' : 'File già ricevuti'; ?></legend><p>Seleziona “Elimina” solo per i file che vuoi rimuovere al prossimo salvataggio.</p><div class="<?php echo 'photo' === $group ? 'trb-portal__photo-grid' : 'trb-portal__file-list'; ?>"><?php foreach ( $files as $file ) : ?><?php if ( 'photo' === $group ) : ?><article class="trb-portal__photo-card"><img src="<?php echo esc_url( trb_portal_private_photo_url( $file['id'] ) ); ?>" alt="Anteprima foto artista" loading="lazy" /><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label></article><?php else : ?><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> <?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ); ?></label><?php endif; ?><?php endforeach; ?></div></fieldset><?php
 }
 
+function trb_portal_is_demo_test_account( $user = null ) {
+	$user = $user instanceof WP_User ? $user : wp_get_current_user();
+	if ( ! $user || ! $user->exists() ) return false;
+	$allowed = array( 'spotify2@trbrec.com', 'spotify3@trbrec.com', 'spotify4@trbrec.com' );
+	return in_array( strtolower( (string) $user->user_email ), $allowed, true );
+}
+
 function trb_portal_render_demo_section() {
+	if ( 'dds' === trb_portal_user_profile() ) return;
 	$status = isset( $_GET['trb_demo'] ) ? sanitize_key( wp_unslash( $_GET['trb_demo'] ) ) : '';
+	$is_test_account = trb_portal_is_demo_test_account();
 	?>
 	<section id="demo" class="trb-portal__section">
 		<div class="trb-portal__demo">
 			<p class="trb-portal__eyebrow">PRIMA DELLA RELEASE</p>
 			<h2>Vuoi una valutazione del demo?</h2>
-			<p class="trb-portal__demo-lead">È un percorso facoltativo e resta sempre separato dalla pratica di pubblicazione: puoi richiedere la valutazione di <strong>un brano a settimana</strong>, in qualunque momento.</p>
+			<p class="trb-portal__demo-lead"><?php if ( $is_test_account ) : ?>Account di collaudo: gli invii sono temporaneamente illimitati e le valutazioni vengono elaborate appena possibile.<?php else : ?>È un percorso facoltativo e resta sempre separato dalla pratica di pubblicazione: puoi richiedere la valutazione di <strong>un brano a settimana</strong>, in qualunque momento.<?php endif; ?></p>
 			<?php if ( 'sent' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Provino ricevuto correttamente. La valutazione verrà inviata all’indirizzo e-mail associato al tuo account.</div><?php endif; ?>
 			<?php if ( 'weekly_limit' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Hai già inviato un provino negli ultimi sette giorni. Potrai richiedere una nuova valutazione alla scadenza del limite settimanale.</div><?php endif; ?>
 			<?php if ( 'invalid' === $status || 'upload_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Invio non completato. Controlla titolo, dichiarazioni e formati degli allegati, quindi riprova.</div><?php endif; ?>
@@ -1705,9 +1714,15 @@ function trb_portal_submit_demo() {
 	if ( ! is_user_logged_in() ) auth_redirect();
 	check_admin_referer( 'trb_portal_submit_demo', 'trb_demo_nonce' );
 	$user_id = get_current_user_id();
+	$user = wp_get_current_user();
 	$dashboard = get_permalink( get_option( 'trb_portal_dashboard_created' ) );
+	if ( 'dds' === trb_portal_user_profile( $user ) ) {
+		wp_safe_redirect( $dashboard );
+		exit;
+	}
+	$is_test_account = trb_portal_is_demo_test_account( $user );
 	$last = (int) get_user_meta( $user_id, '_trb_demo_last_submission', true );
-	if ( $last && time() - $last < WEEK_IN_SECONDS ) {
+	if ( ! $is_test_account && $last && time() - $last < WEEK_IN_SECONDS ) {
 		wp_safe_redirect( add_query_arg( 'trb_demo', 'weekly_limit', $dashboard ) . '#demo' );
 		exit;
 	}
@@ -1728,7 +1743,6 @@ function trb_portal_submit_demo() {
 		wp_safe_redirect( add_query_arg( 'trb_demo', 'upload_error', $dashboard ) . '#demo' );
 		exit;
 	}
-	$user = wp_get_current_user();
 	$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Demo] ' . $title, 'post_author' => $user_id ) );
 	if ( ! $request_id || is_wp_error( $request_id ) ) {
 		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
@@ -1736,7 +1750,7 @@ function trb_portal_submit_demo() {
 		exit;
 	}
 	$submitted_timestamp = time();
-	$earliest_delivery   = trb_portal_add_demo_working_hours( $submitted_timestamp, 4 );
+	$earliest_delivery   = $is_test_account ? $submitted_timestamp + MINUTE_IN_SECONDS : trb_portal_add_demo_working_hours( $submitted_timestamp, 4 );
 	$payload = array(
 		'uuid' => wp_generate_uuid4(), 'submitted_at' => gmdate( 'c', $submitted_timestamp ), 'status' => 'queued',
 		'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
@@ -1748,7 +1762,7 @@ function trb_portal_submit_demo() {
 	update_post_meta( $request_id, '_trb_demo_payload', $payload );
 	update_post_meta( $request_id, '_trb_demo_earliest_delivery', $earliest_delivery );
 	update_post_meta( $request_id, '_trb_demo_delete_after', $submitted_timestamp + 60 * DAY_IN_SECONDS );
-	update_user_meta( $user_id, '_trb_demo_last_submission', $submitted_timestamp );
+	if ( ! $is_test_account ) update_user_meta( $user_id, '_trb_demo_last_submission', $submitted_timestamp );
 	wp_schedule_single_event( time() + 10, 'trb_portal_process_demo', array( $request_id ) );
 	wp_safe_redirect( add_query_arg( 'trb_demo', 'sent', $dashboard ) . '#demo' );
 	exit;
