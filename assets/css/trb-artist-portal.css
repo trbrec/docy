@@ -695,3 +695,60 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
   .trb-portal__demo-form { padding: 18px; }
   .trb-portal__demo-lead { white-space: normal; }
 }
+
+
+/* Demo upload: make long MP3 transfers explicit and prevent uncertain retries. */
+.trb-portal__upload-progress {
+  background: #f4f5ff;
+  border: 1px solid #d9dcff;
+  border-radius: 14px;
+  margin: 18px 0;
+  padding: 16px 18px;
+}
+.trb-portal__upload-progress[hidden] { display: none !important; }
+.trb-portal__upload-progress-head {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.trb-portal__upload-progress-head strong,
+.trb-portal__upload-progress-head span {
+  color: var(--trb-ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+.trb-portal__upload-progress progress {
+  appearance: none;
+  background: #dde0ec;
+  border: 0;
+  border-radius: 999px;
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  width: 100%;
+}
+.trb-portal__upload-progress progress::-webkit-progress-bar {
+  background: #dde0ec;
+  border-radius: 999px;
+}
+.trb-portal__upload-progress progress::-webkit-progress-value {
+  background: linear-gradient(90deg, var(--trb-accent), #777bff);
+  border-radius: 999px;
+  transition: width .18s ease;
+}
+.trb-portal__upload-progress progress::-moz-progress-bar {
+  background: linear-gradient(90deg, var(--trb-accent), #777bff);
+  border-radius: 999px;
+}
+.trb-portal__upload-progress p {
+  color: var(--trb-ink-soft);
+  font-size: 13px;
+  margin: 9px 0 0;
+}
+.trb-portal__demo-form button[disabled] {
+  cursor: wait;
+  opacity: .72;
+  pointer-events: none;
+}
