@@ -1626,11 +1626,11 @@ function trb_portal_render_demo_section() {
 					<div class="trb-portal__demo-intro"><strong>Dati trasmessi automaticamente</strong><p>Nome, cognome, nome d’arte ed e-mail vengono acquisiti dal profilo artista e non devono essere inseriti nuovamente.</p></div>
 					<label>Titolo del provino <span>*</span><input type="text" name="trb_demo_title" maxlength="160" required /></label>
 					<div class="trb-portal__demo-upload" data-demo-text-block>
-						<label>Caricamento testo autoriale <span>*</span><small>Obbligatorio quando il provino contiene un testo interpretato. Formati ammessi: TXT, RTF, DOC, DOCX, ODT e PDF.</small><input type="file" name="trb_demo_text" accept=".txt,.rtf,.doc,.docx,.odt,.pdf,text/plain,text/rtf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,application/pdf" data-demo-text /></label>
+						<label>Caricamento testo autoriale <span>*</span><small>Obbligatorio quando il provino contiene un testo interpretato. Formati ammessi: TXT o DOCX. Il contenuto viene convertito in testo semplice per evitare elaborazioni e consumi inutili.</small><input type="file" name="trb_demo_text" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-demo-text /></label>
 						<label class="trb-portal__choice"><input type="checkbox" name="trb_demo_no_lyrics" value="1" data-demo-no-lyrics /> Il provino non contiene testo</label>
 					</div>
 					<div class="trb-portal__demo-upload" data-demo-audio-block>
-						<label>Caricamento provino audio <span>*</span><small>Un solo file compresso: AAC (.m4a), Opus (.opus), WMA Lossy (.wma) oppure <strong>MP3 (.mp3) consigliato</strong>.</small><input type="file" name="trb_demo_audio" accept=".m4a,.opus,.wma,.mp3,audio/mp4,audio/aac,audio/ogg,audio/opus,audio/x-ms-wma,audio/mpeg" data-demo-audio /></label>
+						<label>Caricamento provino audio <span>*</span><small>È consentito un solo file, esclusivamente in formato <strong>MP3 (.mp3)</strong>.</small><input type="file" name="trb_demo_audio" accept=".mp3,audio/mpeg" data-demo-audio /></label>
 						<label class="trb-portal__choice"><input type="checkbox" name="trb_demo_text_only" value="1" data-demo-text-only /> Il provino è solo un testo autoriale</label>
 					</div>
 					<p class="trb-portal__demo-rule">Deve essere presente almeno un allegato. Se invii soltanto l’audio devi dichiarare che il brano non contiene testo; se invii soltanto il testo devi dichiarare che il provino è esclusivamente autoriale.</p>
@@ -1648,6 +1648,38 @@ function trb_portal_demo_upload_dir( $dirs ) {
 	$dirs['path']   = $dirs['basedir'] . $dirs['subdir'];
 	$dirs['url']    = $dirs['baseurl'] . $dirs['subdir'];
 	return $dirs;
+}
+
+/**
+ * Add working hours without making the artist receive an automated review at
+ * night or during the weekend. Working time is Monday-Friday, 09:00-19:00,
+ * in the WordPress timezone.
+ */
+function trb_portal_add_demo_working_hours( $submitted_at, $hours = 4 ) {
+	$timezone = wp_timezone();
+	$current  = ( new DateTimeImmutable( '@' . (int) $submitted_at ) )->setTimezone( $timezone );
+	$remaining_minutes = max( 1, (int) $hours ) * 60;
+
+	while ( $remaining_minutes > 0 ) {
+		$weekday = (int) $current->format( 'N' );
+		if ( $weekday > 5 ) {
+			$current = $current->modify( 'next monday' )->setTime( 9, 0 );
+			continue;
+		}
+		$opening = $current->setTime( 9, 0 );
+		$closing = $current->setTime( 19, 0 );
+		if ( $current < $opening ) $current = $opening;
+		if ( $current >= $closing ) {
+			$current = $current->modify( '+1 day' )->setTime( 9, 0 );
+			continue;
+		}
+		$available = (int) floor( ( $closing->getTimestamp() - $current->getTimestamp() ) / 60 );
+		$step = min( $remaining_minutes, $available );
+		$current = $current->modify( '+' . $step . ' minutes' );
+		$remaining_minutes -= $step;
+	}
+
+	return $current->getTimestamp();
 }
 
 function trb_portal_store_demo_file( $input, $mimes, $max_bytes ) {
@@ -1689,8 +1721,8 @@ function trb_portal_submit_demo() {
 		wp_safe_redirect( add_query_arg( 'trb_demo', 'invalid', $dashboard ) . '#demo' );
 		exit;
 	}
-	$text = trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'rtf' => 'application/rtf', 'doc' => 'application/msword', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'odt' => 'application/vnd.oasis.opendocument.text', 'pdf' => 'application/pdf' ), 5 * MB_IN_BYTES );
-	$audio = trb_portal_store_demo_file( 'trb_demo_audio', array( 'm4a' => 'audio/mp4', 'opus' => 'audio/opus', 'wma' => 'audio/x-ms-wma', 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES );
+	$text = trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ), 2 * MB_IN_BYTES );
+	$audio = trb_portal_store_demo_file( 'trb_demo_audio', array( 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES );
 	if ( is_wp_error( $text ) || is_wp_error( $audio ) ) {
 		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
 		wp_safe_redirect( add_query_arg( 'trb_demo', 'upload_error', $dashboard ) . '#demo' );
@@ -1699,19 +1731,24 @@ function trb_portal_submit_demo() {
 	$user = wp_get_current_user();
 	$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Demo] ' . $title, 'post_author' => $user_id ) );
 	if ( ! $request_id || is_wp_error( $request_id ) ) {
+		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
 		wp_safe_redirect( add_query_arg( 'trb_demo', 'upload_error', $dashboard ) . '#demo' );
 		exit;
 	}
+	$submitted_timestamp = time();
+	$earliest_delivery   = trb_portal_add_demo_working_hours( $submitted_timestamp, 4 );
 	$payload = array(
-		'uuid' => wp_generate_uuid4(), 'submitted_at' => gmdate( 'c' ), 'status' => 'queued',
+		'uuid' => wp_generate_uuid4(), 'submitted_at' => gmdate( 'c', $submitted_timestamp ), 'status' => 'queued',
+		'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
 		'first_name' => $user->first_name, 'last_name' => $user->last_name,
 		'artist_name' => trb_portal_artist_profile_value( 'artist_name', $user_id ), 'email' => $user->user_email,
 		'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'no_lyrics' => $no_lyrics,
 		'text_only' => $text_only, 'text_file' => $text, 'audio_file' => $audio,
 	);
 	update_post_meta( $request_id, '_trb_demo_payload', $payload );
-	update_post_meta( $request_id, '_trb_demo_delete_after', time() + 60 * DAY_IN_SECONDS );
-	update_user_meta( $user_id, '_trb_demo_last_submission', time() );
+	update_post_meta( $request_id, '_trb_demo_earliest_delivery', $earliest_delivery );
+	update_post_meta( $request_id, '_trb_demo_delete_after', $submitted_timestamp + 60 * DAY_IN_SECONDS );
+	update_user_meta( $user_id, '_trb_demo_last_submission', $submitted_timestamp );
 	wp_schedule_single_event( time() + 10, 'trb_portal_process_demo', array( $request_id ) );
 	wp_safe_redirect( add_query_arg( 'trb_demo', 'sent', $dashboard ) . '#demo' );
 	exit;
