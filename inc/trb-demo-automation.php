@@ -202,7 +202,7 @@ function trb_demo_register_health_route() {
 				'ready' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ) && ! empty( $settings['openai_key'] ),
 				'pcloud_configured' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ),
 				'openai_configured' => ! empty( $settings['openai_key'] ),
-				'spreadsheet_configured' => ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ),
+				'spreadsheet_configured' => ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] ),
 				'processor_registered' => has_action( 'trb_portal_process_demo', 'trb_demo_process_request' ) > 0,
 				'cleanup_registered' => has_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' ) > 0,
 			) );
@@ -217,7 +217,7 @@ function trb_demo_ajax_health() {
 		'ready' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ) && ! empty( $settings['openai_key'] ),
 		'pcloud_configured' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ),
 		'openai_configured' => ! empty( $settings['openai_key'] ),
-		'spreadsheet_configured' => ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ),
+		'spreadsheet_configured' => ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] ),
 	) );
 }
 add_action( 'wp_ajax_nopriv_trb_demo_health', 'trb_demo_ajax_health' );
@@ -241,6 +241,7 @@ function trb_demo_render_settings_page() {
 	}
 
 	$settings = trb_demo_settings();
+	$test_results = array();
 	if ( isset( $_POST['trb_demo_save_settings'] ) ) {
 		check_admin_referer( 'trb_demo_save_settings' );
 		$fields = array( 'webdav_endpoint', 'pcloud_user', 'pcloud_pass', 'openai_key', 'text_model', 'audio_model', 'spreadsheet_id', 'spreadsheet_tab', 'sheet_webhook_url', 'sheet_webhook_secret' );
@@ -252,6 +253,18 @@ function trb_demo_render_settings_page() {
 		update_option( 'trb_demo_automation_settings', $updated, false );
 		$settings = $updated;
 		echo '<div class="notice notice-success is-dismissible"><p>Configurazione salvata.</p></div>';
+	}
+	if ( isset( $_POST['trb_demo_test_settings'] ) ) {
+		check_admin_referer( 'trb_demo_save_settings' );
+		$pcloud = trb_demo_webdav_request( 'PROPFIND', '/' , null, array( 'Depth' => '0' ) );
+		$test_results['pCloud'] = ! is_wp_error( $pcloud ) && in_array( wp_remote_retrieve_response_code( $pcloud ), array( 200, 207, 301 ), true );
+		if ( empty( $settings['openai_key'] ) ) {
+			$test_results['OpenAI'] = false;
+		} else {
+			$model = ! empty( $settings['text_model'] ) ? $settings['text_model'] : 'gpt-4.1-mini';
+			$openai = wp_remote_get( 'https://api.openai.com/v1/models/' . rawurlencode( $model ), array( 'timeout' => 30, 'headers' => array( 'Authorization' => 'Bearer ' . $settings['openai_key'] ) ) );
+			$test_results['OpenAI'] = ! is_wp_error( $openai ) && 200 === wp_remote_retrieve_response_code( $openai );
+		}
 	}
 
 	$defaults = array(
@@ -278,6 +291,13 @@ function trb_demo_render_settings_page() {
 	<div class="wrap">
 		<h1>Automazione valutazione demo</h1>
 		<p>Configurazione privata del trasferimento file, dell'analisi e della registrazione dei provini.</p>
+		<?php if ( $test_results ) : ?>
+			<div class="notice <?php echo ! in_array( false, $test_results, true ) ? 'notice-success' : 'notice-error'; ?>"><p>
+			<?php foreach ( $test_results as $service => $ok ) : ?>
+				<strong><?php echo esc_html( $service ); ?>:</strong> <?php echo $ok ? 'collegamento riuscito' : 'collegamento non riuscito'; ?>&nbsp;&nbsp;
+			<?php endforeach; ?>
+			</p></div>
+		<?php endif; ?>
 		<form method="post">
 			<?php wp_nonce_field( 'trb_demo_save_settings' ); ?>
 			<table class="form-table" role="presentation"><tbody>
@@ -289,6 +309,7 @@ function trb_demo_render_settings_page() {
 			<?php endforeach; ?>
 			</tbody></table>
 			<?php submit_button( 'Salva configurazione', 'primary', 'trb_demo_save_settings' ); ?>
+			<?php submit_button( 'Testa pCloud e OpenAI', 'secondary', 'trb_demo_test_settings', false ); ?>
 		</form>
 	</div>
 	<?php
