@@ -675,3 +675,23 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
 	height: 1px !important;
 	overflow: hidden !important;
 }
+
+/* Demo evaluation: compact introduction, expandable private submission. */
+.trb-portal__demo-lead { max-width: none !important; }
+@media (min-width: 1100px) { .trb-portal__demo-lead { white-space: nowrap; } }
+.trb-portal__demo-module { margin-top: 18px; }
+.trb-portal__demo-module > summary { cursor: pointer; display: inline-flex; list-style: none; }
+.trb-portal__demo-module > summary::-webkit-details-marker { display: none; }
+.trb-portal__demo-module[open] > summary { margin-bottom: 20px; }
+.trb-portal__demo-form { background: #fff; border: 1px solid var(--trb-line); border-radius: 16px; display: grid; gap: 18px; max-width: 850px; padding: 24px; }
+.trb-portal__demo-intro { background: #f5f6ff; border: 1px solid #dfe1ff; border-radius: 11px; padding: 14px 16px; }
+.trb-portal__demo-intro p { margin: 5px 0 0; }
+.trb-portal__demo-upload { background: #f8f9fc; border: 1px solid var(--trb-line); border-radius: 12px; display: grid; gap: 12px; padding: 17px; }
+.trb-portal__demo-upload input[type="file"] { background: #fff; border: 1px dashed #adb4c5; cursor: pointer; padding: 10px; }
+.trb-portal__demo-form .trb-portal__choice { align-items: center; display: flex; flex-direction: row; font-weight: 650; gap: 8px; }
+.trb-portal__demo-form .trb-portal__choice input { flex: 0 0 auto; height: auto; margin: 0; width: auto; }
+.trb-portal__demo-rule { color: var(--trb-ink-soft); font-size: 12px; line-height: 1.55; margin: 0; }
+@media (max-width: 760px) {
+  .trb-portal__demo-form { padding: 18px; }
+  .trb-portal__demo-lead { white-space: normal; }
+}

@@ -1608,12 +1608,115 @@ function trb_portal_render_private_files( $group = '' ) {
 }
 
 function trb_portal_render_demo_section() {
+	$status = isset( $_GET['trb_demo'] ) ? sanitize_key( wp_unslash( $_GET['trb_demo'] ) ) : '';
 	?>
 	<section id="demo" class="trb-portal__section">
-		<div class="trb-portal__demo"><p class="trb-portal__eyebrow">PRIMA DELLA RELEASE</p><h2>Vuoi una valutazione del demo?</h2><p>È un percorso facoltativo e resta sempre separato da una pratica di pubblicazione: puoi richiederlo in qualunque momento.</p><p><a class="trb-button trb-button--secondary" href="https://trbrec.com/form-valutazione" target="_blank" rel="noopener">Richiedi una valutazione demo</a></p></div>
+		<div class="trb-portal__demo">
+			<p class="trb-portal__eyebrow">PRIMA DELLA RELEASE</p>
+			<h2>Vuoi una valutazione del demo?</h2>
+			<p class="trb-portal__demo-lead">È un percorso facoltativo e resta sempre separato dalla pratica di pubblicazione: puoi richiedere la valutazione di <strong>un brano a settimana</strong>, in qualunque momento.</p>
+			<?php if ( 'sent' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Provino ricevuto correttamente. La valutazione verrà inviata all’indirizzo e-mail associato al tuo account.</div><?php endif; ?>
+			<?php if ( 'weekly_limit' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Hai già inviato un provino negli ultimi sette giorni. Potrai richiedere una nuova valutazione alla scadenza del limite settimanale.</div><?php endif; ?>
+			<?php if ( 'invalid' === $status || 'upload_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Invio non completato. Controlla titolo, dichiarazioni e formati degli allegati, quindi riprova.</div><?php endif; ?>
+			<details class="trb-portal__demo-module">
+				<summary class="trb-button trb-button--secondary">Richiedi una valutazione demo</summary>
+				<form class="trb-portal__request-form trb-portal__demo-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-demo-form>
+					<input type="hidden" name="action" value="trb_portal_submit_demo" />
+					<?php wp_nonce_field( 'trb_portal_submit_demo', 'trb_demo_nonce' ); ?>
+					<div class="trb-portal__demo-intro"><strong>Dati trasmessi automaticamente</strong><p>Nome, cognome, nome d’arte ed e-mail vengono acquisiti dal profilo artista e non devono essere inseriti nuovamente.</p></div>
+					<label>Titolo del provino <span>*</span><input type="text" name="trb_demo_title" maxlength="160" required /></label>
+					<div class="trb-portal__demo-upload" data-demo-text-block>
+						<label>Caricamento testo autoriale <span>*</span><small>Obbligatorio quando il provino contiene un testo interpretato. Formati ammessi: TXT, RTF, DOC, DOCX, ODT e PDF.</small><input type="file" name="trb_demo_text" accept=".txt,.rtf,.doc,.docx,.odt,.pdf,text/plain,text/rtf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,application/pdf" data-demo-text /></label>
+						<label class="trb-portal__choice"><input type="checkbox" name="trb_demo_no_lyrics" value="1" data-demo-no-lyrics /> Il provino non contiene testo</label>
+					</div>
+					<div class="trb-portal__demo-upload" data-demo-audio-block>
+						<label>Caricamento provino audio <span>*</span><small>Un solo file compresso: AAC (.m4a), Opus (.opus), WMA Lossy (.wma) oppure <strong>MP3 (.mp3) consigliato</strong>.</small><input type="file" name="trb_demo_audio" accept=".m4a,.opus,.wma,.mp3,audio/mp4,audio/aac,audio/ogg,audio/opus,audio/x-ms-wma,audio/mpeg" data-demo-audio /></label>
+						<label class="trb-portal__choice"><input type="checkbox" name="trb_demo_text_only" value="1" data-demo-text-only /> Il provino è solo un testo autoriale</label>
+					</div>
+					<p class="trb-portal__demo-rule">Deve essere presente almeno un allegato. Se invii soltanto l’audio devi dichiarare che il brano non contiene testo; se invii soltanto il testo devi dichiarare che il provino è esclusivamente autoriale.</p>
+					<div class="trb-portal__message trb-portal__message--error" data-demo-error hidden></div>
+					<button class="trb-button" type="submit">Invia il provino per la valutazione</button>
+				</form>
+			</details>
+		</div>
 	</section>
 	<?php
 }
+
+function trb_portal_demo_upload_dir( $dirs ) {
+	$dirs['subdir'] = '/trb-demo-private';
+	$dirs['path']   = $dirs['basedir'] . $dirs['subdir'];
+	$dirs['url']    = $dirs['baseurl'] . $dirs['subdir'];
+	return $dirs;
+}
+
+function trb_portal_store_demo_file( $input, $mimes, $max_bytes ) {
+	if ( empty( $_FILES[ $input ]['name'] ) || empty( $_FILES[ $input ]['tmp_name'] ) ) return null;
+	$file = $_FILES[ $input ]; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+	if ( UPLOAD_ERR_OK !== (int) $file['error'] || (int) $file['size'] > $max_bytes ) return new WP_Error( 'invalid_upload' );
+	require_once ABSPATH . 'wp-admin/includes/file.php';
+	$file['name'] = sanitize_file_name( $file['name'] );
+	add_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
+	$handled = wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $mimes ) );
+	remove_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
+	if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) return new WP_Error( 'invalid_upload' );
+	$uploads = wp_upload_dir();
+	$private_dir = trailingslashit( $uploads['basedir'] ) . 'trb-demo-private';
+	if ( wp_mkdir_p( $private_dir ) ) {
+		$rules = trailingslashit( $private_dir ) . '.htaccess';
+		if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+	}
+	return array( 'name' => basename( $handled['file'] ), 'path' => str_replace( trailingslashit( $uploads['basedir'] ), '', $handled['file'] ), 'type' => $handled['type'], 'size' => (int) $file['size'] );
+}
+
+function trb_portal_submit_demo() {
+	if ( ! is_user_logged_in() ) auth_redirect();
+	check_admin_referer( 'trb_portal_submit_demo', 'trb_demo_nonce' );
+	$user_id = get_current_user_id();
+	$dashboard = get_permalink( get_option( 'trb_portal_dashboard_created' ) );
+	$last = (int) get_user_meta( $user_id, '_trb_demo_last_submission', true );
+	if ( $last && time() - $last < WEEK_IN_SECONDS ) {
+		wp_safe_redirect( add_query_arg( 'trb_demo', 'weekly_limit', $dashboard ) . '#demo' );
+		exit;
+	}
+	$title = isset( $_POST['trb_demo_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_title'] ) ) : '';
+	$no_lyrics = isset( $_POST['trb_demo_no_lyrics'] );
+	$text_only = isset( $_POST['trb_demo_text_only'] );
+	$has_text = ! empty( $_FILES['trb_demo_text']['name'] );
+	$has_audio = ! empty( $_FILES['trb_demo_audio']['name'] );
+	$valid = '' !== $title && ( $has_text || $has_audio ) && ! ( $no_lyrics && $text_only ) && ( $has_text || $no_lyrics ) && ( $has_audio || $text_only );
+	if ( ! $valid ) {
+		wp_safe_redirect( add_query_arg( 'trb_demo', 'invalid', $dashboard ) . '#demo' );
+		exit;
+	}
+	$text = trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'rtf' => 'application/rtf', 'doc' => 'application/msword', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'odt' => 'application/vnd.oasis.opendocument.text', 'pdf' => 'application/pdf' ), 5 * MB_IN_BYTES );
+	$audio = trb_portal_store_demo_file( 'trb_demo_audio', array( 'm4a' => 'audio/mp4', 'opus' => 'audio/opus', 'wma' => 'audio/x-ms-wma', 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES );
+	if ( is_wp_error( $text ) || is_wp_error( $audio ) ) {
+		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
+		wp_safe_redirect( add_query_arg( 'trb_demo', 'upload_error', $dashboard ) . '#demo' );
+		exit;
+	}
+	$user = wp_get_current_user();
+	$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Demo] ' . $title, 'post_author' => $user_id ) );
+	if ( ! $request_id || is_wp_error( $request_id ) ) {
+		wp_safe_redirect( add_query_arg( 'trb_demo', 'upload_error', $dashboard ) . '#demo' );
+		exit;
+	}
+	$payload = array(
+		'uuid' => wp_generate_uuid4(), 'submitted_at' => gmdate( 'c' ), 'status' => 'queued',
+		'first_name' => $user->first_name, 'last_name' => $user->last_name,
+		'artist_name' => trb_portal_artist_profile_value( 'artist_name', $user_id ), 'email' => $user->user_email,
+		'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'no_lyrics' => $no_lyrics,
+		'text_only' => $text_only, 'text_file' => $text, 'audio_file' => $audio,
+	);
+	update_post_meta( $request_id, '_trb_demo_payload', $payload );
+	update_post_meta( $request_id, '_trb_demo_delete_after', time() + 60 * DAY_IN_SECONDS );
+	update_user_meta( $user_id, '_trb_demo_last_submission', time() );
+	wp_schedule_single_event( time() + 10, 'trb_portal_process_demo', array( $request_id ) );
+	wp_safe_redirect( add_query_arg( 'trb_demo', 'sent', $dashboard ) . '#demo' );
+	exit;
+}
+add_action( 'admin_post_trb_portal_submit_demo', 'trb_portal_submit_demo' );
 
 function trb_portal_render_release_section() {
 	$releases = trb_portal_user_releases();
@@ -1855,6 +1958,8 @@ function trb_portal_enqueue_assets() {
 		$academy_path = get_template_directory() . '/assets/js/trb-video-academy.js';
 		wp_enqueue_script( 'trb-video-academy', get_template_directory_uri() . '/assets/js/trb-video-academy.js', array(), file_exists( $academy_path ) ? (string) filemtime( $academy_path ) : DOCY_VERSION, true );
 		wp_localize_script( 'trb-video-academy', 'trbVideoAcademy', array( 'restRoot' => esc_url_raw( rest_url( 'trb/v1/' ) ), 'restNonce' => wp_create_nonce( 'wp_rest' ) ) );
+		$demo_path = get_template_directory() . '/assets/js/trb-demo-evaluation.js';
+		wp_enqueue_script( 'trb-demo-evaluation', get_template_directory_uri() . '/assets/js/trb-demo-evaluation.js', array(), file_exists( $demo_path ) ? (string) filemtime( $demo_path ) : DOCY_VERSION, true );
 
 		// The retired forum is not part of the Artist Portal. Some legacy plugins
 		// enqueue their assets globally, so prevent them from affecting or slowing
