@@ -94,6 +94,7 @@
       button.addEventListener('click', function () {
         category = button.dataset.videoCategory;
         document.querySelectorAll('[data-video-category]').forEach(function (item) { item.classList.toggle('is-active', item === button); });
+        button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         filter();
       });
     });
