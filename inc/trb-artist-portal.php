@@ -1717,6 +1717,15 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes ) {
 	return array( 'name' => basename( $handled['file'] ), 'path' => str_replace( trailingslashit( $uploads['basedir'] ), '', $handled['file'] ), 'type' => $handled['type'], 'size' => (int) $file['size'] );
 }
 
+function trb_portal_demo_finish( $status, $dashboard, $success = false ) {
+	$redirect = 'forbidden' === $status ? $dashboard : add_query_arg( 'trb_demo', $status, $dashboard ) . '#demo';
+	if ( isset( $_SERVER['HTTP_X_TRB_UPLOAD'] ) && '1' === sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRB_UPLOAD'] ) ) ) {
+		wp_send_json( array( 'success' => (bool) $success, 'status' => $status, 'redirect' => $redirect ), 200 );
+	}
+	wp_safe_redirect( $redirect );
+	exit;
+}
+
 function trb_portal_submit_demo() {
 	if ( ! is_user_logged_in() ) auth_redirect();
 	check_admin_referer( 'trb_portal_submit_demo', 'trb_demo_nonce' );
@@ -1724,14 +1733,12 @@ function trb_portal_submit_demo() {
 	$user = wp_get_current_user();
 	$dashboard = get_permalink( get_option( 'trb_portal_dashboard_created' ) );
 	if ( 'dds' === trb_portal_user_profile( $user ) ) {
-		wp_safe_redirect( $dashboard );
-		exit;
+		trb_portal_demo_finish( 'forbidden', $dashboard );
 	}
 	$is_test_account = trb_portal_is_demo_test_account( $user );
 	$last = (int) get_user_meta( $user_id, '_trb_demo_last_submission', true );
 	if ( ! $is_test_account && $last && time() - $last < WEEK_IN_SECONDS ) {
-		wp_safe_redirect( add_query_arg( 'trb_demo', 'weekly_limit', $dashboard ) . '#demo' );
-		exit;
+		trb_portal_demo_finish( 'weekly_limit', $dashboard );
 	}
 	$title = isset( $_POST['trb_demo_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_title'] ) ) : '';
 	$no_lyrics = isset( $_POST['trb_demo_no_lyrics'] );
@@ -1740,8 +1747,7 @@ function trb_portal_submit_demo() {
 	$has_audio = ! empty( $_FILES['trb_demo_audio']['name'] );
 	$valid = '' !== $title && ( $has_text || $has_audio ) && ! ( $no_lyrics && $text_only ) && ( $has_text || $no_lyrics ) && ( $has_audio || $text_only );
 	if ( ! $valid ) {
-		wp_safe_redirect( add_query_arg( 'trb_demo', 'invalid', $dashboard ) . '#demo' );
-		exit;
+		trb_portal_demo_finish( 'invalid', $dashboard );
 	}
 
 	// Atomic server-side lock: browser retries or repeated clicks cannot create
@@ -1749,21 +1755,18 @@ function trb_portal_submit_demo() {
 	$lock_key = '_trb_demo_submission_lock';
 	$lock_time = (int) get_user_meta( $user_id, $lock_key, true );
 	if ( $lock_time && time() - $lock_time < 15 * MINUTE_IN_SECONDS ) {
-		wp_safe_redirect( add_query_arg( 'trb_demo', 'processing', $dashboard ) . '#demo' );
-		exit;
+		trb_portal_demo_finish( 'processing', $dashboard );
 	}
 	if ( $lock_time ) delete_user_meta( $user_id, $lock_key );
 	if ( ! add_user_meta( $user_id, $lock_key, time(), true ) ) {
-		wp_safe_redirect( add_query_arg( 'trb_demo', 'processing', $dashboard ) . '#demo' );
-		exit;
+		trb_portal_demo_finish( 'processing', $dashboard );
 	}
 
 	$fingerprint = hash( 'sha256', strtolower( $title ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_text']['name'] ) ) . ':' . (int) $_FILES['trb_demo_text']['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_audio']['name'] ) ) . ':' . (int) $_FILES['trb_demo_audio']['size'] : '-' ) );
 	$previous = get_user_meta( $user_id, '_trb_demo_last_fingerprint', true );
 	if ( is_array( $previous ) && ! empty( $previous['hash'] ) && hash_equals( (string) $previous['hash'], $fingerprint ) && time() - (int) $previous['time'] < 10 * MINUTE_IN_SECONDS ) {
 		delete_user_meta( $user_id, $lock_key );
-		wp_safe_redirect( add_query_arg( 'trb_demo', 'duplicate', $dashboard ) . '#demo' );
-		exit;
+		trb_portal_demo_finish( 'duplicate', $dashboard, true );
 	}
 
 	$text = trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ), 2 * MB_IN_BYTES );
@@ -1771,15 +1774,13 @@ function trb_portal_submit_demo() {
 	if ( is_wp_error( $text ) || is_wp_error( $audio ) ) {
 		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
 		delete_user_meta( $user_id, $lock_key );
-		wp_safe_redirect( add_query_arg( 'trb_demo', 'upload_error', $dashboard ) . '#demo' );
-		exit;
+		trb_portal_demo_finish( 'upload_error', $dashboard );
 	}
 	$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Demo] ' . $title, 'post_author' => $user_id ) );
 	if ( ! $request_id || is_wp_error( $request_id ) ) {
 		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
 		delete_user_meta( $user_id, $lock_key );
-		wp_safe_redirect( add_query_arg( 'trb_demo', 'upload_error', $dashboard ) . '#demo' );
-		exit;
+		trb_portal_demo_finish( 'upload_error', $dashboard );
 	}
 	$submitted_timestamp = time();
 	$earliest_delivery   = $is_test_account ? $submitted_timestamp + MINUTE_IN_SECONDS : trb_portal_add_demo_working_hours( $submitted_timestamp, 4 );
@@ -1798,8 +1799,7 @@ function trb_portal_submit_demo() {
 	update_user_meta( $user_id, '_trb_demo_last_fingerprint', array( 'hash' => $fingerprint, 'time' => $submitted_timestamp, 'request_id' => $request_id ) );
 	delete_user_meta( $user_id, $lock_key );
 	wp_schedule_single_event( time() + 10, 'trb_portal_process_demo', array( $request_id ) );
-	wp_safe_redirect( add_query_arg( 'trb_demo', 'sent', $dashboard ) . '#demo' );
-	exit;
+	trb_portal_demo_finish( 'sent', $dashboard, true );
 }
 add_action( 'admin_post_trb_portal_submit_demo', 'trb_portal_submit_demo' );
 
