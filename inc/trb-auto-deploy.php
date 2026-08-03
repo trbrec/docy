@@ -279,10 +279,13 @@ function trb_docy_verify_github_oidc_request( WP_REST_Request $request ) {
 	}
 
 	$now = time();
-	$audience = 'https://faq.trbrec.com/wp-json/trb/v1/deploy';
+	$allowed_audiences = array(
+		'https://faq.trbrec.com/wp-json/trb/v1/deploy',
+		'https://artisti.trbrec.com/wp-json/trb/v1/deploy',
+	);
 	$audiences = (array) ( $claims['aud'] ?? array() );
 	$valid = 'https://token.actions.githubusercontent.com' === ( $claims['iss'] ?? '' )
-		&& in_array( $audience, $audiences, true )
+		&& array_intersect( $allowed_audiences, $audiences )
 		&& 'trbrec/docy' === ( $claims['repository'] ?? '' )
 		&& 'refs/heads/main' === ( $claims['ref'] ?? '' )
 		&& 'push' === ( $claims['event_name'] ?? '' )
