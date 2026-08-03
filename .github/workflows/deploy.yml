@@ -41,11 +41,12 @@ jobs:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           payload=$(jq -nc --arg sha "${GITHUB_SHA}" '{sha: $sha}')
-          curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 20 \
+          response=$(curl --fail-with-body --silent --show-error --connect-timeout 10 --max-time 20 \
             --retry 3 --retry-delay 20 --retry-all-errors \
             -X POST \
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
             -H "User-Agent: TRB-GitHub-Deploy/1.0" \
             --data "${payload}" \
-            https://faq.trbrec.com/wp-json/trb/v1/deploy
+            https://faq.trbrec.com/wp-json/trb/v1/deploy)
+          printf '%s' "${response}" | jq -e --arg sha "${GITHUB_SHA}" '.success == true and .sha == $sha'
