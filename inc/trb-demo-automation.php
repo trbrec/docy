@@ -210,3 +210,15 @@ function trb_demo_register_health_route() {
 	) );
 }
 add_action( 'rest_api_init', 'trb_demo_register_health_route' );
+
+function trb_demo_ajax_health() {
+	$settings = trb_demo_settings();
+	wp_send_json( array(
+		'ready' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ) && ! empty( $settings['openai_key'] ),
+		'pcloud_configured' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ),
+		'openai_configured' => ! empty( $settings['openai_key'] ),
+		'spreadsheet_configured' => ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ),
+	) );
+}
+add_action( 'wp_ajax_nopriv_trb_demo_health', 'trb_demo_ajax_health' );
+add_action( 'wp_ajax_trb_demo_health', 'trb_demo_ajax_health' );
