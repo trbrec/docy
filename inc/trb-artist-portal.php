@@ -1631,7 +1631,7 @@ function trb_portal_render_demo_section() {
 			<?php if ( 'invalid' === $status || 'upload_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Invio non completato. Controlla titolo, dichiarazioni e formati degli allegati, quindi riprova.</div><?php endif; ?>
 			<details class="trb-portal__demo-module">
 				<summary class="trb-button trb-button--secondary">Richiedi una valutazione demo</summary>
-				<form class="trb-portal__request-form trb-portal__demo-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-demo-form>
+				<form class="trb-portal__request-form trb-portal__demo-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-demo-form>
 					<input type="hidden" name="action" value="trb_portal_submit_demo" />
 					<?php wp_nonce_field( 'trb_portal_submit_demo', 'trb_demo_nonce' ); ?>
 					<div class="trb-portal__demo-intro"><strong>Dati trasmessi automaticamente</strong><p>Nome, cognome, nome d’arte ed e-mail vengono acquisiti dal profilo artista e non devono essere inseriti nuovamente.</p></div>
@@ -1811,6 +1811,7 @@ function trb_portal_submit_demo() {
 	trb_portal_demo_finish( 'sent', $dashboard, true );
 }
 add_action( 'admin_post_trb_portal_submit_demo', 'trb_portal_submit_demo' );
+add_action( 'wp_ajax_trb_portal_submit_demo', 'trb_portal_submit_demo' );
 
 function trb_portal_render_release_section() {
 	$releases = trb_portal_user_releases();
