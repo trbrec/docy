@@ -81,6 +81,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
       var request = new XMLHttpRequest();
       request.open((form.method || 'POST').toUpperCase(), form.action, true);
+      request.setRequestHeader('X-TRB-Upload', '1');
+      request.setRequestHeader('Accept', 'application/json');
       request.timeout = 5 * 60 * 1000;
 
       request.upload.addEventListener('progress', function (uploadEvent) {
@@ -93,12 +95,21 @@ document.addEventListener('DOMContentLoaded', function () {
       });
 
       request.addEventListener('load', function () {
-        if (request.status >= 200 && request.status < 400) {
-          setProgress(100, 'Invio completato. Apertura della conferma…');
-          window.location.assign(request.responseURL || form.action);
+        var payload = null;
+        try { payload = JSON.parse(request.responseText); } catch (parseError) {}
+        if (request.status >= 200 && request.status < 300 && payload && payload.success) {
+          setProgress(100, payload.status === 'duplicate' ? 'Provino già ricevuto. Apertura della conferma…' : 'Invio completato. Apertura della conferma…');
+          window.location.assign(payload.redirect);
           return;
         }
-        restore('Invio non completato. Controlla la connessione e riprova.');
+        var messages = {
+          invalid: 'Controlla titolo, dichiarazioni e allegati prima di riprovare.',
+          upload_error: 'Uno degli allegati non è valido. Usa TXT o DOCX per il testo e un solo file MP3 per l’audio.',
+          processing: 'Un invio dello stesso account è già in corso. Attendi il completamento.',
+          weekly_limit: 'Hai già utilizzato la valutazione disponibile per questa settimana.',
+          forbidden: 'Questo profilo non è abilitato alla valutazione dei demo.'
+        };
+        restore(payload && messages[payload.status] ? messages[payload.status] : 'Il server non ha completato la registrazione. Nessun provino è stato acquisito: riprova dopo aver ricaricato la pagina.');
       });
 
       request.addEventListener('error', function () {
