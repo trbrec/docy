@@ -1,6 +1,6 @@
 name: Deploy Docy theme
 
-# Production deployment is triggered by every merged main revision. Revision: video-academy-54-lessons.
+# Production deployment is triggered by every merged main revision. Revision: label-safe-academy-81-approved.
 
 on:
   push:
