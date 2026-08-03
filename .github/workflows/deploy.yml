@@ -1,6 +1,6 @@
 name: Deploy Docy theme
 
-# Production deployment is triggered by every merged main revision. Revision: verified-deploy-bridge-tested.
+# Production deployment is triggered by every merged main revision. Revision: video-academy-54-lessons.
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: |
           audience='https://faq.trbrec.com/wp-json/trb/v1/deploy'
-          token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("'"$audience"'", safe=""))')"
+          token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("'"'"$audience"'"'", safe=""))')"
           token=$(curl --fail --silent --show-error \
             -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
             "${token_url}" | jq -r '.value')
