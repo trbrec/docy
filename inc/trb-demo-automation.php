@@ -222,3 +222,74 @@ function trb_demo_ajax_health() {
 }
 add_action( 'wp_ajax_nopriv_trb_demo_health', 'trb_demo_ajax_health' );
 add_action( 'wp_ajax_trb_demo_health', 'trb_demo_ajax_health' );
+
+/** Private settings screen: secrets are stored in WordPress, never in Git. */
+function trb_demo_register_settings_page() {
+	add_management_page(
+		'Automazione valutazione demo',
+		'Automazione demo',
+		'manage_options',
+		'trb-demo-automation',
+		'trb_demo_render_settings_page'
+	);
+}
+add_action( 'admin_menu', 'trb_demo_register_settings_page' );
+
+function trb_demo_render_settings_page() {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_die( esc_html__( 'Non sei autorizzato ad accedere a questa pagina.', 'docy' ) );
+	}
+
+	$settings = trb_demo_settings();
+	if ( isset( $_POST['trb_demo_save_settings'] ) ) {
+		check_admin_referer( 'trb_demo_save_settings' );
+		$fields = array( 'webdav_endpoint', 'pcloud_user', 'pcloud_pass', 'openai_key', 'text_model', 'audio_model', 'spreadsheet_id', 'spreadsheet_tab', 'sheet_webhook_url', 'sheet_webhook_secret' );
+		$updated = array();
+		foreach ( $fields as $field ) {
+			$value = isset( $_POST[ $field ] ) ? trim( wp_unslash( $_POST[ $field ] ) ) : '';
+			$updated[ $field ] = in_array( $field, array( 'webdav_endpoint', 'sheet_webhook_url' ), true ) ? esc_url_raw( $value ) : sanitize_text_field( $value );
+		}
+		update_option( 'trb_demo_automation_settings', $updated, false );
+		$settings = $updated;
+		echo '<div class="notice notice-success is-dismissible"><p>Configurazione salvata.</p></div>';
+	}
+
+	$defaults = array(
+		'webdav_endpoint' => 'https://webdav.pcloud.com',
+		'text_model' => 'gpt-4.1-mini',
+		'audio_model' => 'gpt-audio-mini',
+		'spreadsheet_id' => '15-A6nUDO47zxLrMJ-8xQs4AcvnjHwwQIgpEeLwS8pa4',
+		'spreadsheet_tab' => '2026 NEW',
+	);
+	$settings = wp_parse_args( $settings, $defaults );
+	$fields = array(
+		'webdav_endpoint' => array( 'Endpoint WebDAV pCloud', 'url' ),
+		'pcloud_user' => array( 'Utente pCloud', 'text' ),
+		'pcloud_pass' => array( 'Password pCloud', 'password' ),
+		'openai_key' => array( 'Chiave API OpenAI', 'password' ),
+		'text_model' => array( 'Modello testo OpenAI', 'text' ),
+		'audio_model' => array( 'Modello audio OpenAI', 'text' ),
+		'spreadsheet_id' => array( 'ID Google Spreadsheet', 'text' ),
+		'spreadsheet_tab' => array( 'Scheda Google Spreadsheet', 'text' ),
+		'sheet_webhook_url' => array( 'Webhook Google Sheets', 'url' ),
+		'sheet_webhook_secret' => array( 'Segreto webhook', 'password' ),
+	);
+	?>
+	<div class="wrap">
+		<h1>Automazione valutazione demo</h1>
+		<p>Configurazione privata del trasferimento file, dell'analisi e della registrazione dei provini.</p>
+		<form method="post">
+			<?php wp_nonce_field( 'trb_demo_save_settings' ); ?>
+			<table class="form-table" role="presentation"><tbody>
+			<?php foreach ( $fields as $name => $field ) : ?>
+				<tr>
+					<th scope="row"><label for="<?php echo esc_attr( $name ); ?>"><?php echo esc_html( $field[0] ); ?></label></th>
+					<td><input class="regular-text" id="<?php echo esc_attr( $name ); ?>" name="<?php echo esc_attr( $name ); ?>" type="<?php echo esc_attr( $field[1] ); ?>" value="<?php echo esc_attr( $settings[ $name ] ?? '' ); ?>" autocomplete="off"></td>
+				</tr>
+			<?php endforeach; ?>
+			</tbody></table>
+			<?php submit_button( 'Salva configurazione', 'primary', 'trb_demo_save_settings' ); ?>
+		</form>
+	</div>
+	<?php
+}
