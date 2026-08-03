@@ -1626,6 +1626,8 @@ function trb_portal_render_demo_section() {
 			<p class="trb-portal__demo-lead"><?php if ( $is_test_account ) : ?>Account di collaudo: gli invii sono temporaneamente illimitati e le valutazioni vengono elaborate appena possibile.<?php else : ?>È un percorso facoltativo e resta sempre separato dalla pratica di pubblicazione: puoi richiedere la valutazione di <strong>un brano a settimana</strong>, in qualunque momento.<?php endif; ?></p>
 			<?php if ( 'sent' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Provino ricevuto correttamente. La valutazione verrà inviata all’indirizzo e-mail associato al tuo account.</div><?php endif; ?>
 			<?php if ( 'weekly_limit' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Hai già inviato un provino negli ultimi sette giorni. Potrai richiedere una nuova valutazione alla scadenza del limite settimanale.</div><?php endif; ?>
+			<?php if ( 'processing' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Il provino è già in caricamento. Attendi il completamento senza inviarlo nuovamente.</div><?php endif; ?>
+			<?php if ( 'duplicate' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Questo stesso provino è già stato ricevuto. Non è stato creato un invio duplicato.</div><?php endif; ?>
 			<?php if ( 'invalid' === $status || 'upload_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Invio non completato. Controlla titolo, dichiarazioni e formati degli allegati, quindi riprova.</div><?php endif; ?>
 			<details class="trb-portal__demo-module">
 				<summary class="trb-button trb-button--secondary">Richiedi una valutazione demo</summary>
@@ -1644,7 +1646,12 @@ function trb_portal_render_demo_section() {
 					</div>
 					<p class="trb-portal__demo-rule">Deve essere presente almeno un allegato. Se invii soltanto l’audio devi dichiarare che il brano non contiene testo; se invii soltanto il testo devi dichiarare che il provino è esclusivamente autoriale.</p>
 					<div class="trb-portal__message trb-portal__message--error" data-demo-error hidden></div>
-					<button class="trb-button" type="submit">Invia il provino per la valutazione</button>
+					<div class="trb-portal__upload-progress" data-demo-progress hidden aria-live="polite">
+						<div class="trb-portal__upload-progress-head"><strong>Caricamento del provino</strong><span data-demo-progress-value>0%</span></div>
+						<progress max="100" value="0" data-demo-progress-bar>0%</progress>
+						<p data-demo-progress-text>Preparazione dei file…</p>
+					</div>
+					<button class="trb-button" type="submit" data-demo-submit>Invia il provino per la valutazione</button>
 				</form>
 			</details>
 		</div>
@@ -1736,16 +1743,41 @@ function trb_portal_submit_demo() {
 		wp_safe_redirect( add_query_arg( 'trb_demo', 'invalid', $dashboard ) . '#demo' );
 		exit;
 	}
+
+	// Atomic server-side lock: browser retries or repeated clicks cannot create
+	// simultaneous practices while the first upload is still being processed.
+	$lock_key = '_trb_demo_submission_lock';
+	$lock_time = (int) get_user_meta( $user_id, $lock_key, true );
+	if ( $lock_time && time() - $lock_time < 15 * MINUTE_IN_SECONDS ) {
+		wp_safe_redirect( add_query_arg( 'trb_demo', 'processing', $dashboard ) . '#demo' );
+		exit;
+	}
+	if ( $lock_time ) delete_user_meta( $user_id, $lock_key );
+	if ( ! add_user_meta( $user_id, $lock_key, time(), true ) ) {
+		wp_safe_redirect( add_query_arg( 'trb_demo', 'processing', $dashboard ) . '#demo' );
+		exit;
+	}
+
+	$fingerprint = hash( 'sha256', strtolower( $title ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_text']['name'] ) ) . ':' . (int) $_FILES['trb_demo_text']['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_audio']['name'] ) ) . ':' . (int) $_FILES['trb_demo_audio']['size'] : '-' ) );
+	$previous = get_user_meta( $user_id, '_trb_demo_last_fingerprint', true );
+	if ( is_array( $previous ) && ! empty( $previous['hash'] ) && hash_equals( (string) $previous['hash'], $fingerprint ) && time() - (int) $previous['time'] < 10 * MINUTE_IN_SECONDS ) {
+		delete_user_meta( $user_id, $lock_key );
+		wp_safe_redirect( add_query_arg( 'trb_demo', 'duplicate', $dashboard ) . '#demo' );
+		exit;
+	}
+
 	$text = trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ), 2 * MB_IN_BYTES );
 	$audio = trb_portal_store_demo_file( 'trb_demo_audio', array( 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES );
 	if ( is_wp_error( $text ) || is_wp_error( $audio ) ) {
 		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
+		delete_user_meta( $user_id, $lock_key );
 		wp_safe_redirect( add_query_arg( 'trb_demo', 'upload_error', $dashboard ) . '#demo' );
 		exit;
 	}
 	$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Demo] ' . $title, 'post_author' => $user_id ) );
 	if ( ! $request_id || is_wp_error( $request_id ) ) {
 		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
+		delete_user_meta( $user_id, $lock_key );
 		wp_safe_redirect( add_query_arg( 'trb_demo', 'upload_error', $dashboard ) . '#demo' );
 		exit;
 	}
@@ -1763,6 +1795,8 @@ function trb_portal_submit_demo() {
 	update_post_meta( $request_id, '_trb_demo_earliest_delivery', $earliest_delivery );
 	update_post_meta( $request_id, '_trb_demo_delete_after', $submitted_timestamp + 60 * DAY_IN_SECONDS );
 	if ( ! $is_test_account ) update_user_meta( $user_id, '_trb_demo_last_submission', $submitted_timestamp );
+	update_user_meta( $user_id, '_trb_demo_last_fingerprint', array( 'hash' => $fingerprint, 'time' => $submitted_timestamp, 'request_id' => $request_id ) );
+	delete_user_meta( $user_id, $lock_key );
 	wp_schedule_single_event( time() + 10, 'trb_portal_process_demo', array( $request_id ) );
 	wp_safe_redirect( add_query_arg( 'trb_demo', 'sent', $dashboard ) . '#demo' );
 	exit;
