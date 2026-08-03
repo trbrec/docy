@@ -1704,16 +1704,18 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes ) {
 	if ( UPLOAD_ERR_OK !== (int) $file['error'] || (int) $file['size'] > $max_bytes ) return new WP_Error( 'invalid_upload' );
 	require_once ABSPATH . 'wp-admin/includes/file.php';
 	$file['name'] = sanitize_file_name( $file['name'] );
+	$uploads = wp_upload_dir();
+	if ( ! empty( $uploads['error'] ) ) return new WP_Error( 'upload_directory_unavailable', $uploads['error'] );
+	$private_dir = trailingslashit( $uploads['basedir'] ) . 'trb-demo-private';
+	if ( ! wp_mkdir_p( $private_dir ) || ! is_dir( $private_dir ) || ! is_writable( $private_dir ) ) {
+		return new WP_Error( 'upload_directory_unavailable', 'La cartella privata dei demo non è disponibile in scrittura.' );
+	}
+	$rules = trailingslashit( $private_dir ) . '.htaccess';
+	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	add_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
 	$handled = wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $mimes ) );
 	remove_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
-	if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) return new WP_Error( 'invalid_upload' );
-	$uploads = wp_upload_dir();
-	$private_dir = trailingslashit( $uploads['basedir'] ) . 'trb-demo-private';
-	if ( wp_mkdir_p( $private_dir ) ) {
-		$rules = trailingslashit( $private_dir ) . '.htaccess';
-		if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-	}
+	if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) return new WP_Error( 'invalid_upload', ! empty( $handled['error'] ) ? $handled['error'] : 'WordPress non ha salvato il file caricato.' );
 	return array( 'name' => basename( $handled['file'] ), 'path' => str_replace( trailingslashit( $uploads['basedir'] ), '', $handled['file'] ), 'type' => $handled['type'], 'size' => (int) $file['size'] );
 }
 
