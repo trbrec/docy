@@ -1358,7 +1358,10 @@ add_filter( 'cron_schedules', 'trb_portal_weekly_schedule' );
 add_action( 'init', 'trb_portal_schedule_video_checks', 40 );
 
 function trb_portal_check_video_availability() {
-	foreach ( get_posts( array( 'post_type' => 'video', 'post_status' => 'publish', 'posts_per_page' => -1 ) ) as $video ) {
+	$videos = get_posts( array( 'post_type' => 'video', 'post_status' => 'publish', 'posts_per_page' => -1, 'orderby' => 'ID', 'order' => 'ASC' ) );
+	$offset = max( 0, (int) get_option( 'trb_portal_video_check_offset', 0 ) );
+	$batch = array_slice( $videos, $offset, 8 );
+	foreach ( $batch as $video ) {
 		$id = get_post_meta( $video->ID, '_trb_video_youtube', true );
 		$response = wp_remote_get( 'https://www.youtube.com/oembed?format=json&url=' . rawurlencode( 'https://www.youtube.com/watch?v=' . $id ), array( 'timeout' => 12 ) );
 		$available = ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response );
@@ -1366,9 +1369,21 @@ function trb_portal_check_video_availability() {
 		update_post_meta( $video->ID, '_trb_video_last_check', time() );
 		if ( $available ) { $data = json_decode( wp_remote_retrieve_body( $response ), true ); if ( ! empty( $data['author_name'] ) ) update_post_meta( $video->ID, '_trb_video_author', sanitize_text_field( $data['author_name'] ) ); }
 	}
+	$processed = $offset + count( $batch );
+	if ( $processed >= count( $videos ) ) {
+		delete_option( 'trb_portal_video_check_offset' );
+	} else {
+		update_option( 'trb_portal_video_check_offset', $processed, false );
+		if ( ! wp_next_scheduled( 'trb_portal_video_check_batch' ) ) wp_schedule_single_event( time() + 20, 'trb_portal_video_check_batch' );
+	}
 }
-add_action( 'trb_portal_weekly_video_check', 'trb_portal_check_video_availability' );
-add_action( 'trb_portal_initial_video_check', 'trb_portal_check_video_availability' );
+function trb_portal_start_video_availability_check() {
+	delete_option( 'trb_portal_video_check_offset' );
+	trb_portal_check_video_availability();
+}
+add_action( 'trb_portal_weekly_video_check', 'trb_portal_start_video_availability_check' );
+add_action( 'trb_portal_initial_video_check', 'trb_portal_start_video_availability_check' );
+add_action( 'trb_portal_video_check_batch', 'trb_portal_check_video_availability' );
 
 function trb_portal_request_catalogue() {
 	return array(
