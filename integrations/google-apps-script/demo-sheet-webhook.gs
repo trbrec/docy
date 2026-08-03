@@ -21,13 +21,16 @@ function doPost(e) {
     const raw = e && e.postData && e.postData.contents ? e.postData.contents : '';
     const secret = PropertiesService.getScriptProperties().getProperty('TRB_WEBHOOK_SECRET');
     const envelope = raw ? JSON.parse(raw) : {};
-    const data = envelope.payload || {};
     const supplied = String(envelope.signature || '');
-    const canonical = JSON.stringify(data);
+    const payloadBase64 = String(envelope.payload_base64 || '');
+    const payloadJson = payloadBase64
+      ? Utilities.newBlob(Utilities.base64Decode(payloadBase64)).getDataAsString('UTF-8')
+      : '';
 
-    if (!secret || !supplied || !safeEquals_(supplied, hmacHex_(canonical, secret))) {
+    if (!secret || !supplied || !payloadJson || !safeEquals_(supplied, hmacHex_(payloadJson, secret))) {
       return json_({ success: false, error: 'unauthorized' });
     }
+    const data = JSON.parse(payloadJson);
     const required = [
       'informazioni_cronologiche', 'nome', 'cognome', 'nome_arte',
       'email', 'titolo', 'link_provino', 'request_id'
