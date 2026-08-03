@@ -168,6 +168,11 @@ function trb_demo_sheet_row( $request_id, $payload, $remote ) {
 	return $ok;
 }
 
+function trb_demo_is_test_payload( $payload ) {
+	$email = is_array( $payload ) && ! empty( $payload['email'] ) ? strtolower( (string) $payload['email'] ) : '';
+	return in_array( $email, array( 'spotify2@trbrec.com', 'spotify3@trbrec.com', 'spotify4@trbrec.com' ), true );
+}
+
 function trb_demo_process_request( $request_id ) {
 	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
 	if ( ! is_array( $payload ) || ! in_array( $payload['status'], array( 'queued', 'retry' ), true ) ) return;
@@ -180,7 +185,7 @@ function trb_demo_process_request( $request_id ) {
 		$attempts = (int) get_post_meta( $request_id, '_trb_demo_attempts', true ) + 1;
 		update_post_meta( $request_id, '_trb_demo_attempts', $attempts );
 		update_post_meta( $request_id, '_trb_demo_last_error', is_wp_error( $remote ) ? $remote->get_error_message() : $review->get_error_message() );
-		if ( $attempts < 3 ) { $payload['status'] = 'retry'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_schedule_single_event( time() + HOUR_IN_SECONDS, 'trb_portal_process_demo', array( $request_id ) ); }
+		if ( $attempts < 3 ) { $payload['status'] = 'retry'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_process_demo', array( $request_id ) ); }
 		else { $payload['status'] = 'manual_review'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_mail( 'info@trbrec.com', 'Provino da verificare manualmente: ' . $payload['title'], 'La procedura automatica non è riuscita dopo tre tentativi. Richiesta #' . $request_id ); }
 		return;
 	}
@@ -224,7 +229,7 @@ function trb_demo_send_review( $request_id ) {
 	$subject = 'Valutazione del provino “' . $payload['title'] . '” | TRB rec';
 	$sent = wp_mail( $payload['email'], $subject, $body, array( 'Content-Type: text/html; charset=UTF-8' ) );
 	if ( $sent ) { $payload['status'] = 'sent'; $payload['sent_at'] = gmdate( 'c' ); update_post_meta( $request_id, '_trb_demo_payload', $payload ); }
-	else wp_schedule_single_event( time() + HOUR_IN_SECONDS, 'trb_portal_send_demo_review', array( $request_id ) );
+	else wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? 5 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_send_demo_review', array( $request_id ) );
 }
 add_action( 'trb_portal_send_demo_review', 'trb_demo_send_review' );
 
