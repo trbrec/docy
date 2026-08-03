@@ -107,6 +107,43 @@ function trb_demo_review_prompt( $payload, $has_audio, $has_text ) {
 	return $prompt;
 }
 
+function trb_demo_model_rates( $model ) {
+	$rates = array(
+		'gpt-audio-mini' => array( 'text_input' => 0.60, 'text_output' => 2.40, 'audio_input' => 10.00, 'audio_output' => 20.00 ),
+		'gpt-4.1-mini'   => array( 'text_input' => 0.40, 'text_output' => 1.60, 'audio_input' => 0.00, 'audio_output' => 0.00 ),
+	);
+	foreach ( $rates as $model_name => $model_rates ) {
+		if ( $model === $model_name || 0 === strpos( $model, $model_name . '-' ) ) return $model_rates;
+	}
+	return array( 'text_input' => 0.00, 'text_output' => 0.00, 'audio_input' => 0.00, 'audio_output' => 0.00 );
+}
+
+function trb_demo_usage_and_cost( $model, $usage ) {
+	$usage = is_array( $usage ) ? $usage : array();
+	$prompt_tokens = isset( $usage['prompt_tokens'] ) ? (int) $usage['prompt_tokens'] : 0;
+	$completion_tokens = isset( $usage['completion_tokens'] ) ? (int) $usage['completion_tokens'] : 0;
+	$audio_input = isset( $usage['prompt_tokens_details']['audio_tokens'] ) ? (int) $usage['prompt_tokens_details']['audio_tokens'] : 0;
+	$audio_output = isset( $usage['completion_tokens_details']['audio_tokens'] ) ? (int) $usage['completion_tokens_details']['audio_tokens'] : 0;
+	$text_input = max( 0, $prompt_tokens - $audio_input );
+	$text_output = max( 0, $completion_tokens - $audio_output );
+	$rates = trb_demo_model_rates( $model );
+	$cost = ( $text_input * $rates['text_input'] + $text_output * $rates['text_output'] + $audio_input * $rates['audio_input'] + $audio_output * $rates['audio_output'] ) / 1000000;
+	return array(
+		'model' => $model,
+		'prompt_tokens' => $prompt_tokens,
+		'completion_tokens' => $completion_tokens,
+		'total_tokens' => isset( $usage['total_tokens'] ) ? (int) $usage['total_tokens'] : $prompt_tokens + $completion_tokens,
+		'text_input_tokens' => $text_input,
+		'text_output_tokens' => $text_output,
+		'audio_input_tokens' => $audio_input,
+		'audio_output_tokens' => $audio_output,
+		'rates_per_million_usd' => $rates,
+		'estimated_cost_usd' => round( $cost, 8 ),
+		'raw_usage' => $usage,
+		'recorded_at' => gmdate( 'c' ),
+	);
+}
+
 function trb_demo_openai_review( $payload ) {
 	$settings = trb_demo_settings();
 	if ( empty( $settings['openai_key'] ) ) return new WP_Error( 'missing_openai_key' );
@@ -126,7 +163,10 @@ function trb_demo_openai_review( $payload ) {
 	if ( is_wp_error( $response ) ) return $response;
 	$data = json_decode( wp_remote_retrieve_body( $response ), true );
 	if ( wp_remote_retrieve_response_code( $response ) >= 300 || empty( $data['choices'][0]['message']['content'] ) ) return new WP_Error( 'openai_failed', isset( $data['error']['message'] ) ? sanitize_text_field( $data['error']['message'] ) : 'OpenAI error' );
-	return trim( wp_kses_post( $data['choices'][0]['message']['content'] ) );
+	return array(
+		'review' => trim( wp_kses_post( $data['choices'][0]['message']['content'] ) ),
+		'usage' => trb_demo_usage_and_cost( $model, isset( $data['usage'] ) ? $data['usage'] : array() ),
+	);
 }
 
 function trb_demo_post_sheet_webhook( $url, $envelope ) {
@@ -180,16 +220,20 @@ function trb_demo_process_request( $request_id ) {
 	if ( $delete_after && ! wp_next_scheduled( 'trb_portal_cleanup_demo', array( $request_id ) ) ) wp_schedule_single_event( $delete_after, 'trb_portal_cleanup_demo', array( $request_id ) );
 	$remote = trb_demo_upload_to_pcloud( $payload );
 	if ( ! is_wp_error( $remote ) ) update_post_meta( $request_id, '_trb_demo_remote', $remote );
-	$review = trb_demo_openai_review( $payload );
-	if ( is_wp_error( $remote ) || is_wp_error( $review ) ) {
+	$review_result = trb_demo_openai_review( $payload );
+	if ( is_wp_error( $remote ) || is_wp_error( $review_result ) ) {
 		$attempts = (int) get_post_meta( $request_id, '_trb_demo_attempts', true ) + 1;
 		update_post_meta( $request_id, '_trb_demo_attempts', $attempts );
-		update_post_meta( $request_id, '_trb_demo_last_error', is_wp_error( $remote ) ? $remote->get_error_message() : $review->get_error_message() );
+		update_post_meta( $request_id, '_trb_demo_last_error', is_wp_error( $remote ) ? $remote->get_error_message() : $review_result->get_error_message() );
 		if ( $attempts < 3 ) { $payload['status'] = 'retry'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_process_demo', array( $request_id ) ); }
 		else { $payload['status'] = 'manual_review'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_mail( 'info@trbrec.com', 'Provino da verificare manualmente: ' . $payload['title'], 'La procedura automatica non è riuscita dopo tre tentativi. Richiesta #' . $request_id ); }
 		return;
 	}
+	$review = $review_result['review'];
+	$usage = $review_result['usage'];
 	update_post_meta( $request_id, '_trb_demo_review', $review );
+	update_post_meta( $request_id, '_trb_demo_openai_usage', $usage );
+	update_post_meta( $request_id, '_trb_demo_cost_usd', (float) $usage['estimated_cost_usd'] );
 	trb_demo_sheet_row( $request_id, $payload, $remote );
 	$payload['status'] = 'ready';
 	update_post_meta( $request_id, '_trb_demo_payload', $payload );
@@ -288,6 +332,39 @@ function trb_demo_register_settings_page() {
 }
 add_action( 'admin_menu', 'trb_demo_register_settings_page' );
 
+function trb_demo_cost_report() {
+	$request_ids = get_posts( array(
+		'post_type' => 'trb_request',
+		'post_status' => array( 'publish', 'private', 'draft', 'pending', 'trash' ),
+		'posts_per_page' => -1,
+		'fields' => 'ids',
+		'orderby' => 'date',
+		'order' => 'DESC',
+		'meta_query' => array( array( 'key' => '_trb_demo_openai_usage', 'compare' => 'EXISTS' ) ),
+	) );
+	$rows = array();
+	$total_cost = 0.0;
+	foreach ( $request_ids as $request_id ) {
+		$usage = get_post_meta( $request_id, '_trb_demo_openai_usage', true );
+		if ( ! is_array( $usage ) ) continue;
+		$cost = isset( $usage['estimated_cost_usd'] ) ? (float) $usage['estimated_cost_usd'] : (float) get_post_meta( $request_id, '_trb_demo_cost_usd', true );
+		$total_cost += $cost;
+		if ( count( $rows ) < 20 ) {
+			$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
+			$rows[] = array(
+				'id' => $request_id,
+				'title' => get_the_title( $request_id ),
+				'date' => get_post_time( 'd/m/Y H:i', false, $request_id ),
+				'status' => is_array( $payload ) && ! empty( $payload['status'] ) ? $payload['status'] : get_post_status( $request_id ),
+				'usage' => $usage,
+				'cost' => $cost,
+			);
+		}
+	}
+	$count = count( $request_ids );
+	return array( 'count' => $count, 'total_cost' => $total_cost, 'average_cost' => $count ? $total_cost / $count : 0, 'rows' => $rows );
+}
+
 function trb_demo_render_settings_page() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		wp_die( esc_html__( 'Non sei autorizzato ad accedere a questa pagina.', 'docy' ) );
@@ -346,6 +423,7 @@ function trb_demo_render_settings_page() {
 		'spreadsheet_tab' => '2026 NEW',
 	);
 	$settings = wp_parse_args( $settings, $defaults );
+	$cost_report = trb_demo_cost_report();
 	$fields = array(
 		'webdav_endpoint' => array( 'Endpoint WebDAV pCloud', 'url' ),
 		'pcloud_user' => array( 'Utente pCloud', 'text' ),
@@ -369,6 +447,36 @@ function trb_demo_render_settings_page() {
 			<?php endforeach; ?>
 			</p></div>
 		<?php endif; ?>
+		<h2>Consumi e costi OpenAI</h2>
+		<p>I costi sono stimati applicando ai token restituiti dall'API il listino associato al modello. Il dato di fatturazione definitivo resta quello dell'account OpenAI.</p>
+		<div style="display:flex;gap:16px;flex-wrap:wrap;margin:18px 0 24px;">
+			<div style="min-width:180px;padding:16px 20px;background:#fff;border:1px solid #dcdcde;border-radius:8px;"><div style="color:#646970;">Valutazioni conteggiate</div><strong style="display:block;font-size:24px;margin-top:6px;"><?php echo number_format_i18n( $cost_report['count'] ); ?></strong></div>
+			<div style="min-width:180px;padding:16px 20px;background:#fff;border:1px solid #dcdcde;border-radius:8px;"><div style="color:#646970;">Costo totale stimato</div><strong style="display:block;font-size:24px;margin-top:6px;">$<?php echo esc_html( number_format( $cost_report['total_cost'], 4, '.', '' ) ); ?></strong></div>
+			<div style="min-width:180px;padding:16px 20px;background:#fff;border:1px solid #dcdcde;border-radius:8px;"><div style="color:#646970;">Costo medio per provino</div><strong style="display:block;font-size:24px;margin-top:6px;">$<?php echo esc_html( number_format( $cost_report['average_cost'], 4, '.', '' ) ); ?></strong></div>
+		</div>
+		<?php if ( $cost_report['rows'] ) : ?>
+			<table class="widefat striped" style="margin-bottom:28px;">
+				<thead><tr><th>Data</th><th>Provino</th><th>Modello</th><th>Testo in/out</th><th>Audio in/out</th><th>Token totali</th><th>Costo stimato</th><th>Stato</th></tr></thead>
+				<tbody>
+				<?php foreach ( $cost_report['rows'] as $row ) : $usage = $row['usage']; ?>
+					<tr>
+						<td><?php echo esc_html( $row['date'] ); ?></td>
+						<td><a href="<?php echo esc_url( get_edit_post_link( $row['id'] ) ); ?>"><?php echo esc_html( $row['title'] ?: '#' . $row['id'] ); ?></a></td>
+						<td><code><?php echo esc_html( $usage['model'] ?? '' ); ?></code></td>
+						<td><?php echo esc_html( number_format_i18n( $usage['text_input_tokens'] ?? 0 ) . ' / ' . number_format_i18n( $usage['text_output_tokens'] ?? 0 ) ); ?></td>
+						<td><?php echo esc_html( number_format_i18n( $usage['audio_input_tokens'] ?? 0 ) . ' / ' . number_format_i18n( $usage['audio_output_tokens'] ?? 0 ) ); ?></td>
+						<td><?php echo esc_html( number_format_i18n( $usage['total_tokens'] ?? 0 ) ); ?></td>
+						<td><strong>$<?php echo esc_html( number_format( $row['cost'], 5, '.', '' ) ); ?></strong></td>
+						<td><?php echo esc_html( $row['status'] ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+		<?php else : ?>
+			<div class="notice notice-info inline"><p>Il monitoraggio partirà dalla prossima valutazione elaborata dopo questo aggiornamento; le valutazioni precedenti non contengono il dettaglio token.</p></div>
+		<?php endif; ?>
+		<hr style="margin:28px 0;">
+		<h2>Configurazione collegamenti</h2>
 		<form method="post">
 			<?php wp_nonce_field( 'trb_demo_save_settings' ); ?>
 			<table class="form-table" role="presentation"><tbody>
