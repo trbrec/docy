@@ -8,6 +8,7 @@
 $user    = wp_get_current_user();
 $sent    = isset( $_GET['trb_support'] ) && 'sent' === sanitize_key( wp_unslash( $_GET['trb_support'] ) );
 $invalid = isset( $_GET['trb_support'] ) && 'invalid' === sanitize_key( wp_unslash( $_GET['trb_support'] ) );
+$rate_limited = isset( $_GET['trb_support'] ) && 'rate_limited' === sanitize_key( wp_unslash( $_GET['trb_support'] ) );
 $logged_in = is_user_logged_in();
 $profile = $logged_in ? trb_portal_user_profile( $user ) : '';
 $full_name = $logged_in ? trim( $user->first_name . ' ' . $user->last_name ) : '';
@@ -35,6 +36,7 @@ $artist_name = $logged_in ? trb_portal_artist_profile_value( 'artist_name', $use
 		<p class="trb-support__lead">Segnala un problema di registrazione o accesso oppure richiedi assistenza. La richiesta sarà inviata direttamente alla Direzione TRB rec.</p>
 		<?php if ( $sent ) : ?><div class="trb-support__message">Segnalazione inviata. Riceverai riscontro via e-mail.</div><?php endif; ?>
 		<?php if ( $invalid ) : ?><div class="trb-support__message trb-support__message--error">Non è stato possibile inviare la richiesta. Verifica tutti i campi e riprova.</div><?php endif; ?>
+		<?php if ( $rate_limited ) : ?><div class="trb-support__message trb-support__message--error">Hai appena inviato una segnalazione. Attendi due minuti prima di riprovare.</div><?php endif; ?>
 		<div class="trb-support__layout">
 		<form class="trb-support__form" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
 			<div class="trb-support__form-heading"><p>NUOVA SEGNALAZIONE</p><h2>Come possiamo aiutarti?</h2><span>I campi contrassegnati con * sono obbligatori.</span></div>
