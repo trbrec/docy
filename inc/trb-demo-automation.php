@@ -137,7 +137,8 @@ function trb_demo_sheet_row( $request_id, $payload, $remote ) {
 	$settings = trb_demo_settings();
 	if ( empty( $settings['sheet_webhook_url'] ) ) return false;
 	$response = wp_remote_post( $settings['sheet_webhook_url'], array( 'timeout' => 30, 'headers' => array( 'Content-Type' => 'application/json', 'X-TRB-Signature' => hash_hmac( 'sha256', wp_json_encode( $row ), $settings['sheet_webhook_secret'] ) ), 'body' => wp_json_encode( $row ) ) );
-	$ok = ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) < 300;
+	$response_data = is_wp_error( $response ) ? array() : json_decode( wp_remote_retrieve_body( $response ), true );
+	$ok = ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) < 300 && ! empty( $response_data['success'] );
 	update_post_meta( $request_id, '_trb_demo_sheet_synced', $ok ? time() : 0 );
 	return $ok;
 }
