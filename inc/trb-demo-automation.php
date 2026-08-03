@@ -190,3 +190,23 @@ function trb_demo_cleanup_request( $request_id ) {
 	update_post_meta( $request_id, '_trb_demo_cleaned_at', time() );
 }
 add_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' );
+
+/** Non-sensitive readiness endpoint used by deployment monitoring. */
+function trb_demo_register_health_route() {
+	register_rest_route( 'trb/v1', '/demo-health', array(
+		'methods' => 'GET',
+		'permission_callback' => '__return_true',
+		'callback' => function() {
+			$settings = trb_demo_settings();
+			return rest_ensure_response( array(
+				'ready' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ) && ! empty( $settings['openai_key'] ),
+				'pcloud_configured' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ),
+				'openai_configured' => ! empty( $settings['openai_key'] ),
+				'spreadsheet_configured' => ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ),
+				'processor_registered' => has_action( 'trb_portal_process_demo', 'trb_demo_process_request' ) > 0,
+				'cleanup_registered' => has_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' ) > 0,
+			) );
+		},
+	) );
+}
+add_action( 'rest_api_init', 'trb_demo_register_health_route' );
