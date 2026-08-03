@@ -94,13 +94,16 @@ function trb_demo_review_prompt( $payload, $has_audio, $has_text ) {
 	$scope = $has_audio && $has_text ? 'audio e testo autoriale' : ( $has_audio ? 'solo audio' : 'solo testo autoriale' );
 	$profile = strtoupper( str_replace( '_', '-', (string) $payload['profile'] ) );
 	$prompt = "Agisci come A&R, producer e consulente editoriale di TRB rec - Music Publishing. Scrivi in italiano una valutazione professionale, profonda ma concreta del provino \"{$payload['title']}\". Materiale disponibile: {$scope}. Profilo contrattuale: {$profile}.\n\n";
-	$prompt .= "Regole inderogabili: non inventare elementi non verificabili; tono costruttivo, rispettoso e specifico; niente voti numerici, promesse, diagnosi o giudizi sulla persona; massimo 1100 parole. ";
-	if ( $has_audio ) $prompt .= "Valuta, solo quando percepibili: composizione musicale, struttura, arrangiamento, interpretazione vocale, registrazione, equilibrio timbrico e missaggio. Distingui chiaramente punti di forza, criticità e azioni consigliate. ";
+	$prompt .= "Regole inderogabili: non inventare elementi non verificabili; tono costruttivo, rispettoso e specifico; niente voti numerici, promesse, diagnosi o giudizi sulla persona; massimo 1100 parole; non usare tabelle. ";
+	if ( $has_audio ) $prompt .= "Valuta, solo quando percepibili: composizione musicale, struttura, arrangiamento, interpretazione vocale, registrazione, equilibrio timbrico e missaggio. Distingui chiaramente punti di forza, criticità e interventi consigliati. ";
 	if ( $has_text ) $prompt .= "Valuta testo, metrica, prosodia, immagini, coerenza narrativa, cantabilità, originalità e possibili revisioni. Se è poesia, prosa o appunto ancora lontano da una canzone, spiega come trasformarlo in un testo autoriale completo e competitivo, con suggerimenti mirati senza riscriverlo integralmente. ";
 	if ( ! $has_text ) $prompt .= "Non formulare osservazioni sul testo autoriale. ";
 	if ( ! $has_audio ) $prompt .= "Non formulare osservazioni su musica, arrangiamento, interpretazione, registrazione o missaggio. ";
-	if ( in_array( $payload['profile'], array( 'dds', 'ddb', 'ddb_trb' ), true ) ) $prompt .= "Soltanto se emerge un bisogno concreto, chiudi con una breve sezione facoltativa sui servizi TRB pertinenti (strumentale, intonazione, registrazione o missaggio), senza tono commerciale aggressivo. ";
-	$prompt .= "Usa questi titoli: Sintesi; Punti di forza; Analisi; Interventi prioritari; Prossimi passi.";
+	if ( in_array( $payload['profile'], array( 'ddb', 'ddb_trb' ), true ) ) $prompt .= "Soltanto se emerge un bisogno concreto, inserisci nei prossimi passaggi una breve indicazione sui servizi TRB pertinenti (strumentale, intonazione, registrazione o missaggio), senza tono commerciale aggressivo. ";
+	if ( $has_audio ) $prompt .= "Apri con il titolo esatto «1. Analisi compositiva e dell’arrangiamento». ";
+	if ( $has_text ) $prompt .= "Inserisci poi il titolo numerato «" . ( $has_audio ? "2" : "1" ) . ". Analisi autoriale». ";
+	if ( $has_audio ) $prompt .= "Inserisci poi il titolo numerato «" . ( $has_text ? "3" : "2" ) . ". Analisi interpretativa e tecnica». ";
+	$prompt .= "Chiudi con il titolo numerato «" . ( $has_audio && $has_text ? "4" : ( $has_audio || $has_text ? "2" : "1" ) ) . ". Prossimi passaggi». Ogni titolo deve essere su una riga autonoma; sotto usa paragrafi brevi ed eventuali elenchi puntati.";
 	return $prompt;
 }
 
@@ -190,14 +193,36 @@ function trb_demo_process_request( $request_id ) {
 }
 add_action( 'trb_portal_process_demo', 'trb_demo_process_request' );
 
+function trb_demo_review_html( $review ) {
+	$safe = esc_html( trim( (string) $review ) );
+	$safe = preg_replace( '/^(\\d+\\. [^\\n]+)$/mu', '<h2 style="margin:30px 0 12px;color:#101936;font-size:21px;line-height:1.3;">$1</h2>', $safe );
+	$safe = preg_replace( '/^[\\-•]\\s+(.+)$/mu', '<div style="margin:7px 0 7px 18px;">• $1</div>', $safe );
+	return wpautop( $safe );
+}
+
 function trb_demo_send_review( $request_id ) {
 	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
 	$review = get_post_meta( $request_id, '_trb_demo_review', true );
 	if ( ! is_array( $payload ) || 'ready' !== $payload['status'] || ! $review || empty( $payload['email'] ) ) return;
-	$body = '<p>Ciao ' . esc_html( $payload['first_name'] ?: $payload['artist_name'] ) . ',</p><p>abbiamo completato la valutazione del provino <strong>' . esc_html( $payload['title'] ) . '</strong>.</p>' . wpautop( esc_html( $review ) );
-	if ( in_array( $payload['profile'], array( 'dds', 'ddb', 'ddb_trb' ), true ) ) $body .= '<p>Se nella valutazione sono indicati interventi tecnici utili, puoi consultare i servizi riservati su <a href="https://store.trbrec.com/">store.trbrec.com</a>. Eventuali condizioni dedicate saranno applicate attraverso il codice comunicato da TRB rec.</p>';
-	$body .= '<p>TRB rec - Music Publishing</p>';
-	$sent = wp_mail( $payload['email'], 'Valutazione del provino: ' . $payload['title'], $body, array( 'Content-Type: text/html; charset=UTF-8' ) );
+	$name = $payload['first_name'] ?: ( $payload['artist_name'] ?: 'Artista' );
+	$profile = strtoupper( str_replace( '_', '-', (string) $payload['profile'] ) );
+	$review_html = trb_demo_review_html( $review );
+	$service_note = '';
+	if ( in_array( $payload['profile'], array( 'ddb', 'ddb_trb' ), true ) ) {
+		$service_note = '<div style="margin-top:28px;padding:18px 20px;background:#f4f5ff;border-left:4px solid #514cff;border-radius:8px;"><strong>Approfondimenti e interventi tecnici</strong><p style="margin:8px 0 0;">Quando la valutazione evidenzia una necessità concreta, puoi consultare i servizi riservati su <a style="color:#4038e8;" href="https://store.trbrec.com/">store.trbrec.com</a>. Le eventuali condizioni dedicate vengono applicate attraverso il codice comunicato da TRB rec.</p></div>';
+	}
+	$body = '<!doctype html><html><body style="margin:0;background:#f3f5f9;font-family:Arial,Helvetica,sans-serif;color:#20263b;">'
+		. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5f9;padding:24px 12px;"><tr><td align="center">'
+		. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 35px rgba(20,28,60,.10);">'
+		. '<tr><td style="padding:28px 34px;background:linear-gradient(135deg,#091b3c,#303e9f);color:#ffffff;"><div style="font-size:12px;letter-spacing:1.5px;font-weight:700;">TRB REC - MUSIC PUBLISHING</div><h1 style="margin:10px 0 0;font-size:28px;line-height:1.2;">Valutazione del provino</h1></td></tr>'
+		. '<tr><td style="padding:34px;"><p style="margin:0 0 16px;font-size:17px;">Ciao <strong>' . esc_html( $name ) . '</strong>,</p>'
+		. '<p style="margin:0 0 24px;line-height:1.65;">abbiamo completato la valutazione del provino che ci hai inviato. Il report considera esclusivamente gli elementi verificabili nel materiale ricevuto.</p>'
+		. '<div style="padding:18px 20px;background:#f7f8fc;border:1px solid #e4e7f0;border-radius:10px;"><div style="font-size:12px;color:#66708a;text-transform:uppercase;letter-spacing:1px;">Provino analizzato</div><strong style="display:block;margin-top:5px;font-size:20px;color:#101936;">' . esc_html( $payload['title'] ) . '</strong><span style="display:block;margin-top:7px;color:#66708a;">Profilo: ' . esc_html( $profile ) . '</span></div>'
+		. '<div style="margin-top:28px;line-height:1.7;font-size:16px;">' . $review_html . '</div>' . $service_note
+		. '<div style="margin-top:34px;padding-top:22px;border-top:1px solid #e4e7f0;"><p style="margin:0 0 6px;">Un saluto,</p><strong>TRB rec - Music Publishing</strong><p style="margin:8px 0 0;color:#66708a;font-size:13px;">Questa valutazione è riservata al destinatario e riguarda il materiale inviato.</p></div>'
+		. '</td></tr></table></td></tr></table></body></html>';
+	$subject = 'Valutazione del provino “' . $payload['title'] . '” | TRB rec';
+	$sent = wp_mail( $payload['email'], $subject, $body, array( 'Content-Type: text/html; charset=UTF-8' ) );
 	if ( $sent ) { $payload['status'] = 'sent'; $payload['sent_at'] = gmdate( 'c' ); update_post_meta( $request_id, '_trb_demo_payload', $payload ); }
 	else wp_schedule_single_event( time() + HOUR_IN_SECONDS, 'trb_portal_send_demo_review', array( $request_id ) );
 }
