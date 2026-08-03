@@ -120,7 +120,9 @@ document.addEventListener('DOMContentLoaded', function () {
         restore('Il caricamento sta impiegando troppo tempo. Verifica la connessione prima di riprovare.');
       });
 
-      request.send(new FormData(form));
+      var formData = new FormData(form);
+      formData.append('trb_demo_async', '1');
+      request.send(formData);
     });
   });
 });
