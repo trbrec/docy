@@ -31,6 +31,17 @@ function trb_portal_disable_legacy_ajax_registration() {
 }
 add_action( 'init', 'trb_portal_disable_legacy_ajax_registration', PHP_INT_MAX );
 
+/** Remove the former FAQ identity from generic WordPress output and metadata. */
+function trb_portal_site_name() {
+	return 'Portale Artisti TRB rec';
+}
+add_filter( 'pre_option_blogname', 'trb_portal_site_name' );
+
+function trb_portal_site_description() {
+	return 'Area riservata agli artisti TRB rec e Digital Distribution Bundle';
+}
+add_filter( 'pre_option_blogdescription', 'trb_portal_site_description' );
+
 /**
  * Contract profiles. Keep role slugs aligned with the existing installation.
  */
@@ -2701,6 +2712,9 @@ add_filter( 'wp_robots', 'trb_portal_noindex_private_area', 99 );
 function trb_portal_document_title( $title ) {
 	if ( is_front_page() ) {
 		return 'Portale Artisti | TRB rec';
+	}
+	if ( is_404() ) {
+		return 'Pagina non trovata | Portale Artisti TRB rec';
 	}
 	$titles = array(
 		'registrati'        => 'Registrati | Portale Artisti TRB rec',
