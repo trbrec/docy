@@ -16,15 +16,28 @@ const TRB_DOCY_REPOSITORY_API = 'https://api.github.com/repos/trbrec/docy/commit
 const TRB_DOCY_DEPLOYED_SHA_OPTION = 'trb_docy_auto_deployed_sha';
 const TRB_DOCY_DEPLOY_STATUS_OPTION = 'trb_docy_auto_deploy_status';
 
-/** Remove the former polling event once after switching to push deployments. */
-function trb_docy_remove_legacy_polling_event() {
-	if ( get_option( 'trb_docy_push_deploy_enabled_v1' ) ) {
+/** Five-minute internal safety net when SiteGround blocks the GitHub request. */
+function trb_docy_add_deploy_interval( $schedules ) {
+	$schedules['trb_five_minutes'] = array( 'interval' => 5 * MINUTE_IN_SECONDS, 'display' => 'Ogni cinque minuti' );
+	return $schedules;
+}
+add_filter( 'cron_schedules', 'trb_docy_add_deploy_interval' );
+
+function trb_docy_schedule_deploy_safety_net() {
+	if ( ! wp_next_scheduled( 'trb_docy_auto_deploy' ) ) {
+		wp_schedule_event( time() + MINUTE_IN_SECONDS, 'trb_five_minutes', 'trb_docy_auto_deploy' );
+	}
+}
+add_action( 'init', 'trb_docy_schedule_deploy_safety_net', 30 );
+
+function trb_docy_run_deploy_safety_net() {
+	$sha = trb_docy_get_github_main_sha();
+	if ( is_wp_error( $sha ) || hash_equals( (string) get_option( TRB_DOCY_DEPLOYED_SHA_OPTION, '' ), (string) $sha ) ) {
 		return;
 	}
-	wp_clear_scheduled_hook( 'trb_docy_auto_deploy' );
-	update_option( 'trb_docy_push_deploy_enabled_v1', wp_date( 'c' ), false );
+	trb_docy_deploy_verified_sha( $sha );
 }
-add_action( 'init', 'trb_docy_remove_legacy_polling_event', 30 );
+add_action( 'trb_docy_auto_deploy', 'trb_docy_run_deploy_safety_net' );
 
 /** Remove the one-time verification artifact left by overwrite-style deploys. */
 function trb_docy_remove_push_verification_artifact() {
@@ -86,15 +99,20 @@ function trb_docy_deploy_verified_sha( $sha ) {
 	// caught up with main. Verify a commit-specific source file before marking
 	// the workflow green, so GitHub Actions retries instead of accepting a
 	// stale theme as deployed.
-	$remote_marker = wp_remote_get(
-		'https://raw.githubusercontent.com/trbrec/docy/' . rawurlencode( $sha ) . '/inc/trb-artist-portal.php',
-		array( 'timeout' => 30, 'headers' => array( 'User-Agent' => 'TRB-rec-WordPress-Auto-Deploy' ) )
-	);
-	$local_marker = trailingslashit( get_template_directory() ) . 'inc/trb-artist-portal.php';
-	$verified = ! is_wp_error( $remote_marker )
-		&& 200 === wp_remote_retrieve_response_code( $remote_marker )
-		&& is_file( $local_marker )
-		&& hash_equals( hash( 'sha256', wp_remote_retrieve_body( $remote_marker ) ), hash_file( 'sha256', $local_marker ) );
+	$verified = true;
+	foreach ( array( 'functions.php', 'inc/trb-auto-deploy.php', 'inc/trb-artist-portal.php', 'inc/trb-demo-automation.php' ) as $marker ) {
+		$remote_marker = wp_remote_get(
+			'https://raw.githubusercontent.com/trbrec/docy/' . rawurlencode( $sha ) . '/' . $marker,
+			array( 'timeout' => 30, 'headers' => array( 'User-Agent' => 'TRB-rec-WordPress-Auto-Deploy' ) )
+		);
+		$local_marker = trailingslashit( get_template_directory() ) . $marker;
+		$verified = $verified
+			&& ! is_wp_error( $remote_marker )
+			&& 200 === wp_remote_retrieve_response_code( $remote_marker )
+			&& is_file( $local_marker )
+			&& hash_equals( hash( 'sha256', wp_remote_retrieve_body( $remote_marker ) ), hash_file( 'sha256', $local_marker ) );
+		if ( ! $verified ) break;
+	}
 	if ( ! $verified ) {
 		$message = 'Deployer ha restituito successo, ma i file locali non corrispondono ancora al commit richiesto.';
 		trb_docy_store_deploy_status( 'error', $message, $sha );
