@@ -375,10 +375,15 @@ function trb_demo_render_settings_page() {
 	if ( isset( $_POST['trb_demo_save_settings'] ) ) {
 		check_admin_referer( 'trb_demo_save_settings' );
 		$fields = array( 'webdav_endpoint', 'pcloud_user', 'pcloud_pass', 'openai_key', 'text_model', 'audio_model', 'spreadsheet_id', 'spreadsheet_tab', 'sheet_webhook_url', 'sheet_webhook_secret' );
+		$secret_fields = array( 'pcloud_pass', 'openai_key', 'sheet_webhook_secret' );
 		$updated = array();
 		foreach ( $fields as $field ) {
 			$value = isset( $_POST[ $field ] ) ? trim( wp_unslash( $_POST[ $field ] ) ) : '';
-			$updated[ $field ] = in_array( $field, array( 'webdav_endpoint', 'sheet_webhook_url' ), true ) ? esc_url_raw( $value ) : sanitize_text_field( $value );
+			if ( '' === $value && in_array( $field, $secret_fields, true ) && isset( $settings[ $field ] ) ) {
+				$updated[ $field ] = $settings[ $field ];
+			} else {
+				$updated[ $field ] = in_array( $field, array( 'webdav_endpoint', 'sheet_webhook_url' ), true ) ? esc_url_raw( $value ) : sanitize_text_field( $value );
+			}
 		}
 		update_option( 'trb_demo_automation_settings', $updated, false );
 		$settings = $updated;
@@ -483,7 +488,7 @@ function trb_demo_render_settings_page() {
 			<?php foreach ( $fields as $name => $field ) : ?>
 				<tr>
 					<th scope="row"><label for="<?php echo esc_attr( $name ); ?>"><?php echo esc_html( $field[0] ); ?></label></th>
-					<td><input class="regular-text" id="<?php echo esc_attr( $name ); ?>" name="<?php echo esc_attr( $name ); ?>" type="<?php echo esc_attr( $field[1] ); ?>" value="<?php echo esc_attr( $settings[ $name ] ?? '' ); ?>" autocomplete="off"></td>
+					<td><input class="regular-text" id="<?php echo esc_attr( $name ); ?>" name="<?php echo esc_attr( $name ); ?>" type="<?php echo esc_attr( $field[1] ); ?>" value="<?php echo 'password' === $field[1] ? '' : esc_attr( $settings[ $name ] ?? '' ); ?>" placeholder="<?php echo 'password' === $field[1] && ! empty( $settings[ $name ] ) ? 'Configurato — lascia vuoto per mantenerlo' : ''; ?>" autocomplete="new-password"></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody></table>
