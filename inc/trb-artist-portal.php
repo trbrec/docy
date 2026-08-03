@@ -1724,6 +1724,8 @@ function trb_portal_demo_finish( $status, $dashboard, $success = false ) {
 	$is_async = ( isset( $_SERVER['HTTP_X_TRB_UPLOAD'] ) && '1' === sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRB_UPLOAD'] ) ) )
 		|| ( isset( $_POST['trb_demo_async'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['trb_demo_async'] ) ) );
 	if ( $is_async ) {
+		while ( ob_get_level() ) ob_end_clean();
+		nocache_headers();
 		wp_send_json( array( 'success' => (bool) $success, 'status' => $status, 'redirect' => $redirect ), 200 );
 	}
 	wp_safe_redirect( $redirect );
@@ -1732,10 +1734,13 @@ function trb_portal_demo_finish( $status, $dashboard, $success = false ) {
 
 function trb_portal_submit_demo() {
 	if ( ! is_user_logged_in() ) auth_redirect();
-	check_admin_referer( 'trb_portal_submit_demo', 'trb_demo_nonce' );
 	$user_id = get_current_user_id();
 	$user = wp_get_current_user();
 	$dashboard = get_permalink( get_option( 'trb_portal_dashboard_created' ) );
+	$nonce = isset( $_POST['trb_demo_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_nonce'] ) ) : '';
+	if ( ! wp_verify_nonce( $nonce, 'trb_portal_submit_demo' ) ) {
+		trb_portal_demo_finish( 'session_expired', $dashboard );
+	}
 	if ( 'dds' === trb_portal_user_profile( $user ) ) {
 		trb_portal_demo_finish( 'forbidden', $dashboard );
 	}
