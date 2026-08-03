@@ -126,6 +126,26 @@ function trb_demo_openai_review( $payload ) {
 	return trim( wp_kses_post( $data['choices'][0]['message']['content'] ) );
 }
 
+function trb_demo_post_sheet_webhook( $url, $envelope ) {
+	$response = wp_remote_post( $url, array(
+		'timeout' => 30,
+		'redirection' => 0,
+		'headers' => array( 'Content-Type' => 'application/json' ),
+		'body' => wp_json_encode( $envelope ),
+	) );
+	if ( is_wp_error( $response ) ) return $response;
+	$code = wp_remote_retrieve_response_code( $response );
+	if ( in_array( $code, array( 301, 302, 303, 307, 308 ), true ) ) {
+		$location = wp_remote_retrieve_header( $response, 'location' );
+		$host = $location ? strtolower( (string) wp_parse_url( $location, PHP_URL_HOST ) ) : '';
+		if ( ! $location || ( 'script.googleusercontent.com' !== $host && ! str_ends_with( $host, '.googleusercontent.com' ) ) ) {
+			return new WP_Error( 'invalid_sheet_redirect', 'Redirect Google Sheets non valido.' );
+		}
+		$response = wp_remote_get( $location, array( 'timeout' => 30, 'redirection' => 2 ) );
+	}
+	return $response;
+}
+
 function trb_demo_sheet_row( $request_id, $payload, $remote ) {
 	$row = array(
 		'informazioni_cronologiche' => wp_date( 'd/m/Y H:i', strtotime( $payload['submitted_at'] ) ),
@@ -138,7 +158,7 @@ function trb_demo_sheet_row( $request_id, $payload, $remote ) {
 	if ( empty( $settings['sheet_webhook_url'] ) ) return false;
 	$row_json = wp_json_encode( $row );
 	$envelope = array( 'payload_base64' => base64_encode( $row_json ), 'signature' => hash_hmac( 'sha256', $row_json, $settings['sheet_webhook_secret'] ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-	$response = wp_remote_post( $settings['sheet_webhook_url'], array( 'timeout' => 30, 'headers' => array( 'Content-Type' => 'application/json' ), 'body' => wp_json_encode( $envelope ) ) );
+	$response = trb_demo_post_sheet_webhook( $settings['sheet_webhook_url'], $envelope );
 	$response_data = is_wp_error( $response ) ? array() : json_decode( wp_remote_retrieve_body( $response ), true );
 	$ok = ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) < 300 && ! empty( $response_data['success'] );
 	update_post_meta( $request_id, '_trb_demo_sheet_synced', $ok ? time() : 0 );
@@ -279,7 +299,7 @@ function trb_demo_render_settings_page() {
 			);
 			$test_json = wp_json_encode( $test_row );
 			$test_envelope = array( 'payload_base64' => base64_encode( $test_json ), 'signature' => hash_hmac( 'sha256', $test_json, $settings['sheet_webhook_secret'] ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-			$sheet = wp_remote_post( $settings['sheet_webhook_url'], array( 'timeout' => 30, 'headers' => array( 'Content-Type' => 'application/json' ), 'body' => wp_json_encode( $test_envelope ) ) );
+			$sheet = trb_demo_post_sheet_webhook( $settings['sheet_webhook_url'], $test_envelope );
 			$sheet_body = is_wp_error( $sheet ) ? '' : wp_remote_retrieve_body( $sheet );
 			$sheet_data = $sheet_body ? json_decode( $sheet_body, true ) : array();
 			$sheet_ok = ! is_wp_error( $sheet ) && ! empty( $sheet_data['success'] );
