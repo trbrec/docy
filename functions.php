@@ -66,6 +66,7 @@ if ( ! function_exists( 'docy_fs' ) ) {
 
 /** Area Artisti TRB rec */
 require get_template_directory() . '/inc/trb-artist-portal.php';
+require get_template_directory() . '/inc/trb-demo-automation.php';
         }
 
         return $docy_fs;
