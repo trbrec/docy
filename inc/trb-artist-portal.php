@@ -1721,7 +1721,9 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes ) {
 
 function trb_portal_demo_finish( $status, $dashboard, $success = false ) {
 	$redirect = 'forbidden' === $status ? $dashboard : add_query_arg( 'trb_demo', $status, $dashboard ) . '#demo';
-	if ( isset( $_SERVER['HTTP_X_TRB_UPLOAD'] ) && '1' === sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRB_UPLOAD'] ) ) ) {
+	$is_async = ( isset( $_SERVER['HTTP_X_TRB_UPLOAD'] ) && '1' === sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRB_UPLOAD'] ) ) )
+		|| ( isset( $_POST['trb_demo_async'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['trb_demo_async'] ) ) );
+	if ( $is_async ) {
 		wp_send_json( array( 'success' => (bool) $success, 'status' => $status, 'redirect' => $redirect ), 200 );
 	}
 	wp_safe_redirect( $redirect );
