@@ -126,6 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var diagnostic = 'HTTP ' + request.status;
         var contentType = request.getResponseHeader('Content-Type');
         if (contentType) diagnostic += ' · ' + contentType.split(';')[0];
+        if (request.responseURL) diagnostic += ' · ' + request.responseURL;
         restore(payload && messages[payload.status] ? messages[payload.status] : 'Il server ha interrotto la registrazione (' + diagnostic + '). Nessun provino è stato acquisito.');
       });
 
