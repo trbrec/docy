@@ -1,6 +1,6 @@
 name: Deploy Docy theme
 
-# Production deployment is triggered by every merged main revision. Revision: academy-seed-v5-timebounded.
+# Production deployment is triggered by every merged main revision. Revision: academy-seed-v5-oidc-fixed.
 
 on:
   push:
@@ -25,7 +25,8 @@ jobs:
         shell: bash
         run: |
           audience='https://faq.trbrec.com/wp-json/trb/v1/deploy'
-          token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("'"'"$audience"'"'", safe=""))')"
+          audience_encoded=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "${audience}")
+          token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${audience_encoded}"
           token=$(curl --fail --silent --show-error \
             -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
             "${token_url}" | jq -r '.value')
