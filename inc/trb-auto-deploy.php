@@ -280,7 +280,6 @@ function trb_docy_verify_github_oidc_request( WP_REST_Request $request ) {
 
 	$now = time();
 	$allowed_audiences = array(
-		'https://faq.trbrec.com/wp-json/trb/v1/deploy',
 		'https://artisti.trbrec.com/wp-json/trb/v1/deploy',
 	);
 	$audiences = (array) ( $claims['aud'] ?? array() );
