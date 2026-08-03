@@ -97,6 +97,13 @@ document.addEventListener('DOMContentLoaded', function () {
       request.addEventListener('load', function () {
         var payload = null;
         try { payload = JSON.parse(request.responseText); } catch (parseError) {}
+        if (!payload) {
+          var start = request.responseText.indexOf('{');
+          var end = request.responseText.lastIndexOf('}');
+          if (start !== -1 && end > start) {
+            try { payload = JSON.parse(request.responseText.slice(start, end + 1)); } catch (embeddedParseError) {}
+          }
+        }
         if (request.status >= 200 && request.status < 300 && payload && payload.success) {
           setProgress(100, payload.status === 'duplicate' ? 'Provino già ricevuto. Apertura della conferma…' : 'Invio completato. Apertura della conferma…');
           window.location.assign(payload.redirect);
@@ -107,9 +114,13 @@ document.addEventListener('DOMContentLoaded', function () {
           upload_error: 'Uno degli allegati non è valido. Usa TXT o DOCX per il testo e un solo file MP3 per l’audio.',
           processing: 'Un invio dello stesso account è già in corso. Attendi il completamento.',
           weekly_limit: 'Hai già utilizzato la valutazione disponibile per questa settimana.',
-          forbidden: 'Questo profilo non è abilitato alla valutazione dei demo.'
+          forbidden: 'Questo profilo non è abilitato alla valutazione dei demo.',
+          session_expired: 'La sessione del modulo non è valida. Ricarica la pagina e accedi nuovamente prima di riprovare.'
         };
-        restore(payload && messages[payload.status] ? messages[payload.status] : 'Il server non ha completato la registrazione. Nessun provino è stato acquisito: riprova dopo aver ricaricato la pagina.');
+        var diagnostic = 'HTTP ' + request.status;
+        var contentType = request.getResponseHeader('Content-Type');
+        if (contentType) diagnostic += ' · ' + contentType.split(';')[0];
+        restore(payload && messages[payload.status] ? messages[payload.status] : 'Il server ha interrotto la registrazione (' + diagnostic + '). Nessun provino è stato acquisito.');
       });
 
       request.addEventListener('error', function () {
