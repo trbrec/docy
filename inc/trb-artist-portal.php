@@ -21,6 +21,17 @@ function trb_portal_mail_from_name( $name ) {
 add_filter( 'wp_mail_from_name', 'trb_portal_mail_from_name', 99 );
 
 /**
+ * Disable Docy's legacy AJAX registration handler. The Artist Portal has one
+ * controlled registration flow with anti-bot validation and manual approval;
+ * leaving the old handler active would provide an untracked bypass.
+ */
+function trb_portal_disable_legacy_ajax_registration() {
+	remove_action( 'wp_ajax_nopriv_dt_custom_registration_form', 'dt_custom_registration_form' );
+	remove_action( 'wp_ajax_dt_custom_registration_form', 'dt_custom_registration_form' );
+}
+add_action( 'init', 'trb_portal_disable_legacy_ajax_registration', PHP_INT_MAX );
+
+/**
  * Contract profiles. Keep role slugs aligned with the existing installation.
  */
 function trb_portal_profiles() {
