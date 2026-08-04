@@ -320,6 +320,13 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__demo > p:not(.trb-portal__eyebrow) { color: var(--trb-ink-soft); max-width: 690px; }
 .trb-portal__field-grid { display: grid; gap: 15px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .trb-portal__profile-form { gap: 22px; }
+.trb-portal__profile-progress { background: linear-gradient(120deg,#f4f5ff,#fff); border: 1px solid #dfe1ff; border-radius: 16px; margin-bottom: 16px; padding: 19px 22px; }
+.trb-portal__profile-progress-heading { align-items: center; display: flex; gap: 18px; justify-content: space-between; }
+.trb-portal__profile-progress-heading b { color: var(--trb-ink); display: block; font-size: 16px; }
+.trb-portal__profile-progress-heading small { color: var(--trb-ink-soft); display: block; font-size: 12px; line-height: 1.45; margin-top: 4px; }
+.trb-portal__profile-progress-heading strong { color: var(--trb-accent); font-size: 22px; }
+.trb-portal__profile-progress-track { background: #e3e5ff; border-radius: 999px; height: 9px; margin-top: 15px; overflow: hidden; }
+.trb-portal__profile-progress-track span { background: linear-gradient(90deg,var(--trb-accent),#7478ff); border-radius: inherit; display: block; height: 100%; min-width: 0; transition: width .3s ease; }
 .trb-portal__profile-accordions { display: grid; gap: 14px; }
 .trb-portal__profile-module { border: 1px solid var(--trb-line); border-radius: 16px; overflow: hidden; }
 .trb-portal__profile-module > summary { align-items: center; cursor: pointer; display: flex; justify-content: space-between; list-style: none; padding: 21px 24px; }
@@ -327,6 +334,9 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__profile-module > summary b { color: var(--trb-ink); display: block; font-size: 17px; }
 .trb-portal__profile-module > summary small { color: var(--trb-ink-soft); display: block; font-size: 13px; margin-top: 4px; }
 .trb-portal__profile-module > summary em { color: var(--trb-accent); font-size: 12px; font-style: normal; font-weight: 800; }
+.trb-portal__profile-module > summary .trb-module-close { display: none; }
+.trb-portal__profile-module[open] > summary .trb-module-open { display: none; }
+.trb-portal__profile-module[open] > summary .trb-module-close { display: inline; }
 .trb-portal__profile-module[open] > summary { background: #f7f8ff; border-bottom: 1px solid var(--trb-line); }
 .trb-portal__profile-module .trb-portal__request-form { border: 0; border-radius: 0; }
 .trb-portal__company-details { background: #f7f8fc; border: 1px solid var(--trb-line); border-radius: 10px; padding: 15px; }
