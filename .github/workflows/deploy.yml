@@ -26,7 +26,7 @@ jobs:
         id: oidc
         shell: bash
         run: |
-          audience='https://artisti.trbrec.com/wp-json/trb/v1/deploy'
+          audience='https://artist.trbrec.com/wp-json/trb/v1/deploy'
           audience_encoded=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "${audience}")
           token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${audience_encoded}"
           token=$(curl --fail --silent --show-error \
@@ -51,7 +51,7 @@ jobs:
             -H "User-Agent: TRB-GitHub-Deploy/1.0" \
             --data "${payload}" \
             -D "${headers_file}" -o "${response_file}" -w '%{http_code}' \
-            https://artisti.trbrec.com/wp-json/trb/v1/deploy)
+            https://artist.trbrec.com/wp-json/trb/v1/deploy)
           if ! jq -e --arg sha "${GITHUB_SHA}" '.success == true and .sha == $sha' "${response_file}"; then
             content_type=$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{gsub("\r",""); print $2; exit}' "${headers_file}")
             echo "::error::Deploy endpoint returned HTTP ${http_code}, content-type ${content_type:-unknown}, and an invalid or unsuccessful payload."
