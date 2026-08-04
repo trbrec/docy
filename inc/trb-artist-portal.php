@@ -2760,12 +2760,18 @@ add_filter( 'body_class', 'trb_portal_body_class' );
  * migration is verified. It is intentionally not set as the site front page.
  */
 function trb_portal_maybe_create_dashboard_page() {
-	if ( get_option( 'trb_portal_dashboard_created' ) ) {
-		return;
-	}
-
 	$existing = get_page_by_path( 'area-artisti' );
 	if ( $existing ) {
+		$updates = array( 'ID' => $existing->ID );
+		if ( 'publish' !== $existing->post_status ) {
+			$updates['post_status'] = 'publish';
+		}
+		if ( ! has_shortcode( $existing->post_content, 'trb_artist_portal' ) ) {
+			$updates['post_content'] = '[trb_artist_portal]';
+		}
+		if ( count( $updates ) > 1 ) {
+			wp_update_post( $updates );
+		}
 		update_option( 'trb_portal_dashboard_created', (int) $existing->ID, false );
 		return;
 	}
@@ -2880,7 +2886,7 @@ add_action( 'trb_portal_cleanup_pending_accounts', 'trb_portal_cleanup_pending_a
 
 /** Each registration challenge is single-use, so the page must never be cached. */
 function trb_portal_no_cache_registration() {
-	if ( is_page( 'registrati' ) ) {
+	if ( is_page( array( 'registrati', 'accedi' ) ) ) {
 		nocache_headers();
 	}
 }
@@ -2903,6 +2909,36 @@ function trb_portal_maybe_create_login_page() {
 	);
 }
 add_action( 'init', 'trb_portal_maybe_create_login_page', 32 );
+
+/** Authenticate on the canonical portal host, bypassing legacy redirect rules. */
+function trb_portal_handle_login() {
+	if ( 'POST' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) ) {
+		return;
+	}
+	if ( 'login' !== ( isset( $_POST['trb_portal_action'] ) ? sanitize_key( wp_unslash( $_POST['trb_portal_action'] ) ) : '' ) ) {
+		return;
+	}
+	if ( ! isset( $_POST['trb_portal_login_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['trb_portal_login_nonce'] ) ), 'trb_portal_login' ) ) {
+		wp_safe_redirect( add_query_arg( 'trb_login', 'failed', home_url( '/accedi/' ) ), 302 );
+		exit;
+	}
+
+	$credentials = array(
+		'user_login'    => isset( $_POST['log'] ) ? sanitize_text_field( wp_unslash( $_POST['log'] ) ) : '',
+		'user_password' => isset( $_POST['pwd'] ) ? (string) wp_unslash( $_POST['pwd'] ) : '',
+		'remember'      => isset( $_POST['rememberme'] ) && 'forever' === $_POST['rememberme'],
+	);
+	$user = wp_signon( $credentials, is_ssl() );
+	if ( is_wp_error( $user ) ) {
+		wp_safe_redirect( add_query_arg( 'trb_login', 'failed', home_url( '/accedi/' ) ), 302 );
+		exit;
+	}
+
+	wp_set_current_user( $user->ID );
+	wp_safe_redirect( home_url( '/area-artisti/' ), 302 );
+	exit;
+}
+add_action( 'init', 'trb_portal_handle_login', 2 );
 
 function trb_portal_maybe_create_password_page() {
 	if ( get_page_by_path( 'recupera-password' ) ) {

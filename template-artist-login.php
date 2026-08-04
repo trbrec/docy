@@ -14,19 +14,19 @@
 </head>
 <body <?php body_class( 'trb-artist-public-shell' ); ?>>
 <?php wp_body_open(); ?>
-<?php
-$dashboard_url = home_url( '/area-artisti/' );
-?>
 <main class="trb-login-page">
 	<header class="trb-landing__topbar"><a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="trb-landing__brand"><img src="<?php echo esc_url( trb_portal_logo_url() ); ?>" alt="TRB rec" width="186" height="62" /></a><a class="trb-landing__site-link" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Apri una segnalazione</a></header>
 	<section class="trb-login">
 		<div class="trb-login__intro"><p>PORTALE ARTISTI &middot; ACCESSO</p><h1>Accedi al tuo spazio riservato.</h1><p>Procedure, Knowledge Hub e pratiche di release sono disponibili esclusivamente per gli artisti abilitati dalla Direzione TRB rec.</p><a href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Non hai ancora un account? Registrati solo se autorizzato.</a></div>
 		<div class="trb-login__form"><h2>Accedi</h2><p>Usa le credenziali ricevute o create durante la registrazione.</p>
-			<form name="loginform" id="loginform" action="<?php echo esc_url( add_query_arg( 'wppb_force_wp_login', 'true', wp_login_url() ) ); ?>" method="post">
+			<?php if ( isset( $_GET['trb_login'] ) && 'failed' === sanitize_key( wp_unslash( $_GET['trb_login'] ) ) ) : ?><div class="trb-portal__message trb-portal__message--error">Accesso non riuscito. Controlla e-mail e password oppure verifica che l’account sia stato approvato.</div><?php endif; ?>
+			<form name="loginform" id="loginform" action="<?php echo esc_url( home_url( '/accedi/' ) ); ?>" method="post">
+				<input type="hidden" name="trb_portal_action" value="login" />
+				<?php wp_nonce_field( 'trb_portal_login', 'trb_portal_login_nonce' ); ?>
 				<p class="login-username"><label for="user_login">E-mail o nome utente</label><input type="text" name="log" id="user_login" autocomplete="username" required /></p>
 				<p class="login-password"><label for="user_pass">Password</label><input type="password" name="pwd" id="user_pass" autocomplete="current-password" required /></p>
 				<p class="login-remember"><label><input name="rememberme" type="checkbox" value="forever" /> Ricordami</label></p>
-				<p class="login-submit"><input type="submit" name="wp-submit" value="Accedi al Portale Artisti" /><input type="hidden" name="redirect_to" value="<?php echo esc_url( $dashboard_url ); ?>" /><input type="hidden" name="testcookie" value="1" /></p>
+				<p class="login-submit"><input type="submit" name="wp-submit" value="Accedi al Portale Artisti" /></p>
 			</form>
 			<p class="trb-login__lost"><a href="<?php echo esc_url( home_url( '/recupera-password/' ) ); ?>">Password dimenticata?</a></p>
 		</div>
