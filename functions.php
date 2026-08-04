@@ -70,21 +70,14 @@ require get_template_directory() . '/inc/trb-demo-automation.php';
 require get_template_directory() . '/inc/trb-artist-pcloud-archive.php';
 require get_template_directory() . '/inc/trb-artist-promo-archive.php';
 
-/** One-time token-protected canonical-domain database migration. */
-add_action( 'init', function () {
-	$token = isset( $_GET['trb_finalize_artist_domain'] )
-		? sanitize_text_field( wp_unslash( $_GET['trb_finalize_artist_domain'] ) )
-		: '';
+/** Canonical portal favicon (also covers admin and login screens). */
+function trb_portal_favicon() {
+	echo '<link rel="icon" href="' . esc_url( home_url( '/favicon.ico' ) ) . '" sizes="any">';
+}
+add_action( 'wp_head', 'trb_portal_favicon', 1 );
+add_action( 'admin_head', 'trb_portal_favicon', 1 );
+add_action( 'login_head', 'trb_portal_favicon', 1 );
 
-	if ( ! hash_equals( '20260804-artist-final-9f8c2d', $token ) ) {
-		return;
-	}
-
-	update_option( 'home', 'https://artist.trbrec.com' );
-	update_option( 'siteurl', 'https://artist.trbrec.com' );
-
-	wp_die( esc_html__( 'Dominio canonico aggiornato correttamente.', 'docy' ) );
-} );
         }
 
         return $docy_fs;
