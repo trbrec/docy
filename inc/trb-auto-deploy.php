@@ -281,6 +281,7 @@ function trb_docy_verify_github_oidc_request( WP_REST_Request $request ) {
 	$now = time();
 	$allowed_audiences = array(
 		'https://artisti.trbrec.com/wp-json/trb/v1/deploy',
+		'https://artist.trbrec.com/wp-json/trb/v1/deploy',
 	);
 	$audiences = (array) ( $claims['aud'] ?? array() );
 	$valid = 'https://token.actions.githubusercontent.com' === ( $claims['iss'] ?? '' )

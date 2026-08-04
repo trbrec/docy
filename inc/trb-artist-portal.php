@@ -520,6 +520,17 @@ function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 	return $has_photo && empty( array_diff( $required_documents, $received_documents ) );
 }
 
+/** Preserve the exact spelling and styling while preventing reuse by another account. */
+function trb_portal_artist_name_owner( $artist_name, $exclude_user_id = 0 ) {
+	$artist_name = trim( (string) $artist_name );
+	if ( '' === $artist_name ) return 0;
+	$users = get_users( array( 'fields' => 'ids', 'meta_key' => '_trb_artist_artist_name', 'meta_value' => $artist_name, 'meta_compare' => '=' ) );
+	foreach ( $users as $user_id ) {
+		if ( (int) $user_id !== (int) $exclude_user_id ) return (int) $user_id;
+	}
+	return 0;
+}
+
 /** Return a transparent completion score based on the same requirements that unlock a release. */
 function trb_portal_artist_profile_completion( $user_id = 0 ) {
 	$user_id = $user_id ? $user_id : get_current_user_id();
@@ -567,6 +578,14 @@ function trb_portal_handle_artist_profile() {
 	$profile = trb_portal_user_profile();
 	$company_fields = array( 'company_name', 'company_vat', 'company_sdi', 'company_address' );
 	$url_fields = array( 'spotify_url', 'apple_music_url', 'youtube_url', 'soundcloud_url', 'facebook_url', 'instagram_url', 'linkedin_url', 'tiktok_url', 'discord_url', 'twitch_url', 'x_url', 'snapchat_url', 'threads_url' );
+	if ( isset( $_POST['trb_artist_artist_name'] ) ) {
+		$submitted_artist_name = trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_artist_name'] ) ) );
+		if ( trb_portal_artist_name_owner( $submitted_artist_name, $user_id ) ) {
+			wp_safe_redirect( add_query_arg( 'trb_profile', 'artist_name_taken', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+			exit;
+		}
+		$_POST['trb_artist_artist_name'] = $submitted_artist_name;
+	}
 	if ( isset( $_POST['trb_artist_company_section'] ) ) {
 		$postcode = isset( $_POST['trb_artist_postal_code'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_postal_code'] ) ) : '';
 		$city = isset( $_POST['trb_artist_city'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_city'] ) ) : '';
@@ -1630,6 +1649,7 @@ function trb_portal_render_artist_profile_section() {
 		<?php if ( 'invalid_birthplace' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: seleziona Comune e Provincia di nascita fra i risultati dell’archivio italiano.</div><?php endif; ?>
 		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero di cellulare italiano valido, con 10 cifre e iniziale 3; il prefisso +39 è facoltativo.</div><?php endif; ?>
 		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: il codice fiscale non supera il controllo formale e della lettera finale. Verifica attentamente i 16 caratteri.</div><?php endif; ?>
+		<?php if ( 'artist_name_taken' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Questo nome d’arte risulta già assegnato a un altro account. Apri una segnalazione se ritieni che si tratti di un errore.</div><?php endif; ?>
 		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Per correggere nome, cognome o e-mail dell’account, apri una segnalazione.</div><?php endif; ?>
 		<div class="trb-portal__profile-progress" role="status" aria-label="Completamento profilo: <?php echo esc_attr( $completion['percentage'] ); ?>%">
 			<div class="trb-portal__profile-progress-heading"><span><b>Completamento profilo</b><small><?php echo $complete ? 'Profilo completo: puoi procedere con la richiesta di distribuzione.' : esc_html( 'Mancano ancora ' . $completion['remaining'] . ' elementi prima di poter richiedere la distribuzione.' ); ?></small></span><strong><?php echo esc_html( $completion['percentage'] ); ?>%</strong></div>

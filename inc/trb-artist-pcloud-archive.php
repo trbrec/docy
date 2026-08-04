@@ -135,10 +135,15 @@ function trb_artist_archive_render_admin_page() {
 		$email = sanitize_email( wp_unslash( $_POST['trb_artist_archive_user'] ) );
 		$user = get_user_by( 'email', $email );
 		$result = $user ? trb_artist_archive_sync( $user->ID ) : new WP_Error( 'artist_not_found', 'Account non trovato.' );
+		if ( $user && ! is_wp_error( $result ) && function_exists( 'trb_artist_promo_sync' ) ) {
+			$promo_result = trb_artist_promo_sync( $user->ID );
+			if ( is_wp_error( $promo_result ) ) $result = $promo_result;
+			else $result['promo_folder'] = $promo_result['folder'];
+		}
 	}
 	?>
 	<div class="wrap"><h1>Archivio artisti pCloud</h1><p>Sincronizza anagrafica e documenti riservati già presenti nel portale.</p>
-	<?php if ( is_wp_error( $result ) ) : ?><div class="notice notice-error"><p><?php echo esc_html( $result->get_error_code() . ': ' . $result->get_error_message() ); ?></p></div><?php elseif ( is_array( $result ) ) : ?><div class="notice notice-success"><p><?php echo esc_html( 'Sincronizzazione completata: ' . $result['folder'] . ' (' . $result['documents'] . ' documenti).' ); ?></p></div><?php endif; ?>
+	<?php if ( is_wp_error( $result ) ) : ?><div class="notice notice-error"><p><?php echo esc_html( $result->get_error_code() . ': ' . $result->get_error_message() ); ?></p></div><?php elseif ( is_array( $result ) ) : ?><div class="notice notice-success"><p><?php echo esc_html( 'Sincronizzazione completata: ' . $result['folder'] . ' (' . $result['documents'] . ' documenti).' . ( ! empty( $result['promo_folder'] ) ? ' PROMO: ' . $result['promo_folder'] . '.' : '' ) ); ?></p></div><?php endif; ?>
 	<form method="post"><?php wp_nonce_field( 'trb_artist_archive_sync' ); ?><label for="trb-artist-archive-user"><strong>E-mail account artista</strong></label><br><input id="trb-artist-archive-user" name="trb_artist_archive_user" type="email" class="regular-text" required><p><button class="button button-primary">Sincronizza ora</button></p></form></div>
 	<?php
 }

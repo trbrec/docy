@@ -68,6 +68,7 @@ if ( ! function_exists( 'docy_fs' ) ) {
 require get_template_directory() . '/inc/trb-artist-portal.php';
 require get_template_directory() . '/inc/trb-demo-automation.php';
 require get_template_directory() . '/inc/trb-artist-pcloud-archive.php';
+require get_template_directory() . '/inc/trb-artist-promo-archive.php';
         }
 
         return $docy_fs;
