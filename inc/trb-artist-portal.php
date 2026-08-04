@@ -2146,7 +2146,7 @@ add_filter( 'login_redirect', 'trb_portal_redirect_artist_after_login', 9999, 3 
  * browser request for contractual artists, so the legacy rule cannot win.
  */
 function trb_portal_force_artist_dashboard_after_login( $user_login, $user ) {
-	if ( ! ( $user instanceof WP_User ) || ! trb_portal_user_profile( $user ) || wp_doing_ajax() || is_admin() ) {
+	if ( ! ( $user instanceof WP_User ) || ! trb_portal_user_profile( $user ) || wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
 		return;
 	}
 
@@ -2185,7 +2185,7 @@ function trb_portal_redirect_legacy_artist_home() {
 
 	// A few older login flows fall back to the site's front page rather than a
 	// named role page. For contractual artists the front page is legacy too.
-	if ( is_front_page() || is_page( $legacy_homes ) ) {
+	if ( is_front_page() || is_page( $legacy_homes ) || is_404() ) {
 		wp_safe_redirect( home_url( '/area-artisti/' ) );
 		exit;
 	}
