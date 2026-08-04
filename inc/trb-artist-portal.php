@@ -520,6 +520,44 @@ function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 	return $has_photo && empty( array_diff( $required_documents, $received_documents ) );
 }
 
+/** Return a transparent completion score based on the same requirements that unlock a release. */
+function trb_portal_artist_profile_completion( $user_id = 0 ) {
+	$user_id = $user_id ? $user_id : get_current_user_id();
+	$user = get_userdata( $user_id );
+	$checks = array();
+	$checks[] = $user && '' !== trim( (string) $user->first_name );
+	$checks[] = $user && '' !== trim( (string) $user->last_name );
+	$checks[] = $user && '' !== trim( (string) $user->user_email );
+	foreach ( array( 'artist_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'tax_code', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' ) as $field ) {
+		$checks[] = '' !== trim( trb_portal_artist_profile_value( $field, $user_id ) );
+	}
+	$checks[] = '' !== trim( (string) get_user_meta( $user_id, '_trb_artist_bio', true ) );
+	foreach ( array( array( 'spotify_url', 'spotify_new' ), array( 'apple_music_url', 'apple_music_new' ), array( 'youtube_url', 'youtube_none' ), array( 'soundcloud_url', 'soundcloud_none' ) ) as $requirement ) {
+		$checks[] = '' !== trim( trb_portal_artist_profile_value( $requirement[0], $user_id ) ) || '1' === trb_portal_artist_profile_value( $requirement[1], $user_id );
+	}
+	$checks[] = '' !== trim( trb_portal_artist_profile_value( 'live_fee', $user_id ) );
+
+	$document_labels = array();
+	$has_photo = false;
+	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
+		if ( isset( $file['group'] ) && 'photo' === $file['group'] ) $has_photo = true;
+		if ( ! empty( $file['label'] ) ) $document_labels[] = $file['label'];
+	}
+	foreach ( array( 'Carta d’identità — fronte', 'Carta d’identità — retro', 'Codice fiscale o tessera sanitaria — fronte', 'Codice fiscale o tessera sanitaria — retro' ) as $label ) {
+		$checks[] = in_array( $label, $document_labels, true );
+	}
+	$checks[] = $has_photo;
+
+	$completed = count( array_filter( $checks ) );
+	$total = count( $checks );
+	return array(
+		'completed' => $completed,
+		'total' => $total,
+		'remaining' => $total - $completed,
+		'percentage' => $total ? (int) round( ( $completed / $total ) * 100 ) : 0,
+	);
+}
+
 function trb_portal_handle_artist_profile() {
 	if ( ! is_user_logged_in() ) {
 		auth_redirect();
@@ -1540,6 +1578,7 @@ function trb_portal_render_artist_profile_section() {
 	$user = wp_get_current_user();
 	$profile = trb_portal_user_profile();
 	$artist_name = trb_portal_artist_profile_value( 'artist_name' );
+	$completion = trb_portal_artist_profile_completion();
 	?>
 	<section id="profilo" class="trb-portal__section trb-portal__profile-section">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Prima della prima release servono dati completi e verificabili. Li riuseremo per preparare le pratiche e, in seguito, i contratti.</p></div>
@@ -1549,9 +1588,13 @@ function trb_portal_render_artist_profile_section() {
 		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero di cellulare italiano valido, con 10 cifre e iniziale 3; il prefisso +39 è facoltativo.</div><?php endif; ?>
 		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: il codice fiscale non supera il controllo formale e della lettera finale. Verifica attentamente i 16 caratteri.</div><?php endif; ?>
 		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Per correggere nome, cognome o e-mail dell’account, apri una segnalazione.</div><?php endif; ?>
+		<div class="trb-portal__profile-progress" role="status" aria-label="Completamento profilo: <?php echo esc_attr( $completion['percentage'] ); ?>%">
+			<div class="trb-portal__profile-progress-heading"><span><b>Completamento profilo</b><small><?php echo $complete ? 'Profilo completo: puoi procedere con la richiesta di distribuzione.' : esc_html( 'Mancano ancora ' . $completion['remaining'] . ' elementi prima di poter richiedere la distribuzione.' ); ?></small></span><strong><?php echo esc_html( $completion['percentage'] ); ?>%</strong></div>
+			<div class="trb-portal__profile-progress-track" aria-hidden="true"><span style="width:<?php echo esc_attr( $completion['percentage'] ); ?>%"></span></div>
+		</div>
 		<div class="trb-portal__profile-accordions">
-			<details class="trb-portal__profile-module" open>
-				<summary><span><b>Dati anagrafici e documenti</b><small>Dati necessari ai fini contrattuali</small></span><em>Apri il modulo</em></summary>
+			<details class="trb-portal__profile-module">
+				<summary><span><b>Dati anagrafici e documenti</b><small>Dati necessari ai fini contrattuali</small></span><em><span class="trb-module-open">Apri il modulo</span><span class="trb-module-close">Chiudi il modulo</span></em></summary>
 				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="trb_portal_save_artist_profile" /><input type="hidden" name="trb_artist_company_section" value="1" />
 					<?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?>
@@ -1577,7 +1620,7 @@ function trb_portal_render_artist_profile_section() {
 				</form>
 			</details>
 			<details class="trb-portal__profile-module">
-				<summary><span><b>Identità artistica</b><small>Nome d’arte, biografia e immagini ufficiali</small></span><em>Apri il modulo</em></summary>
+				<summary><span><b>Identità artistica</b><small>Nome d’arte, biografia e immagini ufficiali</small></span><em><span class="trb-module-open">Apri il modulo</span><span class="trb-module-close">Chiudi il modulo</span></em></summary>
 				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="trb_portal_save_artist_profile" /><input type="hidden" name="trb_artist_identity_section" value="1" /><?php wp_nonce_field( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' ); ?>
 					<label>Nome d’arte <span>*</span><input type="text" name="trb_artist_artist_name" value="<?php echo esc_attr( $artist_name ); ?>" <?php echo $artist_name ? 'readonly' : ''; ?> required /><small>Deve corrispondere esattamente al nome indicato nell’accordo contrattuale. Dopo il primo salvataggio potrà essere modificato soltanto previa autorizzazione della Direzione, tramite una segnalazione.</small></label>
