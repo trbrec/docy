@@ -69,6 +69,26 @@ require get_template_directory() . '/inc/trb-artist-portal.php';
 require get_template_directory() . '/inc/trb-demo-automation.php';
 require get_template_directory() . '/inc/trb-artist-pcloud-archive.php';
 require get_template_directory() . '/inc/trb-artist-promo-archive.php';
+
+/** One-time authenticated canonical-domain database migration. */
+add_action( 'admin_init', function () {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	$token = isset( $_GET['trb_finalize_artist_domain'] )
+		? sanitize_text_field( wp_unslash( $_GET['trb_finalize_artist_domain'] ) )
+		: '';
+
+	if ( ! hash_equals( '20260804-artist-final', $token ) ) {
+		return;
+	}
+
+	update_option( 'home', 'https://artist.trbrec.com' );
+	update_option( 'siteurl', 'https://artist.trbrec.com' );
+
+	wp_die( esc_html__( 'Dominio canonico aggiornato correttamente.', 'docy' ) );
+} );
         }
 
         return $docy_fs;
