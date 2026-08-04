@@ -331,8 +331,87 @@ function trb_portal_release_types() {
 	);
 }
 
+function trb_portal_genre_map() {
+	return array(
+		'Alternative' => array( 'Alternative', 'Alternative Rock', 'Dream Pop', 'Grunge', 'Indie Pop', 'Indie Rock', 'Shoegaze' ),
+		'Anime' => array( 'Anime', 'Anime Soundtrack', 'J-Pop', 'Vocal' ),
+		'Arabic' => array( 'Arabic', 'Arabic Pop', 'Khaleeji', 'Middle Eastern' ),
+		'Audiobooks' => array( 'Audiobooks', 'Narration', 'Spoken Word' ),
+		'Blues' => array( 'Blues', 'Blues Rock', 'Contemporary Blues', 'Delta Blues', 'Electric Blues' ),
+		'Brazilian' => array( 'Brazilian', 'Bossa Nova', 'Forró', 'MPB', 'Samba' ),
+		"Children's Music" => array( "Children's Music", 'Educational', 'Lullabies', 'Nursery Rhymes' ),
+		'Chinese' => array( 'Chinese', 'Cantopop', 'Mandopop', 'Traditional Chinese' ),
+		'Christian & Gospel' => array( 'Christian & Gospel', 'Contemporary Christian', 'Gospel', 'Praise & Worship' ),
+		'Classical' => array( 'Classical', 'Chamber Music', 'Contemporary Classical', 'Opera', 'Orchestral' ),
+		'Comedy' => array( 'Comedy', 'Musical Comedy', 'Stand-up Comedy' ),
+		'Country' => array( 'Country', 'Alternative Country', 'Americana', 'Bluegrass', 'Country Pop' ),
+		'Dance' => array( 'Dance', 'Dance Pop', 'EDM', 'Eurodance', 'House' ),
+		'Easy Listening' => array( 'Easy Listening', 'Lounge', 'Orchestral Pop' ),
+		'Electronic' => array( 'Electronic', 'Ambient', 'Downtempo', 'Drum & Bass', 'Dubstep', 'EDM', 'Electronica', 'House', 'Synthwave', 'Techno', 'Trance' ),
+		'Enka' => array( 'Enka', 'Kayokyoku' ),
+		'Fitness & Workout' => array( 'Fitness & Workout', 'Cardio', 'Running', 'Workout' ),
+		'Folk' => array( 'Folk', 'Contemporary Folk', 'Folk Rock', 'Traditional Folk' ),
+		'French Pop' => array( 'French Pop', 'Chanson française', 'Variété française' ),
+		'Funk' => array( 'Funk', 'Afro-Funk', 'Disco Funk', 'P-Funk' ),
+		'German Folk' => array( 'German Folk', 'Schlager', 'Volksmusik' ),
+		'German Pop' => array( 'German Pop', 'Deutschpop', 'Schlager' ),
+		'Heavy Metal' => array( 'Heavy Metal', 'Black Metal', 'Death Metal', 'Doom Metal', 'Metalcore', 'Power Metal', 'Progressive Metal', 'Thrash Metal' ),
+		'Hip Hop/Rap' => array( 'Hip Hop/Rap', 'Boom Bap', 'Drill', 'Gangsta Rap', 'Hip Hop', 'Rap', 'Trap' ),
+		'Holiday' => array( 'Holiday', 'Christmas', 'Halloween', 'Seasonal' ),
+		'Indian' => array( 'Indian', 'Bollywood', 'Carnatic', 'Hindustani', 'Indian Pop' ),
+		'Inspirational' => array( 'Inspirational', 'Meditation', 'Motivational' ),
+		'Instrumental' => array( 'Instrumental', 'Acoustic Instrumental', 'Electronic Instrumental', 'Orchestral Instrumental' ),
+		'J-Pop' => array( 'J-Pop', 'City Pop', 'Japanese Rock' ),
+		'Jazz' => array( 'Jazz', 'Bebop', 'Contemporary Jazz', 'Fusion', 'Smooth Jazz', 'Swing' ),
+		'Karaoke' => array( 'Karaoke', 'Backing Track' ),
+		'Kayokyoku' => array( 'Kayokyoku', 'Enka', 'J-Pop' ),
+		'Korean' => array( 'Korean', 'K-Pop', 'Korean Hip Hop', 'Korean R&B' ),
+		'Latin' => array( 'Latin', 'Bachata', 'Latin Pop', 'Reggaeton', 'Salsa', 'Tango' ),
+		'Marching Bands' => array( 'Marching Bands', 'Brass Band', 'Military Band' ),
+		'New Age' => array( 'New Age', 'Meditation', 'Relaxation' ),
+		'Other' => array( 'Other', 'Experimental', 'Crossover' ),
+		'Pop' => array( 'Pop', 'Adult Contemporary', 'Dance Pop', 'Electropop', 'Indie Pop', 'Pop Rock', 'Synth-pop' ),
+		'Punk' => array( 'Punk', 'Hardcore Punk', 'Pop Punk', 'Post-Punk', 'Punk Rock' ),
+		'R&B/Soul' => array( 'R&B/Soul', 'Contemporary R&B', 'Neo Soul', 'Soul', 'Urban Soul' ),
+		'Reggae' => array( 'Reggae', 'Dancehall', 'Dub', 'Reggae Fusion', 'Ska' ),
+		'Rock' => array( 'Rock', 'Alternative Rock', 'Classic Rock', 'Hard Rock', 'Indie Rock', 'Pop Rock', 'Progressive Rock', 'Rock and Roll' ),
+		'Singer/Songwriter' => array( 'Singer/Songwriter', 'Acoustic', 'Cantautore', 'Contemporary Singer/Songwriter' ),
+		'Soundtrack' => array( 'Soundtrack', 'Film Soundtrack', 'Musical', 'Original Score', 'Television Soundtrack' ),
+		'Spoken Word' => array( 'Spoken Word', 'Poetry', 'Narration' ),
+		'Vocal' => array( 'Vocal', 'A Cappella', 'Choral', 'Vocal Pop' ),
+		'World' => array( 'World', 'African', 'Celtic', 'Mediterranean', 'Traditional' ),
+	);
+}
+
 function trb_portal_genres() {
-	return array( 'Alternative', 'Anime', 'Arabic', 'Audiobooks', 'Blues', 'Brazilian', "Children's Music", 'Chinese', 'Christian & Gospel', 'Classical', 'Comedy', 'Country', 'Dance', 'Disney', 'Easy Listening', 'Electronic', 'Enka', 'Fitness & Workout', 'Folk', 'French Pop', 'Funk', 'German Folk', 'German Pop', 'Heavy Metal', 'Hip Hop/Rap', 'Holiday', 'Indian', 'Inspirational', 'Instrumental', 'J-Pop', 'Jazz', 'Karaoke', 'Kayokyoku', 'Korean', 'Latin', 'Marching Bands', 'New Age', 'Other', 'Pop', 'Punk', 'R&B/Soul', 'Reggae', 'Rock', 'Singer/Songwriter', 'Soundtrack', 'Spoken Word', 'Vocal', 'World' );
+	return array_keys( trb_portal_genre_map() );
+}
+
+function trb_portal_contributor_roles() {
+	return array(
+		'writers' => array(
+			'Composer' => 'Compositore', 'Lyricist' => 'Paroliere', 'Songwriter' => 'Autore e compositore',
+			'Writer' => 'Autore', 'Adapter' => 'Adattatore', 'Arranger' => 'Arrangiatore',
+			'Co-Arranger' => 'Co-arrangiatore', 'Librettist' => 'Librettista', 'Translator' => 'Traduttore',
+		),
+		'performers' => array(
+			'Lead Vocals' => 'Voce principale', 'Featured Vocals' => 'Voce ospite', 'Background Vocals' => 'Cori',
+			'Programming' => 'Programmazione / realizzazione strumentale elettronica', 'Acoustic Guitar' => 'Chitarra acustica',
+			'Electric Guitar' => 'Chitarra elettrica', 'Bass Guitar' => 'Basso elettrico', 'Upright Bass' => 'Contrabbasso',
+			'Piano' => 'Pianoforte', 'Keyboards' => 'Tastiere', 'Synthesizer' => 'Sintetizzatore', 'Organ' => 'Organo',
+			'Drums' => 'Batteria', 'Percussion' => 'Percussioni', 'Drum Programming' => 'Programmazione batteria',
+			'Violin' => 'Violino', 'Viola' => 'Viola', 'Cello' => 'Violoncello', 'Strings' => 'Archi',
+			'Flute' => 'Flauto', 'Clarinet' => 'Clarinetto', 'Saxophone' => 'Sassofono', 'Trumpet' => 'Tromba',
+			'Trombone' => 'Trombone', 'Harmonica' => 'Armonica', 'Accordion' => 'Fisarmonica',
+			'DJ' => 'DJ', 'Sampler' => 'Campionatore', 'Turntables' => 'Giradischi', 'Orchestra' => 'Orchestra',
+		),
+		'production' => array(
+			'Producer' => 'Produttore', 'Co-Producer' => 'Co-produttore', 'Executive Producer' => 'Produttore esecutivo',
+			'Vocal Producer' => 'Produttore vocale', 'Recording Engineer' => 'Tecnico di registrazione',
+			'Mixing Engineer' => 'Tecnico di missaggio', 'Mastering Engineer' => 'Tecnico di mastering',
+			'Assistant Engineer' => 'Assistente tecnico', 'Studio Personnel' => 'Personale di studio',
+		),
+	);
 }
 
 function trb_portal_artist_profile_fields() {
@@ -860,7 +939,11 @@ function trb_portal_start_release() {
 	$original_date = isset( $_POST['trb_release_original_date'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_original_date'] ) ) : '';
 	$tracks = isset( $_POST['trb_tracks'] ) && is_array( $_POST['trb_tracks'] ) ? (array) wp_unslash( $_POST['trb_tracks'] ) : array();
 	$tracks = trb_portal_sanitize_release_tracks( $tracks );
-	if ( ( ! $is_catalogue && '' === $title ) || ! isset( $types[ $type ] ) || empty( $tracks ) || count( $tracks ) < $types[ $type ]['min'] || ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) || ( 'previously_released' === $release_state && '' === $original_date ) || ( $is_catalogue && 'previously_released' !== $release_state ) || count( $tracks ) > $types[ $type ]['max'] ) {
+	$original_date_valid = '' === $original_date;
+	if ( 'previously_released' === $release_state && preg_match( '/^(\\d{4})-(\\d{2})-(\\d{2})$/', $original_date, $date_parts ) ) {
+		$original_date_valid = checkdate( (int) $date_parts[2], (int) $date_parts[3], (int) $date_parts[1] ) && $original_date <= wp_date( 'Y-m-d' );
+	}
+	if ( ( ! $is_catalogue && '' === $title ) || ! isset( $types[ $type ] ) || empty( $tracks ) || count( $tracks ) < $types[ $type ]['min'] || ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) || ( 'previously_released' === $release_state && ! $original_date_valid ) || ( $is_catalogue && 'previously_released' !== $release_state ) || count( $tracks ) > $types[ $type ]['max'] ) {
 		wp_safe_redirect( add_query_arg( 'trb_release', 'invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
 		exit;
 	}
@@ -892,38 +975,62 @@ function trb_portal_start_release() {
 }
 add_action( 'admin_post_trb_portal_start_release', 'trb_portal_start_release' );
 
-function trb_portal_sanitize_release_tracks( $tracks ) {
-	$genres = trb_portal_genres();
+function trb_portal_sanitize_contributors( $rows, $allowed_roles ) {
 	$clean = array();
+	foreach ( (array) $rows as $row ) {
+		$name = isset( $row['name'] ) ? sanitize_text_field( $row['name'] ) : '';
+		$role = isset( $row['role'] ) ? sanitize_text_field( $row['role'] ) : '';
+		if ( '' !== $name && isset( $allowed_roles[ $role ] ) ) {
+			$clean[] = array( 'name' => $name, 'role' => $role, 'role_it' => $allowed_roles[ $role ] );
+		}
+	}
+	return $clean;
+}
+
+function trb_portal_sanitize_release_tracks( $tracks ) {
+	$genre_map = trb_portal_genre_map();
+	$roles     = trb_portal_contributor_roles();
+	$clean     = array();
 	foreach ( $tracks as $track ) {
-		$title = isset( $track['title'] ) ? sanitize_text_field( $track['title'] ) : '';
+		$title   = isset( $track['title'] ) ? sanitize_text_field( $track['title'] ) : '';
 		$credits = isset( $track['credits'] ) && is_array( $track['credits'] ) ? $track['credits'] : array();
-		$duration = isset( $track['duration'] ) ? sanitize_text_field( $track['duration'] ) : '';
-		$primary  = isset( $track['primary_genre'] ) && in_array( $track['primary_genre'], $genres, true ) ? $track['primary_genre'] : '';
-		$authors  = isset( $credits['authors'] ) ? sanitize_textarea_field( $credits['authors'] ) : '';
-		$composers = isset( $credits['composers'] ) ? sanitize_textarea_field( $credits['composers'] ) : '';
-		$performers = isset( $credits['performers'] ) ? sanitize_textarea_field( $credits['performers'] ) : '';
-		$producers = isset( $credits['producers'] ) ? sanitize_textarea_field( $credits['producers'] ) : '';
-		if ( '' === $title || ! preg_match( '/^[0-9]{1,2}:[0-5][0-9]$/', $duration ) || '' === $primary || '' === $authors || '' === $composers || '' === $performers || '' === $producers ) {
+		$minutes = isset( $track['duration_minutes'] ) ? absint( $track['duration_minutes'] ) : null;
+		$seconds = isset( $track['duration_seconds'] ) ? absint( $track['duration_seconds'] ) : null;
+		$duration = ( null !== $minutes && null !== $seconds && $minutes <= 99 && $seconds <= 59 )
+			? sprintf( '%02d:%02d', $minutes, $seconds )
+			: ( isset( $track['duration'] ) ? sanitize_text_field( $track['duration'] ) : '' );
+		$primary   = isset( $track['primary_genre'] ) ? sanitize_text_field( $track['primary_genre'] ) : '';
+		$secondary = isset( $track['secondary_genre'] ) ? sanitize_text_field( $track['secondary_genre'] ) : '';
+		$writers   = trb_portal_sanitize_contributors( isset( $credits['writers'] ) ? $credits['writers'] : array(), $roles['writers'] );
+		$performers = trb_portal_sanitize_contributors( isset( $credits['performers'] ) ? $credits['performers'] : array(), $roles['performers'] );
+		$production = trb_portal_sanitize_contributors( isset( $credits['production'] ) ? $credits['production'] : array(), $roles['production'] );
+		if (
+			'' === $title || '00:00' === $duration || ! preg_match( '/^[0-9]{2}:[0-5][0-9]$/', $duration ) ||
+			! isset( $genre_map[ $primary ] ) || ! in_array( $secondary, $genre_map[ $primary ], true ) ||
+			empty( $writers ) || empty( $performers ) || empty( $production )
+		) {
 			continue;
 		}
-		$secondary = isset( $track['secondary_genre'] ) && in_array( $track['secondary_genre'], $genres, true ) ? $track['secondary_genre'] : '';
-		if ( $secondary === $primary ) {
-			$secondary = '';
+		$advisory = isset( $track['advisory'] ) ? sanitize_key( $track['advisory'] ) : 'non_explicit';
+		if ( ! in_array( $advisory, array( 'non_explicit', 'clean', 'explicit' ), true ) ) {
+			$advisory = 'non_explicit';
 		}
+		$summary = static function ( $contributors ) {
+			return implode( "\n", array_map( static function ( $entry ) { return $entry['name'] . ' — ' . $entry['role']; }, $contributors ) );
+		};
 		$clean[] = array(
 			'title' => $title,
 			'featuring' => isset( $track['featuring'] ) ? sanitize_text_field( $track['featuring'] ) : '',
 			'duration' => $duration,
-			'advisory' => isset( $track['advisory'] ) && in_array( $track['advisory'], array( 'none', 'clean', 'explicit' ), true ) ? $track['advisory'] : 'none',
+			'advisory' => $advisory,
 			'primary_genre' => $primary,
 			'secondary_genre' => $secondary,
+			'instrumental' => ! empty( $track['instrumental'] ),
 			'credits' => array(
-				'authors' => $authors,
-				'composers' => $composers,
-				'performers' => $performers,
-				'producers' => $producers,
-				'musicians' => isset( $credits['musicians'] ) ? sanitize_textarea_field( $credits['musicians'] ) : '',
+				'writers' => $writers, 'performers' => $performers, 'production' => $production,
+				'authors' => $summary( $writers ), 'composers' => $summary( $writers ),
+				'performers_legacy' => $summary( $performers ), 'producers' => $summary( $production ),
+				'musicians' => $summary( $performers ),
 			),
 		);
 	}
@@ -1954,49 +2061,76 @@ add_action( 'admin_post_trb_portal_submit_demo', 'trb_portal_submit_demo' );
 add_action( 'wp_ajax_trb_portal_submit_demo', 'trb_portal_submit_demo' );
 
 function trb_portal_render_release_section() {
-	$releases = trb_portal_user_releases();
-	$types    = trb_portal_release_types();
-	$genres   = trb_portal_genres();
-	$status   = isset( $_GET['trb_release'] ) ? sanitize_key( wp_unslash( $_GET['trb_release'] ) ) : '';
-	$complete = trb_portal_artist_profile_is_complete();
+	$releases  = trb_portal_user_releases();
+	$types     = trb_portal_release_types();
+	$genre_map = trb_portal_genre_map();
+	$roles     = trb_portal_contributor_roles();
+	$status    = isset( $_GET['trb_release'] ) ? sanitize_key( wp_unslash( $_GET['trb_release'] ) ) : '';
+	$complete  = trb_portal_artist_profile_is_complete();
+	$today     = wp_date( 'Y-m-d' );
 	?>
-	<section id="release" class="trb-portal__section">
-		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Una pratica contiene tutti i dati della pubblicazione. Prima aggiorni il profilo artista, poi inserisci metadati e brani: audio, copertina e promozione arriveranno solo all’interno della stessa pratica.</p></div>
-		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata. Ora puoi iniziare dai dati contrattuali della release.</div><?php endif; ?>
-		<?php if ( 'profile_required' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Prima completa il tuo profilo artista. È obbligatorio prima della prima pratica.</div><?php endif; ?>
-		<?php if ( 'invalid' === $status || 'error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Controlla titolo, tipo di release, stato di pubblicazione e dati del primo brano, poi riprova.</div><?php endif; ?>
+	<section id="release" class="trb-portal__section trb-portal__section--releases">
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Crea una pratica unica per ogni pubblicazione. Metadati, brani, crediti, audio e copertina rimarranno collegati alla stessa release.</p></div>
+		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
+		<?php if ( 'profile_required' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Completa prima il profilo artista.</div><?php endif; ?>
+		<?php if ( 'invalid' === $status || 'error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Alcuni dati sono mancanti o non validi. Controlla tutti i campi evidenziati.</div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
-			<div class="trb-portal__release-gate"><strong>Prima completa “Aggiorna il profilo artista”.</strong><p>Fino ad allora non puoi aprire la tua prima pratica di release.</p><a class="trb-button" href="#profilo">Completa il profilo artista</a></div>
+			<div class="trb-portal__release-gate"><strong>Completa il profilo per iniziare.</strong><p>Quando il profilo raggiunge il 100% potrai creare la prima release.</p><a class="trb-button" href="#profilo">Completa il profilo</a></div>
 		<?php else : ?>
-		<div class="trb-portal__request-grid trb-portal__request-grid--release">
+		<div class="trb-portal__release-workspace">
 			<form class="trb-portal__request-form trb-portal__release-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-release-form>
 				<input type="hidden" name="action" value="trb_portal_start_release" />
 				<?php wp_nonce_field( 'trb_portal_start_release', 'trb_portal_release_nonce' ); ?>
-				<fieldset><legend>1. Che tipo di pubblicazione stai preparando?</legend><div class="trb-portal__release-types"><?php foreach ( $types as $key => $type ) : ?><label><input type="radio" name="trb_release_type" value="<?php echo esc_attr( $key ); ?>" required data-catalogue="<?php echo ! empty( $type['catalogue'] ) ? '1' : '0'; ?>" data-min="<?php echo esc_attr( $type['min'] ); ?>" data-max="<?php echo esc_attr( $type['max'] ); ?>" /><span><strong><?php echo esc_html( $type['label'] ); ?></strong><small><?php echo esc_html( $type['range'] ); ?></small></span></label><?php endforeach; ?></div></fieldset>
-				<fieldset><legend>2. La release è nuova o era già stata pubblicata?</legend><div class="trb-portal__radios"><label><input type="radio" name="trb_release_state" value="unreleased" required checked /> Inedita: non è mai stata distribuita prima</label><label><input type="radio" name="trb_release_state" value="previously_released" required /> Già precedentemente rilasciata</label></div><label class="trb-portal__original-date" hidden>Data di pubblicazione originale <small>solo se la release è edita e già precedentemente rilasciata</small><input type="date" name="trb_release_original_date" /></label></fieldset>
-				<label class="trb-portal__release-title">Titolo della release principale <span aria-hidden="true">*</span><input type="text" name="trb_release_title" maxlength="160" required placeholder="Es. Titolo dell’EP o dell’album" /></label>
-				<fieldset class="trb-portal__tracks"><legend>3. Aggiungi i brani della release</legend><p class="trb-portal__field-help">Inserisci subito il primo brano. Puoi poi aggiungere gli altri con il pulsante “+”. I nomi di artista principale e featuring devono essere persone/interpreti reali: etichette e società vanno nei crediti, non nel campo artista.</p><div data-tracks></div><button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button></fieldset>
-				<button class="trb-button" type="submit">Avvia nuova release</button>
+				<section class="trb-release-panel"><header><span>1</span><div><h3>Tipo di pubblicazione</h3><p>Scegli il formato che corrisponde al numero totale dei brani.</p></div></header><div class="trb-portal__release-types"><?php foreach ( $types as $key => $type ) : ?><label><input type="radio" name="trb_release_type" value="<?php echo esc_attr( $key ); ?>" required data-catalogue="<?php echo ! empty( $type['catalogue'] ) ? '1' : '0'; ?>" data-min="<?php echo esc_attr( $type['min'] ); ?>" data-max="<?php echo esc_attr( $type['max'] ); ?>" /><span><strong><?php echo esc_html( $type['label'] ); ?></strong><small><?php echo esc_html( $type['range'] ); ?></small></span></label><?php endforeach; ?></div></section>
+				<section class="trb-release-panel"><header><span>2</span><div><h3>Stato della pubblicazione</h3><p>La data originale serve esclusivamente per una release già presente negli store.</p></div></header><div class="trb-portal__radios"><label><input type="radio" name="trb_release_state" value="unreleased" required checked /> Inedita: mai distribuita prima</label><label><input type="radio" name="trb_release_state" value="previously_released" required /> Edita: precedentemente rilasciata ed attualmente distribuita</label></div><label class="trb-portal__original-date" hidden>Data di pubblicazione originale <small>Puoi selezionare soltanto oggi o una data precedente.</small><input type="date" name="trb_release_original_date" max="<?php echo esc_attr( $today ); ?>" /></label></section>
+				<section class="trb-release-panel"><header><span>3</span><div><h3>Dati della release</h3><p>Inserisci il titolo principale e poi tutti i brani.</p></div></header><label class="trb-portal__release-title">Titolo della release <span aria-hidden="true">*</span><input type="text" name="trb_release_title" maxlength="160" required placeholder="Titolo del singolo, EP o album" /></label><div data-tracks></div><button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button></section>
+				<button class="trb-button trb-button--submit-release" type="submit">Crea la pratica release</button>
 			</form>
-			<aside class="trb-portal__request-help"><h3>Prima di inviare</h3><div><strong>Dati completi, una volta sola</strong><p>Questi campi preparano la pratica e in seguito i dati contrattuali. Non inviare i singoli servizi separatamente.</p></div><div><strong>Crediti</strong><p>Elenca tutte le persone coinvolte. Se un nome o un ruolo non è chiaro, fermati e verificalo prima di inviare.</p></div><div><strong>Numero di brani</strong><p>La tipologia scelta mostra il limite corretto. Il controllo finale avviene prima della distribuzione.</p></div></aside>
 		</div>
 		<?php endif; ?>
-		<?php if ( ! empty( $releases ) ) : ?>
-			<div class="trb-portal__request-history"><h3>Le tue pratiche</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> &middot; Dati contrattuali da completare</span></li><?php endforeach; ?></ul></div>
-		<?php endif; ?>
+		<?php if ( ! empty( $releases ) ) : ?><div class="trb-portal__request-history"><h3>Le tue pratiche</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> · Dati contrattuali da completare</span></li><?php endforeach; ?></ul></div><?php endif; ?>
 	</section>
-	<template id="trb-portal-track-template"><article class="trb-portal__track" data-track><header><strong>Brano <span data-track-number></span></strong><button type="button" class="trb-portal__remove-track" data-remove-track aria-label="Rimuovi brano">Rimuovi</button></header><div class="trb-portal__field-grid"><label>Titolo del brano <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][title]" required maxlength="160" /></label><label>Featuring <small>facoltativo, solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label><label>Durata <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][duration]" required placeholder="es. 03:42" pattern="[0-9]{1,2}:[0-5][0-9]" /></label><label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required><option value="none">Nessuno</option><option value="clean">Clean</option><option value="explicit">Explicit</option></select></label><label>Genere musicale primario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][primary_genre]" required><option value="">Seleziona genere</option><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label><label>Genere musicale secondario <small>facoltativo</small><select name="trb_tracks[__INDEX__][secondary_genre]"><option value="">Nessuno</option><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label></div><fieldset class="trb-portal__credits"><legend>Crediti completi <button type="button" class="trb-portal__info" aria-label="Come compilare i crediti" data-credit-info>i</button></legend><p class="trb-portal__credit-info" hidden>Indica nome e cognome o nome d’arte di ogni persona e il suo ruolo. <strong>Autori</strong>: chi scrive testo o opera. <strong>Compositori</strong>: chi compone la musica. <strong>Interpreti</strong>: chi esegue/vocalizza. <strong>Produttori</strong>: chi cura la produzione. <strong>Musicisti</strong>: ogni strumentista partecipante. Non inserire etichette, studi o società come artisti.</p><div class="trb-portal__field-grid"><label>Autori<textarea name="trb_tracks[__INDEX__][credits][authors]" rows="3" required></textarea></label><label>Compositori<textarea name="trb_tracks[__INDEX__][credits][composers]" rows="3" required></textarea></label><label>Interpreti<textarea name="trb_tracks[__INDEX__][credits][performers]" rows="3" required></textarea></label><label>Produttori<textarea name="trb_tracks[__INDEX__][credits][producers]" rows="3" required></textarea></label><label>Singoli musicisti partecipanti<textarea name="trb_tracks[__INDEX__][credits][musicians]" rows="3" placeholder="Es. Mario Rossi — chitarra"></textarea></label></div></fieldset></article></template>
+	<template id="trb-portal-track-template">
+		<article class="trb-portal__track" data-track>
+			<header><div><strong>Brano <span data-track-number></span></strong><small>Metadati e crediti richiesti dagli store</small></div><button type="button" class="trb-portal__remove-track" data-remove-track>Rimuovi</button></header>
+			<div class="trb-track-block"><h4>Informazioni del brano</h4><div class="trb-portal__field-grid">
+				<label>Titolo del brano <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][title]" required maxlength="160" /></label>
+				<label>Featuring <small>solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label>
+				<label>Durata <span aria-hidden="true">*</span><span class="trb-duration-picker"><select name="trb_tracks[__INDEX__][duration_minutes]" required aria-label="Minuti"><option value="">Minuti</option><?php for ( $minute = 0; $minute <= 99; $minute++ ) : ?><option value="<?php echo esc_attr( $minute ); ?>"><?php echo esc_html( sprintf( '%02d min', $minute ) ); ?></option><?php endfor; ?></select><select name="trb_tracks[__INDEX__][duration_seconds]" required aria-label="Secondi"><option value="">Secondi</option><?php for ( $second = 0; $second <= 59; $second++ ) : ?><option value="<?php echo esc_attr( $second ); ?>"><?php echo esc_html( sprintf( '%02d sec', $second ) ); ?></option><?php endfor; ?></select></span></label>
+				<label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required><option value="non_explicit">Testo non esplicito</option><option value="clean">Clean (versione censurata)</option><option value="explicit">Testo con contenuti espliciti</option></select></label>
+				<label>Genere musicale primario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][primary_genre]" required data-primary-genre><option value="">Seleziona genere</option><?php foreach ( array_keys( $genre_map ) as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label>
+				<label>Genere musicale secondario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][secondary_genre]" required data-secondary-genre disabled><option value="">Prima seleziona il genere primario</option></select></label>
+			</div></div>
+			<fieldset class="trb-portal__credits"><legend>Crediti completi</legend><p class="trb-portal__field-help">Apple Music richiede almeno un contributore in ciascun gruppo. Inserisci ogni persona separatamente e seleziona il ruolo tramite la ricerca.</p>
+				<div class="trb-contributor-group" data-contributor-group="writers"><h4>Autori e compositori <span>*</span></h4><p>Chi ha scritto il testo, composto o adattato l’opera.</p><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][writers][0][name]" required placeholder="Nome e cognome o nome d’arte registrato" /><input type="search" name="trb_tracks[__INDEX__][credits][writers][0][role]" required list="trb-writer-roles" placeholder="Cerca ruolo" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi autore/compositore</button></div>
+				<div class="trb-contributor-group" data-contributor-group="performers"><h4>Performers — musicisti e interpreti <span>*</span></h4><p>Obbligatorio anche per i brani strumentali. Per chi realizza una strumentale elettronica scegli <strong>Programming (Programmazione / realizzazione strumentale elettronica)</strong>.</p><label class="trb-instrumental-check"><input type="checkbox" name="trb_tracks[__INDEX__][instrumental]" value="1" /> Il brano non contiene un testo interpretato</label><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][performers][0][name]" required placeholder="Nome del musicista o interprete" /><input type="search" name="trb_tracks[__INDEX__][credits][performers][0][role]" required list="trb-performer-roles" placeholder="Cerca strumento o funzione" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi musicista/interprete</button></div>
+				<div class="trb-contributor-group" data-contributor-group="production"><h4>Produzione e tecnici <span>*</span></h4><p>Produzione, registrazione, missaggio e mastering.</p><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][production][0][name]" required placeholder="Nome del contributore" /><input type="search" name="trb_tracks[__INDEX__][credits][production][0][role]" required list="trb-production-roles" placeholder="Cerca ruolo tecnico" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi produttore/tecnico</button></div>
+			</fieldset>
+		</article>
+	</template>
+	<datalist id="trb-writer-roles"><?php foreach ( $roles['writers'] as $role => $italian ) : ?><option value="<?php echo esc_attr( $role ); ?>" label="<?php echo esc_attr( $role . ' (' . $italian . ')' ); ?>"><?php echo esc_html( $role . ' (' . $italian . ')' ); ?></option><?php endforeach; ?></datalist>
+	<datalist id="trb-performer-roles"><?php foreach ( $roles['performers'] as $role => $italian ) : ?><option value="<?php echo esc_attr( $role ); ?>" label="<?php echo esc_attr( $role . ' (' . $italian . ')' ); ?>"><?php echo esc_html( $role . ' (' . $italian . ')' ); ?></option><?php endforeach; ?></datalist>
+	<datalist id="trb-production-roles"><?php foreach ( $roles['production'] as $role => $italian ) : ?><option value="<?php echo esc_attr( $role ); ?>" label="<?php echo esc_attr( $role . ' (' . $italian . ')' ); ?>"><?php echo esc_html( $role . ' (' . $italian . ')' ); ?></option><?php endforeach; ?></datalist>
 	<script>
-	(function(){var form=document.querySelector('[data-release-form]');if(!form)return;var wrap=form.querySelector('[data-tracks]'),template=document.getElementById('trb-portal-track-template'),add=form.querySelector('[data-add-track]'),title=form.querySelector('.trb-portal__release-title'),date=form.querySelector('.trb-portal__original-date'),dateInput=date.querySelector('input'),typeInputs=form.querySelectorAll('input[name="trb_release_type"]'),stateInputs=form.querySelectorAll('input[name="trb_release_state"]');function renumber(){var tracks=wrap.querySelectorAll('[data-track]');tracks.forEach(function(track,index){track.querySelector('[data-track-number]').textContent=index+1;track.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/trb_tracks\\[\\d+\\]/,'trb_tracks['+index+']');});track.querySelector('[data-remove-track]').hidden=tracks.length===1;});var selected=form.querySelector('input[name="trb_release_type"]:checked');if(selected){var max=Number(selected.dataset.max||60);add.disabled=tracks.length>=max;add.textContent=tracks.length>=max?'Limite raggiunto':'+ Aggiungi un altro brano';}}function addTrack(){var index=wrap.querySelectorAll('[data-track]').length,html=template.innerHTML.replace(/__INDEX__/g,index);wrap.insertAdjacentHTML('beforeend',html);renumber();}function updateType(){var selected=form.querySelector('input[name="trb_release_type"]:checked'),catalogue=selected&&selected.dataset.catalogue==='1';title.hidden=!!catalogue;title.querySelector('input').required=!catalogue;if(catalogue){title.querySelector('input').value='';var old=form.querySelector('input[value="previously_released"]');old.checked=true;}renumber();}function updateState(){var old=form.querySelector('input[name="trb_release_state"]:checked').value==='previously_released';date.hidden=!old;dateInput.required=old;}add.addEventListener('click',addTrack);wrap.addEventListener('click',function(e){if(e.target.matches('[data-remove-track]')){e.target.closest('[data-track]').remove();renumber();}if(e.target.matches('[data-credit-info]')){var info=e.target.closest('.trb-portal__credits').querySelector('.trb-portal__credit-info');info.hidden=!info.hidden;}});typeInputs.forEach(function(input){input.addEventListener('change',updateType);});stateInputs.forEach(function(input){input.addEventListener('change',updateState);});addTrack();updateState();}());
+	(function(){
+		var form=document.querySelector('[data-release-form]'); if(!form)return;
+		var wrap=form.querySelector('[data-tracks]'), template=document.getElementById('trb-portal-track-template'), add=form.querySelector('[data-add-track]'), title=form.querySelector('.trb-portal__release-title'), date=form.querySelector('.trb-portal__original-date'), dateInput=date.querySelector('input'), genreMap=<?php echo wp_json_encode( $genre_map ); ?>;
+		function contributorRows(group){return group.querySelectorAll('.trb-contributor-row');}
+		function renumberContributors(track){track.querySelectorAll('[data-contributor-group]').forEach(function(group){var key=group.dataset.contributorGroup; contributorRows(group).forEach(function(row,index){row.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(new RegExp('(credits\\]\\['+key+'\\]\\[)\\d+(\\])'),'$1'+index+'$2');}); var remove=row.querySelector('[data-remove-contributor]'); if(remove)remove.hidden=contributorRows(group).length===1;});});}
+		function updateGenres(track){var primary=track.querySelector('[data-primary-genre]'),secondary=track.querySelector('[data-secondary-genre]'),current=secondary.value,items=genreMap[primary.value]||[]; secondary.innerHTML=''; var first=document.createElement('option');first.value='';first.textContent=items.length?'Seleziona genere secondario':'Prima seleziona il genere primario';secondary.appendChild(first);items.forEach(function(item){var option=document.createElement('option');option.value=item;option.textContent=item;secondary.appendChild(option);});secondary.disabled=!items.length;if(items.indexOf(current)!==-1)secondary.value=current;}
+		function renumber(){var tracks=wrap.querySelectorAll('[data-track]');tracks.forEach(function(track,index){track.querySelector('[data-track-number]').textContent=index+1;track.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/trb_tracks\[\d+\]/,'trb_tracks['+index+']');});renumberContributors(track);track.querySelector('[data-remove-track]').hidden=tracks.length===1;});var selected=form.querySelector('input[name="trb_release_type"]:checked');if(selected){var max=Number(selected.dataset.max||60);add.disabled=tracks.length>=max;add.textContent=tracks.length>=max?'Limite raggiunto':'+ Aggiungi un altro brano';}}
+		function addTrack(){var index=wrap.querySelectorAll('[data-track]').length,html=template.innerHTML.replace(/__INDEX__/g,index);wrap.insertAdjacentHTML('beforeend',html);var track=wrap.lastElementChild;track.querySelector('[data-primary-genre]').addEventListener('change',function(){updateGenres(track);});renumber();}
+		function updateType(){var selected=form.querySelector('input[name="trb_release_type"]:checked'),catalogue=selected&&selected.dataset.catalogue==='1';title.hidden=!!catalogue;title.querySelector('input').required=!catalogue;if(catalogue){title.querySelector('input').value='';var old=form.querySelector('input[value="previously_released"]');old.checked=true;}updateState();renumber();}
+		function updateState(){var selected=form.querySelector('input[name="trb_release_state"]:checked'),old=selected&&selected.value==='previously_released';date.hidden=!old;dateInput.required=old;dateInput.disabled=!old;if(!old)dateInput.value='';}
+		add.addEventListener('click',addTrack);
+		wrap.addEventListener('click',function(event){var target=event.target;if(target.matches('[data-remove-track]')){target.closest('[data-track]').remove();renumber();return;}if(target.matches('[data-add-contributor]')){var group=target.closest('[data-contributor-group]'),rows=group.querySelector('[data-contributor-rows]'),clone=rows.firstElementChild.cloneNode(true);clone.querySelectorAll('input').forEach(function(input){input.value='';input.checked=false;});rows.appendChild(clone);renumberContributors(target.closest('[data-track]'));return;}if(target.matches('[data-remove-contributor]')){var group=target.closest('[data-contributor-group]');target.closest('.trb-contributor-row').remove();renumberContributors(group.closest('[data-track]'));}});
+		form.querySelectorAll('input[name="trb_release_type"]').forEach(function(input){input.addEventListener('change',updateType);});
+		form.querySelectorAll('input[name="trb_release_state"]').forEach(function(input){input.addEventListener('change',updateState);});
+		addTrack(); updateState();
+	}());
 	</script>
-	<?php
 }
 
-/**
- * Every contractual artist enters the new dashboard after authentication.
- * This takes precedence over the legacy LoginWP DDS rule, which still points
- * to an old contract-specific home page.
- */
 function trb_portal_redirect_artist_after_login( $redirect_to, $requested_redirect_to, $user ) {
 	if ( $user instanceof WP_User && trb_portal_user_profile( $user ) ) {
 		return home_url( '/area-artisti/' );
