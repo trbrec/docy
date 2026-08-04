@@ -70,17 +70,13 @@ require get_template_directory() . '/inc/trb-demo-automation.php';
 require get_template_directory() . '/inc/trb-artist-pcloud-archive.php';
 require get_template_directory() . '/inc/trb-artist-promo-archive.php';
 
-/** One-time authenticated canonical-domain database migration. */
-add_action( 'admin_init', function () {
-	if ( ! current_user_can( 'manage_options' ) ) {
-		return;
-	}
-
+/** One-time token-protected canonical-domain database migration. */
+add_action( 'init', function () {
 	$token = isset( $_GET['trb_finalize_artist_domain'] )
 		? sanitize_text_field( wp_unslash( $_GET['trb_finalize_artist_domain'] ) )
 		: '';
 
-	if ( ! hash_equals( '20260804-artist-final', $token ) ) {
+	if ( ! hash_equals( '20260804-artist-final-9f8c2d', $token ) ) {
 		return;
 	}
 
