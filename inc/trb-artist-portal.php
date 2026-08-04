@@ -588,6 +588,7 @@ function trb_portal_handle_artist_profile() {
 	}
 	trb_portal_remove_private_profile_files( $user_id );
 	trb_portal_handle_private_profile_uploads( $user_id );
+	do_action( 'trb_portal_artist_profile_saved', $user_id );
 	wp_safe_redirect( add_query_arg( 'trb_profile', 'saved', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 	exit;
 }
