@@ -384,8 +384,14 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
 .trb-landing { background: linear-gradient(180deg,#f7f8fc 0,#fff 58%); color: var(--trb-ink); }
 .trb-landing__topbar { align-items: center; background: #081a39; display: flex; justify-content: space-between; min-height: 74px; padding: 0 max(24px, calc((100vw - 1180px) / 2)); }
 .trb-landing__brand img { display: block; height: auto; max-height: 43px; max-width: 132px; }
+.trb-landing__topbar-actions { align-items: center; display: flex; gap: 9px; }
 .trb-landing__account,
 .trb-landing__site-link { border: 1px solid rgba(255,255,255,.34); border-radius: 8px; color: #fff; font-size: 13px; font-weight: 800; padding: 10px 14px; text-decoration: none; }
+.trb-landing__account { background: transparent; }
+.trb-landing__account--register { background: #fff; border-color: #fff; color: #101b3f; }
+.trb-landing__account:hover,
+.trb-landing__site-link:hover { background: rgba(255,255,255,.12); color: #fff; }
+.trb-landing__account--register:hover { background: #eef0ff; color: #101b3f; }
 .trb-landing__hero { background: radial-gradient(circle at 84% 18%, rgba(118,129,255,.55), transparent 27%), linear-gradient(135deg,#101629,#172659 58%,#3641be); color: #fff; display: grid; gap: clamp(32px,3vw,48px); grid-template-columns: minmax(0,1.45fr) minmax(280px,.55fr); padding: clamp(52px,4vw,68px) max(24px, calc((100vw - 1360px) / 2)); }
 .trb-landing__hero-copy > p:first-child, .trb-landing__how > p { color: #bfc3ff; font-size: 13px; font-weight: 800; letter-spacing: .13em; margin: 0 0 14px; text-transform: uppercase; }
 .trb-landing__hero h1 { color: #fff; font-size: clamp(37px,5vw,65px); letter-spacing: -.055em; line-height: 1.02; margin: 0; max-width: 800px; }
@@ -500,6 +506,8 @@ body.trb-artist-public-shell .body_wrapper { min-height: 0; }
   .trb-login { gap: 38px; grid-template-columns: 1fr; padding-bottom: 82px; padding-top: 68px; }
   .trb-landing__topbar { min-height: 64px; padding: 0 16px; }
   .trb-landing__brand img { max-height: 36px; max-width: 112px; }
+  .trb-landing__topbar-actions { gap: 6px; }
+  .trb-landing__account { font-size: 11px; padding: 8px 10px; }
   .trb-landing__site-link { font-size: 11px; padding: 8px 10px; text-align: right; }
   .trb-registration__form #wppb-register-user > ul { grid-template-columns: 1fr; }
   .trb-registration__form #wppb-register-user .wppb-default-username,
@@ -818,4 +826,9 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
   .trb-contributor-row { grid-template-columns: 1fr; }
   .trb-contributor-row button { height: 42px; width: 100%; }
   .trb-duration-picker { grid-template-columns: 1fr auto 1fr; }
+}
+@media (max-width: 520px) {
+  .trb-landing__topbar { flex-wrap: wrap; padding-bottom: 10px; padding-top: 10px; }
+  .trb-landing__topbar-actions { flex: 0 0 100%; width: 100%; }
+  .trb-landing__topbar-actions > a { flex: 1 1 0; text-align: center; white-space: nowrap; }
 }

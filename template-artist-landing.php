@@ -21,7 +21,13 @@ $login_url     = home_url( '/accedi/' );
 <main class="trb-landing">
 	<header class="trb-landing__topbar">
 		<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="trb-landing__brand"><img src="<?php echo esc_url( trb_portal_logo_url() ); ?>" alt="TRB rec" width="186" height="62" /></a>
-		<a class="trb-landing__site-link" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Apri una segnalazione</a>
+		<div class="trb-landing__topbar-actions">
+			<?php if ( ! is_user_logged_in() ) : ?>
+				<a class="trb-landing__account trb-landing__account--register" href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Registrati</a>
+				<a class="trb-landing__account" href="<?php echo esc_url( $login_url ); ?>">Accedi</a>
+			<?php endif; ?>
+			<a class="trb-landing__site-link" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Apri una segnalazione</a>
+		</div>
 	</header>
 	<section class="trb-landing__hero">
 		<div class="trb-landing__hero-copy">

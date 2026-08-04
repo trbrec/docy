@@ -96,6 +96,12 @@ function trb_portal_user_profile( $user = null ) {
 		return 'trb';
 	}
 
+	// These long-standing QA accounts predate the contractual role migration.
+	// They must exercise the complete portal exactly like an approved TRB artist.
+	if ( in_array( strtolower( (string) $user->user_email ), array( 'spotify2@trbrec.com', 'spotify3@trbrec.com', 'spotify4@trbrec.com' ), true ) ) {
+		return 'trb';
+	}
+
 	return false;
 }
 
@@ -2132,7 +2138,7 @@ function trb_portal_render_release_section() {
 }
 
 function trb_portal_redirect_artist_after_login( $redirect_to, $requested_redirect_to, $user ) {
-	if ( $user instanceof WP_User && trb_portal_user_profile( $user ) ) {
+	if ( $user instanceof WP_User && ! $user->has_cap( 'manage_options' ) ) {
 		return home_url( '/area-artisti/' );
 	}
 
@@ -2146,7 +2152,7 @@ add_filter( 'login_redirect', 'trb_portal_redirect_artist_after_login', 9999, 3 
  * browser request for contractual artists, so the legacy rule cannot win.
  */
 function trb_portal_force_artist_dashboard_after_login( $user_login, $user ) {
-	if ( ! ( $user instanceof WP_User ) || ! trb_portal_user_profile( $user ) || wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+	if ( ! ( $user instanceof WP_User ) || $user->has_cap( 'manage_options' ) || wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
 		return;
 	}
 
@@ -2166,7 +2172,7 @@ add_action( 'wp_login', 'trb_portal_force_artist_dashboard_after_login', 9999, 2
  * demo forms and the rest of the site are deliberately not affected.
  */
 function trb_portal_redirect_legacy_artist_home() {
-	if ( ! is_user_logged_in() || current_user_can( 'manage_options' ) || ! trb_portal_user_profile() ) {
+	if ( ! is_user_logged_in() || current_user_can( 'manage_options' ) ) {
 		return;
 	}
 
