@@ -43,8 +43,7 @@ jobs:
           payload=$(jq -nc --arg sha "${GITHUB_SHA}" '{sha: $sha}')
           response_file=$(mktemp)
           headers_file=$(mktemp)
-          http_code=$(curl --silent --show-error --connect-timeout 10 --max-time 20 \
-            --retry 3 --retry-delay 20 --retry-all-errors \
+          http_code=$(curl --silent --show-error --connect-timeout 10 --max-time 240 \
             -X POST \
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
