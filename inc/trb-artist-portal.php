@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 50019)
+Total output lines: 2907
+
 <?php
 /**
  * Area Artisti TRB rec.
@@ -588,6 +591,7 @@ function trb_portal_handle_artist_profile() {
 	}
 	trb_portal_remove_private_profile_files( $user_id );
 	trb_portal_handle_private_profile_uploads( $user_id );
+	trb_portal_queue_pcloud_profile_sync( $user_id );
 	wp_safe_redirect( add_query_arg( 'trb_profile', 'saved', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 	exit;
 }
@@ -620,6 +624,179 @@ function trb_portal_private_profile_files( $user_id = 0 ) {
 	}
 	return $files;
 }
+
+/** Queue a private pCloud archive refresh without delaying the profile form. */
+function trb_portal_queue_pcloud_profile_sync( $user_id, $delay = 10 ) {
+	$user_id = absint( $user_id );
+	if ( ! $user_id || wp_next_scheduled( 'trb_portal_sync_profile_to_pcloud', array( $user_id, 0 ) ) ) {
+		return;
+	}
+	wp_schedule_single_event( time() + max( 1, absint( $delay ) ), 'trb_portal_sync_profile_to_pcloud', array( $user_id, 0 ) );
+}
+
+/** Build the stable, human-readable folder requested for each artist. */
+function trb_portal_pcloud_artist_folder( $user_id ) {
+	$user        = get_userdata( $user_id );
+	$artist_name = trb_portal_artist_profile_value( 'artist_name', $user_id );
+	$legal_name  = $user ? trim( $user->first_name . ' ' . $user->last_name ) : '';
+	$folder_name = trim( $artist_name . ' - ' . $legal_name, " -\t\n\r\0\x0B" );
+	$folder_name = preg_replace( '/[\\\\\/:*?"<>|]+/u', '-', $folder_name );
+	$folder_name = preg_replace( '/\s+/u', ' ', $folder_name );
+	if ( '' === trim( $folder_name ) ) {
+		$folder_name = 'Artista ' . absint( $user_id );
+	}
+	return "/Private/Documenti d'identità ID/Artisti e Clienti/" . trim( $folder_name );
+}
+
+/** Produce a UTF-8 text record containing the current personal data. */
+function trb_portal_pcloud_profile_document( $user_id ) {
+	$user = get_userdata( $user_id );
+	if ( ! $user ) {
+		return '';
+	}
+	$profile = trb_portal_user_profile( $user );
+	$rows = array(
+		'ARCHIVIO ANAGRAFICO ARTISTA',
+		'TRB rec - Music Publishing',
+		'',
+		'Ultimo aggiornamento: ' . wp_date( 'd/m/Y H:i' ),
+		'Profilo contrattuale: ' . trb_portal_profile_label( $profile ),
+		'Etichetta / appartenenza: ' . trb_portal_profile_affiliation( $profile ),
+		'',
+		'DATI PERSONALI',
+		'Nome: ' . $user->first_name,
+		'Cognome: ' . $user->last_name,
+		'Nome d’arte: ' . trb_portal_artist_profile_value( 'artist_name', $user_id ),
+		'E-mail: ' . $user->user_email,
+	);
+	$labels = array(
+		'phone'          => 'Cellulare',
+		'birth_date'     => 'Data di nascita',
+		'birth_place'    => 'Comune di nascita',
+		'birth_province' => 'Provincia di nascita',
+		'tax_code'       => 'Codice fiscale',
+		'street'         => 'Indirizzo di residenza',
+		'street_number'  => 'Numero civico',
+		'postal_code'    => 'CAP',
+		'city'           => 'Città',
+		'province'       => 'Provincia',
+		'country'        => 'Nazione',
+		'company_name'   => 'Ragione sociale',
+		'company_vat'    => 'Partita IVA',
+		'company_sdi'    => 'Codice SDI',
+		'company_address'=> 'Sede di fatturazione',
+	);
+	foreach ( $labels as $key => $label ) {
+		$value = trb_portal_artist_profile_value( $key, $user_id );
+		if ( '' !== trim( (string) $value ) ) {
+			$rows[] = $label . ': ' . $value;
+		}
+	}
+	$rows[] = '';
+	$rows[] = 'DOCUMENTI ARCHIVIATI';
+	$document_count = 0;
+	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
+		if ( ! in_array( isset( $file['group'] ) ? $file['group'] : '', array( 'identity', 'tax_card' ), true ) ) {
+			continue;
+		}
+		$rows[] = '- ' . ( isset( $file['label'] ) ? $file['label'] : 'Documento' ) . ': ' . ( isset( $file['name'] ) ? $file['name'] : '' );
+		$document_count++;
+	}
+	if ( ! $document_count ) {
+		$rows[] = '- Nessun documento presente';
+	}
+	$rows[] = '';
+	$rows[] = 'Documento generato automaticamente dal Portale Artisti TRB rec.';
+	return implode( "\r\n", array_map( 'sanitize_text_field', $rows ) ) . "\r\n";
+}
+
+/** Give identity documents deterministic names and remove obsolete variants. */
+function trb_portal_pcloud_document_basename( $file ) {
+	$label = isset( $file['label'] ) ? remove_accents( strtolower( $file['label'] ) ) : '';
+	if ( 'identity' === ( isset( $file['group'] ) ? $file['group'] : '' ) ) {
+		return false !== strpos( $label, 'retro' ) ? 'Carta identita - retro' : 'Carta identita - fronte';
+	}
+	if ( 'tax_card' === ( isset( $file['group'] ) ? $file['group'] : '' ) ) {
+		return false !== strpos( $label, 'retro' ) ? 'Codice fiscale o tessera sanitaria - retro' : 'Codice fiscale o tessera sanitaria - fronte';
+	}
+	return '';
+}
+
+/** Mirror the current profile and its reserved documents to the private archive. */
+function trb_portal_sync_profile_to_pcloud( $user_id, $attempt = 0 ) {
+	$user_id = absint( $user_id );
+	$attempt = absint( $attempt );
+	if ( ! $user_id || ! get_userdata( $user_id ) || ! function_exists( 'trb_demo_ensure_remote_folder' ) || ! function_exists( 'trb_demo_webdav_request' ) ) {
+		return;
+	}
+	$folder = trb_portal_pcloud_artist_folder( $user_id );
+	$result = trb_demo_ensure_remote_folder( $folder );
+	if ( ! is_wp_error( $result ) ) {
+		$profile_text = trb_portal_pcloud_profile_document( $user_id );
+		$response = trb_demo_webdav_request( 'PUT', $folder . '/Dati anagrafici.txt', $profile_text, array( 'Content-Type' => 'text/plain; charset=UTF-8' ) );
+		if ( is_wp_error( $response ) || ! in_array( wp_remote_retrieve_response_code( $response ), array( 200, 201, 204 ), true ) ) {
+			$result = new WP_Error( 'profile_document_upload_failed' );
+		}
+	}
+	$uploads     = wp_upload_dir();
+	$private_dir = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' );
+	if ( ! is_wp_error( $result ) ) {
+		foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
+			$basename = trb_portal_pcloud_document_basename( $file );
+			if ( ! $basename || empty( $file['path'] ) ) {
+				continue;
+			}
+			$local = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) );
+			if ( ! $private_dir || ! $local || 0 !== strpos( $local, $private_dir . DIRECTORY_SEPARATOR ) || ! is_file( $local ) ) {
+				$result = new WP_Error( 'private_document_missing' );
+				break;
+			}
+			$extension = strtolower( pathinfo( $local, PATHINFO_EXTENSION ) );
+			foreach ( array( 'pdf', 'jpg', 'jpeg', 'png' ) as $old_extension ) {
+				if ( $old_extension !== $extension ) {
+					trb_demo_webdav_request( 'DELETE', $folder . '/' . $basename . '.' . $old_extension );
+				}
+			}
+			$response = trb_demo_webdav_request( 'PUT', $folder . '/' . $basename . '.' . $extension, file_get_contents( $local ), array( 'Content-Type' => isset( $file['type'] ) ? $file['type'] : 'application/octet-stream' ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			if ( is_wp_error( $response ) || ! in_array( wp_remote_retrieve_response_code( $response ), array( 200, 201, 204 ), true ) ) {
+				$result = new WP_Error( 'private_document_upload_failed' );
+				break;
+			}
+		}
+	}
+	if ( is_wp_error( $result ) ) {
+		update_user_meta( $user_id, '_trb_pcloud_profile_sync', array( 'state' => 'error', 'time' => time(), 'code' => $result->get_error_code() ) );
+		if ( $attempt < 3 ) {
+			wp_schedule_single_event( time() + HOUR_IN_SECONDS, 'trb_portal_sync_profile_to_pcloud', array( $user_id, $attempt + 1 ) );
+		}
+		return;
+	}
+	update_user_meta( $user_id, '_trb_pcloud_profile_sync', array( 'state' => 'success', 'time' => time(), 'folder' => $folder ) );
+}
+add_action( 'trb_portal_sync_profile_to_pcloud', 'trb_portal_sync_profile_to_pcloud', 10, 2 );
+
+/** Queue one safe backfill so profiles completed before this feature are archived too. */
+function trb_portal_schedule_pcloud_profile_backfill() {
+	if ( get_option( 'trb_portal_pcloud_profile_backfill_v1' ) ) {
+		return;
+	}
+	$roles = array( 'artisti_trb_basic' );
+	foreach ( trb_portal_profiles() as $profile ) {
+		$roles[] = $profile['role'];
+		$roles = array_merge( $roles, isset( $profile['aliases'] ) ? (array) $profile['aliases'] : array() );
+	}
+	$users = get_users( array( 'role__in' => array_unique( $roles ), 'fields' => 'ids', 'number' => 500 ) );
+	$delay = 20;
+	foreach ( $users as $user_id ) {
+		if ( '' === trb_portal_artist_profile_value( 'artist_name', $user_id ) && empty( trb_portal_private_profile_files( $user_id ) ) ) {
+			continue;
+		}
+		trb_portal_queue_pcloud_profile_sync( $user_id, $delay );
+		$delay += 5;
+	}
+	update_option( 'trb_portal_pcloud_profile_backfill_v1', time(), false );
+}
+add_action( 'init', 'trb_portal_schedule_pcloud_profile_backfill', 60 );
 
 function trb_portal_remove_private_profile_files( $user_id ) {
 	$remove_ids = isset( $_POST['trb_artist_remove_files'] ) ? array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['trb_artist_remove_files'] ) ) : array();
@@ -1313,7 +1490,7 @@ function trb_portal_render_video_library( $profile ) {
 			<div class="trb-video__toolbar"><div class="trb-video__progress"><strong><?php echo esc_html( $completed ); ?> lezioni completate su <?php echo esc_html( count( $videos ) ); ?></strong><span><i style="width:<?php echo esc_attr( count( $videos ) ? round( $completed / count( $videos ) * 100 ) : 0 ); ?>%"></i></span></div><div class="trb-video__search-row"><input type="search" placeholder="Cerca una lezione" aria-label="Cerca una lezione" data-video-search /><select data-video-state aria-label="Filtra per stato"><option value="">Tutti gli stati</option><option value="Da iniziare">Da iniziare</option><option value="In corso">In corso</option><option value="Completato">Completati</option></select></div><div class="trb-video__filters" role="group" aria-label="Filtra le lezioni"><button type="button" data-video-category="" class="is-active">Tutte</button><?php foreach ( array( 'Scrittura e composizione', 'Canto e interpretazione', 'Registrazione', 'Mixaggio e mastering', 'Live e DJ set', 'Social e profili artista', 'Identità e branding', 'Contenuti video', 'Music business' ) as $category ) : ?><button type="button" data-video-category="<?php echo esc_attr( $category ); ?>"><?php echo esc_html( $category ); ?></button><?php endforeach; ?></div></div>
 			<div class="trb-portal__video-grid" data-video-grid>
 				<?php foreach ( $videos as $video ) : $youtube = get_post_meta( $video->ID, '_trb_video_youtube', true ); $category = get_post_meta( $video->ID, '_trb_video_category', true ); $item_progress = isset( $progress[ $video->ID ] ) ? $progress[ $video->ID ] : array(); $state = ! empty( $item_progress['completed_at'] ) ? 'Completato' : ( ! empty( $item_progress['started_at'] ) ? 'In corso' : 'Da iniziare' ); ?>
-					<article class="trb-portal__video-card" data-video-card data-category="<?php echo esc_attr( $category ); ?>" data-state="<?php echo esc_attr( $state ); ?>" data-search="<?php echo esc_attr( strtolower( $video->post_title . ' ' . $video->post_excerpt . ' ' . $category ) ); ?>"><button type="button" class="trb-video__open" data-video-open="<?php echo esc_attr( $video->ID ); ?>"><span class="trb-video__thumb"><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $youtube ); ?>/hqdefault.jpg" alt="" loading="lazy" /><i aria-hidden="true">▶</i></span><small><?php echo esc_html( $category ); ?></small><h3><?php echo esc_html( $video->post_title ); ?></h3><p><?php echo esc_html( $video->post_excerpt ); ?></p><span class="trb-video__meta"><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_level', true ) ); ?> · Italiano · <?php echo esc_html( $state ); ?></span><b><?php echo 'Completato' === $state ? 'Rivedi' : ( 'In corso' === $state ? 'Continua' : 'Inizia la lezione' ); ?></b></button></article>
+					<article class="trb-portal__video-card" data-video-card data-category="<?php echo esc_attr( $category ); ?>" data-state="<?php echo esc_attr( $state ); ?>" data-search="<?php echo esc_attr( strtolower( $video->post_title . ' ' . $video->post_excerpt . ' ' . $category ) ); ?>"><button type="button" class="trb-video__open" data-video-open="<?php echo esc_attr( $video->ID ); ?>"><span class="trb-video__thumb"><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $youtube ); ?>/hqdefault.jpg" alt="" loading="lazy" /><i aria-hidden="true">▶</i></span><small><?php echo esc_html( $category ); ?></small><h3><?php echo esc_html( $video->post_title ); ?></h3><p><?php echo esc_html( $video->post_excerpt ); ?></p><span class="trb-video__meta"><?php echo esc_html( get_pos…19 tokens truncated… echo esc_html( $state ); ?></span><b><?php echo 'Completato' === $state ? 'Rivedi' : ( 'In corso' === $state ? 'Continua' : 'Inizia la lezione' ); ?></b></button></article>
 					<template id="trb-video-<?php echo esc_attr( $video->ID ); ?>"><div class="trb-video__lesson" data-lesson-id="<?php echo esc_attr( $video->ID ); ?>" data-youtube="<?php echo esc_attr( $youtube ); ?>" data-last-position="<?php echo esc_attr( isset( $item_progress['last_position_seconds'] ) ? $item_progress['last_position_seconds'] : 0 ); ?>"><p class="trb-portal__eyebrow"><?php echo esc_html( $category ); ?></p><h2><?php echo esc_html( $video->post_title ); ?></h2><p class="trb-video__lesson-meta"><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_level', true ) ); ?> · Italiano · Lezione <?php echo esc_html( get_post_meta( $video->ID, '_trb_video_order', true ) ); ?> di <?php echo esc_html( count( $videos ) ); ?></p><div class="trb-video__player" data-video-player><button type="button" data-video-play><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $youtube ); ?>/hqdefault.jpg" alt="Avvia <?php echo esc_attr( $video->post_title ); ?>" /><span>Avvia la lezione</span></button></div><p class="trb-video__author">Contenuto realizzato dal canale originale indicato su YouTube<?php $author = get_post_meta( $video->ID, '_trb_video_author', true ); echo $author ? ': ' . esc_html( $author ) : ''; ?>.</p><h3>Perché guardare questa lezione</h3><p><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_why', true ) ); ?></p><h3>Cosa imparerai</h3><ul><?php foreach ( preg_split( '/\r\n|\r|\n/', get_post_meta( $video->ID, '_trb_video_objectives', true ) ) as $objective ) : if ( trim( $objective ) ) : ?><li><?php echo esc_html( $objective ); ?></li><?php endif; endforeach; ?></ul><h3>Mettilo in pratica</h3><p><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_exercise', true ) ); ?></p><div class="trb-video__lesson-actions"><button type="button" class="trb-button" data-video-complete>Ho completato questa lezione</button><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $youtube ); ?>" target="_blank" rel="noopener">Apri su YouTube ↗</a></div><p class="trb-video__completion" data-video-completion hidden></p></div></template>
 				<?php endforeach; ?>
 			</div>
