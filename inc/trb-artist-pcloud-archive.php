@@ -82,6 +82,7 @@ function trb_artist_archive_document_slots() {
 
 function trb_artist_archive_sync( $user_id ) {
 	if ( ! function_exists( 'trb_demo_webdav_request' ) ) return new WP_Error( 'pcloud_module_unavailable' );
+	if ( function_exists( 'trb_portal_deduplicate_private_profile_files' ) ) trb_portal_deduplicate_private_profile_files( $user_id );
 	$folder = trb_artist_archive_folder( $user_id );
 	if ( is_wp_error( $folder ) ) return $folder;
 	$ready = trb_demo_ensure_remote_folder( $folder );

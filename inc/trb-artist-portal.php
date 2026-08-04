@@ -695,11 +695,46 @@ function trb_portal_private_upload_items( $input_name ) {
 	return $items;
 }
 
+/** Remove byte-identical private files while preserving the first valid copy. */
+function trb_portal_deduplicate_private_profile_files( $user_id ) {
+	$upload_dir = wp_upload_dir();
+	$private_dir = realpath( trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private' );
+	$unique = array();
+	$seen = array();
+	$removed = 0;
+	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
+		$target = ! empty( $file['path'] ) ? realpath( trailingslashit( $upload_dir['basedir'] ) . ltrim( $file['path'], '/' ) ) : false;
+		if ( ! $private_dir || ! $target || 0 !== strpos( $target, $private_dir . DIRECTORY_SEPARATOR ) || ! is_file( $target ) ) {
+			$unique[] = $file;
+			continue;
+		}
+		$hash = hash_file( 'sha256', $target );
+		$key = ( isset( $file['group'] ) ? $file['group'] : '' ) . '|' . ( isset( $file['label'] ) ? $file['label'] : '' ) . '|' . $hash;
+		if ( isset( $seen[ $key ] ) ) {
+			wp_delete_file( $target );
+			$removed++;
+			continue;
+		}
+		$seen[ $key ] = true;
+		$file['sha256'] = $hash;
+		$unique[] = $file;
+	}
+	update_user_meta( $user_id, '_trb_artist_private_files', $unique );
+	return $removed;
+}
+
 function trb_portal_handle_private_profile_uploads( $user_id ) {
 	if ( empty( $_FILES ) ) return;
 
 	require_once ABSPATH . 'wp-admin/includes/file.php';
+	trb_portal_deduplicate_private_profile_files( $user_id );
 	$existing       = trb_portal_private_profile_files( $user_id );
+	$known_hashes   = array();
+	foreach ( $existing as $stored_file ) {
+		if ( ! empty( $stored_file['sha256'] ) ) {
+			$known_hashes[ ( isset( $stored_file['group'] ) ? $stored_file['group'] : '' ) . '|' . ( isset( $stored_file['label'] ) ? $stored_file['label'] : '' ) . '|' . $stored_file['sha256'] ] = true;
+		}
+	}
 	$photos_count   = count( array_filter( $existing, function( $file ) { return isset( $file['group'] ) && 'photo' === $file['group']; } ) );
 	$uploads        = array(
 		'trb_artist_photos'       => array( 'group' => 'photo', 'label' => 'Foto artista', 'mimes' => array( 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp' ) ),
@@ -728,6 +763,11 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 			if ( UPLOAD_ERR_OK !== $file['error'] ) {
 				continue;
 			}
+			$incoming_hash = hash_file( 'sha256', $file['tmp_name'] );
+			$hash_key = $settings['group'] . '|' . $settings['label'] . '|' . $incoming_hash;
+			if ( isset( $known_hashes[ $hash_key ] ) ) {
+				continue;
+			}
 
 			add_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
 			$handled = wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $settings['mimes'] ) );
@@ -753,7 +793,9 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 				'path'  => str_replace( trailingslashit( $upload_dir['basedir'] ), '', $handled['file'] ),
 				'type'  => $handled['type'],
 				'time'  => time(),
+				'sha256' => $incoming_hash,
 			);
+			$known_hashes[ $hash_key ] = true;
 			if ( 'photo' === $settings['group'] ) {
 				$photos_count++;
 			}
@@ -761,6 +803,7 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 	}
 
 	update_user_meta( $user_id, '_trb_artist_private_files', $existing );
+	trb_portal_deduplicate_private_profile_files( $user_id );
 }
 
 function trb_portal_user_releases() {

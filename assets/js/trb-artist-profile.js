@@ -163,10 +163,70 @@
     }
   }
 
+  function initProfileUploadProgress() {
+    document.querySelectorAll('.trb-portal__profile-form').forEach(function (form) {
+      var submitting = false;
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        if (submitting || !form.reportValidity()) return;
+        submitting = true;
+
+        var button = form.querySelector('button[type="submit"]');
+        var originalLabel = button ? button.textContent : '';
+        var panel = document.createElement('div');
+        panel.className = 'trb-portal__upload-progress';
+        panel.setAttribute('role', 'status');
+        panel.innerHTML = '<div><strong>Caricamento e salvataggio</strong><span data-trb-upload-percent>0%</span></div><div class="trb-portal__upload-progress-track"><span></span></div><small data-trb-upload-status>Preparazione dei file… Non chiudere la pagina e non inviare nuovamente il modulo.</small>';
+        if (button) {
+          button.disabled = true;
+          button.textContent = 'Caricamento in corso…';
+          form.insertBefore(panel, button);
+        } else {
+          form.appendChild(panel);
+        }
+
+        var percent = panel.querySelector('[data-trb-upload-percent]');
+        var bar = panel.querySelector('.trb-portal__upload-progress-track span');
+        var status = panel.querySelector('[data-trb-upload-status]');
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action, true);
+        xhr.withCredentials = true;
+        xhr.upload.addEventListener('progress', function (uploadEvent) {
+          if (!uploadEvent.lengthComputable) return;
+          var value = Math.min(99, Math.round((uploadEvent.loaded / uploadEvent.total) * 100));
+          percent.textContent = value + '%';
+          bar.style.width = value + '%';
+          status.textContent = value < 100 ? 'Caricamento dei file in corso…' : 'File caricati. Salvataggio del profilo…';
+        });
+        xhr.addEventListener('load', function () {
+          if (xhr.status >= 200 && xhr.status < 400) {
+            percent.textContent = '100%';
+            bar.style.width = '100%';
+            status.textContent = 'Salvataggio completato. Aggiornamento del profilo…';
+            window.location.assign(xhr.responseURL || window.location.href.split('#')[0] + '#profilo');
+            return;
+          }
+          submitting = false;
+          panel.classList.add('is-error');
+          status.textContent = 'Il server non ha completato il salvataggio. Riprova una sola volta.';
+          if (button) { button.disabled = false; button.textContent = originalLabel; }
+        });
+        xhr.addEventListener('error', function () {
+          submitting = false;
+          panel.classList.add('is-error');
+          status.textContent = 'Connessione interrotta. Nessun nuovo invio è stato avviato: controlla la rete e riprova.';
+          if (button) { button.disabled = false; button.textContent = originalLabel; }
+        });
+        xhr.send(new FormData(form));
+      });
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initAddress();
     initBirthplace();
     initIdentityValidation();
     initPlatforms();
+    initProfileUploadProgress();
   });
 }());

@@ -356,6 +356,14 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 [data-trb-postcode-status] { line-height: 1.45; }
 [data-trb-postcode-status].is-error { color: #b42318; font-weight: 700; }
 .trb-portal__profile-form input[readonly] { background: #eef0f6; color: #4b5565; cursor: not-allowed; }
+.trb-portal__upload-progress { background: #f4f5ff; border: 1px solid #d7d9ff; border-radius: 12px; padding: 15px 17px; }
+.trb-portal__upload-progress > div:first-child { align-items: center; color: var(--trb-ink); display: flex; font-size: 13px; justify-content: space-between; }
+.trb-portal__upload-progress > div:first-child span { color: var(--trb-accent); font-weight: 900; }
+.trb-portal__upload-progress-track { background: #dfe1ff; border-radius: 999px; height: 8px; margin: 11px 0 8px; overflow: hidden; }
+.trb-portal__upload-progress-track span { background: linear-gradient(90deg,var(--trb-accent),#7478ff); border-radius: inherit; display: block; height: 100%; transition: width .2s ease; width: 0; }
+.trb-portal__upload-progress small { color: var(--trb-ink-soft); margin: 0; }
+.trb-portal__upload-progress.is-error { background: #fff1f0; border-color: #f3c5c1; }
+.trb-portal__upload-progress.is-error small { color: #b42318; font-weight: 700; }
 
 /* Public entry pages are self-contained: the legacy Docy header must never
    compete with the Artist Portal header. */
