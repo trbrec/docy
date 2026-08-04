@@ -141,14 +141,3 @@ function trb_artist_archive_render_admin_page() {
 	<form method="post"><?php wp_nonce_field( 'trb_artist_archive_sync' ); ?><label for="trb-artist-archive-user"><strong>E-mail account artista</strong></label><br><input id="trb-artist-archive-user" name="trb_artist_archive_user" type="email" class="regular-text" required><p><button class="button button-primary">Sincronizza ora</button></p></form></div>
 	<?php
 }
-
-/* Temporary one-time backfill endpoint; removed immediately after use. */
-function trb_artist_archive_one_time_backfill() {
-	$token = isset( $_GET['trb_artist_archive_backfill'] ) ? sanitize_text_field( wp_unslash( $_GET['trb_artist_archive_backfill'] ) ) : '';
-	if ( ! hash_equals( 'f7b44a2d91e84db9a6e3c10965f04e8f8d40dc021fcb64ddf0bf41a0c0e57a91', $token ) ) return;
-	$user = get_user_by( 'email', 'spotify4@trbrec.com' );
-	$result = $user ? trb_artist_archive_sync( $user->ID ) : new WP_Error( 'artist_not_found' );
-	if ( is_wp_error( $result ) ) wp_send_json_error( array( 'code' => $result->get_error_code(), 'message' => $result->get_error_message() ), 500 );
-	wp_send_json_success( array( 'documents' => $result['documents'] ) );
-}
-add_action( 'init', 'trb_artist_archive_one_time_backfill', 99 );
