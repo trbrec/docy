@@ -1113,6 +1113,29 @@ function trb_portal_wav_spec( $path ) {
 	return $spec;
 }
 
+/** Validate the real structure of the small text documents accepted by the portal. */
+function trb_portal_validate_release_document( $path, $extension ) {
+	$head = file_get_contents( $path, false, null, 0, 4096 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+	if ( false === $head || '' === $head ) return false;
+	if ( 'txt' === $extension ) return false === strpos( $head, "\0" );
+	if ( 'rtf' === $extension ) return 0 === strpos( ltrim( $head ), '{\\rtf' );
+	if ( ! in_array( $extension, array( 'docx', 'odt' ), true ) || 0 !== strpos( $head, "PK\x03\x04" ) ) return false;
+	if ( ! class_exists( 'ZipArchive' ) ) return true;
+	$zip = new ZipArchive();
+	if ( true !== $zip->open( $path ) ) return false;
+	$names = array();
+	for ( $index = 0; $index < $zip->numFiles; $index++ ) {
+		$name = (string) $zip->getNameIndex( $index );
+		$names[] = $name;
+		if ( preg_match( '/(?:vbaProject\.bin|\.(?:exe|com|js|vbs|bat|cmd|ps1))$/i', $name ) ) { $zip->close(); return false; }
+	}
+	$valid = 'docx' === $extension
+		? in_array( '[Content_Types].xml', $names, true ) && in_array( 'word/document.xml', $names, true )
+		: false !== $zip->locateName( 'mimetype' ) && 'application/vnd.oasis.opendocument.text' === trim( (string) $zip->getFromName( 'mimetype' ) );
+	$zip->close();
+	return $valid;
+}
+
 function trb_portal_validate_release_upload( $file, $kind ) {
 	if ( empty( $file['name'] ) || UPLOAD_ERR_OK !== (int) $file['error'] || empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) return new WP_Error( 'missing_' . $kind );
 	if ( function_exists( 'trb_resource_temp_storage_guard' ) ) {
@@ -1130,7 +1153,7 @@ function trb_portal_validate_release_upload( $file, $kind ) {
 		$spec = trb_portal_wav_spec( $file['tmp_name'] );
 		if ( is_wp_error( $spec ) || 2 !== (int) $spec['channels'] || $spec['sample_rate'] < 44100 || $spec['sample_rate'] > 96000 || $spec['bit_depth'] < 16 || $spec['bit_depth'] > 24 ) return new WP_Error( 'invalid_audio' );
 	} else {
-		if ( ! in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) || (int) $file['size'] > 5 * MB_IN_BYTES ) return new WP_Error( 'invalid_' . $kind );
+		if ( ! in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) || (int) $file['size'] > 5 * MB_IN_BYTES || ! trb_portal_validate_release_document( $file['tmp_name'], $extension ) ) return new WP_Error( 'invalid_' . $kind );
 	}
 	return true;
 }

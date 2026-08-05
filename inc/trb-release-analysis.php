@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.0.4' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.0.5' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -39,12 +39,20 @@ function trb_analysis_exec( $command ) {
 	return array( 'code' => $code, 'output' => implode( "\n", $output ) );
 }
 
-/** Scan untrusted supplementary material before it can enter the release archive. */
+function trb_analysis_wordfence_active() {
+	return defined( 'WORDFENCE_VERSION' ) || class_exists( 'wfConfig' ) || class_exists( 'wordfence' );
+}
+
+/**
+ * Optionally scan supplementary material when a local ClamAV binary exists.
+ * WAV files never reach this function: they are verified as PCM and decoded
+ * completely with FFmpeg before analysis.
+ */
 function trb_analysis_antivirus_scan( $path ) {
 	$s = trb_analysis_settings();
 	$binary = trb_analysis_binary( 'clamdscan', $s['clamav_binary'] );
 	if ( ! $binary ) $binary = trb_analysis_binary( 'clamscan', $s['clamav_binary'] );
-	if ( ! $binary ) return new WP_Error( 'VIRUS_SCAN_UNAVAILABLE', 'Il servizio antivirus non è disponibile.' );
+	if ( ! $binary ) return true;
 	$result = trb_analysis_exec( escapeshellarg( $binary ) . ' --no-summary -- ' . escapeshellarg( $path ) );
 	if ( 0 === $result['code'] ) return true;
 	return new WP_Error( 1 === $result['code'] ? 'MALWARE_DETECTED' : 'VIRUS_SCAN_FAILED', wp_strip_all_tags( $result['output'] ) );
@@ -394,8 +402,8 @@ function trb_analysis_admin_page() {
 	$cases = (array) get_option( 'trb_analysis_benchmark_cases', array() ); $count = count( $cases ); $ready = ! empty( $s['benchmark_complete'] ) && $count >= absint( $s['benchmark_required'] );
 	?>
 	<div class="wrap"><h1>Analisi release TRB</h1><?php if ( $message ) : ?><div class="notice notice-success"><p><?php echo esc_html( $message ); ?></p></div><?php endif; ?>
-	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Antivirus</th><td><?php echo esc_html( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? 'Disponibile' : 'NON disponibile' ); ?></td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · pronto' : ' · approvazione automatica bloccata' ) ); ?></td></tr></tbody></table>
-	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"></td></tr><tr><th>Master LUFS max / min</th><td><input name="master_lufs_max" value="<?php echo esc_attr( $s['master_lufs_max'] ); ?>"> <input name="master_lufs_min" value="<?php echo esc_attr( $s['master_lufs_min'] ); ?>"></td></tr><tr><th>Pre-master peak massimo</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label> <label><input type="checkbox" name="auto_approval" <?php checked( $s['auto_approval'] ); ?>> Consenti auto-approvazione verde solo dopo benchmark</label></td></tr><tr><th>Binario ClamAV</th><td><input class="regular-text" name="clamav_binary" value="<?php echo esc_attr( $s['clamav_binary'] ); ?>" placeholder="Rilevamento automatico se vuoto"></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
+	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili · WAV PCM verificati e decodificati integralmente' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Sicurezza caricamenti</th><td><?php echo esc_html( 'Controlli rigorosi sul formato' . ( trb_analysis_wordfence_active() ? ' · Wordfence attivo' : '' ) . ( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? ' · ClamAV aggiuntivo disponibile' : '' ) ); ?></td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · pronto' : ' · approvazione automatica bloccata' ) ); ?></td></tr></tbody></table>
+	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"></td></tr><tr><th>Master LUFS max / min</th><td><input name="master_lufs_max" value="<?php echo esc_attr( $s['master_lufs_max'] ); ?>"> <input name="master_lufs_min" value="<?php echo esc_attr( $s['master_lufs_min'] ); ?>"></td></tr><tr><th>Pre-master peak massimo</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label> <label><input type="checkbox" name="auto_approval" <?php checked( $s['auto_approval'] ); ?>> Consenti auto-approvazione verde solo dopo benchmark</label></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
 	<h2>Registra caso benchmark</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_benchmark_add' ); ?><input required name="label" placeholder="Caso / hash"> <select name="expected"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <select name="actual"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <input type="number" name="duration_ms" placeholder="ms"> <input type="number" step="0.000001" name="cost" placeholder="USD"> <button class="button" name="trb_analysis_benchmark_add" value="1">Registra</button></form>
 	<?php if ( $cases ) : ?><table class="widefat striped" style="margin-top:12px"><thead><tr><th>Caso</th><th>Atteso</th><th>Risultato</th><th>Tempo</th><th>Costo</th></tr></thead><tbody><?php foreach ( array_reverse( $cases ) as $case ) : ?><tr><td><?php echo esc_html( $case['label'] ); ?></td><td><?php echo esc_html( $case['expected'] ); ?></td><td><?php echo esc_html( $case['actual'] ); ?></td><td><?php echo esc_html( $case['duration_ms'] . ' ms' ); ?></td><td><?php echo esc_html( $case['cost'] . ' USD' ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?></div><?php
 }
