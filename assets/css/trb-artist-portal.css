@@ -400,6 +400,9 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__upload-progress small { color: var(--trb-ink-soft); margin: 0; }
 .trb-portal__upload-progress.is-error { background: #fff1f0; border-color: #f3c5c1; }
 .trb-portal__upload-progress.is-error small { color: #b42318; font-weight: 700; }
+.trb-audio-duration-check { color: #087a55; display: block; font-size: 12px; font-weight: 700; margin-top: 8px; }
+.trb-audio-duration-check:empty { display: none; }
+.trb-audio-duration-check.is-error { color: #b42318; }
 
 /* Public entry pages are self-contained: the legacy Docy header must never
    compete with the Artist Portal header. */

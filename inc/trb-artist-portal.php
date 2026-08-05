@@ -1066,29 +1066,40 @@ function trb_portal_wav_spec( $path ) {
 		return new WP_Error( 'invalid_audio' );
 	}
 	$spec = null;
+	$data_size = null;
 	while ( ! feof( $handle ) ) {
 		$chunk = fread( $handle, 8 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
 		if ( 8 !== strlen( $chunk ) ) break;
 		$size_data = unpack( 'Vsize', substr( $chunk, 4, 4 ) );
 		$size = isset( $size_data['size'] ) ? (int) $size_data['size'] : 0;
 		if ( 'fmt ' === substr( $chunk, 0, 4 ) && $size >= 16 ) {
-			$format_data = fread( $handle, min( $size, 64 ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+			$read_size = min( $size, 64 );
+			$format_data = fread( $handle, $read_size ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
 			if ( strlen( $format_data ) >= 16 ) {
 				$values = unpack( 'vformat/vchannels/Vsample_rate/Vbyte_rate/vblock_align/vbits_per_sample', substr( $format_data, 0, 16 ) );
 				$spec = array(
 					'format'      => isset( $values['format'] ) ? (int) $values['format'] : 0,
 					'channels'    => isset( $values['channels'] ) ? (int) $values['channels'] : 0,
 					'sample_rate' => isset( $values['sample_rate'] ) ? (int) $values['sample_rate'] : 0,
+					'byte_rate'   => isset( $values['byte_rate'] ) ? (int) $values['byte_rate'] : 0,
 					'bit_depth'   => isset( $values['bits_per_sample'] ) ? (int) $values['bits_per_sample'] : 0,
 				);
 			}
-			if ( $size > 64 ) fseek( $handle, $size - 64, SEEK_CUR );
-			break;
+			if ( $size > $read_size ) fseek( $handle, $size - $read_size, SEEK_CUR );
+			if ( $size % 2 ) fseek( $handle, 1, SEEK_CUR );
+			if ( null !== $data_size ) break;
+			continue;
+		}
+		if ( 'data' === substr( $chunk, 0, 4 ) ) {
+			$data_size = $size;
+			if ( is_array( $spec ) ) break;
 		}
 		fseek( $handle, $size + ( $size % 2 ), SEEK_CUR );
 	}
 	fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
-	if ( ! is_array( $spec ) || ! in_array( $spec['format'], array( 1, 65534 ), true ) ) return new WP_Error( 'invalid_audio' );
+	if ( ! is_array( $spec ) || ! in_array( $spec['format'], array( 1, 65534 ), true ) || null === $data_size || $spec['byte_rate'] <= 0 ) return new WP_Error( 'invalid_audio' );
+	$spec['data_size'] = $data_size;
+	$spec['duration_seconds'] = $data_size / $spec['byte_rate'];
 	return $spec;
 }
 
@@ -1110,7 +1121,31 @@ function trb_portal_validate_release_upload( $file, $kind ) {
 	return true;
 }
 
-function trb_portal_store_release_upload( $release_id, $file, $kind, $track_index = null ) {
+function trb_portal_release_audio_name_segment( $value, $fallback ) {
+	$value = trim( wp_strip_all_tags( (string) $value ) );
+	$value = preg_replace( '/[\\\\\/:*?"<>|]+/u', '-', $value );
+	$value = preg_replace( '/\s+/u', '_', $value );
+	$value = preg_replace( '/_+/u', '_', $value );
+	$value = trim( $value, " .-_\t\n\r\0\x0B" );
+	return '' !== $value ? $value : $fallback;
+}
+
+function trb_portal_release_audio_filename( $release_id, $track_index, $track_title, $audio_status ) {
+	$release = get_post( $release_id );
+	$artist_name = $release ? trb_portal_artist_profile_value( 'artist_name', $release->post_author ) : '';
+	$artist = trb_portal_release_audio_name_segment( $artist_name, 'Artista' );
+	$title = trb_portal_release_audio_name_segment( $track_title, 'Brano_' . ( absint( $track_index ) + 1 ) );
+	$suffix = 'mastering' === $audio_status ? 'PRE-MST' : 'MST';
+	return sprintf( '%02d)_%s_-_%s_(%s).wav', absint( $track_index ) + 1, $artist, $title, $suffix );
+}
+
+function trb_portal_release_track_duration_seconds( $track ) {
+	$duration = isset( $track['duration'] ) ? (string) $track['duration'] : '';
+	if ( ! preg_match( '/^(\d{2}):([0-5]\d)$/', $duration, $parts ) ) return 0;
+	return ( (int) $parts[1] * 60 ) + (int) $parts[2];
+}
+
+function trb_portal_store_release_upload( $release_id, $file, $kind, $track_index = null, $metadata = array() ) {
 	$valid = trb_portal_validate_release_upload( $file, $kind );
 	if ( is_wp_error( $valid ) ) return $valid;
 	$uploads = wp_upload_dir();
@@ -1121,7 +1156,16 @@ function trb_portal_store_release_upload( $release_id, $file, $kind, $track_inde
 	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	$prefix = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) );
 	$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ), PATHINFO_EXTENSION ) );
-	$filename = wp_unique_filename( $directory, sanitize_file_name( $prefix . '.' . $extension ) );
+	if ( 'audio' === $kind ) {
+		$filename = trb_portal_release_audio_filename(
+			$release_id,
+			$track_index,
+			isset( $metadata['track_title'] ) ? $metadata['track_title'] : '',
+			isset( $metadata['audio_status'] ) ? $metadata['audio_status'] : 'mastered'
+		);
+	} else {
+		$filename = wp_unique_filename( $directory, sanitize_file_name( $prefix . '.' . $extension ) );
+	}
 	$target = trailingslashit( $directory ) . $filename;
 	if ( ! move_uploaded_file( $file['tmp_name'], $target ) ) return new WP_Error( 'release_storage_failed' );
 	$stored = array( 'kind' => $kind, 'track' => null === $track_index ? null : absint( $track_index ), 'name' => $filename, 'original_name' => sanitize_file_name( $file['name'] ), 'path' => $relative_dir . '/' . $filename, 'type' => sanitize_mime_type( $file['type'] ), 'size' => filesize( $target ), 'sha256' => hash_file( 'sha256', $target ) );
@@ -1169,7 +1213,8 @@ function trb_portal_serve_release_file() {
 	nocache_headers();
 	header( 'Content-Type: ' . sanitize_mime_type( isset( $file['type'] ) ? $file['type'] : 'application/octet-stream' ) );
 	$inline = ! empty( $_GET['view'] ) && isset( $file['kind'] ) && 'cover' === $file['kind'];
-	header( 'Content-Disposition: ' . ( $inline ? 'inline' : 'attachment' ) . '; filename="' . sanitize_file_name( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) . '"' );
+	$download_name = isset( $file['kind'] ) && 'audio' === $file['kind'] && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] );
+	header( 'Content-Disposition: ' . ( $inline ? 'inline' : 'attachment' ) . '; filename="' . sanitize_file_name( $download_name ) . '"' );
 	header( 'X-Content-Type-Options: nosniff' );
 	readfile( $target ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile
 	exit;
@@ -1188,17 +1233,36 @@ function trb_portal_replace_release_file() {
 	$kind = isset( $old_file['kind'] ) ? $old_file['kind'] : '';
 	$valid = in_array( $kind, array( 'cover', 'presentation', 'lyrics', 'audio' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind ) : new WP_Error( 'invalid_file' );
 	if ( 'cover' === $kind && empty( $_POST['trb_release_cover_300dpi'] ) ) $valid = new WP_Error( 'invalid_cover' );
+	if ( 'audio' === $kind && ! is_wp_error( $valid ) ) {
+		$release_tracks    = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
+		$replacement_track = isset( $old_file['track'] ) ? absint( $old_file['track'] ) : 0;
+		$declared_seconds  = isset( $release_tracks[ $replacement_track ] ) ? trb_portal_release_track_duration_seconds( $release_tracks[ $replacement_track ] ) : 0;
+		$wav_spec          = trb_portal_wav_spec( $new_upload['tmp_name'] );
+		if ( is_wp_error( $wav_spec ) || $declared_seconds <= 0 || abs( $wav_spec['duration_seconds'] - $declared_seconds ) > 1.0 ) {
+			$valid = new WP_Error( 'audio_duration_mismatch' );
+		}
+	}
 	if ( is_wp_error( $valid ) ) {
-		wp_safe_redirect( add_query_arg( 'trb_release', 'file_invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
+		$invalid_status = 'audio_duration_mismatch' === $valid->get_error_code() ? 'duration_mismatch' : 'file_invalid';
+		wp_safe_redirect( add_query_arg( 'trb_release', $invalid_status, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
 		exit;
 	}
-	$stored = trb_portal_store_release_upload( $release_id, $new_upload, $kind, isset( $old_file['track'] ) ? $old_file['track'] : null );
+	$replacement_meta = array();
+	if ( 'audio' === $kind ) {
+		$release_tracks = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
+		$replacement_track = isset( $old_file['track'] ) ? absint( $old_file['track'] ) : 0;
+		$replacement_meta = array(
+			'track_title' => isset( $release_tracks[ $replacement_track ]['title'] ) ? $release_tracks[ $replacement_track ]['title'] : '',
+			'audio_status' => ! empty( $old_file['audio_status'] ) ? $old_file['audio_status'] : 'mastered',
+		);
+	}
+	$stored = trb_portal_store_release_upload( $release_id, $new_upload, $kind, isset( $old_file['track'] ) ? $old_file['track'] : null, $replacement_meta );
 	if ( is_wp_error( $stored ) ) {
 		wp_safe_redirect( add_query_arg( 'trb_release', 'file_error', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
 		exit;
 	}
 	if ( 'audio' === $kind && ! empty( $old_file['audio_status'] ) ) $stored['audio_status'] = $old_file['audio_status'];
-	trb_portal_delete_release_files( array( $old_file ) );
+	if ( empty( $old_file['path'] ) || empty( $stored['path'] ) || $old_file['path'] !== $stored['path'] ) trb_portal_delete_release_files( array( $old_file ) );
 	$files[ $file_index ] = $stored;
 	update_post_meta( $release_id, '_trb_release_files', array_values( $files ) );
 	if ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id, true );
@@ -1254,6 +1318,13 @@ function trb_portal_start_release() {
 		$audio = trb_portal_release_upload_item( 'trb_track_audio', $track_index );
 		$audio_valid = trb_portal_validate_release_upload( $audio, 'audio' );
 		if ( is_wp_error( $audio_valid ) || ! in_array( $audio_status, array( 'mastered', 'mastering' ), true ) || ( 'dds' === $profile && 'mastered' !== $audio_status ) ) $uploads_valid = is_wp_error( $audio_valid ) ? $audio_valid : new WP_Error( 'invalid_audio' );
+		if ( ! is_wp_error( $audio_valid ) ) {
+			$wav_spec = trb_portal_wav_spec( $audio['tmp_name'] );
+			$declared_seconds = ( isset( $posted_track['duration_minutes'] ) ? absint( $posted_track['duration_minutes'] ) : 0 ) * 60 + ( isset( $posted_track['duration_seconds'] ) ? absint( $posted_track['duration_seconds'] ) : 0 );
+			if ( is_wp_error( $wav_spec ) || $declared_seconds <= 0 || abs( $wav_spec['duration_seconds'] - $declared_seconds ) > 1.0 ) {
+				$uploads_valid = new WP_Error( 'audio_duration_mismatch' );
+			}
+		}
 		$lyrics = trb_portal_release_upload_item( 'trb_track_lyrics', $track_index );
 		if ( 'no_lyrics' !== $advisory ) {
 			$lyrics_valid = trb_portal_validate_release_upload( $lyrics, 'lyrics' );
@@ -1264,7 +1335,8 @@ function trb_portal_start_release() {
 		}
 	}
 	if ( ( ! $is_catalogue && '' === $title ) || ! isset( $types[ $type ] ) || empty( $tracks ) || count( $tracks ) < $types[ $type ]['min'] || ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) || ( 'previously_released' === $release_state && ! $original_date_valid ) || ( $is_catalogue && 'previously_released' !== $release_state ) || count( $tracks ) > $types[ $type ]['max'] || is_wp_error( $uploads_valid ) ) {
-		wp_safe_redirect( add_query_arg( 'trb_release', 'invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
+		$invalid_status = is_wp_error( $uploads_valid ) && 'audio_duration_mismatch' === $uploads_valid->get_error_code() ? 'duration_mismatch' : 'invalid';
+		wp_safe_redirect( add_query_arg( 'trb_release', $invalid_status, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
 		exit;
 	}
 	if ( $is_catalogue && '' === $title ) {
@@ -1302,7 +1374,8 @@ function trb_portal_start_release() {
 		$release_files[] = trb_portal_store_release_upload( $release_id, $presentation, 'presentation' );
 		foreach ( $posted_tracks as $track_index => $posted_track ) {
 			$audio = trb_portal_release_upload_item( 'trb_track_audio', $track_index );
-			$stored_audio = trb_portal_store_release_upload( $release_id, $audio, 'audio', $track_index );
+			$audio_status = isset( $posted_track['audio_status'] ) ? sanitize_key( $posted_track['audio_status'] ) : 'mastered';
+			$stored_audio = trb_portal_store_release_upload( $release_id, $audio, 'audio', $track_index, array( 'track_title' => isset( $posted_track['title'] ) ? sanitize_text_field( $posted_track['title'] ) : '', 'audio_status' => $audio_status ) );
 			if ( is_array( $stored_audio ) ) $stored_audio['audio_status'] = isset( $posted_track['audio_status'] ) ? sanitize_key( $posted_track['audio_status'] ) : 'mastered';
 			$release_files[] = $stored_audio;
 			$lyrics = trb_portal_release_upload_item( 'trb_track_lyrics', $track_index );
@@ -2494,7 +2567,7 @@ function trb_portal_render_release_files( $release_id ) {
 		$label = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : 'Testo del brano' ) );
 		if ( in_array( $kind, array( 'lyrics', 'audio' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
 		$accept = 'cover' === $kind ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : ( 'audio' === $kind ? '.wav,audio/wav,audio/x-wav' : '.txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text' );
-		?><article class="trb-release-file"><?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?><div class="trb-release-file__details"><strong><?php echo esc_html( $label ); ?></strong><span><?php echo esc_html( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ); ?></span><?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'mastering richiesto' : 'master' ) ); ?></small><?php endif; ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica il file</a><details><summary>Sostituisci</summary><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_replace_release_file" /><input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" /><input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" /><?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?><input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required /><?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV · minimo 44.100 Hz / 16 bit.</small><?php endif; ?><button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button></form></details></div></article><?php endforeach; ?></div></div><?php
+		?><article class="trb-release-file"><?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?><div class="trb-release-file__details"><strong><?php echo esc_html( $label ); ?></strong><span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span><?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'mastering richiesto' : 'master' ) ); ?></small><?php endif; ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica il file</a><details><summary>Sostituisci</summary><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_replace_release_file" /><input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" /><input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" /><?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?><input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required /><?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?><button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button></form></details></div></article><?php endforeach; ?></div></div><?php
 }
 
 function trb_portal_render_release_section() {
@@ -2514,6 +2587,9 @@ function trb_portal_render_release_section() {
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
 		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">File sostituito correttamente.</div><?php endif; ?>
 		<?php if ( 'profile_required' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Completa prima il profilo artista.</div><?php endif; ?>
+		<?php if ( 'duration_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>La durata indicata non coincide con il file WAV.</strong><p>Correggi minuti e secondi del brano: è ammessa una tolleranza massima di 1 secondo rispetto alla durata reale del file.</p></div><?php endif; ?>
+		<?php if ( 'file_invalid' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Il file sostitutivo non è stato acquisito.</strong><p>Formato, dimensioni o caratteristiche tecniche non rispettano i requisiti indicati. Il file precedente è rimasto invariato.</p></div><?php endif; ?>
+		<?php if ( 'file_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>La sostituzione non è stata completata.</strong><p>Il file precedente è rimasto invariato. Controlla la connessione e riprova una sola volta.</p></div><?php endif; ?>
 		<?php if ( 'monthly_limit' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Il profilo DDB12 consente di avviare una sola pratica per ogni mese solare, indipendentemente dal tipo di pubblicazione: singolo, EP, album, doppio album, compilation, collection o catalogo. Il limite si rinnova automaticamente il primo giorno di ogni mese; potrai creare una nuova release dal <?php echo esc_html( $ddb12_reset_label ); ?>, per un massimo complessivo di 12 release nell’anno.</p></div><?php endif; ?>
 		<?php if ( 'invalid' === $status || 'error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Alcuni dati sono mancanti o non validi. Controlla tutti i campi evidenziati.</div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
@@ -2544,7 +2620,7 @@ function trb_portal_render_release_section() {
 				<label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required data-track-advisory><option value="" selected disabled>Seleziona una voce</option><option value="no_lyrics">Nessun testo</option><option value="non_explicit">Testo non esplicito</option><option value="clean">Clean (versione censurata)</option><option value="explicit">Testo con contenuti espliciti</option></select></label>
 				<label>Genere musicale primario <span aria-hidden="true">*</span><input type="search" name="trb_tracks[__INDEX__][primary_genre]" required list="trb-release-genres" autocomplete="off" placeholder="Cerca e seleziona il genere primario" /></label>
 				<label>Genere musicale secondario <small>facoltativo</small><input type="search" name="trb_tracks[__INDEX__][secondary_genre]" list="trb-release-genres" autocomplete="off" placeholder="Cerca un eventuale genere secondario" /></label>
-			</div><div class="trb-track-audio"><strong>File audio del brano <span>*</span></strong><input type="file" name="trb_track_audio[__INDEX__]" accept=".wav,audio/wav,audio/x-wav" required /><small>Solo formato WAV · minimo 44.100 Hz / 16 bit. È fortemente consigliato 48.000 Hz / 24 bit. Il sistema verifica automaticamente le caratteristiche reali del file.</small><?php if ( 'dds' === $profile ) : ?><input type="hidden" name="trb_tracks[__INDEX__][audio_status]" value="mastered" /><p class="trb-audio-dds-note">Per il profilo DDS il file audio deve essere già in versione master.</p><?php else : ?><fieldset class="trb-audio-status"><legend>Stato del file audio <span>*</span></legend><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastered" required /> Il brano è già in versione master</label><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastering" required /> Richiedo il mastering del brano</label></fieldset><?php endif; ?></div><label class="trb-track-lyrics" data-track-lyrics hidden>Testo del brano <span>*</span><input type="file" name="trb_track_lyrics[__INDEX__]" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" disabled /><small>Obbligatorio quando il brano contiene un testo. Allega TXT, DOCX, ODT o RTF · massimo 5 MB.</small></label></div>
+			</div><div class="trb-track-audio"><strong>File audio del brano <span>*</span></strong><input type="file" name="trb_track_audio[__INDEX__]" accept=".wav,audio/wav,audio/x-wav" required /><small>Solo formato WAV · minimo 44.100 Hz / 16 bit. È fortemente consigliato 48.000 Hz / 24 bit. Il sistema verifica automaticamente caratteristiche e durata reale del file.</small><span class="trb-audio-duration-check" data-audio-duration-check aria-live="polite"></span><?php if ( 'dds' === $profile ) : ?><input type="hidden" name="trb_tracks[__INDEX__][audio_status]" value="mastered" /><p class="trb-audio-dds-note">Per il profilo DDS il file audio deve essere già in versione master.</p><?php else : ?><fieldset class="trb-audio-status"><legend>Stato del file audio <span>*</span></legend><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastered" required /> Il brano è già in versione master</label><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastering" required /> Richiedo il mastering del brano</label></fieldset><?php endif; ?></div><label class="trb-track-lyrics" data-track-lyrics hidden>Testo del brano <span>*</span><input type="file" name="trb_track_lyrics[__INDEX__]" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" disabled /><small>Obbligatorio quando il brano contiene un testo. Allega TXT, DOCX, ODT o RTF · massimo 5 MB.</small></label></div>
 			<fieldset class="trb-portal__credits"><legend>Crediti</legend><p class="trb-portal__field-help">Inserisci ogni persona separatamente e seleziona tutti i ruoli che si applicano.</p>
 				<div class="trb-contributor-group" data-contributor-group="writers"><h4>Autori e compositori <span>*</span></h4><p>Indica chi ha scritto il testo e chi ha composto la musica. La quota viene ripartita automaticamente in parti uguali fra le persone inserite.</p><div data-contributor-rows><div class="trb-contributor-row trb-contributor-row--writer"><input type="text" name="trb_tracks[__INDEX__][credits][writers][0][name]" required aria-label="Nome dell’autore o compositore" placeholder="Nome completo" /><fieldset class="trb-writer-roles"><legend>Ruolo <span>*</span></legend><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Lyricist" /> Autore</label><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Composer" /> Compositore</label></fieldset><label class="trb-writer-share">Quota diritto d’autore<input type="text" name="trb_tracks[__INDEX__][credits][writers][0][share]" value="100,00%" readonly tabindex="-1" data-writer-share /></label><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi autore/compositore</button></div>
 				<div class="trb-contributor-group" data-contributor-group="credits"><h4>Crediti <span>*</span></h4><p>Inserisci ogni ulteriore partecipante al brano e seleziona il ruolo Too Lost corrispondente. Aggiungi una riga distinta per ciascuna persona e per ciascun ruolo.</p><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][credits][0][name]" required aria-label="Nome della persona accreditata" placeholder="Nome completo o nome d’arte" /><input type="search" name="trb_tracks[__INDEX__][credits][credits][0][role]" required aria-label="Ruolo nei crediti" list="trb-credit-roles" autocomplete="off" placeholder="Cerca ruolo" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi credito</button></div>
@@ -2791,6 +2867,8 @@ function trb_portal_enqueue_assets() {
 		wp_localize_script( 'trb-video-academy', 'trbVideoAcademy', array( 'restRoot' => esc_url_raw( rest_url( 'trb/v1/' ) ), 'restNonce' => wp_create_nonce( 'wp_rest' ) ) );
 		$demo_path = get_template_directory() . '/assets/js/trb-demo-evaluation.js';
 		wp_enqueue_script( 'trb-demo-evaluation', get_template_directory_uri() . '/assets/js/trb-demo-evaluation.js', array(), file_exists( $demo_path ) ? (string) filemtime( $demo_path ) : DOCY_VERSION, true );
+		$release_upload_path = get_template_directory() . '/assets/js/trb-release-upload.js';
+		wp_enqueue_script( 'trb-release-upload', get_template_directory_uri() . '/assets/js/trb-release-upload.js', array(), file_exists( $release_upload_path ) ? (string) filemtime( $release_upload_path ) : DOCY_VERSION, true );
 
 		// The retired forum is not part of the Artist Portal. Some legacy plugins
 		// enqueue their assets globally, so prevent them from affecting or slowing

@@ -74,7 +74,7 @@ function trb_release_pcloud_sync( $release_id ) {
 		if ( is_wp_error( $ready ) ) return $ready;
 		$track_index = isset( $file['track'] ) ? absint( $file['track'] ) : count( $uploaded );
 		$track_title = isset( $tracks[ $track_index ]['title'] ) ? $tracks[ $track_index ]['title'] : 'Brano ' . ( $track_index + 1 );
-		$remote_name = sprintf( '%02d - %s.wav', $track_index + 1, trb_artist_archive_safe_segment( $track_title, 'Brano ' . ( $track_index + 1 ) ) );
+		$remote_name = ! empty( $file['name'] ) ? basename( $file['name'] ) : trb_portal_release_audio_filename( $release_id, $track_index, $track_title, $status );
 		$local = trb_release_pcloud_local_file( $file );
 		if ( ! $local ) return new WP_Error( 'release_audio_missing' );
 		$result = trb_release_pcloud_put_file( $folder . '/' . $remote_name, $local );
