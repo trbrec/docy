@@ -51,6 +51,65 @@ function trb_release_pcloud_put_file( $remote, $local ) {
 	return trb_artist_archive_put( $remote, file_get_contents( $local ), 'audio/wav' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 }
 
+/** Execute the small WebDAV requests used to verify and atomically publish a WAV. */
+function trb_release_pcloud_dav_request( $method, $remote, $headers = array() ) {
+	$settings = trb_demo_settings();
+	if ( empty( $settings['webdav_endpoint'] ) || empty( $settings['pcloud_user'] ) || empty( $settings['pcloud_pass'] ) || ! function_exists( 'curl_init' ) ) {
+		return new WP_Error( 'missing_webdav_settings' );
+	}
+	$curl = curl_init( trb_demo_remote_url( $settings['webdav_endpoint'], $remote ) );
+	curl_setopt_array( $curl, array(
+		CURLOPT_CUSTOMREQUEST  => $method,
+		CURLOPT_NOBODY         => 'HEAD' === $method,
+		CURLOPT_RETURNTRANSFER => true,
+		CURLOPT_HEADER         => true,
+		CURLOPT_USERPWD        => $settings['pcloud_user'] . ':' . $settings['pcloud_pass'],
+		CURLOPT_HTTPAUTH        => CURLAUTH_BASIC,
+		CURLOPT_HTTPHEADER      => $headers,
+		CURLOPT_CONNECTTIMEOUT => 30,
+		CURLOPT_TIMEOUT        => 120,
+	) );
+	$response = curl_exec( $curl );
+	$code = (int) curl_getinfo( $curl, CURLINFO_RESPONSE_CODE );
+	$error = curl_error( $curl );
+	curl_close( $curl );
+	if ( false === $response || $code < 200 || $code >= 300 ) {
+		return new WP_Error( 'pcloud_webdav_request_failed', $error ? $error : $method . ' ' . $code );
+	}
+	return array( 'code' => $code, 'headers' => (string) $response );
+}
+
+function trb_release_pcloud_remote_size( $remote ) {
+	$result = trb_release_pcloud_dav_request( 'HEAD', $remote );
+	if ( is_wp_error( $result ) ) return $result;
+	return preg_match( '/^Content-Length:\s*(\d+)/mi', $result['headers'], $matches ) ? (int) $matches[1] : new WP_Error( 'pcloud_size_unavailable' );
+}
+
+/**
+ * Upload to a temporary remote name, verify the complete byte count and only
+ * then replace the canonical WAV. A failed transfer therefore leaves the
+ * previous pCloud copy untouched.
+ */
+function trb_release_pcloud_publish_file( $remote, $local ) {
+	$temporary = $remote . '.uploading-' . wp_generate_uuid4();
+	$uploaded = trb_release_pcloud_put_file( $temporary, $local );
+	if ( is_wp_error( $uploaded ) ) return $uploaded;
+	$remote_size = trb_release_pcloud_remote_size( $temporary );
+	if ( is_wp_error( $remote_size ) || (int) filesize( $local ) !== $remote_size ) {
+		trb_release_pcloud_dav_request( 'DELETE', $temporary );
+		return new WP_Error( 'pcloud_audio_verification_failed' );
+	}
+	$settings = trb_demo_settings();
+	$destination = trb_demo_remote_url( $settings['webdav_endpoint'], $remote );
+	$moved = trb_release_pcloud_dav_request( 'MOVE', $temporary, array( 'Destination: ' . $destination, 'Overwrite: T' ) );
+	if ( is_wp_error( $moved ) ) {
+		trb_release_pcloud_dav_request( 'DELETE', $temporary );
+		return $moved;
+	}
+	$published_size = trb_release_pcloud_remote_size( $remote );
+	return ! is_wp_error( $published_size ) && (int) filesize( $local ) === $published_size ? true : new WP_Error( 'pcloud_audio_verification_failed' );
+}
+
 function trb_release_pcloud_sync( $release_id ) {
 	$release = get_post( $release_id );
 	if ( ! $release || 'trb_release' !== $release->post_type ) return new WP_Error( 'release_not_found' );
@@ -74,14 +133,23 @@ function trb_release_pcloud_sync( $release_id ) {
 		if ( is_wp_error( $ready ) ) return $ready;
 		$track_index = isset( $file['track'] ) ? absint( $file['track'] ) : count( $uploaded );
 		$track_title = isset( $tracks[ $track_index ]['title'] ) ? $tracks[ $track_index ]['title'] : 'Brano ' . ( $track_index + 1 );
-		$remote_name = ! empty( $file['name'] ) ? basename( $file['name'] ) : trb_portal_release_audio_filename( $release_id, $track_index, $track_title, $status );
+		$remote_name = trb_portal_release_audio_filename( $release_id, $track_index, $track_title, $status );
 		$local = trb_release_pcloud_local_file( $file );
 		if ( ! $local ) return new WP_Error( 'release_audio_missing' );
-		$result = trb_release_pcloud_put_file( $folder . '/' . $remote_name, $local );
+		$result = trb_release_pcloud_publish_file( $folder . '/' . $remote_name, $local );
 		if ( is_wp_error( $result ) ) return $result;
 		$uploaded[] = $folder . '/' . $remote_name;
 	}
-	update_post_meta( $release_id, '_trb_release_pcloud_archive', array( 'status' => 'synced', 'time' => time(), 'files' => $uploaded ) );
+	$archive = array( 'status' => 'synced', 'time' => time(), 'files' => $uploaded, 'verified' => true );
+	update_post_meta( $release_id, '_trb_release_pcloud_archive', $archive );
+	update_post_meta( $release_id, '_trb_release_pipeline_status', 'archived_pending_analysis' );
+	$previous_files = (array) get_post_meta( $release_id, '_trb_release_previous_files', true );
+	if ( $previous_files ) {
+		trb_portal_delete_release_files( $previous_files );
+		delete_post_meta( $release_id, '_trb_release_previous_files' );
+	}
+	/** Start copyright/technical analysis only after pCloud verification. */
+	do_action( 'trb_release_audio_ready_for_analysis', $release_id, $uploaded );
 	return array( 'files' => $uploaded );
 }
 
@@ -89,6 +157,7 @@ function trb_release_pcloud_run_sync( $release_id ) {
 	$result = trb_release_pcloud_sync( absint( $release_id ) );
 	if ( is_wp_error( $result ) ) {
 		update_post_meta( $release_id, '_trb_release_pcloud_archive', array( 'status' => 'error', 'time' => time(), 'code' => $result->get_error_code() ) );
+		update_post_meta( $release_id, '_trb_release_pipeline_status', 'pcloud_transfer_waiting' );
 		if ( ! wp_next_scheduled( 'trb_release_pcloud_retry', array( absint( $release_id ) ) ) ) wp_schedule_single_event( time() + 10 * MINUTE_IN_SECONDS, 'trb_release_pcloud_retry', array( absint( $release_id ) ) );
 	}
 }
@@ -98,5 +167,6 @@ add_action( 'trb_release_pcloud_retry', 'trb_release_pcloud_run_sync', 10, 1 );
 function trb_release_pcloud_schedule_sync( $release_id, $replace = false ) {
 	$release_id = absint( $release_id );
 	update_post_meta( $release_id, '_trb_release_pcloud_archive', array( 'status' => 'pending', 'time' => time(), 'replacement' => (bool) $replace ) );
+	update_post_meta( $release_id, '_trb_release_pipeline_status', 'pending_pcloud_transfer' );
 	if ( ! wp_next_scheduled( 'trb_release_pcloud_sync', array( $release_id ) ) ) wp_schedule_single_event( time() + 5, 'trb_release_pcloud_sync', array( $release_id ) );
 }
