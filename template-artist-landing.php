@@ -26,7 +26,7 @@ $login_url     = home_url( '/accedi/' );
 				<a class="trb-landing__account trb-landing__account--register" href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Registrati</a>
 				<a class="trb-landing__account" href="<?php echo esc_url( $login_url ); ?>">Accedi</a>
 			<?php endif; ?>
-			<a class="trb-landing__site-link" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Apri una segnalazione</a>
+			<a class="trb-landing__site-link" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>"><span class="trb-action-label--full">Apri una segnalazione</span><span class="trb-action-label--short">Segnalazione</span></a>
 		</div>
 	</header>
 	<section class="trb-landing__hero">
@@ -35,8 +35,8 @@ $login_url     = home_url( '/accedi/' );
 			<h1>Il punto di riferimento per gli artisti TRB rec e Digital Distribution Bundle.</h1>
 			<p class="trb-landing__lead">Knowledge Hub Esclusivo: linee guida, procedure, formazione e supporto tecnico per il percorso artistico dei nostri artisti.</p>
 			<div class="trb-landing__actions">
-				<a class="trb-button" href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Registrati</a>
-				<a class="trb-button trb-button--secondary trb-landing__login" href="<?php echo esc_url( $login_url ); ?>">Accedi</a>
+				<a class="trb-button trb-button--register" href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Registrati</a>
+				<a class="trb-button trb-button--login trb-landing__login" href="<?php echo esc_url( $login_url ); ?>">Accedi</a>
 			</div>
 		</div>
 		<aside class="trb-landing__access-note"><strong>Attenzione: accesso subordinato ad approvazione</strong><p>L'accesso è riservato agli artisti contrattualizzati o espressamente autorizzati dalla Direzione TRB rec - Music Publishing.<br><br><b>La sola registrazione non attiva i servizi né l'Area Artisti</b>, e non costituisce approvazione contrattuale. Gli account non autorizzati rimarranno inattivi e verranno eliminati automaticamente dopo 30 giorni.</p></aside>

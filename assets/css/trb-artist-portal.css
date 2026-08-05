@@ -739,6 +739,178 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
   .trb-portal__demo-lead { white-space: normal; }
 }
 
+/* Public entry header: one consistent three-action system on Home, Register
+   and Login. The tonal progression keeps the actions distinct without making
+   them look like unrelated components. */
+.trb-action-label--short { display: none; }
+.trb-landing__account,
+.trb-landing__site-link {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 42px;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+.trb-landing__account--register {
+  background: #2f75ad;
+  border-color: #4e91c5;
+  color: #fff;
+}
+.trb-landing__account--login {
+  background: #174f83;
+  border-color: #477aa8;
+  color: #fff;
+}
+.trb-landing__site-link {
+  background: #0b2549;
+  border-color: #526b8a;
+  color: #fff;
+}
+.trb-landing__account--register:hover { background: #3e86bd; color: #fff; }
+.trb-landing__account--login:hover { background: #246493; color: #fff; }
+.trb-landing__site-link:hover { background: #15365f; color: #fff; }
+.trb-landing__actions .trb-button--register { background: #2f75ad; border: 1px solid #4e91c5; color: #fff; }
+.trb-landing__actions .trb-button--login { background: #174f83; border: 1px solid #477aa8; color: #fff; }
+.trb-landing__actions .trb-button--register:hover { background: #3e86bd; }
+.trb-landing__actions .trb-button--login:hover { background: #246493; }
+.trb-landing__account:focus-visible,
+.trb-landing__site-link:focus-visible { outline: 3px solid #a9d5f5; outline-offset: 3px; }
+.trb-landing__account[aria-current="page"] { box-shadow: inset 0 0 0 2px rgba(255,255,255,.26); }
+
+/* Registration rebuild: the explanation and the form are now two deliberate
+   columns instead of a narrow page followed by a second oversized card. */
+.trb-registration {
+  align-items: start;
+  display: grid;
+  gap: clamp(34px,5vw,72px);
+  grid-template-columns: minmax(290px,.78fr) minmax(500px,1.22fr);
+  max-width: 1180px;
+  padding-bottom: clamp(58px,7vw,92px);
+  padding-top: clamp(54px,6vw,82px);
+}
+.trb-registration__intro { min-width: 0; padding-top: 18px; }
+.trb-registration__eyebrow,
+.trb-registration__step {
+  color: var(--trb-accent);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .13em;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+.trb-registration__lead { font-size: 17px; margin-top: 20px; }
+.trb-registration__notice { margin-top: 27px; max-width: none; padding: 22px; }
+.trb-registration__notice strong { font-size: 16px; }
+.trb-registration__notice p { font-size: 14px; }
+.trb-registration__login { line-height: 1.55; margin: 22px 0 0; }
+.trb-registration__panel { min-width: 0; }
+.trb-registration__error { margin: 0 0 14px; }
+.trb-registration__form {
+  border-radius: 22px;
+  box-shadow: 0 22px 54px rgba(9,31,64,.11);
+  margin: 0;
+  padding: clamp(28px,4vw,42px);
+}
+.trb-registration__form h2 { font-size: clamp(25px,2.4vw,31px); letter-spacing: -.025em; margin: 0; }
+.trb-registration__form-lead { color: var(--trb-ink-soft); font-size: 14px; line-height: 1.5; margin: 9px 0 0; }
+.trb-registration__form #wppb-register-user {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: grid !important;
+  gap: 22px !important;
+  margin: 28px 0 0 !important;
+  padding: 0 !important;
+}
+.trb-registration__form #wppb-register-user::before { content: none !important; display: none !important; }
+.trb-registration__form #wppb-register-user > ul {
+  display: grid !important;
+  gap: 19px 18px !important;
+  grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+  margin: 0 !important;
+  max-width: none !important;
+  padding: 0 !important;
+}
+.trb-registration__form #wppb-register-user > ul:nth-of-type(2) {
+  display: block !important;
+  margin: -5px 0 0 !important;
+}
+.trb-registration__form #wppb-register-user .wppb-default-username,
+.trb-registration__form #wppb-register-user .wppb-default-contact-info-heading,
+.trb-registration__form #wppb-register-user .wppb-default-e-mail { grid-column: 1 / -1; }
+.trb-registration__form #wppb-register-user .wppb-default-password,
+.trb-registration__form #wppb-register-user .wppb-default-repeat-password { grid-column: auto; }
+.trb-registration__form #wppb-register-user .wppb-default-contact-info-heading {
+  border-top: 1px solid var(--trb-line);
+  margin: 3px 0 -2px;
+  padding-top: 23px;
+}
+.trb-registration__form #wppb-register-user .wppb-default-contact-info-heading h4 { font-size: 17px; }
+.trb-registration__form #wppb-register-user label { font-size: 13px; margin-bottom: 7px; }
+.trb-registration__form #wppb-register-user input[type="text"],
+.trb-registration__form #wppb-register-user input[type="email"],
+.trb-registration__form #wppb-register-user input[type="password"] {
+  border-color: #cbd3df !important;
+  color: var(--trb-ink) !important;
+  min-height: 50px !important;
+  padding: 12px 14px !important;
+}
+.trb-registration__form #wppb-register-user input:focus {
+  border-color: #2f75ad !important;
+  box-shadow: 0 0 0 3px rgba(47,117,173,.14) !important;
+  outline: 0;
+}
+.trb-registration__form #wppb-register-user .wppb-password-field-container { margin: 0 !important; }
+.trb-registration__captcha {
+  background: #f2f7fb;
+  border-color: #c8dceb;
+  margin: 0;
+  padding: 17px 18px 18px;
+}
+.trb-registration__captcha input[type="number"] {
+  background: #fff;
+  border: 1px solid #cbd3df;
+  border-radius: 9px;
+  min-height: 48px;
+  padding: 10px 13px;
+  width: 150px;
+}
+.trb-registration__form #wppb-register-user .form-submit { margin: 0; }
+.trb-registration__form #wppb-register-user .form-submit input[type="submit"] {
+  background: #2f75ad !important;
+  border-radius: 10px;
+  min-height: 52px;
+}
+.trb-registration__form #wppb-register-user .form-submit input[type="submit"]:hover { background: #246493 !important; }
+
+@media (max-width: 900px) {
+  .trb-registration { gap: 30px; grid-template-columns: 1fr; max-width: 720px; }
+  .trb-registration__intro { padding-top: 0; }
+}
+@media (max-width: 640px) {
+  .trb-landing__topbar { gap: 10px; padding-left: 12px; padding-right: 12px; }
+  .trb-landing__brand img { max-width: 88px; }
+  .trb-landing__topbar-actions { flex: 1 1 auto; gap: 5px; justify-content: flex-end; min-width: 0; }
+  .trb-landing__account,
+  .trb-landing__site-link { font-size: 10px; min-height: 40px; padding: 7px 8px; white-space: nowrap; }
+  .trb-action-label--full { display: none; }
+  .trb-action-label--short { display: inline; }
+  .trb-registration { padding-top: 42px; }
+  .trb-registration h1 { font-size: clamp(32px,10vw,42px); }
+  .trb-registration__form { padding: 24px 18px; }
+  .trb-registration__form #wppb-register-user > ul { grid-template-columns: 1fr !important; }
+  .trb-registration__form #wppb-register-user .wppb-default-username,
+  .trb-registration__form #wppb-register-user .wppb-default-contact-info-heading,
+  .trb-registration__form #wppb-register-user .wppb-default-e-mail { grid-column: auto; }
+  .trb-registration__captcha input[type="number"] { width: 100%; }
+}
+@media (max-width: 400px) {
+  .trb-landing__brand img { max-width: 76px; }
+  .trb-landing__account,
+  .trb-landing__site-link { font-size: 9px; padding-left: 6px; padding-right: 6px; }
+}
+
 
 /* Demo upload: make long MP3 transfers explicit and prevent uncertain retries. */
 .trb-portal__upload-progress {
@@ -850,8 +1022,10 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
 
 @media (min-width: 1100px) {
   .trb-portal__search-panel > div > p:last-child,
-  .trb-portal__profile-section > .trb-portal__section-heading > p:last-child { max-width: none; white-space: nowrap; }
-  .trb-portal__profile-section > .trb-portal__section-heading { max-width: none; }
+  .trb-portal__profile-section > .trb-portal__section-heading > p:last-child,
+  .trb-portal__section--releases > .trb-portal__section-heading > p:last-child { max-width: none; white-space: nowrap; }
+  .trb-portal__profile-section > .trb-portal__section-heading,
+  .trb-portal__section--releases > .trb-portal__section-heading { max-width: none; }
 }
 @media (max-width: 520px) {
   .trb-landing__topbar { flex-wrap: wrap; padding-bottom: 10px; padding-top: 10px; }
