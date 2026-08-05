@@ -746,19 +746,23 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
 .trb-landing__account,
 .trb-landing__site-link {
   align-items: center;
+  box-sizing: border-box;
   display: inline-flex;
+  height: 42px;
   justify-content: center;
-  min-height: 42px;
+  min-height: 0;
+  padding-bottom: 0;
+  padding-top: 0;
   transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
 }
 .trb-landing__account--register {
-  background: #2f75ad;
-  border-color: #4e91c5;
-  color: #fff;
+  background: #dce8f2;
+  border-color: #dce8f2;
+  color: #092b57;
 }
 .trb-landing__account--login {
-  background: #174f83;
-  border-color: #477aa8;
+  background: #244f79;
+  border-color: #54789c;
   color: #fff;
 }
 .trb-landing__site-link {
@@ -766,8 +770,8 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
   border-color: #526b8a;
   color: #fff;
 }
-.trb-landing__account--register:hover { background: #3e86bd; color: #fff; }
-.trb-landing__account--login:hover { background: #246493; color: #fff; }
+.trb-landing__account--register:hover { background: #edf4f9; border-color: #edf4f9; color: #092b57; }
+.trb-landing__account--login:hover { background: #31618e; color: #fff; }
 .trb-landing__site-link:hover { background: #15365f; color: #fff; }
 .trb-landing__actions .trb-button--register { background: #2f75ad; border: 1px solid #4e91c5; color: #fff; }
 .trb-landing__actions .trb-button--login { background: #174f83; border: 1px solid #477aa8; color: #fff; }
@@ -775,7 +779,7 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
 .trb-landing__actions .trb-button--login:hover { background: #246493; }
 .trb-landing__account:focus-visible,
 .trb-landing__site-link:focus-visible { outline: 3px solid #a9d5f5; outline-offset: 3px; }
-.trb-landing__account[aria-current="page"] { box-shadow: inset 0 0 0 2px rgba(255,255,255,.26); }
+.trb-landing__account[aria-current="page"] { border-color: rgba(255,255,255,.62); }
 
 /* Registration rebuild: the explanation and the form are now two deliberate
    columns instead of a narrow page followed by a second oversized card. */
@@ -893,7 +897,7 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
   .trb-landing__brand img { max-width: 88px; }
   .trb-landing__topbar-actions { flex: 1 1 auto; gap: 5px; justify-content: flex-end; min-width: 0; }
   .trb-landing__account,
-  .trb-landing__site-link { font-size: 10px; min-height: 40px; padding: 7px 8px; white-space: nowrap; }
+  .trb-landing__site-link { font-size: 10px; height: 40px; min-height: 0; padding: 0 8px; white-space: nowrap; }
   .trb-action-label--full { display: none; }
   .trb-action-label--short { display: inline; }
   .trb-registration { padding-top: 42px; }
@@ -908,7 +912,7 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
 @media (max-width: 400px) {
   .trb-landing__brand img { max-width: 76px; }
   .trb-landing__account,
-  .trb-landing__site-link { font-size: 9px; padding-left: 6px; padding-right: 6px; }
+  .trb-landing__site-link { font-size: 9px; padding: 0 6px; }
 }
 
 

@@ -24,7 +24,7 @@ $login_url     = home_url( '/accedi/' );
 		<div class="trb-landing__topbar-actions">
 			<?php if ( ! is_user_logged_in() ) : ?>
 				<a class="trb-landing__account trb-landing__account--register" href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Registrati</a>
-				<a class="trb-landing__account" href="<?php echo esc_url( $login_url ); ?>">Accedi</a>
+				<a class="trb-landing__account trb-landing__account--login" href="<?php echo esc_url( $login_url ); ?>">Accedi</a>
 			<?php endif; ?>
 			<a class="trb-landing__site-link" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>"><span class="trb-action-label--full">Apri una segnalazione</span><span class="trb-action-label--short">Segnalazione</span></a>
 		</div>

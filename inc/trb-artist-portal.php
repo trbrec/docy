@@ -2324,7 +2324,7 @@ add_action( 'template_redirect', 'trb_portal_redirect_legacy_artist_home', 0 );
 /** Signed-in users should never land on authentication or registration forms. */
 function trb_portal_redirect_authenticated_entry_pages() {
 	if ( is_admin() || ! is_user_logged_in() || ! is_page( array( 'accedi', 'registrati', 'recupera-password' ) ) ) return;
-	wp_safe_redirect( home_url( '/area-artisti/' ), 302 );
+	wp_safe_redirect( current_user_can( 'manage_options' ) ? admin_url() : home_url( '/area-artisti/' ), 302 );
 	exit;
 }
 add_action( 'template_redirect', 'trb_portal_redirect_authenticated_entry_pages', -1000 );
@@ -3103,7 +3103,7 @@ function trb_portal_handle_login() {
 	}
 
 	wp_set_current_user( $user->ID );
-	wp_safe_redirect( home_url( '/area-artisti/' ), 302 );
+	wp_safe_redirect( user_can( $user, 'manage_options' ) ? admin_url() : home_url( '/area-artisti/' ), 302 );
 	exit;
 }
 add_action( 'init', 'trb_portal_handle_login', 2 );
