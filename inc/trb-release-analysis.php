@@ -16,6 +16,8 @@ function trb_analysis_settings() {
 		'premaster_peak_max' => -3.0,
 		'silence_warning_seconds' => 8.0,
 		'benchmark_required' => 15,
+		'fingerprint_red_score' => 80.0,
+		'match_review_score' => 1.0,
 		'benchmark_complete' => 0,
 		'auto_approval' => 0,
 		'clamav_binary' => '',
@@ -189,7 +191,7 @@ function trb_analysis_normalize_acr_result( $item ) {
 				'engine' => $group,
 				'title' => sanitize_text_field( $row['title'] ?? '' ),
 				'artists' => array_values( array_filter( array_map( static function( $a ){ return sanitize_text_field( is_array( $a ) ? ( $a['name'] ?? '' ) : $a ); }, (array) ( $row['artists'] ?? array() ) ) ) ),
-				'album' => sanitize_text_field( $row['album']['name'] ?? $row['album'] ?? '' ),
+				'album' => sanitize_text_field( is_array( $row['album'] ?? null ) ? ( $row['album']['name'] ?? '' ) : ( $row['album'] ?? '' ) ),
 				'isrc' => sanitize_text_field( $row['external_ids']['isrc'] ?? '' ),
 				'acrid' => sanitize_text_field( $row['acrid'] ?? '' ),
 				'score' => (float) ( $row['score'] ?? $row['confidence'] ?? 0 ),
@@ -212,6 +214,7 @@ function trb_analysis_decide_release( $release_id ) {
 	if ( ! $table ) return;
 	$rows = $wpdb->get_results( $wpdb->prepare( "SELECT track_index,file_hash,payload,status FROM $table WHERE release_id=%d AND provider='acrcloud' AND service IN ('fingerprinting','fingerprinting_reuse') ORDER BY id ASC", $release_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$current_hashes = array(); foreach ( (array) get_post_meta( $release_id, '_trb_release_files', true ) as $file ) if ( 'audio' === ( $file['kind'] ?? '' ) ) $current_hashes[ absint( $file['track'] ?? 0 ) ] = (string) ( $file['sha256'] ?? '' );
+	$s = trb_analysis_settings();
 	$normalized = array(); $red = false; $yellow = false;
 	foreach ( $rows as $row ) {
 		if ( 'completed' !== $row['status'] ) continue;
@@ -225,13 +228,12 @@ function trb_analysis_decide_release( $release_id ) {
 	foreach ( $normalized as $index => $result ) {
 		$nature = $declarations[ $index ]['nature'] ?? 'original';
 		foreach ( $result['matches'] as $match ) {
-			if ( in_array( $match['engine'], array( 'music', 'custom_files' ), true ) && $match['score'] >= 80 && 'original' === $nature ) $red = true;
-			elseif ( $match['score'] > 0 ) $yellow = true;
+			if ( in_array( $match['engine'], array( 'music', 'custom_files' ), true ) && $match['score'] >= (float) $s['fingerprint_red_score'] && 'original' === $nature ) $red = true;
+			elseif ( $match['score'] >= (float) $s['match_review_score'] ) $yellow = true;
 		}
 		if ( ! empty( $result['deepright'] ) ) $yellow = true;
 	}
 	foreach ( $declarations as $declaration ) if ( in_array( $declaration['nature'] ?? '', array( 'cover','type_beat','sample','remix' ), true ) ) $yellow = true;
-	$s = trb_analysis_settings();
 	$semaphore = $red ? 'red' : ( $yellow ? 'yellow' : 'green' );
 	$benchmark_ready = ! empty( $s['benchmark_complete'] ) && trb_analysis_benchmark_count() >= absint( $s['benchmark_required'] );
 	$documents = (array) get_post_meta( $release_id, '_trb_release_rights_documents', true );
@@ -262,7 +264,7 @@ function trb_analysis_verify_acr_container() {
 	if ( null !== $deepright && ! $deepright ) $errors[] = 'ACR_DEEPRIGHT_DISABLED';
 	if ( isset( $container['region'] ) && 'eu-west-1' !== $container['region'] ) $errors[] = 'ACR_REGION_MUST_BE_EU_WEST_1';
 	if ( isset( $container['audio_type'] ) && 'linein' !== $container['audio_type'] ) $errors[] = 'ACR_AUDIO_TYPE_MUST_BE_LINEIN';
-	if ( isset( $container['buckets'] ) && ! in_array( 'ACRCloud Music', (array) $container['buckets'], true ) ) $errors[] = 'ACR_MUSIC_BUCKET_MISSING';
+	if ( isset( $container['buckets'] ) && false === stripos( wp_json_encode( $container['buckets'] ), 'ACRCloud Music' ) ) $errors[] = 'ACR_MUSIC_BUCKET_MISSING';
 	if ( ! empty( $container['music_detection'] ) ) $errors[] = 'ACR_MUSIC_DETECTION_MUST_BE_OFF';
 	if ( ! empty( $container['ai_detection'] ) ) $errors[] = 'ACR_AI_DETECTION_MUST_BE_OFF';
 	$snapshot = array( 'verified_at' => time(), 'container' => $container, 'errors' => $errors );
@@ -278,7 +280,7 @@ function trb_analysis_pdf( $lines, $path ) {
 	$objects[2] = '<< /Type /Pages /Count ' . count( $pages ) . ' /Kids [' . implode( ' ', array_map( static function( $id ){ return $id . ' 0 R'; }, $page_ids ) ) . '] >>';
 	foreach ( $pages as $i => $page ) {
 		$page_id = $page_ids[ $i ]; $content_id = $page_id + 1; $stream = "BT /F1 9 Tf 44 800 Td 12 TL\n";
-		foreach ( $page as $line ) { $safe = str_replace( array( '\\','(',')',"\r","\n" ), array( '\\\\','\\(','\\)',' ',' ' ), iconv( 'UTF-8', 'Windows-1252//TRANSLIT', (string) $line ) ?: (string) $line ); $stream .= '(' . $safe . ") Tj T*\n"; }
+		foreach ( $page as $line ) { $encoded = function_exists( 'iconv' ) ? iconv( 'UTF-8', 'Windows-1252//TRANSLIT', (string) $line ) : (string) $line; $safe = str_replace( array( '\\','(',')',"\r","\n" ), array( '\\\\','\\(','\\)',' ',' ' ), $encoded ?: (string) $line ); $stream .= '(' . $safe . ") Tj T*\n"; }
 		$stream .= 'ET';
 		$objects[ $page_id ] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ' . $next . ' 0 R >> >> /Contents ' . $content_id . ' 0 R >>';
 		$objects[ $content_id ] = '<< /Length ' . strlen( $stream ) . ">>\nstream\n" . $stream . "\nendstream";
@@ -354,7 +356,7 @@ function trb_analysis_admin_page() {
 	$s = trb_analysis_settings(); $message = '';
 	if ( isset( $_POST['trb_analysis_save'] ) ) {
 		check_admin_referer( 'trb_analysis_save' );
-		foreach ( array( 'true_peak_warning','master_lufs_max','master_lufs_min','premaster_peak_max','silence_warning_seconds' ) as $key ) if ( isset( $_POST[ $key ] ) ) $s[ $key ] = (float) wp_unslash( $_POST[ $key ] );
+		foreach ( array( 'true_peak_warning','master_lufs_max','master_lufs_min','premaster_peak_max','silence_warning_seconds','fingerprint_red_score','match_review_score' ) as $key ) if ( isset( $_POST[ $key ] ) ) $s[ $key ] = (float) wp_unslash( $_POST[ $key ] );
 		$s['benchmark_required'] = max( 15, absint( $_POST['benchmark_required'] ?? 15 ) );
 		$s['benchmark_complete'] = isset( $_POST['benchmark_complete'] ) ? 1 : 0;
 		$s['auto_approval'] = isset( $_POST['auto_approval'] ) ? 1 : 0;
@@ -370,7 +372,7 @@ function trb_analysis_admin_page() {
 	?>
 	<div class="wrap"><h1>Analisi release TRB</h1><?php if ( $message ) : ?><div class="notice notice-success"><p><?php echo esc_html( $message ); ?></p></div><?php endif; ?>
 	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Antivirus</th><td><?php echo esc_html( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? 'Disponibile' : 'NON disponibile' ); ?></td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · pronto' : ' · approvazione automatica bloccata' ) ); ?></td></tr></tbody></table>
-	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"></td></tr><tr><th>Master LUFS max / min</th><td><input name="master_lufs_max" value="<?php echo esc_attr( $s['master_lufs_max'] ); ?>"> <input name="master_lufs_min" value="<?php echo esc_attr( $s['master_lufs_min'] ); ?>"></td></tr><tr><th>Pre-master peak massimo</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label> <label><input type="checkbox" name="auto_approval" <?php checked( $s['auto_approval'] ); ?>> Consenti auto-approvazione verde solo dopo benchmark</label></td></tr><tr><th>Binario ClamAV</th><td><input class="regular-text" name="clamav_binary" value="<?php echo esc_attr( $s['clamav_binary'] ); ?>" placeholder="Rilevamento automatico se vuoto"></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
+	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"></td></tr><tr><th>Master LUFS max / min</th><td><input name="master_lufs_max" value="<?php echo esc_attr( $s['master_lufs_max'] ); ?>"> <input name="master_lufs_min" value="<?php echo esc_attr( $s['master_lufs_min'] ); ?>"></td></tr><tr><th>Pre-master peak massimo</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label> <label><input type="checkbox" name="auto_approval" <?php checked( $s['auto_approval'] ); ?>> Consenti auto-approvazione verde solo dopo benchmark</label></td></tr><tr><th>Binario ClamAV</th><td><input class="regular-text" name="clamav_binary" value="<?php echo esc_attr( $s['clamav_binary'] ); ?>" placeholder="Rilevamento automatico se vuoto"></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
 	<h2>Registra caso benchmark</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_benchmark_add' ); ?><input required name="label" placeholder="Caso / hash"> <select name="expected"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <select name="actual"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <input type="number" name="duration_ms" placeholder="ms"> <input type="number" step="0.000001" name="cost" placeholder="USD"> <button class="button" name="trb_analysis_benchmark_add" value="1">Registra</button></form>
 	<?php if ( $cases ) : ?><table class="widefat striped" style="margin-top:12px"><thead><tr><th>Caso</th><th>Atteso</th><th>Risultato</th><th>Tempo</th><th>Costo</th></tr></thead><tbody><?php foreach ( array_reverse( $cases ) as $case ) : ?><tr><td><?php echo esc_html( $case['label'] ); ?></td><td><?php echo esc_html( $case['expected'] ); ?></td><td><?php echo esc_html( $case['actual'] ); ?></td><td><?php echo esc_html( $case['duration_ms'] . ' ms' ); ?></td><td><?php echo esc_html( $case['cost'] . ' USD' ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?></div><?php
 }
