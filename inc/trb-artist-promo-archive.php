@@ -59,7 +59,7 @@ function trb_artist_promo_sync( $user_id ) {
 	$artist_name = trb_portal_artist_profile_value( 'artist_name', $user_id );
 	if ( '' === trim( $artist_name ) ) return new WP_Error( 'artist_name_missing' );
 	$profile = trb_portal_user_profile( $user );
-	if ( ! in_array( $profile, array( 'dds', 'ddb', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'artist_profile_missing' );
+	if ( ! in_array( $profile, array( 'dds', 'ddb', 'ddb12', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'artist_profile_missing' );
 
 	$artist_folder = trb_artist_promo_root( $profile ) . '/' . trb_artist_promo_folder_segment( $artist_name );
 	$promo_folder = $artist_folder . '/PROMO';
@@ -98,4 +98,3 @@ function trb_artist_promo_after_profile_save( $user_id ) {
 }
 add_action( 'trb_portal_artist_profile_saved', 'trb_artist_promo_after_profile_save', 20, 1 );
 add_action( 'trb_artist_promo_retry', 'trb_artist_promo_after_profile_save', 10, 1 );
-

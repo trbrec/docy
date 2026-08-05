@@ -110,7 +110,7 @@ function trb_demo_review_prompt( $payload, $has_audio, $has_text ) {
 	}
 	if ( ! $has_text ) $prompt .= "Non formulare osservazioni sul testo autoriale. ";
 	if ( ! $has_audio ) $prompt .= "Non formulare osservazioni su musica, arrangiamento, interpretazione, registrazione o missaggio. ";
-	if ( in_array( $payload['profile'], array( 'ddb', 'ddb_trb' ), true ) ) $prompt .= "Soltanto se emerge un bisogno concreto, inserisci nei prossimi passaggi una breve indicazione sui servizi TRB pertinenti (strumentale, intonazione, registrazione o missaggio), senza tono commerciale aggressivo. ";
+	if ( in_array( $payload['profile'], array( 'ddb', 'ddb12', 'ddb_trb' ), true ) ) $prompt .= "Soltanto se emerge un bisogno concreto, inserisci nei prossimi passaggi una breve indicazione sui servizi TRB pertinenti (strumentale, intonazione, registrazione o missaggio), senza tono commerciale aggressivo. ";
 	if ( $has_audio ) $prompt .= "Apri con il titolo esatto «1. Analisi compositiva e dell’arrangiamento». ";
 	if ( $has_text ) $prompt .= "Inserisci poi il titolo numerato «" . ( $has_audio ? "2" : "1" ) . ". Analisi autoriale». ";
 	if ( $has_audio ) $prompt .= "Inserisci poi il titolo numerato «" . ( $has_text ? "3" : "2" ) . ". Analisi interpretativa e tecnica». ";
@@ -270,7 +270,7 @@ function trb_demo_send_review( $request_id ) {
 	$affiliation = function_exists( 'trb_portal_profile_affiliation' ) ? trb_portal_profile_affiliation( $payload['profile'] ) : ( 'trb' === $payload['profile'] ? 'TRB rec - Music Publishing' : 'Digital Distribution Bundle' );
 	$review_html = trb_demo_review_html( $review );
 	$service_note = '';
-	if ( in_array( $payload['profile'], array( 'ddb', 'ddb_trb' ), true ) ) {
+	if ( in_array( $payload['profile'], array( 'ddb', 'ddb12', 'ddb_trb' ), true ) ) {
 		$service_note = '<div style="margin-top:28px;padding:18px 20px;background:#f4f5ff;border-left:4px solid #514cff;border-radius:8px;"><strong>Approfondimenti e interventi tecnici</strong><p style="margin:8px 0 0;">Quando la valutazione evidenzia una necessità concreta, puoi consultare i servizi riservati su <a style="color:#4038e8;" href="https://store.trbrec.com/">store.trbrec.com</a>. Le eventuali condizioni dedicate vengono applicate attraverso il codice comunicato da TRB rec.</p></div>';
 	}
 	$body = '<!doctype html><html><body style="margin:0;background:#f3f5f9;font-family:Arial,Helvetica,sans-serif;color:#20263b;">'
