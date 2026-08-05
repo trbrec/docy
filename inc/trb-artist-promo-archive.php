@@ -113,3 +113,4 @@ add_action( 'trb_artist_promo_retry', 'trb_artist_promo_after_profile_save', 10,
 
 /** Definitive release confirmation, contract, Sheets and ISRC orchestration. */
 require_once get_template_directory() . '/inc/trb-release-contract-flow.php';
+require_once get_template_directory() . '/inc/trb-release-isrc-ui.php';
