@@ -89,7 +89,7 @@
     function updateLinks() {
       var name = input.value.trim();
       var valid = name.length > 0;
-      spotify.href = valid ? 'https://open.spotify.com/search/' + encodeURIComponent(name) + '/artists' : '#';
+      spotify.href = valid ? 'https://open.spotify.com/search/' + encodeURIComponent(name) : '#';
       apple.href = valid ? 'https://music.apple.com/it/search?term=' + encodeURIComponent(name) : '#';
       spotify.setAttribute('aria-disabled', valid ? 'false' : 'true');
       apple.setAttribute('aria-disabled', valid ? 'false' : 'true');
