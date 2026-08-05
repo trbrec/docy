@@ -360,6 +360,14 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__platforms { border: 0; border-top: 1px solid var(--trb-line); margin: 0; padding: 22px 0 0; }
 .trb-portal__platforms > legend { color: var(--trb-ink); font-size: 16px; font-weight: 800; margin-bottom: 14px; padding: 0; }
 .trb-portal__platforms > legend small { display: inline; margin-left: 6px; }
+.trb-portal__profile-finder { background: #edf5fb; border: 1px solid #cfdeeb; border-radius: 12px; display: grid; gap: 11px; margin-bottom: 15px; padding: 16px; }
+.trb-portal__profile-finder > label { margin: 0; }
+.trb-portal__profile-finder > div { align-items: stretch; display: grid; gap: 9px; grid-template-columns: minmax(220px,1fr) auto auto; }
+.trb-portal__profile-finder input { min-width: 0; }
+.trb-portal__profile-finder .trb-button { align-items: center; display: inline-flex; justify-content: center; margin: 0; white-space: nowrap; }
+.trb-portal__profile-finder .trb-button--apple { background: #172033; }
+.trb-portal__profile-finder [aria-disabled="true"] { opacity: .55; }
+.trb-portal__profile-finder > p { color: var(--trb-ink-soft); font-size: 12px; margin: 0; }
 .trb-portal__platform-field { background: #f7f8fc; border: 1px solid var(--trb-line); border-radius: 12px; display: grid; gap: 10px; padding: 14px; }
 .trb-portal__platform-field > label:first-child { margin: 0; }
 .trb-portal__choice { align-items: center; display: flex !important; font-size: 12px !important; font-weight: 700 !important; gap: 8px; margin: 0; }
@@ -708,6 +716,8 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
   .trb-portal__hero { gap: 17px; padding: 23px 22px; }
   .trb-portal__nav { gap: 8px 14px; margin-top: 16px; padding: 11px 13px; }
   .trb-portal__section { margin-top: 42px; }
+  .trb-portal__profile-finder > div { grid-template-columns: 1fr; }
+  .trb-portal__profile-finder .trb-button { width: 100%; }
   .trb-registration, .trb-login { padding-left: 16px; padding-right: 16px; }
   .trb-registration__form, .trb-login__form { border-radius: 15px; padding: 24px 18px; }
 }

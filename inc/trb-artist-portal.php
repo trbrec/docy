@@ -662,7 +662,6 @@ function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 	}
 	$platform_requirements = array(
 		array( 'spotify_url', 'spotify_new' ),
-		array( 'apple_music_url', 'apple_music_new' ),
 		array( 'youtube_url', 'youtube_none' ),
 		array( 'soundcloud_url', 'soundcloud_none' ),
 	);
@@ -718,7 +717,7 @@ function trb_portal_artist_profile_completion( $user_id = 0 ) {
 		$checks[] = '' !== trim( trb_portal_artist_profile_value( $field, $user_id ) );
 	}
 	$checks[] = '' !== trim( (string) get_user_meta( $user_id, '_trb_artist_bio', true ) );
-	foreach ( array( array( 'spotify_url', 'spotify_new' ), array( 'apple_music_url', 'apple_music_new' ), array( 'youtube_url', 'youtube_none' ), array( 'soundcloud_url', 'soundcloud_none' ) ) as $requirement ) {
+	foreach ( array( array( 'spotify_url', 'spotify_new' ), array( 'youtube_url', 'youtube_none' ), array( 'soundcloud_url', 'soundcloud_none' ) ) as $requirement ) {
 		$checks[] = '' !== trim( trb_portal_artist_profile_value( $requirement[0], $user_id ) ) || '1' === trb_portal_artist_profile_value( $requirement[1], $user_id );
 	}
 	$checks[] = '' !== trim( trb_portal_artist_profile_value( 'live_fee', $user_id ) );
@@ -1985,9 +1984,15 @@ function trb_portal_render_artist_profile_section() {
 					<input type="hidden" name="action" value="trb_portal_save_artist_profile" /><input type="hidden" name="trb_artist_identity_section" value="1" /><input type="hidden" id="trb_portal_profile_nonce_identity" name="trb_portal_profile_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_save_artist_profile' ) ); ?>" />
 					<label>Nome d’arte <span>*</span><input type="text" name="trb_artist_artist_name" value="<?php echo esc_attr( $artist_name ); ?>" <?php echo $artist_name ? 'readonly' : ''; ?> required /><small>Deve corrispondere esattamente al nome indicato nell’accordo contrattuale. Dopo il primo salvataggio potrà essere modificato soltanto previa autorizzazione della Direzione, tramite una segnalazione.</small></label>
 					<label>Biografia artistica aggiornata <span>*</span><textarea name="trb_artist_bio" rows="9" required placeholder="Incolla qui la biografia aggiornata: non caricare un file."><?php echo esc_textarea( trb_portal_artist_profile_value( 'bio' ) ); ?></textarea><small>Testo pronto per materiali editoriali, comunicazione e profili ufficiali; descrivi il progetto in modo adatto a solisti, duo, gruppi o formazioni.</small></label>
-					<fieldset class="trb-portal__platforms"><legend>Profili musicali ufficiali</legend><div class="trb-portal__field-grid">
+					<fieldset class="trb-portal__platforms"><legend>Profili musicali ufficiali</legend>
+						<div class="trb-portal__profile-finder" data-trb-profile-finder>
+							<label for="trb-artist-profile-search"><b>Verifica se i profili esistono già</b><small>Cerca il nome d’arte su entrambe le piattaforme, controlla con attenzione che il profilo appartenga davvero al tuo progetto e incolla il relativo link nei campi sottostanti.</small></label>
+							<div><input id="trb-artist-profile-search" type="search" value="<?php echo esc_attr( $artist_name ); ?>" placeholder="Scrivi il nome d’arte" data-trb-profile-search /><a class="trb-button trb-button--compact" href="#" target="_blank" rel="noopener" data-trb-search-spotify>Cerca su Spotify</a><a class="trb-button trb-button--compact trb-button--apple" href="#" target="_blank" rel="noopener" data-trb-search-apple>Cerca su Apple Music</a></div>
+							<p data-trb-profile-search-status>La ricerca si apre sul catalogo ufficiale della piattaforma.</p>
+						</div>
+						<div class="trb-portal__field-grid">
 						<?php trb_portal_render_platform_field( 'spotify', 'Profilo Spotify', 'Copia il link al profilo artista Spotify, se esistente.', 'spotify_new', 'Richiedo un nuovo profilo artista Spotify' ); ?>
-						<?php trb_portal_render_platform_field( 'apple_music', 'Profilo Apple Music', 'Copia il link al profilo artista Apple Music, se esistente.', 'apple_music_new', 'Richiedo un nuovo profilo artista Apple Music' ); ?>
+						<?php trb_portal_render_platform_field( 'apple_music', 'Profilo Apple Music', 'Copia il link al profilo artista Apple Music, se esistente.', 'apple_music_new', 'Richiedo un nuovo profilo artista Apple Music', false, 'Facoltativo, ma consigliato: se hai già pubblicato musica, il profilo potrebbe esistere anche senza che tu lo abbia creato direttamente.' ); ?>
 						<?php trb_portal_render_platform_field( 'youtube', 'Canale YouTube', 'Copia il link al canale YouTube ufficiale, se esistente.', 'youtube_none', 'Non ho un canale YouTube' ); ?>
 						<?php trb_portal_render_platform_field( 'soundcloud', 'Profilo SoundCloud', 'Copia il link al profilo SoundCloud ufficiale, se esistente.', 'soundcloud_none', 'Non ho un canale SoundCloud' ); ?>
 					</div></fieldset>
@@ -2002,10 +2007,10 @@ function trb_portal_render_artist_profile_section() {
 	<?php
 }
 
-function trb_portal_render_platform_field( $key, $label, $placeholder, $choice_key, $choice_label ) {
+function trb_portal_render_platform_field( $key, $label, $placeholder, $choice_key, $choice_label, $required = true, $help = '' ) {
 	$value = trb_portal_artist_profile_value( $key . '_url' );
 	$choice = '1' === trb_portal_artist_profile_value( $choice_key );
-	?><div class="trb-portal__platform-field" data-trb-platform><label><?php echo esc_html( $label ); ?> <span>*</span><input type="url" name="trb_artist_<?php echo esc_attr( $key ); ?>_url" value="<?php echo esc_attr( $value ); ?>" placeholder="<?php echo esc_attr( $placeholder ); ?>" <?php echo $choice ? 'disabled' : 'required'; ?> data-trb-platform-url /></label><label class="trb-portal__choice"><input type="checkbox" name="trb_artist_<?php echo esc_attr( $choice_key ); ?>" value="1" <?php checked( $choice ); ?> data-trb-platform-choice /> <?php echo esc_html( $choice_label ); ?></label></div><?php
+	?><div class="trb-portal__platform-field" data-trb-platform data-trb-required="<?php echo $required ? '1' : '0'; ?>"><label><?php echo esc_html( $label ); ?><?php if ( $required ) : ?> <span>*</span><?php else : ?> <small>facoltativo</small><?php endif; ?><input type="url" name="trb_artist_<?php echo esc_attr( $key ); ?>_url" value="<?php echo esc_attr( $value ); ?>" placeholder="<?php echo esc_attr( $placeholder ); ?>" <?php echo $required && ! $choice ? 'required' : ''; ?> data-trb-platform-url /><?php if ( $help ) : ?><small><?php echo esc_html( $help ); ?></small><?php endif; ?></label><label class="trb-portal__choice"><input type="checkbox" name="trb_artist_<?php echo esc_attr( $choice_key ); ?>" value="1" <?php checked( $choice ); ?> data-trb-platform-choice /> <?php echo esc_html( $choice_label ); ?></label></div><?php
 }
 
 function trb_portal_private_photo_url( $file_id ) {

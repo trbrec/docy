@@ -66,15 +66,46 @@
     document.querySelectorAll('[data-trb-platform]').forEach(function (field) {
       var url = field.querySelector('[data-trb-platform-url]');
       var choice = field.querySelector('[data-trb-platform-choice]');
+      var required = field.dataset.trbRequired !== '0';
       function sync() {
         url.disabled = false;
         url.readOnly = choice.checked;
-        url.required = !choice.checked;
+        url.required = required && !choice.checked;
         if (choice.checked) url.value = '';
       }
       choice.addEventListener('change', sync);
       sync();
     });
+  }
+
+  function initProfileFinder() {
+    var finder = document.querySelector('[data-trb-profile-finder]');
+    if (!finder) return;
+    var input = finder.querySelector('[data-trb-profile-search]');
+    var spotify = finder.querySelector('[data-trb-search-spotify]');
+    var apple = finder.querySelector('[data-trb-search-apple]');
+    var status = finder.querySelector('[data-trb-profile-search-status]');
+
+    function updateLinks() {
+      var name = input.value.trim();
+      var valid = name.length > 0;
+      spotify.href = valid ? 'https://open.spotify.com/search/' + encodeURIComponent(name) + '/artists' : '#';
+      apple.href = valid ? 'https://music.apple.com/it/search?term=' + encodeURIComponent(name) : '#';
+      spotify.setAttribute('aria-disabled', valid ? 'false' : 'true');
+      apple.setAttribute('aria-disabled', valid ? 'false' : 'true');
+      status.textContent = valid ? 'Apri i risultati, identifica il profilo corretto e copia il suo indirizzo.' : 'Scrivi prima il nome d’arte da cercare.';
+    }
+
+    [spotify, apple].forEach(function (link) {
+      link.addEventListener('click', function (event) {
+        if (!input.value.trim()) {
+          event.preventDefault();
+          input.focus();
+        }
+      });
+    });
+    input.addEventListener('input', updateLinks);
+    updateLinks();
   }
 
   function initBirthplace() {
@@ -227,6 +258,7 @@
     initBirthplace();
     initIdentityValidation();
     initPlatforms();
+    initProfileFinder();
     initProfileUploadProgress();
   });
 }());
