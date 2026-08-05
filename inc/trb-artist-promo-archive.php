@@ -113,3 +113,4 @@ add_action( 'trb_artist_promo_retry', 'trb_artist_promo_after_profile_save', 10,
 
 /** Release ISRC fields belong to the portal; contracts remain in Apps Script. */
 require_once get_template_directory() . '/inc/trb-release-isrc-ui.php';
+require_once get_template_directory() . '/inc/trb-release-spreadsheet-bridge.php';
