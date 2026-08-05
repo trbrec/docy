@@ -111,6 +111,5 @@ function trb_artist_promo_after_profile_save( $user_id ) {
 add_action( 'trb_portal_artist_profile_saved', 'trb_artist_promo_after_profile_save', 20, 1 );
 add_action( 'trb_artist_promo_retry', 'trb_artist_promo_after_profile_save', 10, 1 );
 
-/** Definitive release confirmation, contract, Sheets and ISRC orchestration. */
-require_once get_template_directory() . '/inc/trb-release-contract-flow.php';
+/** Release ISRC fields belong to the portal; contracts remain in Apps Script. */
 require_once get_template_directory() . '/inc/trb-release-isrc-ui.php';
