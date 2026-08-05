@@ -1,156 +1,18 @@
-(function () {
-  'use strict';
-
-  function readFourCC(view, offset) {
-    return String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3));
-  }
-
-  function parseWav(file) {
-    return file.slice(0, Math.min(file.size, 2 * 1024 * 1024)).arrayBuffer().then(function (buffer) {
-      var view = new DataView(buffer);
-      if (view.byteLength < 20 || readFourCC(view, 0) !== 'RIFF' || readFourCC(view, 8) !== 'WAVE') throw new Error('invalid_wav');
-      var offset = 12;
-      var spec = null;
-      var dataSize = null;
-      while (offset + 8 <= view.byteLength) {
-        var id = readFourCC(view, offset);
-        var size = view.getUint32(offset + 4, true);
-        offset += 8;
-        if (id === 'fmt ' && size >= 16 && offset + 16 <= view.byteLength) {
-          spec = {
-            format: view.getUint16(offset, true),
-            channels: view.getUint16(offset + 2, true),
-            sampleRate: view.getUint32(offset + 4, true),
-            byteRate: view.getUint32(offset + 8, true),
-            bitDepth: view.getUint16(offset + 14, true)
-          };
-        } else if (id === 'data') {
-          dataSize = size;
-          if (spec) break;
-        }
-        var next = offset + size + (size % 2);
-        if (next <= offset || next > view.byteLength) break;
-        offset = next;
-      }
-      if (!spec || dataSize === null || spec.byteRate <= 0 || [1, 65534].indexOf(spec.format) === -1) throw new Error('invalid_wav');
-      spec.duration = dataSize / spec.byteRate;
-      return spec;
-    });
-  }
-
-  function durationLabel(seconds) {
-    var rounded = Math.round(seconds);
-    return String(Math.floor(rounded / 60)).padStart(2, '0') + ':' + String(rounded % 60).padStart(2, '0');
-  }
-
-  function validateTrackAudio(track) {
-    var input = track.querySelector('input[name^="trb_track_audio"]');
-    var message = track.querySelector('[data-audio-duration-check]');
-    var minutes = track.querySelector('[name$="[duration_minutes]"]');
-    var seconds = track.querySelector('[name$="[duration_seconds]"]');
-    if (!input || !input.files.length) return Promise.resolve(true);
-
-    var inspect = input._trbWavFile === input.files[0] && input._trbWavSpec
-      ? Promise.resolve(input._trbWavSpec)
-      : parseWav(input.files[0]).then(function (spec) { input._trbWavFile = input.files[0]; input._trbWavSpec = spec; return spec; });
-
-    return inspect.then(function (spec) {
-      var declared = minutes.value !== '' && seconds.value !== '' ? Number(minutes.value) * 60 + Number(seconds.value) : null;
-      var technical = spec.sampleRate >= 44100 && spec.sampleRate <= 96000 && spec.bitDepth >= 16 && spec.bitDepth <= 24;
-      var matches = declared === null || Math.abs(spec.duration - declared) <= 1;
-      var error = !technical ? 'Il WAV non rispetta i requisiti tecnici minimi.' : (!matches ? 'La durata indicata differisce dal WAV di oltre 1 secondo.' : '');
-      input.setCustomValidity(error);
-      message.classList.toggle('is-error', !!error);
-      message.textContent = error || ('Durata WAV rilevata: ' + durationLabel(spec.duration) + (declared === null ? '. Indica la stessa durata nei campi minuti e secondi.' : ' · corrispondenza verificata.'));
-      return !error;
-    }).catch(function () {
-      input.setCustomValidity('Il file non è un WAV PCM valido o non è leggibile.');
-      message.classList.add('is-error');
-      message.textContent = 'Impossibile leggere le caratteristiche e la durata del WAV.';
-      return false;
-    });
-  }
-
-  function createProgress(form, button, title) {
-    var panel = document.createElement('div');
-    panel.className = 'trb-portal__upload-progress';
-    panel.setAttribute('role', 'status');
-    panel.innerHTML = '<div><strong>' + title + '</strong><span data-trb-upload-percent>0%</span></div><div class="trb-portal__upload-progress-track"><span></span></div><small data-trb-upload-status>Preparazione dei file… Non chiudere la pagina e non inviare nuovamente il modulo.</small>';
-    form.insertBefore(panel, button || null);
-    return panel;
-  }
-
-  function sendWithProgress(form, options) {
-    if (form.dataset.trbSubmitting === '1') return;
-    form.dataset.trbSubmitting = '1';
-    var button = form.querySelector('button[type="submit"]');
-    var originalLabel = button ? button.textContent : '';
-    var panel = createProgress(form, button, options.title);
-    var percent = panel.querySelector('[data-trb-upload-percent]');
-    var bar = panel.querySelector('.trb-portal__upload-progress-track span');
-    var status = panel.querySelector('[data-trb-upload-status]');
-    if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Caricamento in corso…'; }
-
-    function restore(message) {
-      form.dataset.trbSubmitting = '0';
-      panel.classList.add('is-error');
-      status.textContent = message;
-      if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.textContent = originalLabel; }
-    }
-
-    var xhr = new XMLHttpRequest();
-    xhr.open((form.method || 'POST').toUpperCase(), form.action, true);
-    xhr.withCredentials = true;
-    xhr.timeout = 2 * 60 * 60 * 1000;
-    xhr.upload.addEventListener('progress', function (event) {
-      if (!event.lengthComputable) { status.textContent = 'Caricamento dei file in corso…'; return; }
-      var value = Math.min(99, Math.round(event.loaded / event.total * 100));
-      percent.textContent = value + '%';
-      bar.style.width = value + '%';
-      status.textContent = value < 99 ? 'Caricamento dei file in corso…' : 'File caricati. Verifica e registrazione della pratica…';
-    });
-    xhr.addEventListener('load', function () {
-      if (xhr.status >= 200 && xhr.status < 400) {
-        percent.textContent = '100%';
-        bar.style.width = '100%';
-        status.textContent = 'Caricamento completato. Aggiornamento della pratica…';
-        window.location.assign(xhr.responseURL || window.location.href);
-        return;
-      }
-      restore('Il server non ha completato il caricamento. Nessun secondo invio è stato avviato: controlla i file e riprova una sola volta.');
-    });
-    xhr.addEventListener('error', function () { restore('Connessione interrotta durante il caricamento. Controlla la rete prima di riprovare.'); });
-    xhr.addEventListener('timeout', function () { restore('Il caricamento ha superato il tempo massimo. Verifica la connessione prima di riprovare.'); });
-    xhr.send(new FormData(form));
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    var releaseForm = document.querySelector('[data-release-form]');
-    if (releaseForm) {
-      releaseForm.addEventListener('change', function (event) {
-        var track = event.target.closest('[data-track]');
-        if (track && (event.target.matches('input[name^="trb_track_audio"]') || event.target.matches('[name$="[duration_minutes]"]') || event.target.matches('[name$="[duration_seconds]"]'))) validateTrackAudio(track);
-      });
-      releaseForm.addEventListener('submit', function (event) {
-        event.preventDefault();
-        if (releaseForm.dataset.trbSubmitting === '1') return;
-        Promise.all(Array.prototype.map.call(releaseForm.querySelectorAll('[data-track]'), validateTrackAudio)).then(function (results) {
-          if (results.indexOf(false) !== -1 || !releaseForm.reportValidity()) {
-            var invalid = releaseForm.querySelector(':invalid');
-            if (invalid) invalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-          }
-          sendWithProgress(releaseForm, { title: 'Caricamento della release' });
-        });
-      });
-    }
-
-    document.querySelectorAll('.trb-release-file form').forEach(function (form) {
-      form.addEventListener('submit', function (event) {
-        event.preventDefault();
-        if (!form.reportValidity()) return;
-        sendWithProgress(form, { title: 'Sostituzione del file' });
-      });
-    });
-  });
+(function(){'use strict';
+function four(v,o){return String.fromCharCode(v.getUint8(o),v.getUint8(o+1),v.getUint8(o+2),v.getUint8(o+3));}
+function wav(file){return file.slice(0,Math.min(file.size,2097152)).arrayBuffer().then(function(b){var v=new DataView(b),o=12,s=null,d=null;if(v.byteLength<20||four(v,0)!=='RIFF'||four(v,8)!=='WAVE')throw Error('invalid_wav');while(o+8<=v.byteLength){var id=four(v,o),z=v.getUint32(o+4,true);o+=8;if(id==='fmt '&&z>=16&&o+16<=v.byteLength)s={format:v.getUint16(o,true),sampleRate:v.getUint32(o+4,true),byteRate:v.getUint32(o+8,true),bitDepth:v.getUint16(o+14,true)};else if(id==='data'){d=z;if(s)break;}var n=o+z+(z%2);if(n<=o||n>v.byteLength)break;o=n;}if(!s||d===null||s.byteRate<=0||[1,65534].indexOf(s.format)===-1)throw Error('invalid_wav');s.duration=d/s.byteRate;return s;});}
+function durationLabel(s){s=Math.round(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function validateAudio(track){var input=track.querySelector('input[name^="trb_track_audio"]'),msg=track.querySelector('[data-audio-duration-check]'),min=track.querySelector('[name$="[duration_minutes]"]'),sec=track.querySelector('[name$="[duration_seconds]"]');if(!input||!input.files.length)return Promise.resolve(true);var p=input._trbWavFile===input.files[0]&&input._trbWavSpec?Promise.resolve(input._trbWavSpec):wav(input.files[0]).then(function(s){input._trbWavFile=input.files[0];input._trbWavSpec=s;return s;});return p.then(function(s){var declared=min.value!==''&&sec.value!==''?Number(min.value)*60+Number(sec.value):null,technical=s.sampleRate>=44100&&s.sampleRate<=96000&&s.bitDepth>=16&&s.bitDepth<=24,matches=declared===null||Math.abs(s.duration-declared)<=1,error=!technical?'Il WAV non rispetta i requisiti tecnici minimi.':(!matches?'La durata indicata differisce dal WAV di oltre 1 secondo.':'');input.setCustomValidity(error);if(msg){msg.classList.toggle('is-error',!!error);msg.textContent=error||('Durata WAV rilevata: '+durationLabel(s.duration)+(declared===null?'. Indica la stessa durata nei campi minuti e secondi.':' · corrispondenza verificata.'));}return !error;}).catch(function(){input.setCustomValidity('Il file non è un WAV PCM valido o non è leggibile.');if(msg){msg.classList.add('is-error');msg.textContent='Impossibile leggere le caratteristiche e la durata del WAV.';}return false;});}
+function progress(form,button,title){var old=form.querySelector('.trb-portal__upload-progress:not([data-release-upload-progress])');if(old)old.remove();var p=document.createElement('div');p.className='trb-portal__upload-progress';p.setAttribute('role','status');p.innerHTML='<div><strong>'+title+'</strong><span data-trb-upload-percent>0%</span></div><div class="trb-portal__upload-progress-track"><span></span></div><small data-trb-upload-status>Preparazione dei file… Non chiudere la pagina e non inviare nuovamente il modulo.</small>';form.insertBefore(p,button||null);return p;}
+function send(form,title){if(form.dataset.trbSubmitting==='1')return;form.dataset.trbSubmitting='1';var button=form.querySelector('button[type="submit"]'),original=button?button.textContent:'',panel=progress(form,button,title),percent=panel.querySelector('[data-trb-upload-percent]'),bar=panel.querySelector('.trb-portal__upload-progress-track span'),status=panel.querySelector('[data-trb-upload-status]');if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='Caricamento in corso…';}function restore(text){form.dataset.trbSubmitting='0';panel.classList.add('is-error');status.textContent=text;if(button){button.disabled=false;button.removeAttribute('aria-busy');button.textContent=original;}}var x=new XMLHttpRequest();x.open((form.method||'POST').toUpperCase(),form.action,true);x.withCredentials=true;x.timeout=7200000;x.upload.addEventListener('progress',function(e){if(!e.lengthComputable){status.textContent='Caricamento dei file in corso…';return;}var v=Math.min(99,Math.round(e.loaded/e.total*100));percent.textContent=v+'%';bar.style.width=v+'%';status.textContent=v<99?'Caricamento dei file in corso…':'File caricati. Verifica e registrazione della pratica…';});x.addEventListener('load',function(){if(x.status>=200&&x.status<400){percent.textContent='100%';bar.style.width='100%';status.textContent='Caricamento completato. Aggiornamento della pratica…';window.location.assign(x.responseURL||window.location.href);return;}restore('Il server non ha completato il caricamento. Nessun secondo invio è stato avviato: controlla i file e riprova una sola volta.');});x.addEventListener('error',function(){restore('Connessione interrotta durante il caricamento. Controlla la rete prima di riprovare.');});x.addEventListener('timeout',function(){restore('Il caricamento ha superato il tempo massimo. Verifica la connessione prima di riprovare.');});x.send(new FormData(form));}
+function text(field){if(!field)return'';if(field.tagName==='SELECT')return field.selectedIndex>=0?field.options[field.selectedIndex].text.trim():'';return String(field.value||'').trim();}
+function label(input){if(!input)return'';var l=input.closest('label');return l?l.textContent.replace(/\s+/g,' ').trim():input.value;}
+function filename(input){return input&&input.files&&input.files.length?input.files[0].name:'Non caricato';}
+function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+function row(k,v){return v===''||v==null?'':'<div class="trb-release-review__row"><dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd></div>';}
+function contributors(track,key){var group=track.querySelector('[data-contributor-group="'+key+'"]');if(!group)return[];return Array.prototype.map.call(group.querySelectorAll('.trb-contributor-row'),function(e){var n=e.querySelector('input[type="text"]'),value=n?n.value.trim():'';if(!value)return'';if(key==='writers'){var roles=Array.prototype.filter.call(e.querySelectorAll('.trb-writer-roles input[type="checkbox"]'),function(b){return b.checked;}).map(label),share=e.querySelector('[data-writer-share]');return value+(roles.length?' — '+roles.join(', '):'')+(share&&share.value?' — '+share.value:'');}var role=e.querySelector('input[list="trb-credit-roles"]');return value+(role&&role.value.trim()?' — '+role.value.trim():'');}).filter(Boolean);}
+function summary(form){var type=form.querySelector('input[name="trb_release_type"]:checked'),state=form.querySelector('input[name="trb_release_state"]:checked'),title=form.querySelector('input[name="trb_release_title"]'),date=form.querySelector('input[name="trb_release_original_date"]'),cover=form.querySelector('input[name="trb_release_cover"]'),presentation=form.querySelector('input[name="trb_release_presentation"]'),typeLabel=type&&type.closest('label')?type.closest('label').querySelector('strong').textContent.trim():'',html='<section class="trb-release-review__section"><h3>Dati della release</h3><dl>'+row('Tipo di pubblicazione',typeLabel)+row('Stato',label(state))+row('Data di pubblicazione originale',date&&!date.disabled?date.value:'')+row('Titolo della release',title&&title.offsetParent!==null?title.value.trim():'Catalogo / repertorio edito')+row('Copertina',filename(cover))+row('Presentazione della release',filename(presentation))+'</dl></section>';Array.prototype.forEach.call(form.querySelectorAll('[data-track]'),function(track,i){function get(s){return track.querySelector('[name$="'+s+'"]');}var status=track.querySelector('input[name$="[audio_status]"]:checked')||track.querySelector('input[name$="[audio_status]"][type="hidden"]'),m=get('[duration_minutes]'),s=get('[duration_seconds]'),duration=m&&s?String(m.value).padStart(2,'0')+':'+String(s.value).padStart(2,'0'):'',lyrics=track.querySelector('input[name^="trb_track_lyrics"]');html+='<section class="trb-release-review__section"><h3>Brano '+(i+1)+'</h3><dl>'+row('Titolo',text(get('[title]')))+row('Featuring',text(get('[featuring]')))+row('Durata',duration)+row('Parental Advisory',text(get('[advisory]')))+row('Genere primario',text(get('[primary_genre]')))+row('Genere secondario',text(get('[secondary_genre]')))+row('Natura del contenuto',text(get('[content_nature]')))+row('Titolarità e autorizzazioni',text(get('[rights_basis]')))+row('Stato del file audio',label(status))+row('File audio',filename(track.querySelector('input[name^="trb_track_audio"]')))+row('Testo del brano',lyrics&&!lyrics.disabled?filename(lyrics):'')+row('Autori e compositori',contributors(track,'writers').join('\n'))+row('Altri crediti',contributors(track,'credits').join('\n'))+'</dl></section>';});return html;}
+function styles(){if(document.getElementById('trb-release-review-styles'))return;var s=document.createElement('style');s.id='trb-release-review-styles';s.textContent='.trb-release-review{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding:24px;background:rgba(10,18,32,.76);overflow:auto}.trb-release-review[hidden]{display:none}.trb-release-review__dialog{width:min(920px,100%);margin:auto;background:#fff;border-radius:16px;box-shadow:0 24px 80px rgba(0,0,0,.35);overflow:hidden}.trb-release-review__head{padding:26px 28px 18px;border-bottom:1px solid #e5e7eb}.trb-release-review__head h2{margin:0 0 10px;font-size:26px}.trb-release-review__head p,.trb-release-review__confirmation p{margin:0;color:#475569;line-height:1.6}.trb-release-review__body{padding:22px 28px;max-height:58vh;overflow:auto;background:#f8fafc}.trb-release-review__section{padding:18px;margin:0 0 16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px}.trb-release-review__section h3{margin:0 0 12px;font-size:18px}.trb-release-review__section dl{margin:0}.trb-release-review__row{display:grid;grid-template-columns:minmax(160px,34%) 1fr;gap:16px;padding:9px 0;border-top:1px solid #eef2f7}.trb-release-review__row:first-child{border-top:0}.trb-release-review__row dt{font-weight:700;color:#334155}.trb-release-review__row dd{margin:0;white-space:pre-line;overflow-wrap:anywhere;color:#0f172a}.trb-release-review__confirmation{padding:22px 28px;border-top:1px solid #e5e7eb}.trb-release-review__confirmation>p{margin-bottom:16px}.trb-release-review__check{display:flex;align-items:flex-start;gap:12px;padding:16px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;line-height:1.55}.trb-release-review__check input{margin-top:4px}.trb-release-review__actions{display:flex;justify-content:flex-end;gap:12px;padding:0 28px 26px}.trb-release-review__actions button:disabled{opacity:.5;cursor:not-allowed}body.trb-release-review-open{overflow:hidden}@media(max-width:640px){.trb-release-review{padding:10px}.trb-release-review__head,.trb-release-review__body,.trb-release-review__confirmation{padding-left:18px;padding-right:18px}.trb-release-review__actions{padding:0 18px 20px;flex-direction:column-reverse}.trb-release-review__actions button{width:100%}.trb-release-review__row{grid-template-columns:1fr;gap:4px}}';document.head.appendChild(s);}
+function review(form){styles();var modal=document.createElement('div');modal.className='trb-release-review';modal.hidden=true;modal.innerHTML='<div class="trb-release-review__dialog" role="dialog" aria-modal="true" aria-labelledby="trb-release-review-title"><header class="trb-release-review__head"><h2 id="trb-release-review-title">Verifica e conferma della release</h2><p>Prima di procedere, ti chiediamo di controllare con attenzione tutti i dati e i file riportati nel riepilogo, verificando in particolare titoli, crediti, durata e corrispondenza dei brani, file audio, copertina, data di uscita, eventuali ISRC e informazioni relative a diritti e licenze.</p></header><div class="trb-release-review__body" data-review-content></div><div class="trb-release-review__confirmation"><p>Prima della conferma definitiva puoi tornare alle sezioni precedenti per correggere eventuali errori o dati mancanti.</p><label class="trb-release-review__check"><input type="checkbox" data-review-confirm><span>Dichiaro di aver letto e verificato integralmente tutte le informazioni e i file inseriti e confermo che sono completi, corretti e veritieri. Autorizzo TRB rec a utilizzarli per la predisposizione del contratto e, dopo la firma, per la gestione e la distribuzione della release.<br><br>Sono consapevole che, una volta confermata la pratica e avviata la procedura contrattuale, eventuali modifiche o correzioni potrebbero richiedere una nuova compilazione e, nei casi più rilevanti, comportare costi o penali previsti dalle condizioni contrattuali.</span></label></div><div class="trb-release-review__actions"><button type="button" class="trb-button trb-button--secondary" data-review-back>Torna e modifica i dati</button><button type="button" class="trb-button" data-review-submit disabled>Conferma definitivamente e crea la pratica</button></div></div>';document.body.appendChild(modal);var content=modal.querySelector('[data-review-content]'),confirm=modal.querySelector('[data-review-confirm]'),submit=modal.querySelector('[data-review-submit]'),back=modal.querySelector('[data-review-back]');function close(){modal.hidden=true;document.body.classList.remove('trb-release-review-open');confirm.checked=false;submit.disabled=true;back.disabled=false;var b=form.querySelector('button[type="submit"]');if(b)b.focus();}confirm.addEventListener('change',function(){submit.disabled=!confirm.checked;});back.addEventListener('click',close);modal.addEventListener('click',function(e){if(e.target===modal)close();});document.addEventListener('keydown',function(e){if(!modal.hidden&&e.key==='Escape')close();});submit.addEventListener('click',function(){if(!confirm.checked||form.dataset.trbSubmitting==='1')return;submit.disabled=true;back.disabled=true;modal.hidden=true;document.body.classList.remove('trb-release-review-open');send(form,'Caricamento della release');});return{open:function(){content.innerHTML=summary(form);modal.hidden=false;document.body.classList.add('trb-release-review-open');content.scrollTop=0;confirm.checked=false;submit.disabled=true;back.disabled=false;back.focus();}};}
+document.addEventListener('DOMContentLoaded',function(){var form=document.querySelector('[data-release-form]');if(form){var button=form.querySelector('button[type="submit"]'),modal=review(form);if(button)button.textContent='Verifica e continua';form.addEventListener('change',function(e){var track=e.target.closest('[data-track]');if(track&&(e.target.matches('input[name^="trb_track_audio"]')||e.target.matches('[name$="[duration_minutes]"]')||e.target.matches('[name$="[duration_seconds]"]')))validateAudio(track);});form.addEventListener('submit',function(e){e.preventDefault();e.stopImmediatePropagation();if(form.dataset.trbSubmitting==='1')return;Promise.all(Array.prototype.map.call(form.querySelectorAll('[data-track]'),validateAudio)).then(function(results){if(results.indexOf(false)!==-1||!form.reportValidity()){var bad=form.querySelector(':invalid');if(bad)bad.scrollIntoView({behavior:'smooth',block:'center'});return;}modal.open();});},true);}document.querySelectorAll('.trb-release-file form').forEach(function(f){f.addEventListener('submit',function(e){e.preventDefault();if(f.reportValidity())send(f,'Sostituzione del file');});});});
 }());
