@@ -427,60 +427,14 @@ function trb_portal_release_types() {
 	);
 }
 
-function trb_portal_genre_map() {
-	return array(
-		'Alternative' => array( 'Alternative', 'Alternative Rock', 'Dream Pop', 'Grunge', 'Indie Pop', 'Indie Rock', 'Shoegaze' ),
-		'Anime' => array( 'Anime', 'Anime Soundtrack', 'J-Pop', 'Vocal' ),
-		'Arabic' => array( 'Arabic', 'Arabic Pop', 'Khaleeji', 'Middle Eastern' ),
-		'Audiobooks' => array( 'Audiobooks', 'Narration', 'Spoken Word' ),
-		'Blues' => array( 'Blues', 'Blues Rock', 'Contemporary Blues', 'Delta Blues', 'Electric Blues' ),
-		'Brazilian' => array( 'Brazilian', 'Bossa Nova', 'Forró', 'MPB', 'Samba' ),
-		"Children's Music" => array( "Children's Music", 'Educational', 'Lullabies', 'Nursery Rhymes' ),
-		'Chinese' => array( 'Chinese', 'Cantopop', 'Mandopop', 'Traditional Chinese' ),
-		'Christian & Gospel' => array( 'Christian & Gospel', 'Contemporary Christian', 'Gospel', 'Praise & Worship' ),
-		'Classical' => array( 'Classical', 'Chamber Music', 'Contemporary Classical', 'Opera', 'Orchestral' ),
-		'Comedy' => array( 'Comedy', 'Musical Comedy', 'Stand-up Comedy' ),
-		'Country' => array( 'Country', 'Alternative Country', 'Americana', 'Bluegrass', 'Country Pop' ),
-		'Dance' => array( 'Dance', 'Dance Pop', 'EDM', 'Eurodance', 'House' ),
-		'Easy Listening' => array( 'Easy Listening', 'Lounge', 'Orchestral Pop' ),
-		'Electronic' => array( 'Electronic', 'Ambient', 'Downtempo', 'Drum & Bass', 'Dubstep', 'EDM', 'Electronica', 'House', 'Synthwave', 'Techno', 'Trance' ),
-		'Enka' => array( 'Enka', 'Kayokyoku' ),
-		'Fitness & Workout' => array( 'Fitness & Workout', 'Cardio', 'Running', 'Workout' ),
-		'Folk' => array( 'Folk', 'Contemporary Folk', 'Folk Rock', 'Traditional Folk' ),
-		'French Pop' => array( 'French Pop', 'Chanson française', 'Variété française' ),
-		'Funk' => array( 'Funk', 'Afro-Funk', 'Disco Funk', 'P-Funk' ),
-		'German Folk' => array( 'German Folk', 'Schlager', 'Volksmusik' ),
-		'German Pop' => array( 'German Pop', 'Deutschpop', 'Schlager' ),
-		'Heavy Metal' => array( 'Heavy Metal', 'Black Metal', 'Death Metal', 'Doom Metal', 'Metalcore', 'Power Metal', 'Progressive Metal', 'Thrash Metal' ),
-		'Hip Hop/Rap' => array( 'Hip Hop/Rap', 'Boom Bap', 'Drill', 'Gangsta Rap', 'Hip Hop', 'Rap', 'Trap' ),
-		'Holiday' => array( 'Holiday', 'Christmas', 'Halloween', 'Seasonal' ),
-		'Indian' => array( 'Indian', 'Bollywood', 'Carnatic', 'Hindustani', 'Indian Pop' ),
-		'Inspirational' => array( 'Inspirational', 'Meditation', 'Motivational' ),
-		'Instrumental' => array( 'Instrumental', 'Acoustic Instrumental', 'Electronic Instrumental', 'Orchestral Instrumental' ),
-		'J-Pop' => array( 'J-Pop', 'City Pop', 'Japanese Rock' ),
-		'Jazz' => array( 'Jazz', 'Bebop', 'Contemporary Jazz', 'Fusion', 'Smooth Jazz', 'Swing' ),
-		'Karaoke' => array( 'Karaoke', 'Backing Track' ),
-		'Kayokyoku' => array( 'Kayokyoku', 'Enka', 'J-Pop' ),
-		'Korean' => array( 'Korean', 'K-Pop', 'Korean Hip Hop', 'Korean R&B' ),
-		'Latin' => array( 'Latin', 'Bachata', 'Latin Pop', 'Reggaeton', 'Salsa', 'Tango' ),
-		'Marching Bands' => array( 'Marching Bands', 'Brass Band', 'Military Band' ),
-		'New Age' => array( 'New Age', 'Meditation', 'Relaxation' ),
-		'Other' => array( 'Other', 'Experimental', 'Crossover' ),
-		'Pop' => array( 'Pop', 'Adult Contemporary', 'Dance Pop', 'Electropop', 'Indie Pop', 'Pop Rock', 'Synth-pop' ),
-		'Punk' => array( 'Punk', 'Hardcore Punk', 'Pop Punk', 'Post-Punk', 'Punk Rock' ),
-		'R&B/Soul' => array( 'R&B/Soul', 'Contemporary R&B', 'Neo Soul', 'Soul', 'Urban Soul' ),
-		'Reggae' => array( 'Reggae', 'Dancehall', 'Dub', 'Reggae Fusion', 'Ska' ),
-		'Rock' => array( 'Rock', 'Alternative Rock', 'Classic Rock', 'Hard Rock', 'Indie Rock', 'Pop Rock', 'Progressive Rock', 'Rock and Roll' ),
-		'Singer/Songwriter' => array( 'Singer/Songwriter', 'Acoustic', 'Cantautore', 'Contemporary Singer/Songwriter' ),
-		'Soundtrack' => array( 'Soundtrack', 'Film Soundtrack', 'Musical', 'Original Score', 'Television Soundtrack' ),
-		'Spoken Word' => array( 'Spoken Word', 'Poetry', 'Narration' ),
-		'Vocal' => array( 'Vocal', 'A Cappella', 'Choral', 'Vocal Pop' ),
-		'World' => array( 'World', 'African', 'Celtic', 'Mediterranean', 'Traditional' ),
-	);
-}
-
 function trb_portal_genres() {
-	return array_keys( trb_portal_genre_map() );
+	static $genres = null;
+	if ( null === $genres ) {
+		$file   = get_template_directory() . '/assets/data/too-lost-genres.json';
+		$loaded = file_exists( $file ) ? json_decode( file_get_contents( $file ), true ) : array(); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$genres = is_array( $loaded ) ? array_values( array_unique( array_filter( array_map( 'strval', $loaded ) ) ) ) : array();
+	}
+	return $genres;
 }
 
 function trb_portal_contributor_roles() {
@@ -1156,7 +1110,7 @@ function trb_portal_sanitize_contributors( $rows, $allowed_roles ) {
 }
 
 function trb_portal_sanitize_release_tracks( $tracks ) {
-	$genre_map = trb_portal_genre_map();
+	$genres    = trb_portal_genres();
 	$roles     = trb_portal_contributor_roles();
 	$clean     = array();
 	foreach ( $tracks as $track ) {
@@ -1174,7 +1128,7 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 		$production = trb_portal_sanitize_contributors( isset( $credits['production'] ) ? $credits['production'] : array(), $roles['production'] );
 		if (
 			'' === $title || '00:00' === $duration || ! preg_match( '/^[0-9]{2}:[0-5][0-9]$/', $duration ) ||
-			! isset( $genre_map[ $primary ] ) || ! in_array( $secondary, $genre_map[ $primary ], true ) ||
+			! in_array( $primary, $genres, true ) || ( '' !== $secondary && ( $secondary === $primary || ! in_array( $secondary, $genres, true ) ) ) ||
 			empty( $writers ) || empty( $performers ) || empty( $production )
 		) {
 			continue;
@@ -2258,7 +2212,7 @@ add_action( 'wp_ajax_trb_portal_submit_demo', 'trb_portal_submit_demo' );
 function trb_portal_render_release_section() {
 	$releases  = trb_portal_user_releases();
 	$types     = trb_portal_release_types();
-	$genre_map = trb_portal_genre_map();
+	$genres    = trb_portal_genres();
 	$roles     = trb_portal_contributor_roles();
 	$status    = isset( $_GET['trb_release'] ) ? sanitize_key( wp_unslash( $_GET['trb_release'] ) ) : '';
 	$complete  = trb_portal_artist_profile_is_complete();
@@ -2298,8 +2252,8 @@ function trb_portal_render_release_section() {
 				<label>Featuring <small>solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label>
 				<label>Durata <span aria-hidden="true">*</span><span class="trb-duration-picker"><select name="trb_tracks[__INDEX__][duration_minutes]" required aria-label="Minuti"><option value="">Minuti</option><?php for ( $minute = 0; $minute <= 19; $minute++ ) : ?><option value="<?php echo esc_attr( $minute ); ?>"><?php echo esc_html( sprintf( '%02d min', $minute ) ); ?></option><?php endfor; ?></select><select name="trb_tracks[__INDEX__][duration_seconds]" required aria-label="Secondi"><option value="">Secondi</option><?php for ( $second = 0; $second <= 59; $second++ ) : ?><option value="<?php echo esc_attr( $second ); ?>"><?php echo esc_html( sprintf( '%02d sec', $second ) ); ?></option><?php endfor; ?></select></span></label>
 				<label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required><option value="" selected disabled>Seleziona una voce</option><option value="no_lyrics">Nessun testo</option><option value="non_explicit">Testo non esplicito</option><option value="clean">Clean (versione censurata)</option><option value="explicit">Testo con contenuti espliciti</option></select></label>
-				<label>Genere musicale primario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][primary_genre]" required data-primary-genre><option value="">Seleziona genere</option><?php foreach ( array_keys( $genre_map ) as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label>
-				<label>Genere musicale secondario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][secondary_genre]" required data-secondary-genre disabled><option value="">Prima seleziona il genere primario</option></select></label>
+				<label>Genere musicale primario <span aria-hidden="true">*</span><input type="search" name="trb_tracks[__INDEX__][primary_genre]" required list="trb-release-genres" autocomplete="off" placeholder="Cerca e seleziona il genere primario" /></label>
+				<label>Genere musicale secondario <small>facoltativo</small><input type="search" name="trb_tracks[__INDEX__][secondary_genre]" list="trb-release-genres" autocomplete="off" placeholder="Cerca un eventuale genere secondario" /></label>
 			</div></div>
 			<fieldset class="trb-portal__credits"><legend>Crediti completi</legend><p class="trb-portal__field-help">Apple Music richiede almeno un contributore in ciascun gruppo. Inserisci ogni persona separatamente e seleziona il ruolo tramite la ricerca.</p>
 				<div class="trb-contributor-group" data-contributor-group="writers"><h4>Autori e compositori <span>*</span></h4><p>Chi ha scritto il testo, composto o adattato l’opera.</p><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][writers][0][name]" required aria-label="Nome dell’autore o compositore" placeholder="Nome e cognome o nome d’arte registrato" /><input type="search" name="trb_tracks[__INDEX__][credits][writers][0][role]" required aria-label="Ruolo dell’autore o compositore" list="trb-writer-roles" placeholder="Cerca ruolo" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi autore/compositore</button></div>
@@ -2308,18 +2262,19 @@ function trb_portal_render_release_section() {
 			</fieldset>
 		</article>
 	</template>
+	<datalist id="trb-release-genres"><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></datalist>
 	<datalist id="trb-writer-roles"><?php foreach ( $roles['writers'] as $role => $italian ) : ?><option value="<?php echo esc_attr( $role ); ?>" label="<?php echo esc_attr( $role . ' (' . $italian . ')' ); ?>"><?php echo esc_html( $role . ' (' . $italian . ')' ); ?></option><?php endforeach; ?></datalist>
 	<datalist id="trb-performer-roles"><?php foreach ( $roles['performers'] as $role => $italian ) : ?><option value="<?php echo esc_attr( $role ); ?>" label="<?php echo esc_attr( $role . ' (' . $italian . ')' ); ?>"><?php echo esc_html( $role . ' (' . $italian . ')' ); ?></option><?php endforeach; ?></datalist>
 	<datalist id="trb-production-roles"><?php foreach ( $roles['production'] as $role => $italian ) : ?><option value="<?php echo esc_attr( $role ); ?>" label="<?php echo esc_attr( $role . ' (' . $italian . ')' ); ?>"><?php echo esc_html( $role . ' (' . $italian . ')' ); ?></option><?php endforeach; ?></datalist>
 	<script>
 	(function(){
 		var form=document.querySelector('[data-release-form]'); if(!form)return;
-		var wrap=form.querySelector('[data-tracks]'), template=document.getElementById('trb-portal-track-template'), add=form.querySelector('[data-add-track]'), title=form.querySelector('.trb-portal__release-title'), date=form.querySelector('.trb-portal__original-date'), dateInput=date.querySelector('input'), genreMap=<?php echo wp_json_encode( $genre_map ); ?>;
+		var wrap=form.querySelector('[data-tracks]'), template=document.getElementById('trb-portal-track-template'), add=form.querySelector('[data-add-track]'), title=form.querySelector('.trb-portal__release-title'), date=form.querySelector('.trb-portal__original-date'), dateInput=date.querySelector('input');
 		function contributorRows(group){return group.querySelectorAll('.trb-contributor-row');}
+		function validateGenres(track){var primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]'),same=primary.value.trim()!==''&&primary.value.trim()===secondary.value.trim();secondary.setCustomValidity(same?'Il genere secondario deve essere diverso dal genere primario.':'');}
 		function renumberContributors(track){track.querySelectorAll('[data-contributor-group]').forEach(function(group){var key=group.dataset.contributorGroup; contributorRows(group).forEach(function(row,index){row.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(new RegExp('(credits\\]\\['+key+'\\]\\[)\\d+(\\])'),'$1'+index+'$2');}); var remove=row.querySelector('[data-remove-contributor]'); if(remove)remove.hidden=contributorRows(group).length===1;});});}
-		function updateGenres(track){var primary=track.querySelector('[data-primary-genre]'),secondary=track.querySelector('[data-secondary-genre]'),current=secondary.value,items=genreMap[primary.value]||[]; secondary.innerHTML=''; var first=document.createElement('option');first.value='';first.textContent=items.length?'Seleziona genere secondario':'Prima seleziona il genere primario';secondary.appendChild(first);items.forEach(function(item){var option=document.createElement('option');option.value=item;option.textContent=item;secondary.appendChild(option);});secondary.disabled=!items.length;if(items.indexOf(current)!==-1)secondary.value=current;}
 		function renumber(){var tracks=wrap.querySelectorAll('[data-track]');tracks.forEach(function(track,index){track.querySelector('[data-track-number]').textContent=index+1;track.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/trb_tracks\[\d+\]/,'trb_tracks['+index+']');});renumberContributors(track);track.querySelector('[data-remove-track]').hidden=tracks.length===1;});var selected=form.querySelector('input[name="trb_release_type"]:checked');if(selected){var max=Number(selected.dataset.max||60);add.disabled=tracks.length>=max;add.textContent=tracks.length>=max?'Limite raggiunto':'+ Aggiungi un altro brano';}}
-		function addTrack(){var index=wrap.querySelectorAll('[data-track]').length,html=template.innerHTML.replace(/__INDEX__/g,index);wrap.insertAdjacentHTML('beforeend',html);var track=wrap.lastElementChild;track.querySelector('[data-primary-genre]').addEventListener('change',function(){updateGenres(track);});renumber();}
+		function addTrack(){var index=wrap.querySelectorAll('[data-track]').length,html=template.innerHTML.replace(/__INDEX__/g,index);wrap.insertAdjacentHTML('beforeend',html);var track=wrap.lastElementChild,primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]');primary.addEventListener('input',function(){validateGenres(track);});secondary.addEventListener('input',function(){validateGenres(track);});renumber();}
 		function updateType(){var selected=form.querySelector('input[name="trb_release_type"]:checked'),catalogue=selected&&selected.dataset.catalogue==='1';title.hidden=!!catalogue;title.querySelector('input').required=!catalogue;if(catalogue){title.querySelector('input').value='';var old=form.querySelector('input[value="previously_released"]');old.checked=true;}updateState();renumber();}
 		function updateState(){var selected=form.querySelector('input[name="trb_release_state"]:checked'),old=selected&&selected.value==='previously_released';date.hidden=!old;dateInput.required=old;dateInput.disabled=!old;if(!old)dateInput.value='';}
 		add.addEventListener('click',addTrack);
