@@ -68,6 +68,18 @@ function trb_artist_promo_sync( $user_id ) {
 	if ( is_wp_error( $ready ) ) return $ready;
 	$bio = trb_artist_archive_put( $promo_folder . '/Profilo artista.txt', trb_artist_promo_profile_text( $user_id ), 'text/plain; charset=utf-8' );
 	if ( is_wp_error( $bio ) ) return $bio;
+	$biography = trb_portal_private_profile_file_by_group( 'biography', $user_id );
+	if ( ! empty( $biography ) ) {
+		foreach ( array( 'txt', 'docx', 'odt', 'rtf' ) as $extension ) {
+			$deleted = trb_artist_archive_delete( $promo_folder . '/Biografia artista.' . $extension );
+			if ( is_wp_error( $deleted ) ) return $deleted;
+		}
+		$local_biography = trb_artist_promo_local_photo( $biography );
+		if ( ! $local_biography ) return new WP_Error( 'artist_biography_missing' );
+		$bio_extension = strtolower( pathinfo( $local_biography, PATHINFO_EXTENSION ) );
+		$uploaded_biography = trb_artist_archive_put( $promo_folder . '/Biografia artista.' . $bio_extension, file_get_contents( $local_biography ), ! empty( $biography['type'] ) ? $biography['type'] : 'application/octet-stream' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		if ( is_wp_error( $uploaded_biography ) ) return $uploaded_biography;
+	}
 
 	foreach ( range( 1, 6 ) as $index ) {
 		foreach ( array( 'jpg', 'jpeg', 'png', 'webp' ) as $extension ) {
