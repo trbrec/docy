@@ -2135,6 +2135,7 @@ function trb_portal_render_release_section() {
 		addTrack(); updateState();
 	}());
 	</script>
+<?php
 }
 
 function trb_portal_redirect_artist_after_login( $redirect_to, $requested_redirect_to, $user ) {
