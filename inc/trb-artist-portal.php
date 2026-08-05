@@ -53,17 +53,17 @@ function trb_portal_profiles() {
 			'label'      => 'DDS',
 			'capability' => 'trb_portal_dds',
 		),
+		'ddb12' => array(
+			'role'       => 'artista_ddb12',
+			'aliases'    => array( 'artista_e' ),
+			'label'      => 'DDB12',
+			'capability' => 'trb_portal_ddb12',
+		),
 		'ddb' => array(
 			'role'       => 'artista_b',
 			'aliases'    => array( 'artista_ddb' ),
 			'label'      => 'DDB',
 			'capability' => 'trb_portal_ddb',
-		),
-		'ddb12' => array(
-			'role'       => 'artista_e',
-			'aliases'    => array( 'artista_ddb12' ),
-			'label'      => 'DDB12',
-			'capability' => 'trb_portal_ddb12',
 		),
 		'ddb_trb' => array(
 			'role'       => 'artista_c',
@@ -153,17 +153,84 @@ function trb_portal_user_can_access( $profiles, $user = null ) {
 	return in_array( $user_profile, $profiles, true );
 }
 
-/** Create DDB12 with the same base permissions as DDB on existing installs. */
+/** Create the definitive DDB12 role with the same base permissions as DDB. */
 function trb_portal_register_ddb12_role() {
-	if ( get_role( 'artista_e' ) ) {
+	if ( get_role( 'artista_ddb12' ) ) {
 		return;
 	}
 
 	$ddb  = get_role( 'artista_b' );
 	$caps = $ddb ? $ddb->capabilities : array( 'read' => true );
-	add_role( 'artista_e', 'Artista DDB12', $caps );
+	add_role( 'artista_ddb12', 'artista_ddb12', $caps );
 }
-add_action( 'init', 'trb_portal_register_ddb12_role', 19 );
+add_action( 'init', 'trb_portal_register_ddb12_role', 18 );
+
+/** Move users out of the two retired role containers, then remove them. */
+function trb_portal_migrate_retired_artist_roles() {
+	$migrations = array(
+		'artista_e'         => 'artista_ddb12',
+		'artisti_trb_basic' => 'artista_d',
+	);
+
+	foreach ( $migrations as $old_role => $new_role ) {
+		if ( ! get_role( $old_role ) || ! get_role( $new_role ) ) {
+			continue;
+		}
+		$user_ids = get_users( array( 'role' => $old_role, 'fields' => 'ids', 'number' => -1 ) );
+		foreach ( $user_ids as $user_id ) {
+			$user = new WP_User( $user_id );
+			$user->add_role( $new_role );
+			$user->remove_role( $old_role );
+		}
+		remove_role( $old_role );
+	}
+}
+add_action( 'init', 'trb_portal_migrate_retired_artist_roles', 19 );
+
+/** Keep the contractual groups in their intended order in role selectors. */
+function trb_portal_order_artist_roles() {
+	global $wpdb;
+
+	$option_key = $wpdb->prefix . 'user_roles';
+	$roles      = get_option( $option_key, array() );
+	$order      = array( 'artista_a', 'artista_ddb12', 'artista_b', 'artista_c', 'artista_d' );
+	if ( ! is_array( $roles ) || empty( $roles ) ) {
+		return;
+	}
+	if ( isset( $roles['artista_ddb12'] ) ) {
+		$roles['artista_ddb12']['name'] = 'artista_ddb12';
+	}
+
+	$rebuilt  = array();
+	$inserted = false;
+	foreach ( $roles as $slug => $settings ) {
+		if ( in_array( $slug, $order, true ) ) {
+			if ( ! $inserted ) {
+				foreach ( $order as $ordered_slug ) {
+					if ( isset( $roles[ $ordered_slug ] ) ) {
+						$rebuilt[ $ordered_slug ] = $roles[ $ordered_slug ];
+					}
+				}
+				$inserted = true;
+			}
+			continue;
+		}
+		$rebuilt[ $slug ] = $settings;
+	}
+	if ( ! $inserted ) {
+		foreach ( $order as $ordered_slug ) {
+			if ( isset( $roles[ $ordered_slug ] ) ) {
+				$rebuilt[ $ordered_slug ] = $roles[ $ordered_slug ];
+			}
+		}
+	}
+
+	if ( $rebuilt !== $roles ) {
+		update_option( $option_key, $rebuilt );
+		wp_roles()->for_site();
+	}
+}
+add_action( 'init', 'trb_portal_order_artist_roles', 21 );
 
 /**
  * Idempotently add a distinct capability to each current contractual role.
