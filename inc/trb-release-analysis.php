@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.0.3' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.0.4' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );

@@ -520,7 +520,7 @@ function trb_resource_daily_health() {
 	if ( null === $storage['used_percent'] ) $anomalies[] = 'Storage temporaneo non verificabile.';
 	elseif ( $storage['used_percent'] >= (float) $s['temp_warning_2'] ) $anomalies[] = 'Storage temporaneo utilizzato al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%.';
 	global $wpdb; $tables = trb_resource_tables();
-	$stuck = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key='_trb_release_pipeline_status' AND meta_value IN ('pcloud_transfer_waiting','analysis_in_progress','manual_review','ACR_BUDGET_LIMIT_REACHED','PCLOUD_QUOTA_LIMIT_REACHED')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$stuck = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key='_trb_release_pipeline_status' AND meta_value IN ('pcloud_transfer_waiting','analysis_in_progress','analysis_waiting_configuration','technical_error','security_scan_waiting','security_rejected','manual_review','ACR_BUDGET_LIMIT_REACHED','PCLOUD_QUOTA_LIMIT_REACHED')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$failed_mail = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$tables['notifications']} WHERE status IN ('pending','retry')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	if ( $stuck ) $anomalies[] = $stuck . ' pratiche richiedono attenzione.';
 	if ( $failed_mail ) $anomalies[] = $failed_mail . ' notifiche email sono in coda.';
