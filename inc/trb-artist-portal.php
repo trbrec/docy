@@ -2732,6 +2732,35 @@ function trb_portal_force_dashboard_template( $template ) {
 }
 add_filter( 'template_include', 'trb_portal_force_dashboard_template', 99 );
 
+/**
+ * Serve the canonical dashboard before Profile Builder/LoginWP can apply the
+ * retired role-specific destinations inherited from the former FAQ portal.
+ */
+function trb_portal_render_dashboard_early() {
+	if ( is_admin() || ! is_page( 'area-artisti' ) ) {
+		return;
+	}
+	if ( ! is_user_logged_in() ) {
+		wp_safe_redirect( home_url( '/accedi/' ), 302 );
+		exit;
+	}
+
+	$portal_template = locate_template( 'template-artist-portal.php' );
+	if ( ! $portal_template ) {
+		return;
+	}
+
+	status_header( 200 );
+	nocache_headers();
+	trb_portal_send_security_headers();
+	ob_start();
+	include $portal_template;
+	$html = ob_get_clean();
+	echo trb_portal_filter_eazydocs_assistant( $html ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	exit;
+}
+add_action( 'template_redirect', 'trb_portal_render_dashboard_early', -999 );
+
 /** Replace the legacy Download Manager banner with a focused resource page. */
 function trb_portal_force_download_template( $template ) {
 	if ( is_singular( 'wpdmpro' ) ) {
