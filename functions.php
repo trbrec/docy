@@ -69,6 +69,7 @@ require get_template_directory() . '/inc/trb-artist-portal.php';
 require get_template_directory() . '/inc/trb-demo-automation.php';
 require get_template_directory() . '/inc/trb-artist-pcloud-archive.php';
 require get_template_directory() . '/inc/trb-artist-promo-archive.php';
+require get_template_directory() . '/inc/trb-release-pcloud-archive.php';
 
 /** Canonical portal favicon (also covers admin and login screens). */
 function trb_portal_favicon() {
