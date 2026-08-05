@@ -1132,11 +1132,6 @@ function trb_portal_validate_release_upload( $file, $kind ) {
 	} else {
 		if ( ! in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) || (int) $file['size'] > 5 * MB_IN_BYTES ) return new WP_Error( 'invalid_' . $kind );
 	}
-	if ( 'audio' !== $kind && function_exists( 'trb_analysis_antivirus_scan' ) ) {
-		$scan = trb_analysis_antivirus_scan( $file['tmp_name'] );
-		if ( is_wp_error( $scan ) && 'MALWARE_DETECTED' === $scan->get_error_code() ) return $scan;
-		if ( is_wp_error( $scan ) && function_exists( 'trb_resource_event' ) ) trb_resource_event( 'scanner-unavailable-' . wp_date( 'YmdH' ), 'security', 'warning', 'Materiale acquisito in quarantena logica: scanner antivirus non disponibile.', array( 'code' => $scan->get_error_code(), 'kind' => $kind ) );
-	}
 	return true;
 }
 
@@ -1442,8 +1437,20 @@ function trb_portal_start_release() {
 		update_post_meta( $release_id, '_trb_release_original_date', $original_date );
 		update_post_meta( $release_id, '_trb_release_tracks', $tracks );
 		update_post_meta( $release_id, '_trb_release_rights_declarations', array_map( static function ( $track ) { return array( 'nature' => $track['content_nature'], 'basis' => $track['rights_basis'] ); }, $tracks ) );
+		$security_blocked = false;
+		if ( function_exists( 'trb_analysis_antivirus_scan' ) ) foreach ( $release_files as &$release_file ) {
+			if ( ! is_array( $release_file ) || 'audio' === ( $release_file['kind'] ?? '' ) ) continue;
+			$local = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $release_file ) : '';
+			$scan = $local ? trb_analysis_antivirus_scan( $local ) : new WP_Error( 'VIRUS_SCAN_FILE_MISSING' );
+			$release_file['security_status'] = is_wp_error( $scan ) ? $scan->get_error_code() : 'clean';
+			if ( is_wp_error( $scan ) ) $security_blocked = true;
+		}
+		unset( $release_file );
 		update_post_meta( $release_id, '_trb_release_files', $release_files );
-		if ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
+		if ( $security_blocked ) {
+			update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
+			if ( function_exists( 'trb_resource_event' ) ) trb_resource_event( 'release-' . $release_id, 'security', 'critical', 'Materiali conservati nello storage privato in attesa di scansione antivirus.', array( 'release_id' => $release_id ) );
+		} elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
 		delete_user_meta( $user_id, $submit_lock_key );
 		wp_safe_redirect( add_query_arg( 'trb_release', 'created', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
 		exit;
@@ -2635,6 +2642,8 @@ function trb_portal_release_pipeline_label( $release_id ) {
 		'technical_error'            => 'Il file richiede una correzione tecnica. Il WAV resta archiviato in sicurezza.',
 		'technical_review'           => 'Analisi tecnica completata: verifica TRB necessaria',
 		'copyright_queued'           => 'Controllo dei diritti in coda',
+		'security_scan_waiting'      => 'I materiali sono conservati in sicurezza e attendono il controllo antivirus. Non caricarli nuovamente.',
+		'security_rejected'          => 'Un materiale richiede verifica di sicurezza da parte di TRB.',
 		'analysis_in_progress'        => 'Controllo del brano in corso',
 		'analysis_waiting_configuration' => 'Il controllo del brano è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',
 		'ACR_BUDGET_LIMIT_REACHED'    => 'Il controllo del brano è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',

@@ -447,6 +447,16 @@ function trb_resource_sync_rights_document( $release_id, $document_index ) {
 	if ( is_wp_error( $folder ) ) return $folder;
 	$local = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $document ) : '';
 	if ( ! $local ) return new WP_Error( 'RIGHTS_DOCUMENT_LOCAL_MISSING' );
+	if ( function_exists( 'trb_analysis_antivirus_scan' ) ) {
+		$scan = trb_analysis_antivirus_scan( $local );
+		if ( is_wp_error( $scan ) ) {
+			$documents[ $document_index ]['status'] = 'quarantine'; $documents[ $document_index ]['security_status'] = $scan->get_error_code();
+			update_post_meta( $release_id, '_trb_release_rights_documents', $documents );
+			update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
+			return $scan;
+		}
+		$documents[ $document_index ]['security_status'] = 'clean';
+	}
 	$remote = $folder . '/Documentazione diritti - ' . sanitize_file_name( $document['name'] );
 	$result = trb_artist_archive_put( $remote, file_get_contents( $local ), ! empty( $document['type'] ) ? $document['type'] : 'application/octet-stream' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	if ( is_wp_error( $result ) ) return $result;
@@ -480,14 +490,6 @@ function trb_resource_upload_rights_document() {
 	if ( ! wp_mkdir_p( $directory ) ) { wp_safe_redirect( add_query_arg( 'trb_release', 'rights_error', $dashboard ) . $anchor ); exit; }
 	$stored_name = wp_unique_filename( $directory, 'Diritti - ' . $name ); $target = trailingslashit( $directory ) . $stored_name;
 	if ( ! move_uploaded_file( $file['tmp_name'], $target ) ) { wp_safe_redirect( add_query_arg( 'trb_release', 'rights_error', $dashboard ) . $anchor ); exit; }
-	if ( function_exists( 'trb_analysis_antivirus_scan' ) ) {
-		$scan = trb_analysis_antivirus_scan( $target );
-		if ( is_wp_error( $scan ) ) {
-			wp_delete_file( $target );
-			trb_resource_event( 'rights-scan-' . $release_id . '-' . $track, 'security', 'critical', 'Documento diritti respinto prima dell’archiviazione.', array( 'code' => $scan->get_error_code() ) );
-			wp_safe_redirect( add_query_arg( 'trb_release', 'rights_invalid', $dashboard ) . $anchor ); exit;
-		}
-	}
 	$documents = (array) get_post_meta( $release_id, '_trb_release_rights_documents', true );
 	$documents[] = array( 'kind' => 'rights', 'track' => $track, 'name' => $stored_name, 'original_name' => $name, 'path' => $relative . '/' . $stored_name, 'type' => sanitize_mime_type( $file['type'] ), 'size' => filesize( $target ), 'sha256' => hash_file( 'sha256', $target ), 'status' => 'pending', 'uploaded_at' => time() );
 	update_post_meta( $release_id, '_trb_release_rights_documents', $documents ); $index = count( $documents ) - 1;

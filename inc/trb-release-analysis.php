@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.0.1' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.0.2' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -347,6 +347,29 @@ function trb_analysis_download_report() {
 	nocache_headers(); header( 'Content-Type: application/pdf' ); header( 'Content-Disposition: attachment; filename="' . sanitize_file_name( $report['name'] ?? basename( $path ) ) . '"' ); header( 'Content-Length: ' . filesize( $path ) ); readfile( $path ); exit; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_read_readfile
 }
 add_action( 'admin_post_trb_analysis_download_report', 'trb_analysis_download_report' );
+
+/** Resume quarantined releases without asking the artist to upload again. */
+function trb_analysis_retry_security_scans() {
+	$releases = get_posts( array( 'post_type' => 'trb_release', 'post_status' => 'publish', 'posts_per_page' => 50, 'fields' => 'ids', 'meta_key' => '_trb_release_pipeline_status', 'meta_value' => 'security_scan_waiting' ) );
+	foreach ( $releases as $release_id ) {
+		$files = (array) get_post_meta( $release_id, '_trb_release_files', true ); $blocked = false; $malware = false;
+		foreach ( $files as &$file ) {
+			if ( 'audio' === ( $file['kind'] ?? '' ) ) continue;
+			$local = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $file ) : '';
+			$scan = $local ? trb_analysis_antivirus_scan( $local ) : new WP_Error( 'VIRUS_SCAN_FILE_MISSING' );
+			$file['security_status'] = is_wp_error( $scan ) ? $scan->get_error_code() : 'clean';
+			if ( is_wp_error( $scan ) ) { $blocked = true; if ( 'MALWARE_DETECTED' === $scan->get_error_code() ) $malware = true; }
+		}
+		unset( $file ); update_post_meta( $release_id, '_trb_release_files', $files );
+		$documents = (array) get_post_meta( $release_id, '_trb_release_rights_documents', true );
+		foreach ( $documents as $index => $document ) if ( 'synced' !== ( $document['status'] ?? '' ) && function_exists( 'trb_resource_sync_rights_document' ) ) { $result = trb_resource_sync_rights_document( $release_id, $index ); if ( is_wp_error( $result ) ) { $blocked = true; if ( 'MALWARE_DETECTED' === $result->get_error_code() ) $malware = true; } }
+		if ( $malware ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_rejected' ); if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'security-rejected-' . $release_id, 'Materiale bloccato dalla scansione antivirus', 'La pratica #' . absint( $release_id ) . ' richiede verifica immediata.', true ); continue; }
+		if ( ! $blocked && function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
+	}
+}
+add_action( 'trb_analysis_security_retry', 'trb_analysis_retry_security_scans' );
+add_action( 'trb_resource_daily_health', 'trb_analysis_retry_security_scans', 5 );
+add_action( 'init', function() { if ( ! wp_next_scheduled( 'trb_analysis_security_retry' ) ) wp_schedule_event( time() + 15 * MINUTE_IN_SECONDS, 'hourly', 'trb_analysis_security_retry' ); } );
 
 function trb_analysis_admin_menu() { add_management_page( 'Analisi release TRB', 'Analisi release TRB', 'manage_options', 'trb-release-analysis', 'trb_analysis_admin_page' ); }
 add_action( 'admin_menu', 'trb_analysis_admin_menu', 31 );
