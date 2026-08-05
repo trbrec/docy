@@ -39,7 +39,17 @@ while ( have_posts() ) :
 	the_post();
 	?>
 	<main id="main-content" class="trb-artist-portal-page">
-		<?php the_content(); ?>
+		<?php
+		try {
+			the_content();
+		} catch ( Throwable $trb_portal_error ) {
+			if ( trb_portal_is_demo_test_account() || current_user_can( 'manage_options' ) ) {
+				echo '<pre class="trb-portal__diagnostic">' . esc_html( get_class( $trb_portal_error ) . ': ' . $trb_portal_error->getMessage() . ' @ ' . basename( $trb_portal_error->getFile() ) . ':' . $trb_portal_error->getLine() ) . '</pre>';
+			} else {
+				echo '<section class="trb-portal-notice"><h2>Area temporaneamente non disponibile</h2><p>Il problema è stato registrato. Riprova tra qualche minuto.</p></section>';
+			}
+		}
+		?>
 	</main>
 	<?php
 endwhile;
