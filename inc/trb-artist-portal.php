@@ -602,7 +602,7 @@ function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 			return false;
 		}
 	}
-	if ( empty( trb_portal_private_profile_file_by_group( 'biography', $user_id ) ) ) {
+	if ( empty( trb_portal_private_profile_file_by_group( 'biography', $user_id ) ) && '' === trim( (string) get_user_meta( $user_id, '_trb_artist_bio', true ) ) ) {
 		return false;
 	}
 	$platform_requirements = array(
@@ -661,7 +661,7 @@ function trb_portal_artist_profile_completion( $user_id = 0 ) {
 	foreach ( array( 'artist_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'tax_code', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' ) as $field ) {
 		$checks[] = '' !== trim( trb_portal_artist_profile_value( $field, $user_id ) );
 	}
-	$checks[] = ! empty( trb_portal_private_profile_file_by_group( 'biography', $user_id ) );
+	$checks[] = ! empty( trb_portal_private_profile_file_by_group( 'biography', $user_id ) ) || '' !== trim( (string) get_user_meta( $user_id, '_trb_artist_bio', true ) );
 	foreach ( array( array( 'spotify_url', 'spotify_new' ), array( 'youtube_url', 'youtube_none' ), array( 'soundcloud_url', 'soundcloud_none' ) ) as $requirement ) {
 		$checks[] = '' !== trim( trb_portal_artist_profile_value( $requirement[0], $user_id ) ) || '1' === trb_portal_artist_profile_value( $requirement[1], $user_id );
 	}
