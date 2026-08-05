@@ -438,29 +438,20 @@ function trb_portal_genres() {
 }
 
 function trb_portal_contributor_roles() {
+	$performers = array(
+		'Lead Vocals', 'Featured Vocals', 'Background Vocals', 'Programming', 'Acoustic Guitar', 'Electric Guitar',
+		'Bass Guitar', 'Upright Bass', 'Piano', 'Keyboards', 'Synthesizer', 'Organ', 'Drums', 'Percussion',
+		'Drum Programming', 'Violin', 'Viola', 'Cello', 'Strings', 'Flute', 'Clarinet', 'Saxophone', 'Trumpet',
+		'Trombone', 'Harmonica', 'Accordion', 'DJ', 'Sampler', 'Turntables', 'Orchestra',
+	);
+	$production = array(
+		'Producer', 'Co-Producer', 'Executive Producer', 'Vocal Producer', 'Recording Engineer', 'Mixing Engineer',
+		'Mastering Engineer', 'Assistant Engineer', 'Studio Personnel',
+	);
 	return array(
-		'writers' => array(
-			'Composer' => 'Compositore', 'Lyricist' => 'Paroliere', 'Songwriter' => 'Autore e compositore',
-			'Writer' => 'Autore', 'Adapter' => 'Adattatore', 'Arranger' => 'Arrangiatore',
-			'Co-Arranger' => 'Co-arrangiatore', 'Librettist' => 'Librettista', 'Translator' => 'Traduttore',
-		),
-		'performers' => array(
-			'Lead Vocals' => 'Voce principale', 'Featured Vocals' => 'Voce ospite', 'Background Vocals' => 'Cori',
-			'Programming' => 'Programmazione / realizzazione strumentale elettronica', 'Acoustic Guitar' => 'Chitarra acustica',
-			'Electric Guitar' => 'Chitarra elettrica', 'Bass Guitar' => 'Basso elettrico', 'Upright Bass' => 'Contrabbasso',
-			'Piano' => 'Pianoforte', 'Keyboards' => 'Tastiere', 'Synthesizer' => 'Sintetizzatore', 'Organ' => 'Organo',
-			'Drums' => 'Batteria', 'Percussion' => 'Percussioni', 'Drum Programming' => 'Programmazione batteria',
-			'Violin' => 'Violino', 'Viola' => 'Viola', 'Cello' => 'Violoncello', 'Strings' => 'Archi',
-			'Flute' => 'Flauto', 'Clarinet' => 'Clarinetto', 'Saxophone' => 'Sassofono', 'Trumpet' => 'Tromba',
-			'Trombone' => 'Trombone', 'Harmonica' => 'Armonica', 'Accordion' => 'Fisarmonica',
-			'DJ' => 'DJ', 'Sampler' => 'Campionatore', 'Turntables' => 'Giradischi', 'Orchestra' => 'Orchestra',
-		),
-		'production' => array(
-			'Producer' => 'Produttore', 'Co-Producer' => 'Co-produttore', 'Executive Producer' => 'Produttore esecutivo',
-			'Vocal Producer' => 'Produttore vocale', 'Recording Engineer' => 'Tecnico di registrazione',
-			'Mixing Engineer' => 'Tecnico di missaggio', 'Mastering Engineer' => 'Tecnico di mastering',
-			'Assistant Engineer' => 'Assistente tecnico', 'Studio Personnel' => 'Personale di studio',
-		),
+		'writers'    => array( 'Lyricist' => 'Lyricist', 'Composer' => 'Composer' ),
+		'performers' => array_combine( $performers, $performers ),
+		'production' => array_combine( $production, $production ),
 	);
 }
 
@@ -1103,8 +1094,30 @@ function trb_portal_sanitize_contributors( $rows, $allowed_roles ) {
 		$name = isset( $row['name'] ) ? sanitize_text_field( $row['name'] ) : '';
 		$role = isset( $row['role'] ) ? sanitize_text_field( $row['role'] ) : '';
 		if ( '' !== $name && isset( $allowed_roles[ $role ] ) ) {
-			$clean[] = array( 'name' => $name, 'role' => $role, 'role_it' => $allowed_roles[ $role ] );
+			$clean[] = array( 'name' => $name, 'role' => $role );
 		}
+	}
+	return $clean;
+}
+
+function trb_portal_sanitize_writers( $rows ) {
+	$clean = array();
+	foreach ( (array) $rows as $row ) {
+		$name       = isset( $row['name'] ) ? sanitize_text_field( $row['name'] ) : '';
+		$roles      = isset( $row['roles'] ) ? array_map( 'sanitize_text_field', (array) $row['roles'] ) : array();
+		$roles      = array_values( array_intersect( array( 'Lyricist', 'Composer' ), array_unique( $roles ) ) );
+		if ( '' !== $name && ! empty( $roles ) ) {
+			$clean[] = array( 'name' => $name, 'roles' => $roles, 'role' => implode( ', ', $roles ) );
+		}
+	}
+	$count = count( $clean );
+	if ( $count ) {
+		$base      = intdiv( 10000, $count );
+		$remainder = 10000 - ( $base * $count );
+		foreach ( $clean as $index => &$writer ) {
+			$writer['share'] = number_format( ( $base + ( $index < $remainder ? 1 : 0 ) ) / 100, 2, '.', '' );
+		}
+		unset( $writer );
 	}
 	return $clean;
 }
@@ -1123,7 +1136,7 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 			: ( isset( $track['duration'] ) ? sanitize_text_field( $track['duration'] ) : '' );
 		$primary   = isset( $track['primary_genre'] ) ? sanitize_text_field( $track['primary_genre'] ) : '';
 		$secondary = isset( $track['secondary_genre'] ) ? sanitize_text_field( $track['secondary_genre'] ) : '';
-		$writers   = trb_portal_sanitize_contributors( isset( $credits['writers'] ) ? $credits['writers'] : array(), $roles['writers'] );
+		$writers   = trb_portal_sanitize_writers( isset( $credits['writers'] ) ? $credits['writers'] : array() );
 		$performers = trb_portal_sanitize_contributors( isset( $credits['performers'] ) ? $credits['performers'] : array(), $roles['performers'] );
 		$production = trb_portal_sanitize_contributors( isset( $credits['production'] ) ? $credits['production'] : array(), $roles['production'] );
 		if (
@@ -1136,7 +1149,10 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 		$advisory = isset( $track['advisory'] ) ? sanitize_key( $track['advisory'] ) : '';
 		if ( ! in_array( $advisory, array( 'no_lyrics', 'non_explicit', 'clean', 'explicit' ), true ) ) continue;
 		$summary = static function ( $contributors ) {
-			return implode( "\n", array_map( static function ( $entry ) { return $entry['name'] . ' — ' . $entry['role']; }, $contributors ) );
+			return implode( "\n", array_map( static function ( $entry ) { return $entry['name'] . ' — ' . $entry['role'] . ( isset( $entry['share'] ) ? ' — ' . $entry['share'] . '%' : '' ); }, $contributors ) );
+		};
+		$writer_summary = static function ( $contributors, $role ) {
+			return implode( "\n", array_map( static function ( $entry ) { return $entry['name'] . ' — ' . $entry['share'] . '%'; }, array_filter( $contributors, static function ( $entry ) use ( $role ) { return in_array( $role, $entry['roles'], true ); } ) ) );
 		};
 		$clean[] = array(
 			'title' => $title,
@@ -1148,7 +1164,7 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 			'instrumental' => ! empty( $track['instrumental'] ),
 			'credits' => array(
 				'writers' => $writers, 'performers' => $performers, 'production' => $production,
-				'authors' => $summary( $writers ), 'composers' => $summary( $writers ),
+				'authors' => $writer_summary( $writers, 'Lyricist' ), 'composers' => $writer_summary( $writers, 'Composer' ),
 				'performers_legacy' => $summary( $performers ), 'producers' => $summary( $production ),
 				'musicians' => $summary( $performers ),
 			),
@@ -2255,30 +2271,31 @@ function trb_portal_render_release_section() {
 				<label>Genere musicale primario <span aria-hidden="true">*</span><input type="search" name="trb_tracks[__INDEX__][primary_genre]" required list="trb-release-genres" autocomplete="off" placeholder="Cerca e seleziona il genere primario" /></label>
 				<label>Genere musicale secondario <small>facoltativo</small><input type="search" name="trb_tracks[__INDEX__][secondary_genre]" list="trb-release-genres" autocomplete="off" placeholder="Cerca un eventuale genere secondario" /></label>
 			</div></div>
-			<fieldset class="trb-portal__credits"><legend>Crediti completi</legend><p class="trb-portal__field-help">Apple Music richiede almeno un contributore in ciascun gruppo. Inserisci ogni persona separatamente e seleziona il ruolo tramite la ricerca.</p>
-				<div class="trb-contributor-group" data-contributor-group="writers"><h4>Autori e compositori <span>*</span></h4><p>Chi ha scritto il testo, composto o adattato l’opera.</p><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][writers][0][name]" required aria-label="Nome dell’autore o compositore" placeholder="Nome e cognome o nome d’arte registrato" /><input type="search" name="trb_tracks[__INDEX__][credits][writers][0][role]" required aria-label="Ruolo dell’autore o compositore" list="trb-writer-roles" placeholder="Cerca ruolo" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi autore/compositore</button></div>
-				<div class="trb-contributor-group" data-contributor-group="performers"><h4>Performers — musicisti e interpreti <span>*</span></h4><p>Obbligatorio anche per i brani strumentali. Per chi realizza una strumentale elettronica scegli <strong>Programming (Programmazione / realizzazione strumentale elettronica)</strong>.</p><label class="trb-instrumental-check"><input type="checkbox" name="trb_tracks[__INDEX__][instrumental]" value="1" /> Il brano non contiene un testo interpretato</label><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][performers][0][name]" required aria-label="Nome del musicista o interprete" placeholder="Nome del musicista o interprete" /><input type="search" name="trb_tracks[__INDEX__][credits][performers][0][role]" required aria-label="Strumento o funzione del musicista o interprete" list="trb-performer-roles" placeholder="Cerca strumento o funzione" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi musicista/interprete</button></div>
+			<fieldset class="trb-portal__credits"><legend>Crediti</legend><p class="trb-portal__field-help">Inserisci ogni persona separatamente e seleziona tutti i ruoli che si applicano.</p>
+				<div class="trb-contributor-group" data-contributor-group="writers"><h4>Autori e compositori <span>*</span></h4><p>Indica chi ha scritto il testo e chi ha composto la musica. La quota viene ripartita automaticamente in parti uguali fra le persone inserite.</p><div data-contributor-rows><div class="trb-contributor-row trb-contributor-row--writer"><input type="text" name="trb_tracks[__INDEX__][credits][writers][0][name]" required aria-label="Nome dell’autore o compositore" placeholder="Nome completo" /><fieldset class="trb-writer-roles"><legend>Ruolo <span>*</span></legend><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Lyricist" /> Autore</label><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Composer" /> Compositore</label></fieldset><label class="trb-writer-share">Quota diritto d’autore<input type="text" name="trb_tracks[__INDEX__][credits][writers][0][share]" value="100,00%" readonly tabindex="-1" data-writer-share /></label><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi autore/compositore</button></div>
+				<div class="trb-contributor-group" data-contributor-group="performers"><h4>Performers — musicisti e interpreti <span>*</span></h4><p>Inserisci tutte le persone che hanno partecipato all’esecuzione del brano.</p><label class="trb-instrumental-check"><input type="checkbox" name="trb_tracks[__INDEX__][instrumental]" value="1" /> Il brano non contiene un testo interpretato</label><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][performers][0][name]" required aria-label="Nome del musicista o interprete" placeholder="Nome del musicista o interprete" /><input type="search" name="trb_tracks[__INDEX__][credits][performers][0][role]" required aria-label="Ruolo del musicista o interprete" list="trb-performer-roles" placeholder="Cerca ruolo" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi musicista/interprete</button></div>
 				<div class="trb-contributor-group" data-contributor-group="production"><h4>Produzione e tecnici <span>*</span></h4><p>Produzione, registrazione, missaggio e mastering.</p><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][production][0][name]" required aria-label="Nome del produttore o tecnico" placeholder="Nome del contributore" /><input type="search" name="trb_tracks[__INDEX__][credits][production][0][role]" required aria-label="Ruolo del produttore o tecnico" list="trb-production-roles" placeholder="Cerca ruolo tecnico" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi produttore/tecnico</button></div>
 			</fieldset>
 		</article>
 	</template>
 	<datalist id="trb-release-genres"><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></datalist>
-	<datalist id="trb-writer-roles"><?php foreach ( $roles['writers'] as $role => $italian ) : ?><option value="<?php echo esc_attr( $role ); ?>" label="<?php echo esc_attr( $role . ' (' . $italian . ')' ); ?>"><?php echo esc_html( $role . ' (' . $italian . ')' ); ?></option><?php endforeach; ?></datalist>
-	<datalist id="trb-performer-roles"><?php foreach ( $roles['performers'] as $role => $italian ) : ?><option value="<?php echo esc_attr( $role ); ?>" label="<?php echo esc_attr( $role . ' (' . $italian . ')' ); ?>"><?php echo esc_html( $role . ' (' . $italian . ')' ); ?></option><?php endforeach; ?></datalist>
-	<datalist id="trb-production-roles"><?php foreach ( $roles['production'] as $role => $italian ) : ?><option value="<?php echo esc_attr( $role ); ?>" label="<?php echo esc_attr( $role . ' (' . $italian . ')' ); ?>"><?php echo esc_html( $role . ' (' . $italian . ')' ); ?></option><?php endforeach; ?></datalist>
+	<datalist id="trb-performer-roles"><?php foreach ( array_keys( $roles['performers'] ) as $role ) : ?><option value="<?php echo esc_attr( $role ); ?>"><?php echo esc_html( $role ); ?></option><?php endforeach; ?></datalist>
+	<datalist id="trb-production-roles"><?php foreach ( array_keys( $roles['production'] ) as $role ) : ?><option value="<?php echo esc_attr( $role ); ?>"><?php echo esc_html( $role ); ?></option><?php endforeach; ?></datalist>
 	<script>
 	(function(){
 		var form=document.querySelector('[data-release-form]'); if(!form)return;
 		var wrap=form.querySelector('[data-tracks]'), template=document.getElementById('trb-portal-track-template'), add=form.querySelector('[data-add-track]'), title=form.querySelector('.trb-portal__release-title'), date=form.querySelector('.trb-portal__original-date'), dateInput=date.querySelector('input');
 		function contributorRows(group){return group.querySelectorAll('.trb-contributor-row');}
 		function validateGenres(track){var primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]'),same=primary.value.trim()!==''&&primary.value.trim()===secondary.value.trim();secondary.setCustomValidity(same?'Il genere secondario deve essere diverso dal genere primario.':'');}
-		function renumberContributors(track){track.querySelectorAll('[data-contributor-group]').forEach(function(group){var key=group.dataset.contributorGroup; contributorRows(group).forEach(function(row,index){row.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(new RegExp('(credits\\]\\['+key+'\\]\\[)\\d+(\\])'),'$1'+index+'$2');}); var remove=row.querySelector('[data-remove-contributor]'); if(remove)remove.hidden=contributorRows(group).length===1;});});}
+		function updateWriterShares(group){var rows=contributorRows(group),count=rows.length,base=Math.floor(10000/count),remainder=10000-(base*count);rows.forEach(function(row,index){var share=row.querySelector('[data-writer-share]'),roles=row.querySelectorAll('.trb-writer-roles input[type="checkbox"]'),selected=Array.prototype.some.call(roles,function(role){return role.checked;});if(share){var cents=base+(index<remainder?1:0);share.value=(cents/100).toFixed(2).replace('.',',')+'%';}if(roles.length)roles[0].setCustomValidity(selected?'':'Seleziona Autore, Compositore oppure entrambi.');});}
+		function renumberContributors(track){track.querySelectorAll('[data-contributor-group]').forEach(function(group){var key=group.dataset.contributorGroup; contributorRows(group).forEach(function(row,index){row.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(new RegExp('(credits\\]\\['+key+'\\]\\[)\\d+(\\])'),'$1'+index+'$2');}); var remove=row.querySelector('[data-remove-contributor]'); if(remove)remove.hidden=contributorRows(group).length===1;});if(key==='writers')updateWriterShares(group);});}
 		function renumber(){var tracks=wrap.querySelectorAll('[data-track]');tracks.forEach(function(track,index){track.querySelector('[data-track-number]').textContent=index+1;track.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/trb_tracks\[\d+\]/,'trb_tracks['+index+']');});renumberContributors(track);track.querySelector('[data-remove-track]').hidden=tracks.length===1;});var selected=form.querySelector('input[name="trb_release_type"]:checked');if(selected){var max=Number(selected.dataset.max||60);add.disabled=tracks.length>=max;add.textContent=tracks.length>=max?'Limite raggiunto':'+ Aggiungi un altro brano';}}
 		function addTrack(){var index=wrap.querySelectorAll('[data-track]').length,html=template.innerHTML.replace(/__INDEX__/g,index);wrap.insertAdjacentHTML('beforeend',html);var track=wrap.lastElementChild,primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]');primary.addEventListener('input',function(){validateGenres(track);});secondary.addEventListener('input',function(){validateGenres(track);});renumber();}
 		function updateType(){var selected=form.querySelector('input[name="trb_release_type"]:checked'),catalogue=selected&&selected.dataset.catalogue==='1';title.hidden=!!catalogue;title.querySelector('input').required=!catalogue;if(catalogue){title.querySelector('input').value='';var old=form.querySelector('input[value="previously_released"]');old.checked=true;}updateState();renumber();}
 		function updateState(){var selected=form.querySelector('input[name="trb_release_state"]:checked'),old=selected&&selected.value==='previously_released';date.hidden=!old;dateInput.required=old;dateInput.disabled=!old;if(!old)dateInput.value='';}
 		add.addEventListener('click',addTrack);
-		wrap.addEventListener('click',function(event){var target=event.target;if(target.matches('[data-remove-track]')){target.closest('[data-track]').remove();renumber();return;}if(target.matches('[data-add-contributor]')){var group=target.closest('[data-contributor-group]'),rows=group.querySelector('[data-contributor-rows]'),clone=rows.firstElementChild.cloneNode(true);clone.querySelectorAll('input').forEach(function(input){input.value='';input.checked=false;});rows.appendChild(clone);renumberContributors(target.closest('[data-track]'));return;}if(target.matches('[data-remove-contributor]')){var group=target.closest('[data-contributor-group]');target.closest('.trb-contributor-row').remove();renumberContributors(group.closest('[data-track]'));}});
+		wrap.addEventListener('click',function(event){var target=event.target;if(target.matches('[data-remove-track]')){target.closest('[data-track]').remove();renumber();return;}if(target.matches('[data-add-contributor]')){var group=target.closest('[data-contributor-group]'),rows=group.querySelector('[data-contributor-rows]'),clone=rows.firstElementChild.cloneNode(true);clone.querySelectorAll('input').forEach(function(input){if(input.type==='checkbox')input.checked=false;else input.value='';});rows.appendChild(clone);renumberContributors(target.closest('[data-track]'));return;}if(target.matches('[data-remove-contributor]')){var group=target.closest('[data-contributor-group]');target.closest('.trb-contributor-row').remove();renumberContributors(group.closest('[data-track]'));}});
+		wrap.addEventListener('change',function(event){if(event.target.matches('.trb-writer-roles input[type="checkbox"]'))updateWriterShares(event.target.closest('[data-contributor-group]'));});
 		form.querySelectorAll('input[name="trb_release_type"]').forEach(function(input){input.addEventListener('change',updateType);});
 		form.querySelectorAll('input[name="trb_release_state"]').forEach(function(input){input.addEventListener('change',updateState);});
 		addTrack(); updateState();
