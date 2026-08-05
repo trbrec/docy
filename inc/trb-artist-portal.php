@@ -686,6 +686,16 @@ function trb_portal_handle_artist_profile() {
 	}
 	check_admin_referer( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' );
 	$user_id = get_current_user_id();
+	$incoming_bytes = 0;
+	foreach ( $_FILES as $incoming ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		if ( isset( $incoming['size'] ) ) {
+			$incoming_bytes += is_array( $incoming['size'] ) ? array_sum( array_map( 'absint', $incoming['size'] ) ) : absint( $incoming['size'] );
+		}
+	}
+	if ( $incoming_bytes && function_exists( 'trb_resource_temp_storage_guard' ) && is_wp_error( trb_resource_temp_storage_guard( $incoming_bytes ) ) ) {
+		wp_safe_redirect( add_query_arg( 'trb_profile', 'storage_waiting', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+		exit;
+	}
 	$profile = trb_portal_user_profile();
 	$company_fields = array( 'company_name', 'company_vat', 'company_sdi', 'company_address' );
 	$url_fields = array( 'spotify_url', 'apple_music_url', 'youtube_url', 'soundcloud_url', 'facebook_url', 'instagram_url', 'linkedin_url', 'tiktok_url', 'discord_url', 'twitch_url', 'x_url', 'snapchat_url', 'threads_url' );
@@ -1105,6 +1115,10 @@ function trb_portal_wav_spec( $path ) {
 
 function trb_portal_validate_release_upload( $file, $kind ) {
 	if ( empty( $file['name'] ) || UPLOAD_ERR_OK !== (int) $file['error'] || empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) return new WP_Error( 'missing_' . $kind );
+	if ( function_exists( 'trb_resource_temp_storage_guard' ) ) {
+		$storage_guard = trb_resource_temp_storage_guard( (int) $file['size'] );
+		if ( is_wp_error( $storage_guard ) ) return $storage_guard;
+	}
 	$name = sanitize_file_name( $file['name'] );
 	$extension = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
 	if ( 'cover' === $kind ) {
@@ -2252,6 +2266,7 @@ function trb_portal_render_artist_profile_section() {
 		<?php if ( 'artist_name_taken' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Questo nome d’arte risulta già assegnato a un altro account. Apri una segnalazione se ritieni che si tratti di un errore.</div><?php endif; ?>
 		<?php if ( 'bio_required' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Allega la biografia artistica in formato TXT, DOCX, ODT o RTF prima di salvare l’identità artistica.</div><?php endif; ?>
 		<?php if ( 'bio_invalid' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Biografia non acquisita: usa un file TXT, DOCX, ODT o RTF non superiore a 5 MB.</div><?php endif; ?>
+		<?php if ( 'storage_waiting' === $profile_error ) : ?><div class="trb-portal__message"><strong>Caricamento temporaneamente in attesa.</strong><p>I dati già salvati restano invariati. Non ripetere l’invio: riprova quando lo spazio sarà nuovamente disponibile.</p></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Per correggere nome, cognome o e-mail dell’account, apri una segnalazione.</div><?php endif; ?>
 		<div class="trb-portal__profile-progress" role="status" aria-label="Completamento profilo: <?php echo esc_attr( $completion['percentage'] ); ?>%">
 			<div class="trb-portal__profile-progress-heading"><span><b>Completamento profilo</b><small><?php echo $complete ? 'Profilo completo: puoi procedere con la richiesta di distribuzione.' : esc_html( 'Mancano ancora ' . $completion['remaining'] . ' elementi prima di poter richiedere la distribuzione.' ); ?></small></span><strong><?php echo esc_html( $completion['percentage'] ); ?>%</strong></div>
@@ -2457,6 +2472,10 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes ) {
 	if ( empty( $_FILES[ $input ]['name'] ) || empty( $_FILES[ $input ]['tmp_name'] ) ) return null;
 	$file = $_FILES[ $input ]; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 	if ( UPLOAD_ERR_OK !== (int) $file['error'] || (int) $file['size'] > $max_bytes ) return new WP_Error( 'invalid_upload' );
+	if ( function_exists( 'trb_resource_temp_storage_guard' ) ) {
+		$storage_guard = trb_resource_temp_storage_guard( (int) $file['size'] );
+		if ( is_wp_error( $storage_guard ) ) return $storage_guard;
+	}
 	require_once ABSPATH . 'wp-admin/includes/file.php';
 	$file['name'] = sanitize_file_name( $file['name'] );
 	$uploads = wp_upload_dir();
@@ -2577,7 +2596,7 @@ function trb_portal_render_release_files( $release_id ) {
 		$label = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : 'Testo del brano' ) );
 		if ( in_array( $kind, array( 'lyrics', 'audio' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
 		$accept = 'cover' === $kind ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : ( 'audio' === $kind ? '.wav,audio/wav,audio/x-wav' : '.txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text' );
-		?><article class="trb-release-file"><?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?><div class="trb-release-file__details"><strong><?php echo esc_html( $label ); ?></strong><span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span><?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'mastering richiesto' : 'master' ) ); ?></small><?php endif; ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica il file</a><details><summary>Sostituisci</summary><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_replace_release_file" /><input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" /><input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" /><?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?><input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required /><?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?><button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button></form></details></div></article><?php endforeach; ?></div></div><?php
+		?><article class="trb-release-file"><?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?><div class="trb-release-file__details"><strong><?php echo esc_html( $label ); ?></strong><span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span><?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'mastering richiesto' : 'master' ) ); ?></small><?php endif; ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica il file</a><details><summary>Sostituisci</summary><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_replace_release_file" /><input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" /><input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" /><?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?><input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required /><?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?><button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button></form></details></div></article><?php endforeach; ?></div><?php if ( function_exists( 'trb_resource_render_rights_box' ) ) trb_resource_render_rights_box( $release_id ); ?></div><?php
 }
 
 function trb_portal_release_pipeline_label( $release_id ) {
@@ -2587,7 +2606,12 @@ function trb_portal_release_pipeline_label( $release_id ) {
 		'pcloud_transfer_waiting'     => 'Il trasferimento è temporaneamente in attesa. Non è necessario caricare nuovamente i file.',
 		'archived_pending_analysis'   => 'File archiviati correttamente. Controllo del brano in attesa',
 		'analysis_in_progress'        => 'Controllo del brano in corso',
+		'analysis_waiting_configuration' => 'Il controllo del brano è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',
+		'ACR_BUDGET_LIMIT_REACHED'    => 'Il controllo del brano è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',
+		'PCLOUD_QUOTA_LIMIT_REACHED'  => 'Il trasferimento è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',
 		'copyright_documents_needed' => 'Documentazione sui diritti richiesta',
+		'copyright_review'            => 'Verifica dei diritti in corso',
+		'manual_review'               => 'Verifica manuale in corso',
 		'approved'                    => 'Controllo completato',
 	);
 	return isset( $labels[ $status ] ) ? $labels[ $status ] : 'Dati contrattuali da completare';
@@ -2609,6 +2633,9 @@ function trb_portal_render_release_section() {
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Inserisci metadati, crediti e file audio della pubblicazione, quindi ricevi il contratto da sottoscrivere per avviare l’iter di distribuzione.</p></div>
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
 		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Nuovo file acquisito. Il precedente verrà rimosso automaticamente soltanto dopo il trasferimento verificato su pCloud.</div><?php endif; ?>
+		<?php if ( 'rights_uploaded' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Documento acquisito e archiviato con il brano. La verifica prosegue automaticamente.</div><?php endif; ?>
+		<?php if ( 'rights_waiting' === $status ) : ?><div class="trb-portal__message"><strong>Documento acquisito.</strong><p>Il trasferimento è temporaneamente in attesa. Non è necessario caricarlo nuovamente.</p></div><?php endif; ?>
+		<?php if ( 'rights_invalid' === $status || 'rights_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Il documento non è stato acquisito. Sono ammessi PDF, JPG, PNG o DOCX fino a 20 MB.</div><?php endif; ?>
 		<?php if ( 'profile_required' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Completa prima il profilo artista.</div><?php endif; ?>
 		<?php if ( 'duration_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>La durata indicata non coincide con il file WAV.</strong><p>Correggi minuti e secondi del brano: è ammessa una tolleranza massima di 1 secondo rispetto alla durata reale del file.</p></div><?php endif; ?>
 		<?php if ( 'file_invalid' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Il file sostitutivo non è stato acquisito.</strong><p>Formato, dimensioni o caratteristiche tecniche non rispettano i requisiti indicati. Il file precedente è rimasto invariato.</p></div><?php endif; ?>
