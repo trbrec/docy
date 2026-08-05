@@ -295,8 +295,10 @@ function trb_resource_create_excerpt( $source, $release_id, $track_index ) {
 	if ( in_array( 'exec', $disabled, true ) ) return new WP_Error( 'AUDIO_EXTRACTOR_UNAVAILABLE' );
 	$binary = trim( (string) shell_exec( 'command -v ffmpeg 2>/dev/null' ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_shell_exec
 	if ( ! $binary || ! is_executable( $binary ) ) return new WP_Error( 'AUDIO_EXTRACTOR_UNAVAILABLE' );
+	$window = function_exists( 'trb_analysis_excerpt_window' ) ? trb_analysis_excerpt_window( $source, absint( $s['acr_excerpt_seconds'] ) ) : array( 'start' => 0, 'length' => absint( $s['acr_excerpt_seconds'] ) );
+	if ( is_wp_error( $window ) ) return $window;
 	$target = trailingslashit( dirname( $source ) ) . '.acr-' . absint( $release_id ) . '-' . absint( $track_index ) . '-' . wp_generate_uuid4() . '.wav';
-	$command = escapeshellarg( $binary ) . ' -v error -y -ss ' . absint( $s['acr_excerpt_offset'] ) . ' -t ' . absint( $s['acr_excerpt_seconds'] ) . ' -i ' . escapeshellarg( $source ) . ' -vn -ac 2 -ar 44100 -c:a pcm_s16le ' . escapeshellarg( $target ) . ' 2>&1';
+	$command = escapeshellarg( $binary ) . ' -v error -y -i ' . escapeshellarg( $source ) . ' -ss ' . escapeshellarg( (string) $window['start'] ) . ' -t ' . escapeshellarg( (string) $window['length'] ) . ' -map 0:a:0 -vn -c:a copy ' . escapeshellarg( $target ) . ' 2>&1';
 	$output = array(); $code = 1; exec( $command, $output, $code ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec
 	return 0 === $code && is_file( $target ) ? $target : new WP_Error( 'AUDIO_EXCERPT_FAILED', implode( ' ', array_slice( $output, -3 ) ) );
 }
@@ -327,9 +329,19 @@ function trb_resource_find_acr_file( $name ) {
 
 function trb_resource_start_release_analysis( $release_id ) {
 	$s = trb_resource_settings();
+	$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
+	if ( ! in_array( $technical['status'] ?? '', array( 'passed', 'warning' ), true ) ) return;
 	if ( empty( $s['acr_enabled'] ) || empty( $s['acr_paid_confirmed'] ) || empty( $s['acr_token'] ) || empty( $s['acr_container_id'] ) ) {
 		update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_waiting_configuration' );
 		return;
+	}
+	if ( function_exists( 'trb_analysis_verify_acr_container' ) ) {
+		$container = trb_analysis_verify_acr_container();
+		if ( is_wp_error( $container ) ) {
+			update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_waiting_configuration' );
+			trb_resource_event( 'container-' . trb_resource_period_key(), 'acrcloud', 'critical', 'Container ACRCloud non verificato o non conforme.', array( 'code' => $container->get_error_code(), 'message' => $container->get_error_message() ) );
+			return;
+		}
 	}
 	$files = (array) get_post_meta( $release_id, '_trb_release_files', true );
 	update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' );
@@ -389,7 +401,10 @@ function trb_resource_start_release_analysis( $release_id ) {
 		$waiting = true;
 		wp_schedule_single_event( time() + 2 * MINUTE_IN_SECONDS, 'trb_resource_poll_acr_job', array( $ledger_id ) );
 	}
-	if ( ! $waiting ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_review' );
+	if ( ! $waiting ) {
+		update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_review' );
+		if ( function_exists( 'trb_analysis_decide_release' ) ) trb_analysis_decide_release( absint( $release_id ) );
+	}
 }
 add_action( 'trb_release_audio_ready_for_analysis', 'trb_resource_start_release_analysis', 10, 1 );
 add_action( 'trb_resource_start_release_analysis_manual', 'trb_resource_start_release_analysis', 10, 1 );
@@ -411,7 +426,10 @@ function trb_resource_poll_acr_job( $ledger_id ) {
 	$wpdb->update( $table, array( 'status' => $status, 'payload' => wp_json_encode( $item ), 'last_error' => 'error' === $status ? 'ACR_STATE_' . $state : '', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
 	if ( 'completed' === $status ) {
 		$pending = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $table WHERE release_id=%d AND status IN ('reserved','submitted','processing')", $row->release_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		if ( 0 === $pending ) update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'copyright_review' );
+		if ( 0 === $pending ) {
+			update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'copyright_review' );
+			if ( function_exists( 'trb_analysis_decide_release' ) ) trb_analysis_decide_release( absint( $row->release_id ) );
+		}
 	} else update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'manual_review' );
 }
 add_action( 'trb_resource_poll_acr_job', 'trb_resource_poll_acr_job' );
@@ -435,6 +453,7 @@ function trb_resource_sync_rights_document( $release_id, $document_index ) {
 	$documents[ $document_index ]['status'] = 'synced'; $documents[ $document_index ]['remote'] = $remote; $documents[ $document_index ]['synced_at'] = time();
 	update_post_meta( $release_id, '_trb_release_rights_documents', $documents );
 	update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_review' );
+	if ( function_exists( 'trb_analysis_decide_release' ) ) trb_analysis_decide_release( absint( $release_id ) );
 	return true;
 }
 
@@ -461,6 +480,14 @@ function trb_resource_upload_rights_document() {
 	if ( ! wp_mkdir_p( $directory ) ) { wp_safe_redirect( add_query_arg( 'trb_release', 'rights_error', $dashboard ) . $anchor ); exit; }
 	$stored_name = wp_unique_filename( $directory, 'Diritti - ' . $name ); $target = trailingslashit( $directory ) . $stored_name;
 	if ( ! move_uploaded_file( $file['tmp_name'], $target ) ) { wp_safe_redirect( add_query_arg( 'trb_release', 'rights_error', $dashboard ) . $anchor ); exit; }
+	if ( function_exists( 'trb_analysis_antivirus_scan' ) ) {
+		$scan = trb_analysis_antivirus_scan( $target );
+		if ( is_wp_error( $scan ) ) {
+			wp_delete_file( $target );
+			trb_resource_event( 'rights-scan-' . $release_id . '-' . $track, 'security', 'critical', 'Documento diritti respinto prima dell’archiviazione.', array( 'code' => $scan->get_error_code() ) );
+			wp_safe_redirect( add_query_arg( 'trb_release', 'rights_invalid', $dashboard ) . $anchor ); exit;
+		}
+	}
 	$documents = (array) get_post_meta( $release_id, '_trb_release_rights_documents', true );
 	$documents[] = array( 'kind' => 'rights', 'track' => $track, 'name' => $stored_name, 'original_name' => $name, 'path' => $relative . '/' . $stored_name, 'type' => sanitize_mime_type( $file['type'] ), 'size' => filesize( $target ), 'sha256' => hash_file( 'sha256', $target ), 'status' => 'pending', 'uploaded_at' => time() );
 	update_post_meta( $release_id, '_trb_release_rights_documents', $documents ); $index = count( $documents ) - 1;
@@ -526,6 +553,10 @@ function trb_resource_render_admin() {
 			if ( 'request_documents' === $action ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_documents_needed' );
 			if ( 'manual_review' === $action ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' );
 			if ( 'approve' === $action ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'approved' );
+			$history = (array) get_post_meta( $release_id, '_trb_release_decision_history', true );
+			$history[] = array( 'action' => $action, 'user_id' => get_current_user_id(), 'at' => time() );
+			update_post_meta( $release_id, '_trb_release_decision_history', array_slice( $history, -100 ) );
+			if ( function_exists( 'trb_analysis_generate_report' ) ) trb_analysis_generate_report( $release_id );
 			echo '<div class="notice notice-success"><p>Stato della pratica aggiornato.</p></div>';
 		}
 	}
@@ -565,7 +596,7 @@ function trb_resource_render_admin() {
 	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $artist = get_userdata( $release->post_author ); ?><tr><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state ); ?></td><td><form method="post"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
 	<h2>Configurazione</h2><form method="post"><?php wp_nonce_field( 'trb_resource_save' ); ?><table class="form-table"><tbody>
 	<tr><th>Email amministrativa</th><td><input type="email" class="regular-text" name="admin_email" value="<?php echo esc_attr( $settings['admin_email'] ); ?>"></td></tr>
-	<tr><th>ACRCloud</th><td><label><input type="checkbox" name="acr_enabled" <?php checked( $settings['acr_enabled'] ); ?>> Abilita analisi reali</label><br><label><input type="checkbox" name="acr_paid_confirmed" <?php checked( $settings['acr_paid_confirmed'] ); ?>> Confermo piano Premium/pay-per-use e pagamento verificato</label><br><label><input type="checkbox" name="acr_deepright" <?php checked( $settings['acr_deepright'] ); ?>> DeepRight abilitato</label><p><input type="password" class="regular-text" name="acr_token" placeholder="Token invariato se vuoto"> <input name="acr_container_id" value="<?php echo esc_attr( $settings['acr_container_id'] ); ?>" placeholder="Container ID"> <select name="acr_region"><option value="eu-west-1" <?php selected( $settings['acr_region'], 'eu-west-1' ); ?>>EU</option><option value="us-west-2" <?php selected( $settings['acr_region'], 'us-west-2' ); ?>>US</option><option value="ap-southeast-1" <?php selected( $settings['acr_region'], 'ap-southeast-1' ); ?>>AP</option></select></p><p>Motore <select name="acr_engine"><option value="1" <?php selected( $settings['acr_engine'], 1 ); ?>>Fingerprinting</option><option value="2" <?php selected( $settings['acr_engine'], 2 ); ?>>Cover Song</option><option value="3" <?php selected( $settings['acr_engine'], 3 ); ?>>Entrambi</option></select> Estratto <input name="acr_excerpt_seconds" value="<?php echo esc_attr( $settings['acr_excerpt_seconds'] ); ?>" size="4"> secondi, partenza <input name="acr_excerpt_offset" value="<?php echo esc_attr( $settings['acr_excerpt_offset'] ); ?>" size="4"> secondi.</p></td></tr>
+	<tr><th>ACRCloud</th><td><label><input type="checkbox" name="acr_enabled" <?php checked( $settings['acr_enabled'] ); ?>> Abilita analisi reali</label><br><label><input type="checkbox" name="acr_paid_confirmed" <?php checked( $settings['acr_paid_confirmed'] ); ?>> Confermo piano Premium/pay-per-use e pagamento verificato</label><br><label><input type="checkbox" name="acr_deepright" <?php checked( $settings['acr_deepright'] ); ?>> DeepRight abilitato</label><p><input type="password" class="regular-text" name="acr_token" placeholder="Token invariato se vuoto"> <input name="acr_container_id" value="<?php echo esc_attr( $settings['acr_container_id'] ); ?>" placeholder="Container ID"> <select name="acr_region"><option value="eu-west-1" <?php selected( $settings['acr_region'], 'eu-west-1' ); ?>>EU</option><option value="us-west-2" <?php selected( $settings['acr_region'], 'us-west-2' ); ?>>US</option><option value="ap-southeast-1" <?php selected( $settings['acr_region'], 'ap-southeast-1' ); ?>>AP</option></select></p><p>Motore <select name="acr_engine"><option value="1" <?php selected( $settings['acr_engine'], 1 ); ?>>Fingerprinting</option><option value="2" <?php selected( $settings['acr_engine'], 2 ); ?>>Cover Song</option><option value="3" <?php selected( $settings['acr_engine'], 3 ); ?>>Entrambi</option></select> Estratto massimo <input name="acr_excerpt_seconds" value="<?php echo esc_attr( $settings['acr_excerpt_seconds'] ); ?>" size="4"> secondi consecutivi dopo il solo silenzio tecnico iniziale, senza ricampionamento o elaborazioni.</p></td></tr>
 	<tr><th>Budget e costi massimi USD</th><td>Budget <input type="number" step="0.01" name="acr_monthly_budget" value="<?php echo esc_attr( $settings['acr_monthly_budget'] ); ?>"> Fingerprint <input type="number" step="0.000001" name="acr_fingerprint_max" value="<?php echo esc_attr( $settings['acr_fingerprint_max'] ); ?>"> DeepRight/min <input type="number" step="0.000001" name="acr_deepright_minute_max" value="<?php echo esc_attr( $settings['acr_deepright_minute_max'] ); ?>"> Cover/min <input type="number" step="0.000001" name="acr_cover_minute_max" value="<?php echo esc_attr( $settings['acr_cover_minute_max'] ); ?>"> Metadata <input type="number" step="0.000001" name="acr_metadata_call_max" value="<?php echo esc_attr( $settings['acr_metadata_call_max'] ); ?>"></td></tr>
 	<tr><th>pCloud API</th><td><input class="regular-text" name="pcloud_api_host" value="<?php echo esc_attr( $settings['pcloud_api_host'] ); ?>"><br><input type="password" class="regular-text" name="pcloud_auth_token" placeholder="Token invariato se vuoto"><p>Il sistema usa in alternativa le credenziali WebDAV già configurate.</p></td></tr>
 	<tr><th>Soglie pCloud %</th><td><input name="pcloud_warning_1" value="<?php echo esc_attr( $settings['pcloud_warning_1'] ); ?>" size="4"> / <input name="pcloud_warning_2" value="<?php echo esc_attr( $settings['pcloud_warning_2'] ); ?>" size="4"> / <input name="pcloud_warning_3" value="<?php echo esc_attr( $settings['pcloud_warning_3'] ); ?>" size="4"> / blocco <input name="pcloud_block" value="<?php echo esc_attr( $settings['pcloud_block'] ); ?>" size="4"> Margine byte <input name="pcloud_safety_bytes" value="<?php echo esc_attr( $settings['pcloud_safety_bytes'] ); ?>"></td></tr>
