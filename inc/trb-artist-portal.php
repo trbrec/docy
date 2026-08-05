@@ -1002,7 +1002,7 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 		$credits = isset( $track['credits'] ) && is_array( $track['credits'] ) ? $track['credits'] : array();
 		$minutes = isset( $track['duration_minutes'] ) ? absint( $track['duration_minutes'] ) : null;
 		$seconds = isset( $track['duration_seconds'] ) ? absint( $track['duration_seconds'] ) : null;
-		$duration = ( null !== $minutes && null !== $seconds && $minutes <= 99 && $seconds <= 59 )
+		$duration = ( null !== $minutes && null !== $seconds && $minutes <= 19 && $seconds <= 59 )
 			? sprintf( '%02d:%02d', $minutes, $seconds )
 			: ( isset( $track['duration'] ) ? sanitize_text_field( $track['duration'] ) : '' );
 		$primary   = isset( $track['primary_genre'] ) ? sanitize_text_field( $track['primary_genre'] ) : '';
@@ -1017,10 +1017,8 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 		) {
 			continue;
 		}
-		$advisory = isset( $track['advisory'] ) ? sanitize_key( $track['advisory'] ) : 'non_explicit';
-		if ( ! in_array( $advisory, array( 'non_explicit', 'clean', 'explicit' ), true ) ) {
-			$advisory = 'non_explicit';
-		}
+		$advisory = isset( $track['advisory'] ) ? sanitize_key( $track['advisory'] ) : '';
+		if ( ! in_array( $advisory, array( 'no_lyrics', 'non_explicit', 'clean', 'explicit' ), true ) ) continue;
 		$summary = static function ( $contributors ) {
 			return implode( "\n", array_map( static function ( $entry ) { return $entry['name'] . ' — ' . $entry['role']; }, $contributors ) );
 		};
@@ -1518,18 +1516,38 @@ function trb_portal_render_video_library( $profile ) {
 	$videos = trb_portal_video_lessons( $profile );
 	$progress = trb_portal_video_progress();
 	$completed = count( array_filter( $progress, function( $item ) { return ! empty( $item['completed_at'] ); } ) );
+	$category_order = array( 'Scrittura e composizione', 'Canto e interpretazione', 'Registrazione', 'Mixaggio e mastering', 'Live e DJ set', 'Social e profili artista', 'Identità e branding', 'Contenuti video', 'Music business' );
+	$grouped_videos = array();
+	foreach ( $videos as $video ) {
+		$video_category = get_post_meta( $video->ID, '_trb_video_category', true );
+		if ( ! isset( $grouped_videos[ $video_category ] ) ) $grouped_videos[ $video_category ] = array();
+		$grouped_videos[ $video_category ][] = $video;
+	}
+	uksort( $grouped_videos, function( $a, $b ) use ( $category_order ) {
+		$a_order = array_search( $a, $category_order, true );
+		$b_order = array_search( $b, $category_order, true );
+		return ( false === $a_order ? 999 : $a_order ) <=> ( false === $b_order ? 999 : $b_order );
+	} );
 	?>
 	<section id="video" class="trb-portal__section">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2>Video e formazione</h2><p>Un percorso consigliato, ma non obbligatorio, che accompagna il progetto dall’idea alla preparazione finale.</p></div>
 		<?php if ( empty( $videos ) ) : ?>
 			<div class="trb-portal__empty"><p>La videoteca essenziale per il tuo profilo è in preparazione.</p></div>
 		<?php else : ?>
-			<div class="trb-video__toolbar"><div class="trb-video__progress"><strong><?php echo esc_html( $completed ); ?> lezioni completate su <?php echo esc_html( count( $videos ) ); ?></strong><span><i style="width:<?php echo esc_attr( count( $videos ) ? round( $completed / count( $videos ) * 100 ) : 0 ); ?>%"></i></span></div><div class="trb-video__search-row"><input type="search" placeholder="Cerca una lezione" aria-label="Cerca una lezione" data-video-search /><select data-video-state aria-label="Filtra per stato"><option value="">Tutti gli stati</option><option value="Da iniziare">Da iniziare</option><option value="In corso">In corso</option><option value="Completato">Completati</option></select></div><div class="trb-video__filters" role="group" aria-label="Filtra le lezioni"><button type="button" data-video-category="" class="is-active">Tutte</button><?php foreach ( array( 'Scrittura e composizione', 'Canto e interpretazione', 'Registrazione', 'Mixaggio e mastering', 'Live e DJ set', 'Social e profili artista', 'Identità e branding', 'Contenuti video', 'Music business' ) as $category ) : ?><button type="button" data-video-category="<?php echo esc_attr( $category ); ?>"><?php echo esc_html( $category ); ?></button><?php endforeach; ?></div></div>
-			<div class="trb-portal__video-grid" data-video-grid>
-				<?php foreach ( $videos as $video ) : $youtube = get_post_meta( $video->ID, '_trb_video_youtube', true ); $category = get_post_meta( $video->ID, '_trb_video_category', true ); $item_progress = isset( $progress[ $video->ID ] ) ? $progress[ $video->ID ] : array(); $state = ! empty( $item_progress['completed_at'] ) ? 'Completato' : ( ! empty( $item_progress['started_at'] ) ? 'In corso' : 'Da iniziare' ); ?>
+			<div class="trb-video__toolbar"><div class="trb-video__progress"><strong><?php echo esc_html( $completed ); ?> lezioni completate su <?php echo esc_html( count( $videos ) ); ?></strong><span><i style="width:<?php echo esc_attr( count( $videos ) ? round( $completed / count( $videos ) * 100 ) : 0 ); ?>%"></i></span></div><div class="trb-video__search-row"><input type="search" placeholder="Cerca una lezione in tutti i percorsi" aria-label="Cerca una lezione" data-video-search /><select data-video-state aria-label="Filtra per stato"><option value="">Tutti gli stati</option><option value="Da iniziare">Da iniziare</option><option value="In corso">In corso</option><option value="Completato">Completati</option></select></div></div>
+			<div class="trb-video__catalogue" data-video-catalogue>
+			<?php foreach ( $grouped_videos as $category => $category_videos ) :
+				$category_completed = count( array_filter( $category_videos, function( $item ) use ( $progress ) { return ! empty( $progress[ $item->ID ]['completed_at'] ); } ) ); ?>
+				<details class="trb-video__category" data-video-category-group>
+					<summary><span><strong><?php echo esc_html( $category ); ?></strong><small><?php echo esc_html( count( $category_videos ) ); ?> lezioni · <?php echo esc_html( $category_completed ); ?> completate</small></span><i aria-hidden="true"></i></summary>
+					<div class="trb-portal__video-grid" data-video-grid>
+				<?php foreach ( $category_videos as $video ) : $youtube = get_post_meta( $video->ID, '_trb_video_youtube', true ); $item_progress = isset( $progress[ $video->ID ] ) ? $progress[ $video->ID ] : array(); $state = ! empty( $item_progress['completed_at'] ) ? 'Completato' : ( ! empty( $item_progress['started_at'] ) ? 'In corso' : 'Da iniziare' ); ?>
 					<article class="trb-portal__video-card" data-video-card data-category="<?php echo esc_attr( $category ); ?>" data-state="<?php echo esc_attr( $state ); ?>" data-search="<?php echo esc_attr( strtolower( $video->post_title . ' ' . $video->post_excerpt . ' ' . $category ) ); ?>"><button type="button" class="trb-video__open" data-video-open="<?php echo esc_attr( $video->ID ); ?>"><span class="trb-video__thumb"><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $youtube ); ?>/hqdefault.jpg" alt="" loading="lazy" /><i aria-hidden="true">▶</i></span><small><?php echo esc_html( $category ); ?></small><h3><?php echo esc_html( $video->post_title ); ?></h3><p><?php echo esc_html( $video->post_excerpt ); ?></p><span class="trb-video__meta"><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_level', true ) ); ?> · Italiano · <?php echo esc_html( $state ); ?></span><b><?php echo 'Completato' === $state ? 'Rivedi' : ( 'In corso' === $state ? 'Continua' : 'Inizia la lezione' ); ?></b></button></article>
 					<template id="trb-video-<?php echo esc_attr( $video->ID ); ?>"><div class="trb-video__lesson" data-lesson-id="<?php echo esc_attr( $video->ID ); ?>" data-youtube="<?php echo esc_attr( $youtube ); ?>" data-last-position="<?php echo esc_attr( isset( $item_progress['last_position_seconds'] ) ? $item_progress['last_position_seconds'] : 0 ); ?>"><p class="trb-portal__eyebrow"><?php echo esc_html( $category ); ?></p><h2><?php echo esc_html( $video->post_title ); ?></h2><p class="trb-video__lesson-meta"><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_level', true ) ); ?> · Italiano · Lezione <?php echo esc_html( get_post_meta( $video->ID, '_trb_video_order', true ) ); ?> di <?php echo esc_html( count( $videos ) ); ?></p><div class="trb-video__player" data-video-player><button type="button" data-video-play><img src="https://i.ytimg.com/vi/<?php echo esc_attr( $youtube ); ?>/hqdefault.jpg" alt="Avvia <?php echo esc_attr( $video->post_title ); ?>" /><span>Avvia la lezione</span></button></div><p class="trb-video__author">Contenuto realizzato dal canale originale indicato su YouTube<?php $author = get_post_meta( $video->ID, '_trb_video_author', true ); echo $author ? ': ' . esc_html( $author ) : ''; ?>.</p><h3>Perché guardare questa lezione</h3><p><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_why', true ) ); ?></p><h3>Cosa imparerai</h3><ul><?php foreach ( preg_split( '/\r\n|\r|\n/', get_post_meta( $video->ID, '_trb_video_objectives', true ) ) as $objective ) : if ( trim( $objective ) ) : ?><li><?php echo esc_html( $objective ); ?></li><?php endif; endforeach; ?></ul><h3>Mettilo in pratica</h3><p><?php echo esc_html( get_post_meta( $video->ID, '_trb_video_exercise', true ) ); ?></p><div class="trb-video__lesson-actions"><button type="button" class="trb-button" data-video-complete>Ho completato questa lezione</button><a href="https://www.youtube.com/watch?v=<?php echo esc_attr( $youtube ); ?>" target="_blank" rel="noopener">Apri su YouTube ↗</a></div><p class="trb-video__completion" data-video-completion hidden></p></div></template>
 				<?php endforeach; ?>
+					</div>
+				</details>
+			<?php endforeach; ?>
 			</div>
 			<dialog class="trb-video__dialog" data-video-dialog><button type="button" class="trb-video__close" data-video-close aria-label="Chiudi la lezione">×</button><div data-video-dialog-content></div></dialog>
 		<?php endif; ?>
@@ -1720,8 +1738,6 @@ function trb_portal_dashboard_shortcode() {
 			<?php if ( trb_portal_current_search() ) : ?><?php trb_portal_render_search_results( trb_portal_get_search_results( $profile, trb_portal_current_search() ), trb_portal_current_search() ); ?><?php endif; ?>
 		</section>
 
-		<?php trb_portal_render_artist_profile_section(); ?>
-
 		<section id="inizia" class="trb-portal__section trb-portal__start">
 			<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">IL TUO PERCORSO</p><h2>Da dove iniziare</h2></div>
 			<div class="trb-portal__steps">
@@ -1730,6 +1746,8 @@ function trb_portal_dashboard_shortcode() {
 				<article><span>03</span><h3>Completa la lavorazione</h3><p>Audio, copertina, materiali editoriali e verifica rimangono collegati alla stessa release.</p></article>
 			</div>
 		</section>
+
+		<?php trb_portal_render_artist_profile_section(); ?>
 
 		<?php if ( 'dds' !== $profile ) trb_portal_render_demo_section(); ?>
 		<?php trb_portal_render_release_section(); ?>
@@ -2102,8 +2120,8 @@ function trb_portal_render_release_section() {
 			<div class="trb-track-block"><h4>Informazioni del brano</h4><div class="trb-portal__field-grid">
 				<label>Titolo del brano <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][title]" required maxlength="160" /></label>
 				<label>Featuring <small>solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label>
-				<label>Durata <span aria-hidden="true">*</span><span class="trb-duration-picker"><select name="trb_tracks[__INDEX__][duration_minutes]" required aria-label="Minuti"><option value="">Minuti</option><?php for ( $minute = 0; $minute <= 99; $minute++ ) : ?><option value="<?php echo esc_attr( $minute ); ?>"><?php echo esc_html( sprintf( '%02d min', $minute ) ); ?></option><?php endfor; ?></select><select name="trb_tracks[__INDEX__][duration_seconds]" required aria-label="Secondi"><option value="">Secondi</option><?php for ( $second = 0; $second <= 59; $second++ ) : ?><option value="<?php echo esc_attr( $second ); ?>"><?php echo esc_html( sprintf( '%02d sec', $second ) ); ?></option><?php endfor; ?></select></span></label>
-				<label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required><option value="non_explicit">Testo non esplicito</option><option value="clean">Clean (versione censurata)</option><option value="explicit">Testo con contenuti espliciti</option></select></label>
+				<label>Durata <span aria-hidden="true">*</span><span class="trb-duration-picker"><select name="trb_tracks[__INDEX__][duration_minutes]" required aria-label="Minuti"><option value="">Minuti</option><?php for ( $minute = 0; $minute <= 19; $minute++ ) : ?><option value="<?php echo esc_attr( $minute ); ?>"><?php echo esc_html( sprintf( '%02d min', $minute ) ); ?></option><?php endfor; ?></select><select name="trb_tracks[__INDEX__][duration_seconds]" required aria-label="Secondi"><option value="">Secondi</option><?php for ( $second = 0; $second <= 59; $second++ ) : ?><option value="<?php echo esc_attr( $second ); ?>"><?php echo esc_html( sprintf( '%02d sec', $second ) ); ?></option><?php endfor; ?></select></span></label>
+				<label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required><option value="" selected disabled>Seleziona una voce</option><option value="no_lyrics">Nessun testo</option><option value="non_explicit">Testo non esplicito</option><option value="clean">Clean (versione censurata)</option><option value="explicit">Testo con contenuti espliciti</option></select></label>
 				<label>Genere musicale primario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][primary_genre]" required data-primary-genre><option value="">Seleziona genere</option><?php foreach ( array_keys( $genre_map ) as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></select></label>
 				<label>Genere musicale secondario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][secondary_genre]" required data-secondary-genre disabled><option value="">Prima seleziona il genere primario</option></select></label>
 			</div></div>

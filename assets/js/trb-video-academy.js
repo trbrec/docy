@@ -59,9 +59,9 @@
     if (!dialog) return;
     var content = dialog.querySelector('[data-video-dialog-content]');
     var cards = Array.prototype.slice.call(document.querySelectorAll('[data-video-card]'));
+    var groups = Array.prototype.slice.call(document.querySelectorAll('[data-video-category-group]'));
     var search = document.querySelector('[data-video-search]');
     var state = document.querySelector('[data-video-state]');
-    var category = '';
 
     function markCompleted(lesson) {
       var lessonId = lesson.dataset.lessonId;
@@ -86,18 +86,15 @@
     function filter() {
       var query = (search.value || '').toLocaleLowerCase('it');
       cards.forEach(function (card) {
-        card.hidden = (!!category && card.dataset.category !== category) || (!!state.value && card.dataset.state !== state.value) || (!!query && card.dataset.search.indexOf(query) === -1);
+        card.hidden = (!!state.value && card.dataset.state !== state.value) || (!!query && card.dataset.search.indexOf(query) === -1);
+      });
+      groups.forEach(function (group) {
+        var hasResults = Array.prototype.some.call(group.querySelectorAll('[data-video-card]'), function (card) { return !card.hidden; });
+        group.hidden = !hasResults;
+        if (query || state.value) group.open = hasResults;
       });
     }
 
-    document.querySelectorAll('[data-video-category]').forEach(function (button) {
-      button.addEventListener('click', function () {
-        category = button.dataset.videoCategory;
-        document.querySelectorAll('[data-video-category]').forEach(function (item) { item.classList.toggle('is-active', item === button); });
-        button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-        filter();
-      });
-    });
     search.addEventListener('input', filter);
     state.addEventListener('change', filter);
 
