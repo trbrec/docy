@@ -1157,18 +1157,21 @@ function trb_portal_store_release_upload( $release_id, $file, $kind, $track_inde
 	$prefix = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) );
 	$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ), PATHINFO_EXTENSION ) );
 	if ( 'audio' === $kind ) {
-		$filename = trb_portal_release_audio_filename(
+		$canonical_filename = trb_portal_release_audio_filename(
 			$release_id,
 			$track_index,
 			isset( $metadata['track_title'] ) ? $metadata['track_title'] : '',
 			isset( $metadata['audio_status'] ) ? $metadata['audio_status'] : 'mastered'
 		);
+		$filename = ! empty( $metadata['replacement'] )
+			? wp_unique_filename( $directory, preg_replace( '/\.wav$/i', '.replacement.wav', $canonical_filename ) )
+			: $canonical_filename;
 	} else {
 		$filename = wp_unique_filename( $directory, sanitize_file_name( $prefix . '.' . $extension ) );
 	}
 	$target = trailingslashit( $directory ) . $filename;
 	if ( ! move_uploaded_file( $file['tmp_name'], $target ) ) return new WP_Error( 'release_storage_failed' );
-	$stored = array( 'kind' => $kind, 'track' => null === $track_index ? null : absint( $track_index ), 'name' => $filename, 'original_name' => sanitize_file_name( $file['name'] ), 'path' => $relative_dir . '/' . $filename, 'type' => sanitize_mime_type( $file['type'] ), 'size' => filesize( $target ), 'sha256' => hash_file( 'sha256', $target ) );
+	$stored = array( 'kind' => $kind, 'track' => null === $track_index ? null : absint( $track_index ), 'name' => 'audio' === $kind ? $canonical_filename : $filename, 'original_name' => sanitize_file_name( $file['name'] ), 'path' => $relative_dir . '/' . $filename, 'type' => sanitize_mime_type( $file['type'] ), 'size' => filesize( $target ), 'sha256' => hash_file( 'sha256', $target ) );
 	if ( 'audio' === $kind ) {
 		$spec = trb_portal_wav_spec( $target );
 		if ( ! is_wp_error( $spec ) ) $stored['audio_spec'] = $spec;
@@ -1254,6 +1257,7 @@ function trb_portal_replace_release_file() {
 		$replacement_meta = array(
 			'track_title' => isset( $release_tracks[ $replacement_track ]['title'] ) ? $release_tracks[ $replacement_track ]['title'] : '',
 			'audio_status' => ! empty( $old_file['audio_status'] ) ? $old_file['audio_status'] : 'mastered',
+			'replacement' => true,
 		);
 	}
 	$stored = trb_portal_store_release_upload( $release_id, $new_upload, $kind, isset( $old_file['track'] ) ? $old_file['track'] : null, $replacement_meta );
@@ -1262,7 +1266,13 @@ function trb_portal_replace_release_file() {
 		exit;
 	}
 	if ( 'audio' === $kind && ! empty( $old_file['audio_status'] ) ) $stored['audio_status'] = $old_file['audio_status'];
-	if ( empty( $old_file['path'] ) || empty( $stored['path'] ) || $old_file['path'] !== $stored['path'] ) trb_portal_delete_release_files( array( $old_file ) );
+	if ( 'audio' === $kind && ! empty( $old_file['path'] ) && $old_file['path'] !== $stored['path'] ) {
+		$previous_files = (array) get_post_meta( $release_id, '_trb_release_previous_files', true );
+		$previous_files[] = $old_file;
+		update_post_meta( $release_id, '_trb_release_previous_files', $previous_files );
+	} elseif ( empty( $old_file['path'] ) || empty( $stored['path'] ) || $old_file['path'] !== $stored['path'] ) {
+		trb_portal_delete_release_files( array( $old_file ) );
+	}
 	$files[ $file_index ] = $stored;
 	update_post_meta( $release_id, '_trb_release_files', array_values( $files ) );
 	if ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id, true );
@@ -2570,6 +2580,19 @@ function trb_portal_render_release_files( $release_id ) {
 		?><article class="trb-release-file"><?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?><div class="trb-release-file__details"><strong><?php echo esc_html( $label ); ?></strong><span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span><?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'mastering richiesto' : 'master' ) ); ?></small><?php endif; ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica il file</a><details><summary>Sostituisci</summary><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_replace_release_file" /><input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" /><input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" /><?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?><input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required /><?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?><button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button></form></details></div></article><?php endforeach; ?></div></div><?php
 }
 
+function trb_portal_release_pipeline_label( $release_id ) {
+	$status = (string) get_post_meta( $release_id, '_trb_release_pipeline_status', true );
+	$labels = array(
+		'pending_pcloud_transfer'     => 'Trasferimento sicuro dei file in corso',
+		'pcloud_transfer_waiting'     => 'Il trasferimento è temporaneamente in attesa. Non è necessario caricare nuovamente i file.',
+		'archived_pending_analysis'   => 'File archiviati correttamente. Controllo del brano in attesa',
+		'analysis_in_progress'        => 'Controllo del brano in corso',
+		'copyright_documents_needed' => 'Documentazione sui diritti richiesta',
+		'approved'                    => 'Controllo completato',
+	);
+	return isset( $labels[ $status ] ) ? $labels[ $status ] : 'Dati contrattuali da completare';
+}
+
 function trb_portal_render_release_section() {
 	$releases  = trb_portal_user_releases();
 	$profile   = trb_portal_user_profile();
@@ -2585,7 +2608,7 @@ function trb_portal_render_release_section() {
 	<section id="release" class="trb-portal__section trb-portal__section--releases">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Inserisci metadati, crediti e file audio della pubblicazione, quindi ricevi il contratto da sottoscrivere per avviare l’iter di distribuzione.</p></div>
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
-		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">File sostituito correttamente.</div><?php endif; ?>
+		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Nuovo file acquisito. Il precedente verrà rimosso automaticamente soltanto dopo il trasferimento verificato su pCloud.</div><?php endif; ?>
 		<?php if ( 'profile_required' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Completa prima il profilo artista.</div><?php endif; ?>
 		<?php if ( 'duration_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>La durata indicata non coincide con il file WAV.</strong><p>Correggi minuti e secondi del brano: è ammessa una tolleranza massima di 1 secondo rispetto alla durata reale del file.</p></div><?php endif; ?>
 		<?php if ( 'file_invalid' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Il file sostitutivo non è stato acquisito.</strong><p>Formato, dimensioni o caratteristiche tecniche non rispettano i requisiti indicati. Il file precedente è rimasto invariato.</p></div><?php endif; ?>
@@ -2608,7 +2631,7 @@ function trb_portal_render_release_section() {
 			</form>
 		</div>
 		<?php endif; ?>
-		<?php if ( ! empty( $releases ) ) : ?><div class="trb-portal__request-history"><h3>Le tue pratiche</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> · Dati contrattuali da completare</span><?php trb_portal_render_release_files( $release->ID ); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+		<?php if ( ! empty( $releases ) ) : ?><div class="trb-portal__request-history"><h3>Le tue pratiche</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( ( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ) . ' · ' . trb_portal_release_pipeline_label( $release->ID ) ); ?></span><?php trb_portal_render_release_files( $release->ID ); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 	</section>
 	<template id="trb-portal-track-template">
 		<article class="trb-portal__track" data-track>
