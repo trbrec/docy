@@ -1279,17 +1279,23 @@ function trb_portal_replace_release_file() {
 		wp_safe_redirect( add_query_arg( 'trb_release', 'file_error', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
 		exit;
 	}
+	$security_blocked = false;
+	if ( 'audio' !== $kind && function_exists( 'trb_analysis_antivirus_scan' ) ) {
+		$local = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $stored ) : '';
+		$scan = $local ? trb_analysis_antivirus_scan( $local ) : new WP_Error( 'VIRUS_SCAN_FILE_MISSING' );
+		$stored['security_status'] = is_wp_error( $scan ) ? $scan->get_error_code() : 'clean';
+		$security_blocked = is_wp_error( $scan );
+	}
 	if ( 'audio' === $kind && ! empty( $old_file['audio_status'] ) ) $stored['audio_status'] = $old_file['audio_status'];
-	if ( 'audio' === $kind && ! empty( $old_file['path'] ) && $old_file['path'] !== $stored['path'] ) {
+	if ( ! empty( $old_file['path'] ) && $old_file['path'] !== $stored['path'] ) {
 		$previous_files = (array) get_post_meta( $release_id, '_trb_release_previous_files', true );
 		$previous_files[] = $old_file;
 		update_post_meta( $release_id, '_trb_release_previous_files', $previous_files );
-	} elseif ( empty( $old_file['path'] ) || empty( $stored['path'] ) || $old_file['path'] !== $stored['path'] ) {
-		trb_portal_delete_release_files( array( $old_file ) );
 	}
 	$files[ $file_index ] = $stored;
 	update_post_meta( $release_id, '_trb_release_files', array_values( $files ) );
-	if ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id, true );
+	if ( $security_blocked ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
+	elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id, true );
 	wp_safe_redirect( add_query_arg( 'trb_release', 'file_replaced', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
 	exit;
 }

@@ -22,7 +22,7 @@ function trb_release_pcloud_mastering_folder( $artist_name, $release_title, $rel
 }
 
 /** Stream large audio files so the PHP memory limit is not tied to WAV size. */
-function trb_release_pcloud_put_file( $remote, $local ) {
+function trb_release_pcloud_put_file( $remote, $local, $content_type = 'application/octet-stream' ) {
 	$settings = trb_demo_settings();
 	if ( empty( $settings['webdav_endpoint'] ) || empty( $settings['pcloud_user'] ) || empty( $settings['pcloud_pass'] ) ) return new WP_Error( 'missing_webdav_settings' );
 	if ( function_exists( 'curl_init' ) ) {
@@ -36,7 +36,7 @@ function trb_release_pcloud_put_file( $remote, $local ) {
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_USERPWD        => $settings['pcloud_user'] . ':' . $settings['pcloud_pass'],
 			CURLOPT_HTTPAUTH       => CURLAUTH_BASIC,
-			CURLOPT_HTTPHEADER     => array( 'Content-Type: audio/wav' ),
+			CURLOPT_HTTPHEADER     => array( 'Content-Type: ' . sanitize_mime_type( $content_type ) ),
 			CURLOPT_CONNECTTIMEOUT => 30,
 			CURLOPT_TIMEOUT        => 0,
 		) );
@@ -48,7 +48,7 @@ function trb_release_pcloud_put_file( $remote, $local ) {
 		return in_array( $code, array( 200, 201, 204 ), true ) ? true : new WP_Error( 'pcloud_audio_upload_failed', $error ? $error : 'WebDAV PUT ' . $code );
 	}
 	if ( filesize( $local ) > 128 * MB_IN_BYTES ) return new WP_Error( 'streaming_upload_unavailable' );
-	return trb_artist_archive_put( $remote, file_get_contents( $local ), 'audio/wav' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+	return trb_artist_archive_put( $remote, file_get_contents( $local ), $content_type ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 }
 
 /** Execute the small WebDAV requests used to verify and atomically publish a WAV. */
@@ -90,9 +90,9 @@ function trb_release_pcloud_remote_size( $remote ) {
  * then replace the canonical WAV. A failed transfer therefore leaves the
  * previous pCloud copy untouched.
  */
-function trb_release_pcloud_publish_file( $remote, $local ) {
+function trb_release_pcloud_publish_file( $remote, $local, $content_type = 'application/octet-stream' ) {
 	$temporary = $remote . '.uploading-' . wp_generate_uuid4();
-	$uploaded = trb_release_pcloud_put_file( $temporary, $local );
+	$uploaded = trb_release_pcloud_put_file( $temporary, $local, $content_type );
 	if ( is_wp_error( $uploaded ) ) return $uploaded;
 	$remote_size = trb_release_pcloud_remote_size( $temporary );
 	if ( is_wp_error( $remote_size ) || (int) filesize( $local ) !== $remote_size ) {
@@ -124,15 +124,28 @@ function trb_release_pcloud_sync( $release_id ) {
 	$master_folder = trb_release_pcloud_master_folder( $release_id, $profile, $artist_name, $release->post_title );
 	$mastering_folder = trb_release_pcloud_mastering_folder( $artist_name, $release->post_title, $release_id );
 	$total_bytes = 0;
-	foreach ( $files as $file ) if ( ! empty( $file['kind'] ) && 'audio' === $file['kind'] && isset( $file['size'] ) ) $total_bytes += (int) $file['size'];
+	foreach ( $files as $file ) if ( isset( $file['size'] ) ) $total_bytes += (int) $file['size'];
 	if ( function_exists( 'trb_resource_pcloud_guard' ) ) {
 		$quota_guard = trb_resource_pcloud_guard( $total_bytes );
 		if ( is_wp_error( $quota_guard ) ) return $quota_guard;
 	}
 	$uploaded = array();
 	$folders = array();
+	$materials = array();
+	$master_ready = trb_demo_ensure_remote_folder( $master_folder );
+	if ( is_wp_error( $master_ready ) ) return $master_ready;
 	foreach ( $files as $file ) {
-		if ( empty( $file['kind'] ) || 'audio' !== $file['kind'] ) continue;
+		if ( empty( $file['kind'] ) ) continue;
+		if ( 'audio' !== $file['kind'] ) {
+			if ( 'clean' !== ( $file['security_status'] ?? '' ) ) return new WP_Error( 'SECURITY_SCAN_PENDING' );
+			$local = trb_release_pcloud_local_file( $file ); if ( ! $local ) return new WP_Error( 'release_material_missing' );
+			$extension = strtolower( pathinfo( $file['name'] ?? $file['original_name'] ?? '', PATHINFO_EXTENSION ) );
+			$track_index = absint( $file['track'] ?? 0 ); $track_title = $tracks[ $track_index ]['title'] ?? ( 'Brano ' . ( $track_index + 1 ) );
+			$base = 'cover' === $file['kind'] ? '00)_Copertina' : ( 'presentation' === $file['kind'] ? '00)_Presentazione_release' : sprintf( '%02d)_Testo_-_%s', $track_index + 1, trb_portal_release_audio_name_segment( $track_title, 'Brano' ) ) );
+			$remote = $master_folder . '/' . sanitize_file_name( $base . ( $extension ? '.' . $extension : '' ) );
+			$result = trb_release_pcloud_publish_file( $remote, $local, $file['type'] ?? 'application/octet-stream' ); if ( is_wp_error( $result ) ) return $result;
+			$uploaded[] = $remote; $materials[] = $remote; continue;
+		}
 		$status = 'dds' === $profile ? 'mastered' : ( isset( $file['audio_status'] ) ? sanitize_key( $file['audio_status'] ) : '' );
 		if ( ! in_array( $status, array( 'mastered', 'mastering' ), true ) ) return new WP_Error( 'audio_status_missing' );
 		$folder = 'mastering' === $status ? $mastering_folder : $master_folder;
@@ -143,12 +156,12 @@ function trb_release_pcloud_sync( $release_id ) {
 		$remote_name = trb_portal_release_audio_filename( $release_id, $track_index, $track_title, $status );
 		$local = trb_release_pcloud_local_file( $file );
 		if ( ! $local ) return new WP_Error( 'release_audio_missing' );
-		$result = trb_release_pcloud_publish_file( $folder . '/' . $remote_name, $local );
+		$result = trb_release_pcloud_publish_file( $folder . '/' . $remote_name, $local, 'audio/wav' );
 		if ( is_wp_error( $result ) ) return $result;
 		$uploaded[] = $folder . '/' . $remote_name;
 		$folders[ $track_index ] = $folder;
 	}
-	$archive = array( 'status' => 'synced', 'time' => time(), 'files' => $uploaded, 'folders' => $folders, 'verified' => true );
+	$archive = array( 'status' => 'synced', 'time' => time(), 'files' => $uploaded, 'materials' => $materials, 'folders' => $folders, 'verified' => true );
 	update_post_meta( $release_id, '_trb_release_pcloud_archive', $archive );
 	update_post_meta( $release_id, '_trb_release_pipeline_status', 'archived_pending_analysis' );
 	$previous_files = (array) get_post_meta( $release_id, '_trb_release_previous_files', true );
