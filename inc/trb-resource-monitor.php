@@ -241,8 +241,22 @@ function trb_resource_pcloud_userinfo() {
 		$data['free'] = (float) $data['quota'] - (float) $data['usedquota'];
 		$data['source'] = 'api';
 	} else {
-		$data = trb_resource_pcloud_webdav_userinfo();
-		if ( is_wp_error( $data ) ) return $data;
+		$legacy = function_exists( 'trb_demo_settings' ) ? trb_demo_settings() : array();
+		if ( empty( $legacy['pcloud_user'] ) || empty( $legacy['pcloud_pass'] ) ) return new WP_Error( 'PCLOUD_AUTH_MISSING' );
+		$legacy_host = ! empty( $legacy['webdav_endpoint'] ) && false !== stripos( $legacy['webdav_endpoint'], 'ewebdav.pcloud.com' ) ? 'https://eapi.pcloud.com' : 'https://api.pcloud.com';
+		$response = wp_remote_post( $legacy_host . '/userinfo', array(
+			'timeout' => 30,
+			'body'    => array( 'username' => $legacy['pcloud_user'], 'password' => $legacy['pcloud_pass'] ),
+		) );
+		if ( ! is_wp_error( $response ) ) $data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $data ) || ! empty( $data['result'] ) || empty( $data['quota'] ) || ! isset( $data['usedquota'] ) ) {
+			$data = trb_resource_pcloud_webdav_userinfo();
+			if ( is_wp_error( $data ) ) return $data;
+		} else {
+			$data['used_percent'] = ( (float) $data['usedquota'] / (float) $data['quota'] ) * 100;
+			$data['free'] = (float) $data['quota'] - (float) $data['usedquota'];
+			$data['source'] = 'api-' . ( 'https://eapi.pcloud.com' === $legacy_host ? 'eu' : 'us' );
+		}
 	}
 	update_option( 'trb_resource_pcloud_snapshot', array( 'time' => time(), 'data' => $data ), false );
 	if ( $data['used_percent'] >= (float) trb_resource_settings()['pcloud_warning_1'] ) trb_resource_event( 'quota-warning', 'pcloud', 'warning', 'Utilizzo pCloud oltre la prima soglia.', array( 'used_percent' => $data['used_percent'] ) );
