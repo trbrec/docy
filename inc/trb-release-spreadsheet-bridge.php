@@ -137,7 +137,23 @@ function trb_release_bridge_render_meta_box( $post ) {
     echo '<table class="widefat striped"><tbody>';
     foreach ( $rows as $label => $value ) echo '<tr><th style="width:190px">' . esc_html( $label ) . '</th><td>' . esc_html( '' !== (string) $value ? $value : '—' ) . '</td></tr>';
     echo '</tbody></table>';
+    if ( 'approved' === get_post_meta( $post->ID, '_trb_release_pipeline_status', true ) && ! in_array( get_post_meta( $post->ID, '_trb_contract_state', true ), array( 'contract_sent', 'signed' ), true ) ) {
+        echo '<p><a class="button button-primary" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_release_bridge_retry&release_id=' . absint( $post->ID ) ), 'trb_release_bridge_retry_' . absint( $post->ID ) ) ) . '">Riprova invio contratto</a></p>';
+    }
 }
+
+function trb_release_bridge_retry_dispatch() {
+    if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Non autorizzato.' );
+    $release_id = isset( $_GET['release_id'] ) ? absint( $_GET['release_id'] ) : 0;
+    check_admin_referer( 'trb_release_bridge_retry_' . $release_id );
+    if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) ) wp_die( 'Pratica non valida.' );
+    update_post_meta( $release_id, '_trb_contract_state', 'preparing' );
+    delete_post_meta( $release_id, '_trb_contract_error' );
+    trb_release_bridge_dispatch( $release_id );
+    wp_safe_redirect( get_edit_post_link( $release_id, 'url' ) );
+    exit;
+}
+add_action( 'admin_post_trb_release_bridge_retry', 'trb_release_bridge_retry_dispatch' );
 
 function trb_release_bridge_profile_value( $user_id, $key, $fallback = '' ) {
     if ( function_exists( 'trb_portal_artist_profile_value' ) ) {
@@ -198,6 +214,27 @@ function trb_release_bridge_payload( $release_id ) {
         'confirmation_accepted'=>true,'artist'=>$artist,'tracks'=>$tracks,'files'=>$files,'portal_callback_url'=>rest_url('trb/v1/release-contract-callback'));
 }
 
+/** Apps Script returns a signed googleusercontent location after the POST. */
+function trb_release_bridge_post_webapp( $url, $payload ) {
+    $response = wp_remote_post( $url, array(
+        'timeout'     => 120,
+        'redirection' => 0,
+        'headers'     => array( 'Content-Type' => 'application/json' ),
+        'body'        => wp_json_encode( $payload ),
+    ) );
+    if ( is_wp_error( $response ) ) return $response;
+    $code = wp_remote_retrieve_response_code( $response );
+    if ( in_array( $code, array( 301, 302, 303, 307, 308 ), true ) ) {
+        $location = wp_remote_retrieve_header( $response, 'location' );
+        $host = $location ? strtolower( (string) wp_parse_url( $location, PHP_URL_HOST ) ) : '';
+        if ( ! $location || ( 'script.googleusercontent.com' !== $host && ! str_ends_with( $host, '.googleusercontent.com' ) ) ) {
+            return new WP_Error( 'invalid_contract_redirect', 'Redirect Apps Script non valido.' );
+        }
+        $response = wp_remote_get( $location, array( 'timeout' => 120, 'redirection' => 2 ) );
+    }
+    return $response;
+}
+
 function trb_release_bridge_dispatch( $release_id ) {
     $current = get_post_meta( $release_id, '_trb_contract_state', true );
     if ( in_array( $current, array( 'contract_sent', 'signed' ), true ) ) return;
@@ -208,7 +245,7 @@ function trb_release_bridge_dispatch( $release_id ) {
     $url = 'trb' === $payload['profile'] ? $s['trb_webapp_url'] : $s['ddb_webapp_url'];
     if ( ! $url || ! $s['shared_secret'] ) { update_post_meta($release_id,'_trb_contract_state','configuration_required'); return; }
     $payload['secret'] = $s['shared_secret'];
-    $response = wp_remote_post( $url, array('timeout'=>120,'headers'=>array('Content-Type'=>'application/json'),'body'=>wp_json_encode($payload)) );
+    $response = trb_release_bridge_post_webapp( $url, $payload );
     if ( is_wp_error( $response ) ) { update_post_meta($release_id,'_trb_contract_state','dispatch_error'); update_post_meta($release_id,'_trb_contract_error',$response->get_error_message()); wp_schedule_single_event(time()+15*MINUTE_IN_SECONDS,'trb_release_bridge_dispatch',array($release_id)); return; }
     $body = json_decode( wp_remote_retrieve_body( $response ), true );
     if ( wp_remote_retrieve_response_code( $response ) >= 300 || empty( $body['success'] ) ) { update_post_meta($release_id,'_trb_contract_state','dispatch_error'); update_post_meta($release_id,'_trb_contract_error',sanitize_text_field($body['error']??wp_remote_retrieve_body($response))); return; }
