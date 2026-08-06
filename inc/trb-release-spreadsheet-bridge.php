@@ -118,6 +118,7 @@ function trb_release_bridge_payload( $release_id ) {
     );
     return array('action'=>'portal_release','release_id'=>(int)$release_id,'profile'=>$profile,'title'=>$post->post_title,
         'release_type'=>(string)get_post_meta($release_id,'_trb_release_type',true),'release_state'=>$state,
+        'release_date'=>(string)get_post_meta($release_id,'_trb_release_date',true),
         'original_date'=>(string)get_post_meta($release_id,'_trb_release_original_date',true),'confirmed_at'=>get_post_time(DATE_ATOM,true,$post),
         'confirmation_accepted'=>true,'artist'=>$artist,'tracks'=>$tracks,'files'=>$files,'portal_callback_url'=>rest_url('trb/v1/release-contract-callback'));
 }
@@ -141,12 +142,6 @@ function trb_release_bridge_dispatch( $release_id ) {
 }
 add_action( 'trb_release_bridge_dispatch', 'trb_release_bridge_dispatch', 10, 1 );
 
-function trb_release_bridge_release_date( $signed_at ) {
-    try { $date = new DateTimeImmutable( $signed_at, new DateTimeZone('UTC') ); } catch ( Exception $e ) { $date = new DateTimeImmutable('now',new DateTimeZone('UTC')); }
-    $day=(int)$date->format('j'); $first=$date->modify('first day of next month'); $last=(int)$first->format('t');
-    return $first->setDate((int)$first->format('Y'),(int)$first->format('n'),min($day,$last));
-}
-
 function trb_release_bridge_rest_routes() {
     register_rest_route('trb/v1','/release-contract-status',array('methods'=>'GET','permission_callback'=>function(){return is_user_logged_in();},'callback'=>function(){
         $releases=get_posts(array('post_type'=>'trb_release','post_status'=>'publish','author'=>get_current_user_id(),'numberposts'=>100)); $out=array();
@@ -157,7 +152,7 @@ function trb_release_bridge_rest_routes() {
         $s=trb_release_bridge_settings(); $secret=(string)($request->get_header('x-trb-portal-secret')?:$request->get_param('secret'));
         if(!$s['shared_secret']||!hash_equals($s['shared_secret'],$secret))return new WP_Error('forbidden','Secret non valido.',array('status'=>403));
         $release_id=absint($request->get_param('release_id')); if('trb_release'!==get_post_type($release_id))return new WP_Error('not_found','Release non trovata.',array('status'=>404));
-        $status=sanitize_key($request->get_param('status')); if('completed'===$status){$signed_at=sanitize_text_field($request->get_param('signed_at')?:gmdate(DATE_ATOM));$date=trb_release_bridge_release_date($signed_at);update_post_meta($release_id,'_trb_contract_state','signed');update_post_meta($release_id,'_trb_contract_signed_at',$signed_at);update_post_meta($release_id,'_trb_release_date',$date->format('Y-m-d'));return rest_ensure_response(array('success'=>true,'release_date'=>$date->format('Y-m-d')));} update_post_meta($release_id,'_trb_contract_state',$status?:'contract_sent'); return rest_ensure_response(array('success'=>true));
+        $status=sanitize_key($request->get_param('status')); if('completed'===$status){$signed_at=sanitize_text_field($request->get_param('signed_at')?:gmdate(DATE_ATOM));$release_date=(string)get_post_meta($release_id,'_trb_release_date',true);update_post_meta($release_id,'_trb_contract_state','signed');update_post_meta($release_id,'_trb_contract_signed_at',$signed_at);return rest_ensure_response(array('success'=>true,'release_date'=>$release_date));} update_post_meta($release_id,'_trb_contract_state',$status?:'contract_sent'); return rest_ensure_response(array('success'=>true));
     }));
 }
 add_action('rest_api_init','trb_release_bridge_rest_routes');
