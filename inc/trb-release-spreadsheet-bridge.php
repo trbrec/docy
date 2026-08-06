@@ -133,10 +133,13 @@ function trb_release_bridge_render_meta_box( $post ) {
 	if ( ! empty( $technical['warnings'] ) ) $technical_summary .= ' · avvisi: ' . implode( ', ', array_map( 'sanitize_text_field', (array) $technical['warnings'] ) );
 	$decision_summary = isset( $decision['semaphore'] ) ? (string) $decision['semaphore'] : '';
 	if ( ! empty( $decision['state'] ) ) $decision_summary .= ' · ' . (string) $decision['state'];
+	$limitations = array();
+	foreach ( (array) ( $decision['limitations'] ?? array() ) as $track => $codes ) foreach ( (array) $codes as $code ) $limitations[] = 'brano ' . ( absint( $track ) + 1 ) . ': ' . sanitize_text_field( $code );
     $rows = array(
         'Pipeline release'  => get_post_meta( $post->ID, '_trb_release_pipeline_status', true ),
 		'Analisi tecnica'   => $technical_summary,
 		'Decisione audio'   => $decision_summary,
+		'Limiti analisi'    => implode( ', ', $limitations ),
         'Stato contratto'   => get_post_meta( $post->ID, '_trb_contract_state', true ),
         'Errore contratto'  => get_post_meta( $post->ID, '_trb_contract_error', true ),
         'Numero contratto'  => get_post_meta( $post->ID, '_trb_contract_number', true ),
@@ -154,12 +157,27 @@ function trb_release_bridge_render_meta_box( $post ) {
 			echo '<details style="margin-top:12px"><summary><strong>Diagnostica analisi audio</strong></summary><table class="widefat striped" style="margin-top:8px"><thead><tr><th>Servizio</th><th>Brano</th><th>Stato</th><th>Tentativi</th><th>Errore</th><th>Riferimento</th><th>Aggiornato</th></tr></thead><tbody>';
 			foreach ( $usage_rows as $usage ) echo '<tr><td>' . esc_html( $usage['service'] ) . '</td><td>' . esc_html( absint( $usage['track_index'] ) + 1 ) . '</td><td>' . esc_html( $usage['status'] ) . '</td><td>' . esc_html( absint( $usage['attempts'] ) ) . '</td><td>' . esc_html( $usage['last_error'] ?: '—' ) . '</td><td>' . esc_html( $usage['provider_reference'] ?: '—' ) . '</td><td>' . esc_html( $usage['updated_at'] ) . '</td></tr>';
 			echo '</tbody></table><details style="margin-top:8px"><summary>Risultati grezzi del provider</summary><pre style="max-height:420px;overflow:auto;white-space:pre-wrap">' . esc_html( wp_json_encode( $usage_rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) ) . '</pre></details></details>';
+			$has_acr_error = false;
+			foreach ( $usage_rows as $usage ) if ( 'fingerprinting' === $usage['service'] && 'error' === $usage['status'] ) { $has_acr_error = true; break; }
+			if ( $has_acr_error ) echo '<p><a class="button" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_release_analysis_retry&release_id=' . absint( $post->ID ) ), 'trb_release_analysis_retry_' . absint( $post->ID ) ) ) . '">Rielabora risposta ACR senza nuovo caricamento</a></p>';
 		}
 	}
     if ( 'approved' === get_post_meta( $post->ID, '_trb_release_pipeline_status', true ) && ! in_array( get_post_meta( $post->ID, '_trb_contract_state', true ), array( 'contract_sent', 'signed' ), true ) ) {
         echo '<p><a class="button button-primary" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_release_bridge_retry&release_id=' . absint( $post->ID ) ), 'trb_release_bridge_retry_' . absint( $post->ID ) ) ) . '">Riprova invio contratto</a></p>';
     }
 }
+
+function trb_release_analysis_retry_dispatch() {
+	if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Non autorizzato.' );
+	$release_id = isset( $_GET['release_id'] ) ? absint( $_GET['release_id'] ) : 0;
+	check_admin_referer( 'trb_release_analysis_retry_' . $release_id );
+	if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) || ! function_exists( 'trb_resource_start_release_analysis' ) ) wp_die( 'Pratica non valida.' );
+	update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' );
+	trb_resource_start_release_analysis( $release_id );
+	wp_safe_redirect( get_edit_post_link( $release_id, 'url' ) );
+	exit;
+}
+add_action( 'admin_post_trb_release_analysis_retry', 'trb_release_analysis_retry_dispatch' );
 
 function trb_release_bridge_retry_dispatch() {
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Non autorizzato.' );
