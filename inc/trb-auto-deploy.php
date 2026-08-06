@@ -192,6 +192,25 @@ function trb_docy_register_push_deploy_route() {
 			'args'                => array( 'sha' => array( 'required' => true, 'type' => 'string' ) ),
 		)
 	);
+	register_rest_route(
+		'trb/v1',
+		'/deploy-status',
+		array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => function() {
+				$status = get_option( TRB_DOCY_DEPLOY_STATUS_OPTION, array() );
+				$status = is_array( $status ) ? $status : array();
+				return rest_ensure_response(
+					array(
+						'sha'        => sanitize_text_field( (string) get_option( TRB_DOCY_DEPLOYED_SHA_OPTION, '' ) ),
+						'state'      => sanitize_key( (string) ( $status['state'] ?? '' ) ),
+						'updated_at' => isset( $status['time'] ) ? absint( $status['time'] ) : 0,
+					)
+				);
+			},
+			'permission_callback' => '__return_true',
+		)
+	);
 }
 add_action( 'rest_api_init', 'trb_docy_register_push_deploy_route' );
 
@@ -295,11 +314,11 @@ function trb_docy_verify_github_oidc_request( WP_REST_Request $request ) {
 	return $valid ? true : new WP_Error( 'trb_oidc_claims', 'Autorizzazione GitHub non valida.', array( 'status' => 403 ) );
 }
 
-/** Exempt only the SHA-verified deploy endpoint from the portal-wide REST login gate. */
+/** Exempt the verified deploy endpoint and its non-sensitive status probe. */
 function trb_docy_allow_push_deploy_authentication( $result ) {
 	$route  = isset( $GLOBALS['wp']->query_vars['rest_route'] ) ? untrailingslashit( (string) $GLOBALS['wp']->query_vars['rest_route'] ) : '';
 	$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
-	if ( '/trb/v1/deploy' === $route && 'POST' === $method ) {
+	if ( ( '/trb/v1/deploy' === $route && 'POST' === $method ) || ( '/trb/v1/deploy-status' === $route && 'GET' === $method ) ) {
 		return null;
 	}
 	return $result;

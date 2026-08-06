@@ -41,27 +41,43 @@ jobs:
           OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
           payload=$(jq -nc --arg sha "${GITHUB_SHA}" '{sha: $sha}')
-          for attempt in 1 2 3 4 5 6; do
-            response_file=$(mktemp)
-            headers_file=$(mktemp)
-            http_code=$(curl --silent --show-error --connect-timeout 10 --max-time 240 \
-              -X POST \
-              -H "Authorization: Bearer ${OIDC_TOKEN}" \
+          response_file=$(mktemp)
+          headers_file=$(mktemp)
+          http_code=$(curl --silent --show-error --connect-timeout 10 --max-time 240 \
+            -X POST \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: Mozilla/5.0 (compatible; TRB-GitHub-Deploy/1.1)" \
+            --data "${payload}" \
+            -D "${headers_file}" -o "${response_file}" -w '%{http_code}' \
+            https://artist.trbrec.com/wp-json/trb/v1/deploy || true)
+          if jq -e --arg sha "${GITHUB_SHA}" '.success == true and .sha == $sha' "${response_file}" >/dev/null 2>&1; then
+            cat "${response_file}"
+            exit 0
+          fi
+          content_type=$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{gsub("\r",""); print $2; exit}' "${headers_file}")
+          echo "Direct deploy returned HTTP ${http_code}, content-type ${content_type:-unknown}; activating the WordPress cron fallback."
+          rm -f "${response_file}" "${headers_file}"
+
+          for attempt in $(seq 1 30); do
+            if [[ "${attempt}" == "1" || $(( attempt % 3 )) == "0" ]]; then
+              curl --silent --show-error --connect-timeout 10 --max-time 60 \
+                "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s).${attempt}" >/dev/null || true
+            fi
+            status_file=$(mktemp)
+            status_code=$(curl --silent --show-error --connect-timeout 10 --max-time 30 \
               -H "Accept: application/json" \
-              -H "Content-Type: application/json" \
-              -H "User-Agent: Mozilla/5.0 (compatible; TRB-GitHub-Deploy/1.1)" \
-              --data "${payload}" \
-              -D "${headers_file}" -o "${response_file}" -w '%{http_code}' \
-              https://artist.trbrec.com/wp-json/trb/v1/deploy)
-            if jq -e --arg sha "${GITHUB_SHA}" '.success == true and .sha == $sha' "${response_file}" >/dev/null 2>&1; then
-              cat "${response_file}"
+              -H "Cache-Control: no-cache" \
+              -o "${status_file}" -w '%{http_code}' \
+              "https://artist.trbrec.com/wp-json/trb/v1/deploy-status?check=${attempt}" || true)
+            if [[ "${status_code}" == "200" ]] && jq -e --arg sha "${GITHUB_SHA}" '.sha == $sha' "${status_file}" >/dev/null 2>&1; then
+              cat "${status_file}"
               exit 0
             fi
-            content_type=$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{gsub("\r",""); print $2; exit}' "${headers_file}")
-            echo "Deploy attempt ${attempt}/6 returned HTTP ${http_code}, content-type ${content_type:-unknown}."
-            head -c 2000 "${response_file}"
-            rm -f "${response_file}" "${headers_file}"
-            sleep $(( attempt * 10 ))
+            rm -f "${status_file}"
+            echo "Cron deploy verification ${attempt}/30 is still waiting for ${GITHUB_SHA}."
+            sleep 10
           done
-          echo "::error::Deploy endpoint did not return a verified success payload after 6 attempts."
+          echo "::error::Neither the direct endpoint nor the verified WordPress cron fallback deployed ${GITHUB_SHA}."
           exit 1
