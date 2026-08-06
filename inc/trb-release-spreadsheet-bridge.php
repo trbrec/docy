@@ -214,6 +214,79 @@ function trb_release_bridge_payload( $release_id ) {
         'confirmation_accepted'=>true,'artist'=>$artist,'tracks'=>$tracks,'files'=>$files,'portal_callback_url'=>rest_url('trb/v1/release-contract-callback'));
 }
 
+/**
+ * Build the same positional row consumed by the existing TRB/DDB contract
+ * factories. Those webapps receive a batch of spreadsheet rows, not a batch
+ * of rich portal objects. Keep the rich payload at the top level for the
+ * callback and future integrations, while rows remains a real 2-D array.
+ */
+function trb_release_bridge_spreadsheet_row( $payload ) {
+    $artist = isset( $payload['artist'] ) && is_array( $payload['artist'] ) ? $payload['artist'] : array();
+    $tracks = isset( $payload['tracks'] ) && is_array( $payload['tracks'] ) ? $payload['tracks'] : array();
+    $format_date = static function ( $value ) {
+        $value = (string) $value;
+        if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts ) ) return $value;
+        return $parts[3] . '/' . $parts[2] . '/' . $parts[1];
+    };
+    $credit_names = static function ( $entries ) {
+        if ( ! is_array( $entries ) ) return '';
+        return implode( "\n", array_filter( array_map( static function ( $entry ) {
+            if ( ! is_array( $entry ) || empty( $entry['name'] ) ) return '';
+            $suffix = ! empty( $entry['role'] ) ? ' — ' . $entry['role'] : '';
+            return $entry['name'] . $suffix;
+        }, $entries ) ) );
+    };
+
+    $row = array(
+        wp_date( 'd/m/Y H:i', strtotime( (string) ( $payload['confirmed_at'] ?? 'now' ) ) ),
+        '', '', '', '',
+        (string) ( $artist['name'] ?? '' ),
+        (string) ( $artist['surname'] ?? '' ),
+        $format_date( $artist['birth_date'] ?? '' ),
+        (string) ( $artist['birth_place'] ?? '' ),
+        (string) ( $artist['tax_code'] ?? '' ),
+        (string) ( $artist['document_type'] ?? '' ),
+        (string) ( $artist['document_number'] ?? '' ),
+        (string) ( $artist['address'] ?? '' ),
+        (string) ( $artist['street_number'] ?? '' ),
+        (string) ( $artist['postcode'] ?? '' ),
+        (string) ( $artist['municipality'] ?? '' ),
+        (string) ( $artist['province'] ?? '' ),
+        (string) ( $artist['country'] ?? '' ),
+        (string) ( $artist['phone'] ?? '' ),
+        (string) ( $artist['email'] ?? '' ),
+        (string) ( $artist['artist_name'] ?? '' ),
+        (string) ( $payload['title'] ?? '' ),
+        $format_date( $payload['release_date'] ?? '' ),
+        $format_date( $payload['original_date'] ?? '' ),
+        'previously_released' === ( $payload['release_state'] ?? '' ) ? 'Già pubblicata' : 'Inedita',
+        count( $tracks ),
+        isset( $tracks[0]['primary_genre'] ) ? (string) $tracks[0]['primary_genre'] : '',
+    );
+
+    foreach ( $tracks as $track ) {
+        $track = is_array( $track ) ? $track : array();
+        $credits = isset( $track['credits'] ) && is_array( $track['credits'] ) ? $track['credits'] : array();
+        $row[] = (string) ( $track['title'] ?? '' );
+        $row[] = (string) ( $track['version'] ?? '' );
+        $row[] = (string) ( $track['featuring'] ?? '' );
+        $row[] = (string) ( $credits['authors'] ?? '' );
+        $row[] = (string) ( $credits['composers'] ?? '' );
+        $row[] = (string) ( $track['duration'] ?? '' );
+        $row[] = (string) ( $track['advisory'] ?? '' );
+        $row[] = (string) ( $track['primary_genre'] ?? '' );
+        $row[] = (string) ( $track['secondary_genre'] ?? '' );
+        $row[] = (string) ( $track['audio_status'] ?? '' );
+        $row[] = (string) ( $track['isrc'] ?? '' );
+        $row[] = $credit_names( $credits['credits'] ?? array() );
+        $row[] = (string) ( $track['content_nature'] ?? '' );
+        $row[] = (string) ( $track['rights_basis'] ?? '' );
+        $row[] = (string) ( $track['rights_reference'] ?? '' );
+        $row[] = (string) ( $track['rights_document'] ?? '' );
+    }
+    return $row;
+}
+
 /** Apps Script returns a signed googleusercontent location after the POST. */
 function trb_release_bridge_post_webapp( $url, $payload ) {
     $response = wp_remote_post( $url, array(
@@ -244,7 +317,7 @@ function trb_release_bridge_dispatch( $release_id ) {
     $s = trb_release_bridge_settings();
     $url = 'trb' === $payload['profile'] ? $s['trb_webapp_url'] : $s['ddb_webapp_url'];
     if ( ! $url || ! $s['shared_secret'] ) { update_post_meta($release_id,'_trb_contract_state','configuration_required'); return; }
-	$payload['rows'] = array( $payload );
+    $payload['rows'] = array( trb_release_bridge_spreadsheet_row( $payload ) );
     $payload['secret'] = $s['shared_secret'];
     $response = trb_release_bridge_post_webapp( $url, $payload );
     if ( is_wp_error( $response ) ) { update_post_meta($release_id,'_trb_contract_state','dispatch_error'); update_post_meta($release_id,'_trb_contract_error',$response->get_error_message()); wp_schedule_single_event(time()+15*MINUTE_IN_SECONDS,'trb_release_bridge_dispatch',array($release_id)); return; }
