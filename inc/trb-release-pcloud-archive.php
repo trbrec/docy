@@ -165,7 +165,7 @@ function trb_release_pcloud_sync( $release_id ) {
 	$archive = array( 'status' => 'synced', 'time' => time(), 'files' => $uploaded, 'materials' => $materials, 'folders' => $folders, 'verified' => true );
 	update_post_meta( $release_id, '_trb_release_pcloud_archive', $archive );
 	$rights_documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
-	$rights_documents = is_array( $rights_documents ) ? array_values( array_filter( $rights_documents, 'is_array' ) ) : array();
+	$rights_documents = is_array( $rights_documents ) ? array_values( array_filter( $rights_documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 	foreach ( $rights_documents as $document_index => $document ) {
 		if ( 'synced' === ( $document['status'] ?? '' ) || ! function_exists( 'trb_resource_sync_rights_document' ) ) continue;
 		$rights_result = trb_resource_sync_rights_document( $release_id, $document_index );

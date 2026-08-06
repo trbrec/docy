@@ -1507,7 +1507,7 @@ function trb_portal_replace_release_file() {
 	update_post_meta( $release_id, '_trb_release_files', array_values( $files ) );
 	if ( 'rights_document' === $kind && is_array( $stored ) ) {
 		$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
-		$documents = is_array( $documents ) ? array_values( array_filter( $documents, 'is_array' ) ) : array();
+		$documents = is_array( $documents ) ? array_values( array_filter( $documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 		foreach ( $documents as $document_index => $document ) {
 			if ( empty( $old_file['sha256'] ) || empty( $document['sha256'] ) || ! hash_equals( (string) $old_file['sha256'], (string) $document['sha256'] ) ) continue;
 			$rights_meta = $stored;

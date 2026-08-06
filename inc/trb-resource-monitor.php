@@ -500,7 +500,7 @@ function trb_resource_release_rights_folder( $release_id, $track_index ) {
 
 function trb_resource_sync_rights_document( $release_id, $document_index ) {
 	$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
-	$documents = is_array( $documents ) ? array_values( array_filter( $documents, 'is_array' ) ) : array();
+	$documents = is_array( $documents ) ? array_values( array_filter( $documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 	if ( ! isset( $documents[ $document_index ] ) ) return new WP_Error( 'RIGHTS_DOCUMENT_MISSING' );
 	$document = $documents[ $document_index ];
 	$folder = trb_resource_release_rights_folder( $release_id, isset( $document['track'] ) ? $document['track'] : 0 );
@@ -551,7 +551,7 @@ function trb_resource_upload_rights_document() {
 	$stored_name = wp_unique_filename( $directory, 'Diritti - ' . $name ); $target = trailingslashit( $directory ) . $stored_name;
 	if ( ! move_uploaded_file( $file['tmp_name'], $target ) ) { wp_safe_redirect( add_query_arg( 'trb_release', 'rights_error', $dashboard ) . $anchor ); exit; }
 	$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
-	$documents = is_array( $documents ) ? array_values( array_filter( $documents, 'is_array' ) ) : array();
+	$documents = is_array( $documents ) ? array_values( array_filter( $documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 	$documents[] = array( 'kind' => 'rights', 'track' => $track, 'name' => $stored_name, 'original_name' => $name, 'path' => $relative . '/' . $stored_name, 'type' => sanitize_mime_type( $file['type'] ), 'size' => filesize( $target ), 'sha256' => hash_file( 'sha256', $target ), 'status' => 'pending', 'uploaded_at' => time() );
 	update_post_meta( $release_id, '_trb_release_rights_documents', $documents ); $index = count( $documents ) - 1;
 	$result = trb_resource_sync_rights_document( $release_id, $index );
@@ -563,7 +563,7 @@ add_action( 'admin_post_trb_resource_upload_rights', 'trb_resource_upload_rights
 function trb_resource_render_rights_box( $release_id ) {
 	$status = (string) get_post_meta( $release_id, '_trb_release_pipeline_status', true );
 	$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
-	$documents = is_array( $documents ) ? array_values( array_filter( $documents, 'is_array' ) ) : array();
+	$documents = is_array( $documents ) ? array_values( array_filter( $documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 	if ( ! in_array( $status, array( 'copyright_documents_needed','copyright_review','pcloud_transfer_waiting' ), true ) && ! $documents ) return;
 	$tracks = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
 	?><div class="trb-portal__message"><strong>Documentazione sui diritti</strong><p>Allega licenze, autorizzazioni o attestazioni relative al brano. I documenti vengono archiviati nella stessa cartella pCloud del WAV e sottoposti a verifica.</p><?php if ( $documents ) : ?><ul><?php foreach ( $documents as $document ) : ?><li><?php echo esc_html( $document['original_name'] . ' · ' . ( 'synced' === $document['status'] ? 'archiviato' : 'trasferimento in attesa' ) ); ?></li><?php endforeach; ?></ul><?php endif; ?><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_resource_upload_rights"><?php wp_nonce_field( 'trb_resource_rights_' . $release_id ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release_id ); ?>"><label>Brano <select name="track_index"><?php foreach ( $tracks as $index => $track ) : ?><option value="<?php echo esc_attr( $index ); ?>"><?php echo esc_html( ( $index + 1 ) . '. ' . $track['title'] ); ?></option><?php endforeach; ?></select></label><input type="file" name="rights_document" accept=".pdf,.jpg,.jpeg,.png,.docx" required><button class="trb-button trb-button--compact">Allega documento</button></form></div><?php

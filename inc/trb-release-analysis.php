@@ -246,7 +246,7 @@ function trb_analysis_decide_release( $release_id ) {
 	$semaphore = $red ? 'red' : ( $yellow ? 'yellow' : 'green' );
 	$benchmark_ready = ! empty( $s['benchmark_complete'] ) && trb_analysis_benchmark_count() >= absint( $s['benchmark_required'] );
 	$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
-	$documents = is_array( $documents ) ? array_values( array_filter( $documents, 'is_array' ) ) : array();
+	$documents = is_array( $documents ) ? array_values( array_filter( $documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 	$documents_ready = false; foreach ( $documents as $document ) if ( 'synced' === ( $document['status'] ?? '' ) ) { $documents_ready = true; break; }
 	$state = 'red' === $semaphore ? ( 'unreleased' === $release_state ? 'published_audio_conflict' : ( $documents_ready ? 'manual_review' : 'copyright_documents_needed' ) ) : ( 'yellow' === $semaphore ? 'manual_review' : ( $benchmark_ready && ! empty( $s['auto_approval'] ) ? 'approved' : 'manual_review' ) );
 	$decision = array( 'semaphore' => $semaphore, 'state' => $state, 'results' => $normalized, 'benchmark_ready' => $benchmark_ready, 'decided_at' => time() );
@@ -323,7 +323,7 @@ function trb_analysis_generate_report( $release_id ) {
 	if ( function_exists( 'trb_resource_tables' ) ) { global $wpdb; $ledger = trb_resource_tables()['usage']; $current_hashes = array(); foreach ( (array) get_post_meta( $release_id, '_trb_release_files', true ) as $file ) if ( 'audio' === ( $file['kind'] ?? '' ) ) $current_hashes[ absint( $file['track'] ?? 0 ) ] = (string) ( $file['sha256'] ?? '' ); $raw_rows = $wpdb->get_results( $wpdb->prepare( "SELECT track_index,file_hash,payload FROM $ledger WHERE release_id=%d AND provider='acrcloud' AND service IN ('fingerprinting','fingerprinting_reuse') AND status='completed' ORDER BY id", $release_id ), ARRAY_A ); foreach ( $raw_rows as $raw_row ) { if ( empty( $current_hashes[ absint( $raw_row['track_index'] ) ] ) || ! hash_equals( $current_hashes[ absint( $raw_row['track_index'] ) ], (string) $raw_row['file_hash'] ) ) continue; $lines[] = 'Risultato grezzo ACR brano ' . ( absint( $raw_row['track_index'] ) + 1 ) . ':'; foreach ( str_split( (string) $raw_row['payload'], 100 ) as $chunk ) $lines[] = $chunk; } }
 	foreach ( (array) get_post_meta( $release_id, '_trb_release_rights_declarations', true ) as $index => $declaration ) $lines[] = 'Dichiarazione brano ' . ( $index + 1 ) . ': ' . ( $declaration['nature'] ?? '' ) . ' / ' . ( $declaration['basis'] ?? '' ) . ( ! empty( $declaration['reference'] ) ? ' / riferimento: ' . $declaration['reference'] : '' );
 	$report_documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
-	$report_documents = is_array( $report_documents ) ? array_filter( $report_documents, 'is_array' ) : array();
+	$report_documents = is_array( $report_documents ) ? array_filter( $report_documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) : array();
 	foreach ( $report_documents as $document ) $lines[] = 'Documento diritti: ' . ( $document['original_name'] ?? $document['name'] ?? '' ) . ' - SHA256 ' . ( $document['sha256'] ?? '' ) . ' - ' . ( $document['status'] ?? '' );
 	foreach ( (array) get_post_meta( $release_id, '_trb_release_decision_history', true ) as $event ) { $user = get_userdata( absint( $event['user_id'] ?? 0 ) ); $lines[] = 'Cronologia: ' . gmdate( 'c', absint( $event['at'] ?? 0 ) ) . ' - ' . ( $event['action'] ?? '' ) . ' - ' . ( $user ? $user->user_login : 'sistema' ); }
 	$lines[] = 'Restrizioni Content ID/social: le licenze non esclusive o basic richiedono verifica e possono escludere la monetizzazione.';
@@ -375,7 +375,7 @@ function trb_analysis_retry_security_scans() {
 		}
 		unset( $file ); update_post_meta( $release_id, '_trb_release_files', $files );
 		$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
-		$documents = is_array( $documents ) ? array_values( array_filter( $documents, 'is_array' ) ) : array();
+		$documents = is_array( $documents ) ? array_values( array_filter( $documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 		foreach ( $documents as $index => $document ) if ( 'synced' !== ( $document['status'] ?? '' ) && function_exists( 'trb_resource_sync_rights_document' ) ) { $result = trb_resource_sync_rights_document( $release_id, $index ); if ( is_wp_error( $result ) ) { $blocked = true; if ( 'MALWARE_DETECTED' === $result->get_error_code() ) $malware = true; } }
 		if ( $malware ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_rejected' ); if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'security-rejected-' . $release_id, 'Materiale bloccato dalla scansione antivirus', 'La pratica #' . absint( $release_id ) . ' richiede verifica immediata.', true ); continue; }
 		if ( ! $blocked && function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
