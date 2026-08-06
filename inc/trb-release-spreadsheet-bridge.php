@@ -63,13 +63,20 @@ add_action( 'admin_post_trb_portal_start_release', 'trb_release_bridge_capture_i
 
 function trb_release_bridge_meta_written( $meta_id, $post_id, $meta_key, $meta_value ) {
     if ( '_trb_release_files' !== $meta_key || 'trb_release' !== get_post_type( $post_id ) ) return;
-    if ( ! wp_next_scheduled( 'trb_release_bridge_dispatch', array( $post_id ) ) ) {
-        update_post_meta( $post_id, '_trb_contract_state', 'preparing' );
-        wp_schedule_single_event( time() + 10, 'trb_release_bridge_dispatch', array( $post_id ) );
-    }
+    if ( ! get_post_meta( $post_id, '_trb_contract_state', true ) ) update_post_meta( $post_id, '_trb_contract_state', 'waiting_analysis' );
 }
 add_action( 'added_post_meta', 'trb_release_bridge_meta_written', 10, 4 );
 add_action( 'updated_post_meta', 'trb_release_bridge_meta_written', 10, 4 );
+
+function trb_release_bridge_queue_dispatch( $release_id ) {
+    $release_id = absint( $release_id );
+    if ( 'trb_release' !== get_post_type( $release_id ) || 'approved' !== get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) return;
+    $current = get_post_meta( $release_id, '_trb_contract_state', true );
+    if ( in_array( $current, array( 'contract_sent', 'signed' ), true ) ) return;
+    update_post_meta( $release_id, '_trb_contract_state', 'preparing' );
+    if ( ! wp_next_scheduled( 'trb_release_bridge_dispatch', array( $release_id ) ) ) wp_schedule_single_event( time() + 10, 'trb_release_bridge_dispatch', array( $release_id ) );
+}
+add_action( 'trb_release_analysis_approved', 'trb_release_bridge_queue_dispatch', 10, 1 );
 
 function trb_release_bridge_profile_value( $user_id, $key, $fallback = '' ) {
     if ( function_exists( 'trb_portal_artist_profile_value' ) ) {
@@ -126,6 +133,7 @@ function trb_release_bridge_payload( $release_id ) {
 function trb_release_bridge_dispatch( $release_id ) {
     $current = get_post_meta( $release_id, '_trb_contract_state', true );
     if ( in_array( $current, array( 'contract_sent', 'signed' ), true ) ) return;
+    if ( 'approved' !== get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) { update_post_meta($release_id,'_trb_contract_state','waiting_analysis'); return; }
     $payload = trb_release_bridge_payload( $release_id );
     if ( is_wp_error( $payload ) ) { update_post_meta($release_id,'_trb_contract_state','data_error'); update_post_meta($release_id,'_trb_contract_error',$payload->get_error_message()); return; }
     $s = trb_release_bridge_settings();
@@ -144,8 +152,8 @@ add_action( 'trb_release_bridge_dispatch', 'trb_release_bridge_dispatch', 10, 1 
 
 function trb_release_bridge_rest_routes() {
     register_rest_route('trb/v1','/release-contract-status',array('methods'=>'GET','permission_callback'=>function(){return is_user_logged_in();},'callback'=>function(){
-        $releases=get_posts(array('post_type'=>'trb_release','post_status'=>'publish','author'=>get_current_user_id(),'numberposts'=>100)); $out=array();
-        foreach($releases as $release)$out[]=array('release_id'=>$release->ID,'state'=>get_post_meta($release->ID,'_trb_contract_state',true)?:'preparing','release_date'=>get_post_meta($release->ID,'_trb_release_date',true));
+        $releases=get_posts(array('post_type'=>'trb_release','post_status'=>array('publish','private','pending','draft'),'author'=>get_current_user_id(),'numberposts'=>100)); $out=array();
+        foreach($releases as $release)$out[]=array('release_id'=>$release->ID,'state'=>get_post_meta($release->ID,'_trb_contract_state',true)?:'waiting_analysis','pipeline_state'=>get_post_meta($release->ID,'_trb_release_pipeline_status',true),'state_label'=>function_exists('trb_portal_release_current_state_label')?trb_portal_release_current_state_label($release->ID):'Controllo del brano in corso','release_date'=>get_post_meta($release->ID,'_trb_release_date',true));
         return rest_ensure_response($out);
     }));
     register_rest_route('trb/v1','/release-contract-callback',array('methods'=>'POST','permission_callback'=>'__return_true','callback'=>function(WP_REST_Request $request){

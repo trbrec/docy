@@ -999,7 +999,7 @@ function trb_portal_user_releases() {
 	return get_posts(
 		array(
 			'post_type'      => 'trb_release',
-			'post_status'    => 'publish',
+			'post_status'    => array( 'publish', 'private', 'pending', 'draft' ),
 			'author'         => get_current_user_id(),
 			'posts_per_page' => 30,
 			'orderby'        => 'date',
@@ -2736,11 +2736,26 @@ function trb_portal_release_pipeline_label( $release_id ) {
 		'ACR_BUDGET_LIMIT_REACHED'    => 'Il controllo del brano è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',
 		'PCLOUD_QUOTA_LIMIT_REACHED'  => 'Il trasferimento è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',
 		'copyright_documents_needed' => 'Documentazione sui diritti richiesta',
+		'published_audio_conflict'   => 'Brano già pubblicato rilevato: pratica bloccata',
 		'copyright_review'            => 'Verifica dei diritti in corso',
 		'manual_review'               => 'Verifica manuale in corso',
 		'approved'                    => 'Controllo completato',
 	);
 	return isset( $labels[ $status ] ) ? $labels[ $status ] : 'Dati contrattuali da completare';
+}
+
+function trb_portal_release_current_state_label( $release_id ) {
+	$contract = (string) get_post_meta( $release_id, '_trb_contract_state', true );
+	$labels = array(
+		'preparing'              => 'Invio del contratto in corso',
+		'contract_sent'          => 'Contratto inviato: firma richiesta',
+		'signed'                 => 'Contratto firmato',
+		'dispatch_error'         => 'Invio del contratto in verifica',
+		'data_error'             => 'Dati contrattuali in verifica',
+		'configuration_required' => 'Collegamento contrattuale in verifica',
+	);
+	if ( isset( $labels[ $contract ] ) ) return $labels[ $contract ];
+	return trb_portal_release_pipeline_label( $release_id );
 }
 
 function trb_portal_render_release_section() {
@@ -2771,6 +2786,7 @@ function trb_portal_render_release_section() {
 		<?php if ( 'upload_in_progress' === $status ) : ?><div class="trb-portal__message"><strong>Caricamento già in elaborazione</strong><p>La richiesta precedente è ancora in corso. Non inviare nuovamente i file: la pagina si aggiornerà al completamento.</p></div><?php endif; ?>
 		<?php if ( 'single_title_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I titoli non coincidono.</strong><p>Per una pubblicazione di tipo Singolo, il titolo della release deve essere identico al titolo del brano, comprese maiuscole, accenti e punteggiatura.</p></div><?php endif; ?>
 		<?php if ( 'invalid' === $status || 'error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Alcuni dati sono mancanti o non validi. Controlla tutti i campi evidenziati.</div><?php endif; ?>
+		<?php if ( ! empty( $releases ) ) : ?><div class="trb-portal__request-history trb-portal__release-history"><h3>Release inviate</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li data-release-item="<?php echo esc_attr( $release->ID ); ?>"><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> · <b data-release-current-state><?php echo esc_html( trb_portal_release_current_state_label( $release->ID ) ); ?></b></span><?php trb_portal_render_release_files( $release->ID ); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
 			<div class="trb-portal__release-gate"><strong>Completa il profilo per iniziare.</strong><p>Quando il profilo raggiunge il 100% potrai creare la prima release.</p><a class="trb-button" href="#profilo">Completa il profilo</a></div>
 		<?php elseif ( $ddb12_limit_reached ) : ?>
@@ -2787,7 +2803,6 @@ function trb_portal_render_release_section() {
 			</form>
 		</div>
 		<?php endif; ?>
-		<?php if ( ! empty( $releases ) ) : ?><div class="trb-portal__request-history"><h3>Le tue pratiche</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( ( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ) . ' · ' . trb_portal_release_pipeline_label( $release->ID ) ); ?></span><?php trb_portal_render_release_files( $release->ID ); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 	</section>
 	<template id="trb-portal-track-template">
 		<article class="trb-portal__track" data-track>

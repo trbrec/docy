@@ -232,11 +232,12 @@ function trb_analysis_decide_release( $release_id ) {
 	}
 	$declarations = (array) get_post_meta( $release_id, '_trb_release_rights_declarations', true );
 	$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
+	$release_state = (string) get_post_meta( $release_id, '_trb_release_state', true );
 	if ( 'warning' === ( $technical['status'] ?? '' ) ) $yellow = true;
 	foreach ( $normalized as $index => $result ) {
 		$nature = $declarations[ $index ]['nature'] ?? 'original';
 		foreach ( $result['matches'] as $match ) {
-			if ( in_array( $match['engine'], array( 'music', 'custom_files' ), true ) && $match['score'] >= (float) $s['fingerprint_red_score'] && 'original' === $nature ) $red = true;
+			if ( in_array( $match['engine'], array( 'music', 'custom_files' ), true ) && $match['score'] >= (float) $s['fingerprint_red_score'] && 'original' === $nature && 'unreleased' === $release_state ) $red = true;
 			elseif ( $match['score'] >= (float) $s['match_review_score'] ) $yellow = true;
 		}
 		if ( ! empty( $result['deepright'] ) ) $yellow = true;
@@ -246,10 +247,11 @@ function trb_analysis_decide_release( $release_id ) {
 	$benchmark_ready = ! empty( $s['benchmark_complete'] ) && trb_analysis_benchmark_count() >= absint( $s['benchmark_required'] );
 	$documents = (array) get_post_meta( $release_id, '_trb_release_rights_documents', true );
 	$documents_ready = false; foreach ( $documents as $document ) if ( 'synced' === ( $document['status'] ?? '' ) ) { $documents_ready = true; break; }
-	$state = 'red' === $semaphore ? ( $documents_ready ? 'manual_review' : 'copyright_documents_needed' ) : ( 'yellow' === $semaphore ? 'manual_review' : ( $benchmark_ready && ! empty( $s['auto_approval'] ) ? 'approved' : 'manual_review' ) );
+	$state = 'red' === $semaphore ? ( 'unreleased' === $release_state ? 'published_audio_conflict' : ( $documents_ready ? 'manual_review' : 'copyright_documents_needed' ) ) : ( 'yellow' === $semaphore ? 'manual_review' : ( $benchmark_ready && ! empty( $s['auto_approval'] ) ? 'approved' : 'manual_review' ) );
 	$decision = array( 'semaphore' => $semaphore, 'state' => $state, 'results' => $normalized, 'benchmark_ready' => $benchmark_ready, 'decided_at' => time() );
 	update_post_meta( $release_id, '_trb_release_analysis_decision', $decision );
 	update_post_meta( $release_id, '_trb_release_pipeline_status', $state );
+	if ( 'approved' === $state ) do_action( 'trb_release_analysis_approved', $release_id );
 	trb_analysis_generate_report( $release_id );
 }
 

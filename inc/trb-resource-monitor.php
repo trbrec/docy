@@ -554,7 +554,7 @@ function trb_resource_render_admin() {
 			if ( 'override_budget' === $action ) { update_post_meta( $release_id, '_trb_acr_budget_override', 1 ); update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' ); wp_schedule_single_event( time() + 5, 'trb_resource_start_release_analysis_manual', array( $release_id ) ); }
 			if ( 'request_documents' === $action ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_documents_needed' );
 			if ( 'manual_review' === $action ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' );
-			if ( 'approve' === $action ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'approved' );
+			if ( 'approve' === $action ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'approved' ); do_action( 'trb_release_analysis_approved', $release_id ); }
 			$history = (array) get_post_meta( $release_id, '_trb_release_decision_history', true );
 			$history[] = array( 'action' => $action, 'user_id' => get_current_user_id(), 'at' => time() );
 			update_post_meta( $release_id, '_trb_release_decision_history', array_slice( $history, -100 ) );

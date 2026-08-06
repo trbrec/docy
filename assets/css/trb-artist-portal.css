@@ -302,7 +302,12 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__message--success { background: #e9f8ef; color: #176537; }
 .trb-portal__message--error { background: #fff0ef; color: #a7352b; }
 .trb-portal__request-history { margin-top: 30px; }
+.trb-portal__release-history { background: #f7faff; border: 1px solid #cfdeeb; border-radius: 16px; margin: 0 0 24px; padding: 20px 22px; }
+.trb-portal__release-history h3 { margin-bottom: 12px; }
+.trb-portal__release-history li { background: #fff; border: 1px solid #dce4ea; border-radius: 11px; margin-top: 10px; padding: 14px 16px; }
+.trb-portal__release-history [data-release-current-state] { color: var(--trb-accent); }
 .trb-portal__request-history ul { border-top: 1px solid var(--trb-line); list-style: none; margin: 0; padding: 0; }
+.trb-portal__release-history ul { border-top: 0; }
 .trb-portal__request-history li { align-items: center; border-bottom: 1px solid var(--trb-line); display: flex; flex-wrap: wrap; font-size: 14px; gap: 20px; justify-content: space-between; padding: 13px 3px; }
 .trb-portal__request-history span { color: var(--trb-ink-soft); flex: 0 0 auto; font-size: 13px; }
 .trb-release-files { border-top: 1px solid var(--trb-line); grid-column: 1 / -1; margin-top: 14px; padding-top: 14px; width: 100%; }
