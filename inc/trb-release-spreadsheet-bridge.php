@@ -119,6 +119,26 @@ function trb_release_bridge_queue_dispatch( $release_id ) {
 }
 add_action( 'trb_release_analysis_approved', 'trb_release_bridge_queue_dispatch', 10, 1 );
 
+/** Keep contract handoff diagnostics visible on every release admin screen. */
+function trb_release_bridge_add_meta_box() {
+    add_meta_box( 'trb-release-contract-diagnostics', 'Stato contratto e spreadsheet', 'trb_release_bridge_render_meta_box', 'trb_release', 'normal', 'high' );
+}
+add_action( 'add_meta_boxes_trb_release', 'trb_release_bridge_add_meta_box' );
+
+function trb_release_bridge_render_meta_box( $post ) {
+    $rows = array(
+        'Pipeline release'  => get_post_meta( $post->ID, '_trb_release_pipeline_status', true ),
+        'Stato contratto'   => get_post_meta( $post->ID, '_trb_contract_state', true ),
+        'Errore contratto'  => get_post_meta( $post->ID, '_trb_contract_error', true ),
+        'Numero contratto'  => get_post_meta( $post->ID, '_trb_contract_number', true ),
+        'Dossier OTP'       => get_post_meta( $post->ID, '_trb_otp_dossier_id', true ),
+        'Contratto inviato' => get_post_meta( $post->ID, '_trb_contract_sent_at', true ),
+    );
+    echo '<table class="widefat striped"><tbody>';
+    foreach ( $rows as $label => $value ) echo '<tr><th style="width:190px">' . esc_html( $label ) . '</th><td>' . esc_html( '' !== (string) $value ? $value : '—' ) . '</td></tr>';
+    echo '</tbody></table>';
+}
+
 function trb_release_bridge_profile_value( $user_id, $key, $fallback = '' ) {
     if ( function_exists( 'trb_portal_artist_profile_value' ) ) {
         $value = trb_portal_artist_profile_value( $key, $user_id );
