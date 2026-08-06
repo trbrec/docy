@@ -1362,7 +1362,7 @@ function trb_portal_start_release() {
 	if ( 'unreleased' === $release_state && preg_match( '/^(\\d{4})-(\\d{2})-(\\d{2})$/', $release_date, $release_date_parts ) ) {
 		$release_date_valid = checkdate( (int) $release_date_parts[2], (int) $release_date_parts[3], (int) $release_date_parts[1] ) && $release_date >= $minimum_release_date;
 	}
-	$original_date_valid = '' === $original_date;
+	$original_date_valid = false;
 	if ( 'previously_released' === $release_state && preg_match( '/^(\\d{4})-(\\d{2})-(\\d{2})$/', $original_date, $date_parts ) ) {
 		$original_date_valid = checkdate( (int) $date_parts[2], (int) $date_parts[3], (int) $date_parts[1] ) && $original_date <= wp_date( 'Y-m-d' );
 	}
@@ -1399,7 +1399,7 @@ function trb_portal_start_release() {
 			if ( is_wp_error( $lyrics_valid ) ) $uploads_valid = $lyrics_valid;
 		}
 	}
-	if ( ( ! $is_catalogue && '' === $title ) || ! isset( $types[ $type ] ) || empty( $tracks ) || count( $tracks ) < $types[ $type ]['min'] || ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) || ( 'unreleased' === $release_state && ! $release_date_valid ) || ( 'previously_released' === $release_state && ! $original_date_valid ) || ( $is_catalogue && 'previously_released' !== $release_state ) || count( $tracks ) > $types[ $type ]['max'] || is_wp_error( $uploads_valid ) ) {
+	if ( ( ! $is_catalogue && '' === $title ) || ! isset( $types[ $type ] ) || empty( $tracks ) || count( $tracks ) !== count( $posted_tracks ) || count( $tracks ) < $types[ $type ]['min'] || ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) || ( 'unreleased' === $release_state && ! $release_date_valid ) || ( 'previously_released' === $release_state && ! $original_date_valid ) || ( $is_catalogue && 'previously_released' !== $release_state ) || count( $tracks ) > $types[ $type ]['max'] || is_wp_error( $uploads_valid ) ) {
 		$invalid_status = is_wp_error( $uploads_valid ) && 'audio_duration_mismatch' === $uploads_valid->get_error_code() ? 'duration_mismatch' : 'invalid';
 		wp_safe_redirect( add_query_arg( 'trb_release', $invalid_status, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
 		exit;
