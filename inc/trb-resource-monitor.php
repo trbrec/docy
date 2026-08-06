@@ -427,7 +427,12 @@ function trb_resource_start_release_analysis( $release_id ) {
 					$waiting = true;
 					if ( ! wp_next_scheduled( 'trb_resource_poll_acr_job', array( $alias_id ) ) ) wp_schedule_single_event( time() + 2 * MINUTE_IN_SECONDS, 'trb_resource_poll_acr_job', array( $alias_id ) );
 				}
-			} elseif ( 'completed' !== $existing->status ) $waiting = true;
+			} elseif ( 'completed' !== $existing->status ) {
+				$waiting = true;
+				if ( ! wp_next_scheduled( 'trb_resource_poll_acr_job', array( (int) $existing->id ) ) ) {
+					wp_schedule_single_event( time() + 5, 'trb_resource_poll_acr_job', array( (int) $existing->id ) );
+				}
+			}
 			continue;
 		}
 		$duration = ! empty( $file['audio_spec']['duration_seconds'] ) ? (float) $file['audio_spec']['duration_seconds'] : 0;
