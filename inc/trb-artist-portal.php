@@ -455,6 +455,7 @@ function trb_portal_artist_profile_fields() {
 		'birth_place' => 'Luogo di nascita',
 		'birth_province' => 'Provincia di nascita',
 		'tax_code'    => 'Codice fiscale',
+		'document_number' => 'Numero del documento d’identità',
 		'street'      => 'Indirizzo di residenza',
 		'street_number' => 'Numero civico',
 		'city'        => 'Città',
@@ -588,9 +589,9 @@ function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
 	if ( ! $user || '' === trim( (string) $user->first_name ) || '' === trim( (string) $user->last_name ) || '' === trim( (string) $user->user_email ) ) {
 		return false;
 	}
-	$required = array( 'artist_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'tax_code', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' );
+	$required = array( 'artist_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'tax_code', 'document_number', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' );
 	foreach ( $required as $field ) {
-		if ( '' === trb_portal_artist_profile_value( $field, $user_id ) ) {
+		if ( '' === trim( trb_portal_artist_profile_value( $field, $user_id ) ) ) {
 			return false;
 		}
 	}
@@ -650,7 +651,7 @@ function trb_portal_artist_profile_completion( $user_id = 0 ) {
 	$checks[] = $user && '' !== trim( (string) $user->first_name );
 	$checks[] = $user && '' !== trim( (string) $user->last_name );
 	$checks[] = $user && '' !== trim( (string) $user->user_email );
-	foreach ( array( 'artist_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'tax_code', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' ) as $field ) {
+	foreach ( array( 'artist_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'tax_code', 'document_number', 'street', 'street_number', 'city', 'postal_code', 'province', 'country' ) as $field ) {
 		$checks[] = '' !== trim( trb_portal_artist_profile_value( $field, $user_id ) );
 	}
 	$checks[] = trb_portal_has_valid_biography_content( $user_id );
@@ -729,7 +730,8 @@ function trb_portal_handle_artist_profile() {
 		$birth_match = trb_portal_find_municipality_exact( $birth_place, $birth_province );
 		$phone = isset( $_POST['trb_artist_phone'] ) ? trb_portal_validate_mobile( wp_unslash( $_POST['trb_artist_phone'] ) ) : false;
 		$tax_code = isset( $_POST['trb_artist_tax_code'] ) ? trb_portal_validate_tax_code( wp_unslash( $_POST['trb_artist_tax_code'] ) ) : false;
-		$error = ! $birth_match ? 'invalid_birthplace' : ( ! $phone ? 'invalid_phone' : ( ! $tax_code ? 'invalid_tax_code' : '' ) );
+		$document_number = isset( $_POST['trb_artist_document_number'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_document_number'] ) ) ) : '';
+		$error = ! $birth_match ? 'invalid_birthplace' : ( ! $phone ? 'invalid_phone' : ( ! $tax_code ? 'invalid_tax_code' : ( strlen( $document_number ) < 3 || strlen( $document_number ) > 40 ? 'invalid_document_number' : '' ) ) );
 		if ( $error ) {
 			wp_safe_redirect( add_query_arg( 'trb_profile', $error, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 			exit;
@@ -738,6 +740,7 @@ function trb_portal_handle_artist_profile() {
 		$_POST['trb_artist_birth_province'] = $birth_match['province'];
 		$_POST['trb_artist_phone'] = $phone;
 		$_POST['trb_artist_tax_code'] = $tax_code;
+		$_POST['trb_artist_document_number'] = $document_number;
 	}
 	foreach ( trb_portal_artist_profile_fields() as $key => $label ) {
 		if ( ! isset( $_POST[ 'trb_artist_' . $key ] ) ) {
@@ -2743,6 +2746,7 @@ function trb_portal_render_artist_profile_section() {
 		<?php if ( 'invalid_birthplace' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: seleziona Comune e Provincia di nascita fra i risultati dell’archivio italiano.</div><?php endif; ?>
 		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero di cellulare italiano valido, con 10 cifre e iniziale 3; il prefisso +39 è facoltativo.</div><?php endif; ?>
 		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: il codice fiscale non supera il controllo formale e della lettera finale. Verifica attentamente i 16 caratteri.</div><?php endif; ?>
+		<?php if ( 'invalid_document_number' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci il numero riportato sulla carta d’identità allegata.</div><?php endif; ?>
 		<?php if ( 'artist_name_taken' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Questo nome d’arte risulta già assegnato a un altro account. Apri una segnalazione se ritieni che si tratti di un errore.</div><?php endif; ?>
 		<?php if ( 'bio_required' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Allega la biografia artistica in formato TXT, DOCX, ODT o RTF prima di salvare l’identità artistica.</div><?php endif; ?>
 		<?php if ( 'bio_invalid' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Biografia non acquisita: usa un file TXT, DOCX, ODT o RTF non superiore a 5 MB.</div><?php endif; ?>
@@ -2767,6 +2771,7 @@ function trb_portal_render_artist_profile_section() {
 						<label>Comune di nascita <span>*</span><input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" autocomplete="off" list="trb-birthplace-options" data-trb-birthplace required /><datalist id="trb-birthplace-options"></datalist><small data-trb-birthplace-status>Digita almeno due lettere e seleziona il Comune dall’archivio italiano.</small></label>
 						<label>Provincia di nascita <span>*</span><input type="text" name="trb_artist_birth_province" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_province' ) ); ?>" data-trb-birth-province readonly required /></label>
 						<label>Codice fiscale <span>*</span><input type="text" name="trb_artist_tax_code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_code' ) ); ?>" minlength="16" maxlength="16" autocapitalize="characters" spellcheck="false" data-trb-tax-code required /><small>Il sistema controlla struttura e carattere finale prima del salvataggio.</small></label>
+						<label>Numero del documento d’identità <span>*</span><input type="text" name="trb_artist_document_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'document_number' ) ); ?>" autocomplete="off" maxlength="40" required /><small>Inserisci il numero riportato sulla carta d’identità allegata, senza aggiungere descrizioni.</small></label>
 						<label>Indirizzo di residenza <span>*</span><input type="text" name="trb_artist_street" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street' ) ); ?>" required /></label>
 						<label>Numero civico <span>*</span><input type="text" name="trb_artist_street_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
 						<label>CAP <span>*</span><input type="text" name="trb_artist_postal_code" autocomplete="postal-code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" data-trb-postcode required /><small data-trb-postcode-status>Inserisci il CAP: Comune e provincia saranno ricavati dall’archivio nazionale.</small></label>
