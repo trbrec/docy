@@ -220,7 +220,8 @@
         var bar = panel.querySelector('.trb-portal__upload-progress-track span');
         var status = panel.querySelector('[data-trb-upload-status]');
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', form.action, true);
+        var submitUrl = window.trbArtistProfile && window.trbArtistProfile.ajaxUrl ? window.trbArtistProfile.ajaxUrl : form.action;
+        xhr.open('POST', submitUrl, true);
         xhr.withCredentials = true;
         xhr.upload.addEventListener('progress', function (uploadEvent) {
           if (!uploadEvent.lengthComputable) return;
@@ -230,16 +231,23 @@
           status.textContent = value < 100 ? 'Caricamento dei file in corso…' : 'File caricati. Salvataggio del profilo…';
         });
         xhr.addEventListener('load', function () {
-          if (xhr.status >= 200 && xhr.status < 400) {
+          var responseUrl = xhr.responseURL || '';
+          var profileResult = '';
+          try {
+            profileResult = new URL(responseUrl, window.location.href).searchParams.get('trb_profile') || '';
+          } catch (ignored) {}
+          if (xhr.status >= 200 && xhr.status < 400 && profileResult) {
             percent.textContent = '100%';
             bar.style.width = '100%';
             status.textContent = 'Salvataggio completato. Aggiornamento del profilo…';
-            window.location.assign(xhr.responseURL || window.location.href.split('#')[0] + '#profilo');
+            window.location.assign(responseUrl);
             return;
           }
           submitting = false;
           panel.classList.add('is-error');
-          status.textContent = 'Il server non ha completato il salvataggio. Riprova una sola volta.';
+          status.textContent = xhr.status >= 200 && xhr.status < 400
+            ? 'La pratica non è stata registrata. I dati compilati sono ancora presenti nel modulo: riprova senza ricaricare la pagina.'
+            : 'Il server non ha completato il salvataggio. Riprova una sola volta.';
           if (button) { button.disabled = false; button.textContent = originalLabel; }
         });
         xhr.addEventListener('error', function () {
