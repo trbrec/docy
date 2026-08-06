@@ -100,6 +100,7 @@ function trb_release_bridge_capture_isrc() {
     set_transient( 'trb_release_bridge_isrc_' . get_current_user_id(), $codes, 2 * HOUR_IN_SECONDS );
 }
 add_action( 'admin_post_trb_portal_start_release', 'trb_release_bridge_capture_isrc', 1 );
+add_action( 'wp_ajax_trb_portal_start_release', 'trb_release_bridge_capture_isrc', 1 );
 
 function trb_release_bridge_meta_written( $meta_id, $post_id, $meta_key, $meta_value ) {
     if ( '_trb_release_files' !== $meta_key || 'trb_release' !== get_post_type( $post_id ) ) return;
