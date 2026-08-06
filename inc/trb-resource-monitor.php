@@ -269,8 +269,8 @@ function trb_resource_pcloud_guard( $incoming_bytes ) {
 	$settings = trb_resource_settings();
 	$data = trb_resource_pcloud_userinfo();
 	if ( is_wp_error( $data ) ) {
-		trb_resource_event( 'userinfo', 'pcloud', 'critical', 'Quota pCloud non verificabile.', array( 'code' => $data->get_error_code() ) );
-		return new WP_Error( 'PCLOUD_QUOTA_UNVERIFIED', $data->get_error_code() . ( $data->get_error_message() ? ': ' . $data->get_error_message() : '' ) );
+		trb_resource_event( 'userinfo', 'pcloud', 'warning', 'Quota pCloud non verificabile; il trasferimento atomico resta protetto dalla risposta WebDAV.', array( 'code' => $data->get_error_code() ) );
+		return array( 'quota_verified' => false, 'source' => 'webdav-transfer-guard' );
 	}
 	$required = (float) $incoming_bytes + (float) $settings['pcloud_safety_bytes'];
 	if ( $data['used_percent'] >= (float) $settings['pcloud_block'] || $data['free'] < $required ) {
