@@ -21,5 +21,14 @@ function trb_release_isrc_ui_enqueue() {
         file_exists( $ux_path ) ? (string) filemtime( $ux_path ) : null,
         true
     );
+
+    $fix_path = get_template_directory() . '/assets/js/trb-release-form-fix.js';
+    wp_enqueue_script(
+        'trb-release-form-fix',
+        get_template_directory_uri() . '/assets/js/trb-release-form-fix.js',
+        array( 'trb-release-form-ux' ),
+        file_exists( $fix_path ) ? (string) filemtime( $fix_path ) : null,
+        true
+    );
 }
 add_action( 'wp_enqueue_scripts', 'trb_release_isrc_ui_enqueue', 40 );
