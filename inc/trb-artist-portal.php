@@ -709,6 +709,18 @@ function trb_portal_handle_artist_profile() {
 		$_POST['trb_artist_artist_name'] = $submitted_artist_name;
 	}
 	if ( isset( $_POST['trb_artist_company_section'] ) ) {
+		$user = get_userdata( $user_id );
+		foreach ( array( 'first_name', 'last_name' ) as $account_field ) {
+			$current_value = $user ? trim( (string) $user->{$account_field} ) : '';
+			$post_key = 'trb_artist_' . $account_field;
+			if ( '' !== $current_value ) continue;
+			$submitted_value = isset( $_POST[ $post_key ] ) ? trim( sanitize_text_field( wp_unslash( $_POST[ $post_key ] ) ) ) : '';
+			if ( strlen( $submitted_value ) < 2 ) {
+				wp_safe_redirect( add_query_arg( 'trb_profile', 'invalid_account_name', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+				exit;
+			}
+			update_user_meta( $user_id, $account_field, $submitted_value );
+		}
 		$postcode = isset( $_POST['trb_artist_postal_code'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_postal_code'] ) ) : '';
 		$city = isset( $_POST['trb_artist_city'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_city'] ) ) : '';
 		$places = trb_portal_lookup_postcode( $postcode );
@@ -2747,11 +2759,12 @@ function trb_portal_render_artist_profile_section() {
 		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero di cellulare italiano valido, con 10 cifre e iniziale 3; il prefisso +39 è facoltativo.</div><?php endif; ?>
 		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: il codice fiscale non supera il controllo formale e della lettera finale. Verifica attentamente i 16 caratteri.</div><?php endif; ?>
 		<?php if ( 'invalid_document_number' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci il numero riportato sulla carta d’identità allegata.</div><?php endif; ?>
+		<?php if ( 'invalid_account_name' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci nome e cognome anagrafici completi.</div><?php endif; ?>
 		<?php if ( 'artist_name_taken' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Questo nome d’arte risulta già assegnato a un altro account. Apri una segnalazione se ritieni che si tratti di un errore.</div><?php endif; ?>
 		<?php if ( 'bio_required' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Allega la biografia artistica in formato TXT, DOCX, ODT o RTF prima di salvare l’identità artistica.</div><?php endif; ?>
 		<?php if ( 'bio_invalid' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Biografia non acquisita: usa un file TXT, DOCX, ODT o RTF non superiore a 5 MB.</div><?php endif; ?>
 		<?php if ( 'storage_waiting' === $profile_error ) : ?><div class="trb-portal__message"><strong>Caricamento temporaneamente in attesa.</strong><p>I dati già salvati restano invariati. Non ripetere l’invio: riprova quando lo spazio sarà nuovamente disponibile.</p></div><?php endif; ?>
-		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Per correggere nome, cognome o e-mail dell’account, apri una segnalazione.</div><?php endif; ?>
+		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Se nome o cognome sono vuoti puoi inserirli ora; per correggere dati già registrati o l’e-mail dell’account, apri una segnalazione.</div><?php endif; ?>
 		<div class="trb-portal__profile-progress" role="status" aria-label="Completamento profilo: <?php echo esc_attr( $completion['percentage'] ); ?>%">
 			<div class="trb-portal__profile-progress-heading"><span><b>Completamento profilo</b><small><?php echo $complete ? 'Profilo completo: puoi procedere con la richiesta di distribuzione.' : esc_html( 'Mancano ancora ' . $completion['remaining'] . ' elementi prima di poter richiedere la distribuzione.' ); ?></small></span><strong><?php echo esc_html( $completion['percentage'] ); ?>%</strong></div>
 			<div class="trb-portal__profile-progress-track" aria-hidden="true"><span style="width:<?php echo esc_attr( $completion['percentage'] ); ?>%"></span></div>
@@ -2763,8 +2776,8 @@ function trb_portal_render_artist_profile_section() {
 					<input type="hidden" name="action" value="trb_portal_save_artist_profile" /><input type="hidden" name="trb_artist_company_section" value="1" />
 					<input type="hidden" id="trb_portal_profile_nonce_anagraphic" name="trb_portal_profile_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_save_artist_profile' ) ); ?>" />
 					<div class="trb-portal__field-grid">
-						<label>Nome anagrafico <span>*</span><input type="text" value="<?php echo esc_attr( $user->first_name ); ?>" autocomplete="given-name" readonly aria-describedby="trb-account-data-note" /></label>
-						<label>Cognome anagrafico <span>*</span><input type="text" value="<?php echo esc_attr( $user->last_name ); ?>" autocomplete="family-name" readonly aria-describedby="trb-account-data-note" /></label>
+						<label>Nome anagrafico <span>*</span><input type="text" <?php echo '' === trim( (string) $user->first_name ) ? 'name="trb_artist_first_name" required' : 'readonly'; ?> value="<?php echo esc_attr( $user->first_name ); ?>" autocomplete="given-name" aria-describedby="trb-account-data-note" /></label>
+						<label>Cognome anagrafico <span>*</span><input type="text" <?php echo '' === trim( (string) $user->last_name ) ? 'name="trb_artist_last_name" required' : 'readonly'; ?> value="<?php echo esc_attr( $user->last_name ); ?>" autocomplete="family-name" aria-describedby="trb-account-data-note" /></label>
 						<label>E-mail di riferimento <span>*</span><input type="email" value="<?php echo esc_attr( $user->user_email ); ?>" autocomplete="email" readonly aria-describedby="trb-account-data-note" /></label>
 						<label>Cellulare abilitato a ricezione SMS <span>*</span><input type="tel" name="trb_artist_phone" autocomplete="tel" inputmode="tel" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" placeholder="Es. +39 333 1234567" required /><small>Numero italiano utilizzabile anche per la ricezione degli OTP contrattuali.</small></label>
 						<label>Data di nascita <span>*</span><input type="date" name="trb_artist_birth_date" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_date' ) ); ?>" required /></label>
