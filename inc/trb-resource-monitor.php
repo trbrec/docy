@@ -386,6 +386,34 @@ function trb_resource_find_acr_file( $name ) {
 	return new WP_Error( 'ACR_FILE_NOT_FOUND' );
 }
 
+/**
+ * Normalize ACRCloud File Scanning responses.
+ *
+ * The file-detail endpoint can return data either as the file object itself or
+ * as a one-element list. Treating the latter as an object leaves state unset
+ * and causes completed jobs to be polled until they fail as ACR_STATE_0.
+ */
+function trb_resource_acr_response_item( $data, $provider_reference = '' ) {
+	if ( ! is_array( $data ) ) return array();
+	$payload = isset( $data['data'] ) && is_array( $data['data'] ) ? $data['data'] : $data;
+	if ( isset( $payload['id'] ) || isset( $payload['state'] ) ) return $payload;
+	foreach ( $payload as $item ) {
+		if ( ! is_array( $item ) ) continue;
+		if ( $provider_reference && isset( $item['id'] ) && hash_equals( (string) $provider_reference, (string) $item['id'] ) ) return $item;
+	}
+	foreach ( $payload as $item ) if ( is_array( $item ) ) return $item;
+	return array();
+}
+
+function trb_resource_settle_acr_companion_usage( $row, $status, $last_error = '' ) {
+	global $wpdb;
+	$table = trb_resource_tables()['usage'];
+	$wpdb->query( $wpdb->prepare(
+		"UPDATE $table SET status=%s,last_error=%s,updated_at=%s WHERE release_id=%d AND track_index=%d AND file_hash=%s AND provider='acrcloud' AND service IN ('deepright','cover_song','metadata') AND status='estimated'",
+		$status, $last_error, trb_resource_now(), (int) $row->release_id, (int) $row->track_index, (string) $row->file_hash
+	) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+}
+
 function trb_resource_start_release_analysis( $release_id ) {
 	$s = trb_resource_settings();
 	$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
@@ -479,15 +507,24 @@ function trb_resource_poll_acr_job( $ledger_id ) {
 	$s = trb_resource_settings();
 	$url = trb_resource_acr_endpoint() . '/api/fs-containers/' . rawurlencode( $s['acr_container_id'] ) . '/files/' . rawurlencode( $row->provider_reference );
 	$response = wp_remote_get( $url, array( 'timeout' => 60, 'headers' => array( 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $s['acr_token'] ) ) );
+	$http_code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
 	$data = ! is_wp_error( $response ) ? json_decode( wp_remote_retrieve_body( $response ), true ) : array();
-	$item = isset( $data['data'] ) ? $data['data'] : array();
+	$item = trb_resource_acr_response_item( $data, $row->provider_reference );
 	$state = isset( $item['state'] ) ? (int) $item['state'] : 0;
+	$transport_error = is_wp_error( $response ) || $http_code < 200 || $http_code >= 300 || ! $item;
+	if ( $transport_error && (int) $row->attempts < 30 ) {
+		$error = is_wp_error( $response ) ? $response->get_error_code() : ( $http_code ? 'ACR_HTTP_' . $http_code : 'ACR_RESPONSE_INVALID' );
+		$wpdb->update( $table, array( 'status' => 'processing', 'attempts' => (int) $row->attempts + 1, 'last_error' => $error, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
+		wp_schedule_single_event( time() + 2 * MINUTE_IN_SECONDS, 'trb_resource_poll_acr_job', array( (int) $row->id ) ); return;
+	}
 	if ( 0 === $state && (int) $row->attempts < 30 ) {
 		$wpdb->update( $table, array( 'status' => 'processing', 'attempts' => (int) $row->attempts + 1, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
 		wp_schedule_single_event( time() + 2 * MINUTE_IN_SECONDS, 'trb_resource_poll_acr_job', array( (int) $row->id ) ); return;
 	}
-	$status = 1 === $state || -1 === $state ? 'completed' : 'error';
-	$wpdb->update( $table, array( 'status' => $status, 'payload' => wp_json_encode( $item ), 'last_error' => 'error' === $status ? 'ACR_STATE_' . $state : '', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
+	$status = ! $transport_error && ( 1 === $state || -1 === $state ) ? 'completed' : 'error';
+	$last_error = 'error' === $status ? ( $transport_error ? ( $http_code ? 'ACR_HTTP_' . $http_code : 'ACR_RESPONSE_INVALID' ) : 'ACR_STATE_' . $state ) : '';
+	$wpdb->update( $table, array( 'status' => $status, 'payload' => wp_json_encode( $item ), 'last_error' => $last_error, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
+	trb_resource_settle_acr_companion_usage( $row, $status, $last_error );
 	if ( 'completed' === $status ) {
 		$pending = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $table WHERE release_id=%d AND status IN ('reserved','submitted','processing')", $row->release_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( 0 === $pending ) {
@@ -620,6 +657,10 @@ function trb_resource_render_admin() {
 		if ( $release_id && 'trb_release' === get_post_type( $release_id ) ) {
 			if ( 'override_budget' === $action ) { update_post_meta( $release_id, '_trb_acr_budget_override', 1 ); update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' ); wp_schedule_single_event( time() + 5, 'trb_resource_start_release_analysis_manual', array( $release_id ) ); }
 			if ( 'retry_pcloud' === $action && function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
+			if ( 'retry_acr' === $action ) {
+				update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' );
+				trb_resource_start_release_analysis( $release_id );
+			}
 			if ( 'qa_reassign' === $action && false !== stripos( get_the_title( $release_id ), 'NON PUBBLICARE' ) ) {
 				$qa_email = isset( $_POST['qa_artist_email'] ) ? sanitize_email( wp_unslash( $_POST['qa_artist_email'] ) ) : '';
 				$qa_user  = $qa_email ? get_user_by( 'email', $qa_email ) : false;
@@ -672,7 +713,7 @@ function trb_resource_render_admin() {
 	<tr><th>Storage temporaneo</th><td><?php echo esc_html( null !== $storage['used_percent'] ? number_format_i18n( $storage['used_percent'], 1 ) . '% utilizzato' : 'Non verificabile' ); ?></td></tr>
 	</tbody></table><form method="post" style="margin:12px 0 24px"><?php wp_nonce_field( 'trb_resource_reconcile' ); ?><label><strong>Spesa effettiva ACRCloud del mese (USD)</strong> <input type="number" min="0" step="0.000001" name="acr_actual_cost" value="<?php echo esc_attr( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0 ); ?>"></label> <button class="button" name="trb_resource_reconcile" value="1">Registra riconciliazione</button></form>
 	<h2>Anomalie aperte</h2><?php if ( ! $events ) : ?><p>Nessuna anomalia registrata.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Ultimo evento</th><th>Risorsa</th><th>Gravità</th><th>Dettaglio</th><th>Occorrenze</th></tr></thead><tbody><?php foreach ( $events as $event ) : ?><tr><td><?php echo esc_html( $event->last_seen ); ?></td><td><?php echo esc_html( $event->resource ); ?></td><td><?php echo esc_html( $event->severity ); ?></td><td><?php echo esc_html( $event->message ); ?></td><td><?php echo esc_html( $event->occurrences ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
-	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $archive = (array) get_post_meta( $release->ID, '_trb_release_pcloud_archive', true ); $artist = get_userdata( $release->post_author ); ?><tr><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state . ( ! empty( $archive['code'] ) ? ' · ' . $archive['code'] : '' ) . ( ! empty( $archive['detail'] ) ? ' · ' . $archive['detail'] : '' ) ); ?></td><td><form method="post"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
+	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $archive = (array) get_post_meta( $release->ID, '_trb_release_pcloud_archive', true ); $artist = get_userdata( $release->post_author ); ?><tr><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state . ( ! empty( $archive['code'] ) ? ' · ' . $archive['code'] : '' ) . ( ! empty( $archive['detail'] ) ? ' · ' . $archive['detail'] : '' ) ); ?></td><td><form method="post"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="retry_acr">Rielabora risposta ACR</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
 	<h2>Configurazione</h2><form method="post"><?php wp_nonce_field( 'trb_resource_save' ); ?><table class="form-table"><tbody>
 	<tr><th>Email amministrativa</th><td><input type="email" class="regular-text" name="admin_email" value="<?php echo esc_attr( $settings['admin_email'] ); ?>"></td></tr>
 	<tr><th>ACRCloud</th><td><label><input type="checkbox" name="acr_enabled" <?php checked( $settings['acr_enabled'] ); ?>> Abilita analisi reali</label><br><label><input type="checkbox" name="acr_paid_confirmed" <?php checked( $settings['acr_paid_confirmed'] ); ?>> Confermo piano Premium/pay-per-use e pagamento verificato</label><br><label><input type="checkbox" name="acr_deepright" <?php checked( $settings['acr_deepright'] ); ?>> DeepRight abilitato</label><p><input type="password" class="regular-text" name="acr_token" placeholder="Token invariato se vuoto"> <input name="acr_container_id" value="<?php echo esc_attr( $settings['acr_container_id'] ); ?>" placeholder="Container ID"> <select name="acr_region"><option value="eu-west-1" <?php selected( $settings['acr_region'], 'eu-west-1' ); ?>>EU</option><option value="us-west-2" <?php selected( $settings['acr_region'], 'us-west-2' ); ?>>US</option><option value="ap-southeast-1" <?php selected( $settings['acr_region'], 'ap-southeast-1' ); ?>>AP</option></select></p><p>Motore <select name="acr_engine"><option value="1" <?php selected( $settings['acr_engine'], 1 ); ?>>Fingerprinting</option><option value="2" <?php selected( $settings['acr_engine'], 2 ); ?>>Cover Song</option><option value="3" <?php selected( $settings['acr_engine'], 3 ); ?>>Entrambi</option></select> Estratto massimo <input name="acr_excerpt_seconds" value="<?php echo esc_attr( $settings['acr_excerpt_seconds'] ); ?>" size="4"> secondi consecutivi dopo il solo silenzio tecnico iniziale, senza ricampionamento o elaborazioni.</p></td></tr>
