@@ -287,13 +287,20 @@ function trb_release_bridge_spreadsheet_row( $payload ) {
     return $row;
 }
 
-/** Apps Script returns a signed googleusercontent location after the POST. */
-function trb_release_bridge_post_webapp( $url, $payload ) {
-    $response = wp_remote_post( $url, array(
+/**
+ * The contract webapps process a JSON batch (`JSON.parse(...).map(...)`).
+ * Authentication is read from the Apps Script query parameters. Sending the
+ * rich release object as the JSON root made the factory call `.map()` on an
+ * object, which is the exact `rows.map is not a function` failure returned by
+ * both deployments.
+ */
+function trb_release_bridge_post_webapp( $url, $payload, $secret ) {
+    $request_url = add_query_arg( 'secret', (string) $secret, $url );
+    $response = wp_remote_post( $request_url, array(
         'timeout'     => 120,
         'redirection' => 0,
         'headers'     => array( 'Content-Type' => 'application/json' ),
-        'body'        => wp_json_encode( $payload ),
+        'body'        => wp_json_encode( array( $payload ) ),
     ) );
     if ( is_wp_error( $response ) ) return $response;
     $code = wp_remote_retrieve_response_code( $response );
@@ -319,7 +326,7 @@ function trb_release_bridge_dispatch( $release_id ) {
     if ( ! $url || ! $s['shared_secret'] ) { update_post_meta($release_id,'_trb_contract_state','configuration_required'); return; }
     $payload['rows'] = array( trb_release_bridge_spreadsheet_row( $payload ) );
     $payload['secret'] = $s['shared_secret'];
-    $response = trb_release_bridge_post_webapp( $url, $payload );
+    $response = trb_release_bridge_post_webapp( $url, $payload, $s['shared_secret'] );
     if ( is_wp_error( $response ) ) { update_post_meta($release_id,'_trb_contract_state','dispatch_error'); update_post_meta($release_id,'_trb_contract_error',$response->get_error_message()); wp_schedule_single_event(time()+15*MINUTE_IN_SECONDS,'trb_release_bridge_dispatch',array($release_id)); return; }
     $body = json_decode( wp_remote_retrieve_body( $response ), true );
     if ( wp_remote_retrieve_response_code( $response ) >= 300 || empty( $body['success'] ) ) { update_post_meta($release_id,'_trb_contract_state','dispatch_error'); update_post_meta($release_id,'_trb_contract_error',sanitize_text_field($body['error']??wp_remote_retrieve_body($response))); return; }
