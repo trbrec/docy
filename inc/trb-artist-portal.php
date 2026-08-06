@@ -1586,10 +1586,14 @@ function trb_portal_release_upload_error_message( $code ) {
 
 function trb_portal_start_release() {
 	if ( ! is_user_logged_in() ) {
-		auth_redirect();
+		trb_portal_release_submission_response( 'session_expired', 'Registrazione finale: la sessione non è più valida. Accedi nuovamente e riprova.', 401 );
 	}
 
-	check_admin_referer( 'trb_portal_start_release', 'trb_portal_release_nonce' );
+	$release_nonce = isset( $_POST['trb_portal_release_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_portal_release_nonce'] ) ) : '';
+	$stage_nonce   = isset( $_POST['trb_release_stage_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_stage_nonce'] ) ) : '';
+	if ( ! wp_verify_nonce( $release_nonce, 'trb_portal_start_release' ) && ! wp_verify_nonce( $stage_nonce, 'trb_portal_stage_release' ) ) {
+		trb_portal_release_submission_response( 'security_expired', 'Registrazione finale: i dati di sicurezza della pagina non sono più validi. La pratica non è stata creata.', 403 );
+	}
 	if ( ! trb_portal_user_profile() && ! current_user_can( 'manage_options' ) ) {
 		trb_portal_release_submission_response( 'profile_required', 'Il tuo profilo non è ancora configurato.', 403 );
 	}
@@ -3087,7 +3091,7 @@ function trb_portal_render_release_section() {
 	$genres    = trb_portal_genres();
 	$roles     = trb_portal_contributor_roles();
 	$status    = isset( $_GET['trb_release'] ) ? sanitize_key( wp_unslash( $_GET['trb_release'] ) ) : '';
-	$complete  = trb_portal_artist_profile_is_complete();
+	$complete  = trb_portal_artist_profile_is_complete() || current_user_can( 'manage_options' );
 	$today     = wp_date( 'Y-m-d' );
 	$minimum_release_date = ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+30 days' )->format( 'Y-m-d' );
 	$ddb12_limit_reached = trb_portal_ddb12_limit_reached();
@@ -3116,7 +3120,7 @@ function trb_portal_render_release_section() {
 			<div class="trb-portal__release-gate"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Hai già creato la release disponibile per questo mese con il profilo DDB12. Il conteggio comprende qualsiasi tipologia di pubblicazione e si azzera automaticamente il primo giorno del mese. Potrai avviare una nuova pratica dal <?php echo esc_html( $ddb12_reset_label ); ?>; il piano consente fino a 12 release ogni anno.</p></div>
 		<?php else : ?>
 		<div class="trb-portal__release-workspace">
-			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-stage-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-submit-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-release-form>
+			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-stage-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-submit-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-draft-key="trb-release-draft-<?php echo esc_attr( get_current_user_id() ); ?>" data-release-form>
 				<input type="hidden" name="action" value="trb_portal_start_release" />
 				<input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" />
 				<input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" />
