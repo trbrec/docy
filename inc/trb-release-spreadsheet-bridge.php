@@ -239,7 +239,7 @@ function trb_release_bridge_payload( $release_id ) {
         'municipality'=>trb_release_bridge_profile_value($post->post_author,'city'),'province'=>trb_release_bridge_profile_value($post->post_author,'province'),
         'country'=>trb_release_bridge_profile_value($post->post_author,'country','Italia'),
     );
-    foreach ( array( 'name','surname','email','phone','artist_name','tax_code','birth_date','birth_place','address','street_number','postcode','municipality','province','country' ) as $required ) {
+    foreach ( array( 'name','surname','email','phone','artist_name','tax_code','birth_date','birth_place','birth_province','document_type','document_number','address','street_number','postcode','municipality','province','country' ) as $required ) {
         if ( '' === trim( (string) $artist[ $required ] ) ) return new WP_Error( 'artist_data_missing', 'Dato contrattuale mancante: ' . $required . '.' );
     }
     if ( ! in_array( $profile, array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'profile_invalid', 'Profilo contrattuale non riconosciuto.' );
