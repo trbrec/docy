@@ -308,6 +308,7 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__release-history [data-release-current-state] { color: var(--trb-accent); }
 .trb-portal__request-history ul { border-top: 1px solid var(--trb-line); list-style: none; margin: 0; padding: 0; }
 .trb-portal__release-history ul { border-top: 0; }
+.trb-portal__release-history .trb-release-isrc-summary { color: var(--trb-ink); flex: 1 0 100%; font-size: 13px; font-weight: 800; }
 .trb-portal__request-history li { align-items: center; border-bottom: 1px solid var(--trb-line); display: flex; flex-wrap: wrap; font-size: 14px; gap: 20px; justify-content: space-between; padding: 13px 3px; }
 .trb-portal__request-history span { color: var(--trb-ink-soft); flex: 0 0 auto; font-size: 13px; }
 .trb-release-files { border-top: 1px solid var(--trb-line); grid-column: 1 / -1; margin-top: 14px; padding-top: 14px; width: 100%; }

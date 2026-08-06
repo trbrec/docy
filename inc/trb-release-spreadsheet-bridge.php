@@ -7,6 +7,46 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 const TRB_RELEASE_BRIDGE_OPTION = 'trb_release_bridge_settings';
 
+/**
+ * Reserve a consecutive block of TRB ISRCs with one atomic database write.
+ * The 2026 register already contains ITV242600001–ITV242600004, therefore the
+ * first portal allocation starts at ITV242600005. Each following year starts
+ * from 00001 and receives the current two-digit year in the ISRC itself.
+ */
+function trb_release_bridge_allocate_isrcs( $quantity ) {
+    global $wpdb;
+
+    $quantity = absint( $quantity );
+    if ( $quantity < 1 || $quantity > 60 ) return new WP_Error( 'invalid_isrc_quantity', 'Numero di ISRC da assegnare non valido.' );
+
+    $year = absint( wp_date( 'y' ) );
+    $seed = 26 === $year ? 4 : 0;
+    $option_name = 'trb_release_isrc_sequence_' . sprintf( '%02d', $year );
+    $initial_end = $seed + $quantity;
+
+    $sql = $wpdb->prepare(
+        "INSERT INTO {$wpdb->options} (option_name, option_value, autoload)
+         VALUES (%s, LAST_INSERT_ID(%d), 'no')
+         ON DUPLICATE KEY UPDATE option_value = LAST_INSERT_ID(CAST(option_value AS UNSIGNED) + %d)",
+        $option_name,
+        $initial_end,
+        $quantity
+    );
+    if ( false === $wpdb->query( $sql ) ) return new WP_Error( 'isrc_reservation_failed', 'Il sistema non è riuscito a riservare gli ISRC.' );
+
+    $end = absint( $wpdb->get_var( 'SELECT LAST_INSERT_ID()' ) );
+    $start = $end - $quantity + 1;
+    if ( $start < 1 || $end > 99999 ) return new WP_Error( 'isrc_sequence_exhausted', 'La sequenza ISRC disponibile non è valida o risulta esaurita.' );
+
+    wp_cache_delete( $option_name, 'options' );
+    $prefix = 'ITV24' . sprintf( '%02d', $year );
+    $codes = array();
+    for ( $sequence = $start; $sequence <= $end; $sequence++ ) {
+        $codes[] = $prefix . sprintf( '%05d', $sequence );
+    }
+    return $codes;
+}
+
 function trb_release_bridge_settings() {
     $defaults = array('ddb_webapp_url'=>'','trb_webapp_url'=>'','shared_secret'=>'');
     $saved = get_option( TRB_RELEASE_BRIDGE_OPTION, array() );
@@ -95,13 +135,13 @@ function trb_release_bridge_payload( $release_id ) {
     $profile = trb_portal_user_profile( $user );
     $tracks  = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
     $state   = (string) get_post_meta( $release_id, '_trb_release_state', true );
-    if ( 'previously_released' === $state ) {
+    if ( 'previously_released' === $state || ( 'trb' === $profile && 'unreleased' === $state ) ) {
         $codes = (array) get_transient( 'trb_release_bridge_isrc_' . $post->post_author );
         delete_transient( 'trb_release_bridge_isrc_' . $post->post_author );
         $seen = array();
         foreach ( $tracks as $index => &$track ) {
             $code = isset( $track['isrc'] ) ? strtoupper( preg_replace( '/[^A-Z0-9]/i', '', (string) $track['isrc'] ) ) : '';
-            if ( ! $code ) $code = $codes[ $index ] ?? ''; // Compatibility with practices created before persistent ISRC storage.
+            if ( 'previously_released' === $state && ! $code ) $code = $codes[ $index ] ?? ''; // Compatibility with practices created before persistent ISRC storage.
             if ( ! $code || isset( $seen[ $code ] ) ) return new WP_Error( 'invalid_isrc', 'ISRC mancante o duplicato.' );
             $track['isrc'] = $code;
             $seen[ $code ] = true;
