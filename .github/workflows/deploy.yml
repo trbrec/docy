@@ -1,6 +1,6 @@
 name: Deploy Docy theme
 
-# Revision: stable-rollback-redeploy-2026-08-04.
+# Revision: release-form-live-check-2026-08-06-1111.
 
 # Production deployment is triggered by every merged main revision. Revision: academy-seed-v5-production.
 
