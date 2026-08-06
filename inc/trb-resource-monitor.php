@@ -183,22 +183,67 @@ function trb_resource_temp_storage_guard( $incoming_bytes ) {
 	return true;
 }
 
+/**
+ * Read quota through the same WebDAV account used by every archive pipeline.
+ * pCloud WebDAV credentials are not interchangeable with API credentials.
+ */
+function trb_resource_pcloud_webdav_userinfo() {
+	$legacy = function_exists( 'trb_demo_settings' ) ? trb_demo_settings() : array();
+	if ( empty( $legacy['webdav_endpoint'] ) || empty( $legacy['pcloud_user'] ) || empty( $legacy['pcloud_pass'] ) || ! function_exists( 'curl_init' ) ) {
+		return new WP_Error( 'PCLOUD_WEBDAV_AUTH_MISSING' );
+	}
+	$body = '<?xml version="1.0" encoding="UTF-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:quota-available-bytes/><d:quota-used-bytes/></d:prop></d:propfind>';
+	$curl = curl_init( untrailingslashit( $legacy['webdav_endpoint'] ) . '/' );
+	curl_setopt_array( $curl, array(
+		CURLOPT_CUSTOMREQUEST  => 'PROPFIND',
+		CURLOPT_POSTFIELDS     => $body,
+		CURLOPT_RETURNTRANSFER => true,
+		CURLOPT_USERPWD        => $legacy['pcloud_user'] . ':' . $legacy['pcloud_pass'],
+		CURLOPT_HTTPAUTH        => CURLAUTH_BASIC,
+		CURLOPT_HTTPHEADER      => array( 'Depth: 0', 'Content-Type: application/xml; charset=UTF-8' ),
+		CURLOPT_CONNECTTIMEOUT => 30,
+		CURLOPT_TIMEOUT        => 60,
+	) );
+	$response = curl_exec( $curl );
+	$code = (int) curl_getinfo( $curl, CURLINFO_RESPONSE_CODE );
+	$error = curl_error( $curl );
+	curl_close( $curl );
+	if ( false === $response || ! in_array( $code, array( 200, 207 ), true ) ) {
+		return new WP_Error( 'PCLOUD_WEBDAV_QUOTA_FAILED', $error ? $error : 'WebDAV PROPFIND ' . $code );
+	}
+	$available_match = array();
+	$used_match = array();
+	$has_available = preg_match( '/<(?:[^:>]+:)?quota-available-bytes\b[^>]*>\s*(\d+)/i', (string) $response, $available_match );
+	$has_used = preg_match( '/<(?:[^:>]+:)?quota-used-bytes\b[^>]*>\s*(\d+)/i', (string) $response, $used_match );
+	if ( ! $has_available || ! $has_used ) return new WP_Error( 'PCLOUD_WEBDAV_QUOTA_UNAVAILABLE' );
+	$free = (float) $available_match[1];
+	$used = (float) $used_match[1];
+	$quota = $free + $used;
+	if ( $quota <= 0 ) return new WP_Error( 'PCLOUD_WEBDAV_QUOTA_INVALID' );
+	return array(
+		'quota'        => $quota,
+		'usedquota'    => $used,
+		'free'         => $free,
+		'used_percent' => ( $used / $quota ) * 100,
+		'source'       => 'webdav',
+	);
+}
+
 function trb_resource_pcloud_userinfo() {
 	$settings = trb_resource_settings();
 	$host = in_array( untrailingslashit( $settings['pcloud_api_host'] ), array( 'https://api.pcloud.com', 'https://eapi.pcloud.com' ), true ) ? untrailingslashit( $settings['pcloud_api_host'] ) : 'https://eapi.pcloud.com';
-	$body = array();
-	if ( ! empty( $settings['pcloud_auth_token'] ) ) $body['auth'] = $settings['pcloud_auth_token'];
-	else {
-		$legacy = function_exists( 'trb_demo_settings' ) ? trb_demo_settings() : array();
-		if ( empty( $legacy['pcloud_user'] ) || empty( $legacy['pcloud_pass'] ) ) return new WP_Error( 'PCLOUD_AUTH_MISSING' );
-		$body['username'] = $legacy['pcloud_user']; $body['password'] = $legacy['pcloud_pass'];
+	$data = array();
+	if ( ! empty( $settings['pcloud_auth_token'] ) ) {
+		$response = wp_remote_post( $host . '/userinfo', array( 'timeout' => 30, 'body' => array( 'auth' => $settings['pcloud_auth_token'] ) ) );
+		if ( ! is_wp_error( $response ) ) $data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $data ) || ! empty( $data['result'] ) || empty( $data['quota'] ) || ! isset( $data['usedquota'] ) ) return new WP_Error( 'PCLOUD_USERINFO_FAILED' );
+		$data['used_percent'] = ( (float) $data['usedquota'] / (float) $data['quota'] ) * 100;
+		$data['free'] = (float) $data['quota'] - (float) $data['usedquota'];
+		$data['source'] = 'api';
+	} else {
+		$data = trb_resource_pcloud_webdav_userinfo();
+		if ( is_wp_error( $data ) ) return $data;
 	}
-	$response = wp_remote_post( $host . '/userinfo', array( 'timeout' => 30, 'body' => $body ) );
-	if ( is_wp_error( $response ) ) return $response;
-	$data = json_decode( wp_remote_retrieve_body( $response ), true );
-	if ( ! is_array( $data ) || ! empty( $data['result'] ) || empty( $data['quota'] ) || ! isset( $data['usedquota'] ) ) return new WP_Error( 'PCLOUD_USERINFO_FAILED' );
-	$data['used_percent'] = ( (float) $data['usedquota'] / (float) $data['quota'] ) * 100;
-	$data['free'] = (float) $data['quota'] - (float) $data['usedquota'];
 	update_option( 'trb_resource_pcloud_snapshot', array( 'time' => time(), 'data' => $data ), false );
 	if ( $data['used_percent'] >= (float) trb_resource_settings()['pcloud_warning_1'] ) trb_resource_event( 'quota-warning', 'pcloud', 'warning', 'Utilizzo pCloud oltre la prima soglia.', array( 'used_percent' => $data['used_percent'] ) );
 	if ( $data['used_percent'] >= (float) trb_resource_settings()['pcloud_warning_2'] ) trb_resource_queue_email( 'pcloud-85-' . wp_date( 'Ym' ), 'Quota pCloud oltre la soglia di attenzione', 'Spazio utilizzato: ' . number_format_i18n( $data['used_percent'], 1 ) . '%.' );
@@ -521,7 +566,7 @@ function trb_resource_daily_health() {
 	if ( null === $storage['used_percent'] ) $anomalies[] = 'Storage temporaneo non verificabile.';
 	elseif ( $storage['used_percent'] >= (float) $s['temp_warning_2'] ) $anomalies[] = 'Storage temporaneo utilizzato al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%.';
 	global $wpdb; $tables = trb_resource_tables();
-	$stuck = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key='_trb_release_pipeline_status' AND meta_value IN ('pcloud_transfer_waiting','analysis_in_progress','analysis_waiting_configuration','technical_error','security_scan_waiting','security_rejected','manual_review','ACR_BUDGET_LIMIT_REACHED','PCLOUD_QUOTA_LIMIT_REACHED')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$stuck = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key='_trb_release_pipeline_status' AND meta_value IN ('pcloud_transfer_waiting','analysis_in_progress','analysis_waiting_configuration','technical_error','security_scan_waiting','security_rejected','manual_review','ACR_BUDGET_LIMIT_REACHED','PCLOUD_QUOTA_LIMIT_REACHED','PCLOUD_QUOTA_UNVERIFIED')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$failed_mail = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$tables['notifications']} WHERE status IN ('pending','retry')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	if ( $stuck ) $anomalies[] = $stuck . ' pratiche richiedono attenzione.';
 	if ( $failed_mail ) $anomalies[] = $failed_mail . ' notifiche email sono in coda.';
@@ -602,11 +647,11 @@ function trb_resource_render_admin() {
 	<tr><th>Spesa stimata / effettiva</th><td><?php echo esc_html( number_format_i18n( isset( $stats['cost_estimated'] ) ? $stats['cost_estimated'] : 0, 4 ) . ' USD / ' . number_format_i18n( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0, 4 ) . ' USD' ); ?></td></tr>
 	<tr><th>Errori / retry / rinnovo periodo</th><td><?php echo esc_html( absint( isset( $stats['errors'] ) ? $stats['errors'] : 0 ) . ' / ' . absint( isset( $stats['attempts'] ) ? $stats['attempts'] : 0 ) . ' / ' . $reset ); ?></td></tr>
 	<tr><th>DeepRight / Cover Song / Metadata</th><td><?php echo esc_html( (float) ( isset( $stats['deepright_minutes'] ) ? $stats['deepright_minutes'] : 0 ) . ' min / ' . (float) ( isset( $stats['cover_minutes'] ) ? $stats['cover_minutes'] : 0 ) . ' min / ' . absint( isset( $stats['metadata_calls'] ) ? $stats['metadata_calls'] : 0 ) . ' chiamate' ); ?></td></tr>
-	<tr><th>pCloud</th><td><?php echo esc_html( ! empty( $pcloud_snapshot['data']['used_percent'] ) ? number_format_i18n( $pcloud_snapshot['data']['used_percent'], 1 ) . '% utilizzato' : 'Da verificare' ); ?></td></tr>
+	<tr><th>pCloud</th><td><?php echo esc_html( isset( $pcloud_snapshot['data']['used_percent'] ) ? number_format_i18n( $pcloud_snapshot['data']['used_percent'], 1 ) . '% utilizzato (' . ( $pcloud_snapshot['data']['source'] ?? 'origine non indicata' ) . ')' : 'Da verificare' ); ?></td></tr>
 	<tr><th>Storage temporaneo</th><td><?php echo esc_html( null !== $storage['used_percent'] ? number_format_i18n( $storage['used_percent'], 1 ) . '% utilizzato' : 'Non verificabile' ); ?></td></tr>
 	</tbody></table><form method="post" style="margin:12px 0 24px"><?php wp_nonce_field( 'trb_resource_reconcile' ); ?><label><strong>Spesa effettiva ACRCloud del mese (USD)</strong> <input type="number" min="0" step="0.000001" name="acr_actual_cost" value="<?php echo esc_attr( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0 ); ?>"></label> <button class="button" name="trb_resource_reconcile" value="1">Registra riconciliazione</button></form>
 	<h2>Anomalie aperte</h2><?php if ( ! $events ) : ?><p>Nessuna anomalia registrata.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Ultimo evento</th><th>Risorsa</th><th>Gravità</th><th>Dettaglio</th><th>Occorrenze</th></tr></thead><tbody><?php foreach ( $events as $event ) : ?><tr><td><?php echo esc_html( $event->last_seen ); ?></td><td><?php echo esc_html( $event->resource ); ?></td><td><?php echo esc_html( $event->severity ); ?></td><td><?php echo esc_html( $event->message ); ?></td><td><?php echo esc_html( $event->occurrences ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
-	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $artist = get_userdata( $release->post_author ); ?><tr><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state ); ?></td><td><form method="post"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
+	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $archive = (array) get_post_meta( $release->ID, '_trb_release_pcloud_archive', true ); $artist = get_userdata( $release->post_author ); ?><tr><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state . ( ! empty( $archive['code'] ) ? ' · ' . $archive['code'] : '' ) ); ?></td><td><form method="post"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
 	<h2>Configurazione</h2><form method="post"><?php wp_nonce_field( 'trb_resource_save' ); ?><table class="form-table"><tbody>
 	<tr><th>Email amministrativa</th><td><input type="email" class="regular-text" name="admin_email" value="<?php echo esc_attr( $settings['admin_email'] ); ?>"></td></tr>
 	<tr><th>ACRCloud</th><td><label><input type="checkbox" name="acr_enabled" <?php checked( $settings['acr_enabled'] ); ?>> Abilita analisi reali</label><br><label><input type="checkbox" name="acr_paid_confirmed" <?php checked( $settings['acr_paid_confirmed'] ); ?>> Confermo piano Premium/pay-per-use e pagamento verificato</label><br><label><input type="checkbox" name="acr_deepright" <?php checked( $settings['acr_deepright'] ); ?>> DeepRight abilitato</label><p><input type="password" class="regular-text" name="acr_token" placeholder="Token invariato se vuoto"> <input name="acr_container_id" value="<?php echo esc_attr( $settings['acr_container_id'] ); ?>" placeholder="Container ID"> <select name="acr_region"><option value="eu-west-1" <?php selected( $settings['acr_region'], 'eu-west-1' ); ?>>EU</option><option value="us-west-2" <?php selected( $settings['acr_region'], 'us-west-2' ); ?>>US</option><option value="ap-southeast-1" <?php selected( $settings['acr_region'], 'ap-southeast-1' ); ?>>AP</option></select></p><p>Motore <select name="acr_engine"><option value="1" <?php selected( $settings['acr_engine'], 1 ); ?>>Fingerprinting</option><option value="2" <?php selected( $settings['acr_engine'], 2 ); ?>>Cover Song</option><option value="3" <?php selected( $settings['acr_engine'], 3 ); ?>>Entrambi</option></select> Estratto massimo <input name="acr_excerpt_seconds" value="<?php echo esc_attr( $settings['acr_excerpt_seconds'] ); ?>" size="4"> secondi consecutivi dopo il solo silenzio tecnico iniziale, senza ricampionamento o elaborazioni.</p></td></tr>

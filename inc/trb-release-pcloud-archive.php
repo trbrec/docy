@@ -186,7 +186,7 @@ function trb_release_pcloud_run_sync( $release_id ) {
 		$archive = (array) get_post_meta( $release_id, '_trb_release_pcloud_archive', true );
 		$archive['status'] = 'error'; $archive['time'] = time(); $archive['code'] = $result->get_error_code();
 		update_post_meta( $release_id, '_trb_release_pcloud_archive', $archive );
-		$pipeline_status = in_array( $result->get_error_code(), array( 'PCLOUD_QUOTA_LIMIT_REACHED', 'PCLOUD_QUOTA_UNVERIFIED' ), true ) ? 'PCLOUD_QUOTA_LIMIT_REACHED' : 'pcloud_transfer_waiting';
+		$pipeline_status = in_array( $result->get_error_code(), array( 'PCLOUD_QUOTA_LIMIT_REACHED', 'PCLOUD_QUOTA_UNVERIFIED' ), true ) ? $result->get_error_code() : 'pcloud_transfer_waiting';
 		update_post_meta( $release_id, '_trb_release_pipeline_status', $pipeline_status );
 		if ( ! wp_next_scheduled( 'trb_release_pcloud_retry', array( absint( $release_id ) ) ) ) wp_schedule_single_event( time() + 10 * MINUTE_IN_SECONDS, 'trb_release_pcloud_retry', array( absint( $release_id ) ) );
 	}
