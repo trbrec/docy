@@ -184,7 +184,7 @@ function trb_release_pcloud_run_sync( $release_id ) {
 	$result = trb_release_pcloud_sync( absint( $release_id ) );
 	if ( is_wp_error( $result ) ) {
 		$archive = (array) get_post_meta( $release_id, '_trb_release_pcloud_archive', true );
-		$archive['status'] = 'error'; $archive['time'] = time(); $archive['code'] = $result->get_error_code();
+		$archive['status'] = 'error'; $archive['time'] = time(); $archive['code'] = $result->get_error_code(); $archive['detail'] = sanitize_text_field( $result->get_error_message() );
 		update_post_meta( $release_id, '_trb_release_pcloud_archive', $archive );
 		$pipeline_status = in_array( $result->get_error_code(), array( 'PCLOUD_QUOTA_LIMIT_REACHED', 'PCLOUD_QUOTA_UNVERIFIED' ), true ) ? $result->get_error_code() : 'pcloud_transfer_waiting';
 		update_post_meta( $release_id, '_trb_release_pipeline_status', $pipeline_status );
