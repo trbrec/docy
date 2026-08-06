@@ -1571,6 +1571,7 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 		};
 		$clean[] = array(
 			'title' => $title,
+			'version' => isset( $track['version'] ) ? sanitize_text_field( $track['version'] ) : '',
 			'featuring' => isset( $track['featuring'] ) ? sanitize_text_field( $track['featuring'] ) : '',
 			'duration' => $duration,
 			'advisory' => $advisory,
@@ -2742,7 +2743,8 @@ function trb_portal_render_release_section() {
 			<header><div><strong>Brano <span data-track-number></span></strong><small>Metadati e crediti richiesti dagli store</small></div><button type="button" class="trb-portal__remove-track" data-remove-track>Rimuovi</button></header>
 			<div class="trb-track-block"><h4>Informazioni del brano</h4><div class="trb-portal__field-grid">
 				<label>Titolo del brano <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][title]" required maxlength="160" /></label>
-				<label>Featuring <small>solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label>
+				<label>Versione della release <small>facoltativa</small><span class="trb-portal__info" tabindex="0" data-tooltip="Da usare per versioni alternative del brano, ad esempio: Remastered, Live, Remix, Radio Edit o Acoustic Version." aria-label="Informazioni sulla versione della release">?</span><input type="text" name="trb_tracks[__INDEX__][version]" maxlength="100" placeholder="Es. Remastered, Live, Remix, Radio Edit" /></label>
+				<label class="trb-track-featuring">Featuring <small>solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label>
 				<label>Durata <span aria-hidden="true">*</span><span class="trb-duration-picker"><select name="trb_tracks[__INDEX__][duration_minutes]" required aria-label="Minuti"><option value="">Minuti</option><?php for ( $minute = 0; $minute <= 19; $minute++ ) : ?><option value="<?php echo esc_attr( $minute ); ?>"><?php echo esc_html( sprintf( '%02d min', $minute ) ); ?></option><?php endfor; ?></select><select name="trb_tracks[__INDEX__][duration_seconds]" required aria-label="Secondi"><option value="">Secondi</option><?php for ( $second = 0; $second <= 59; $second++ ) : ?><option value="<?php echo esc_attr( $second ); ?>"><?php echo esc_html( sprintf( '%02d sec', $second ) ); ?></option><?php endfor; ?></select></span></label>
 				<label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required data-track-advisory><option value="" selected disabled>Seleziona una voce</option><option value="no_lyrics">Nessun testo</option><option value="non_explicit">Testo non esplicito</option><option value="clean">Clean (versione censurata)</option><option value="explicit">Testo con contenuti espliciti</option></select></label>
 				<label>Genere musicale primario <span aria-hidden="true">*</span><input type="search" name="trb_tracks[__INDEX__][primary_genre]" required list="trb-release-genres" autocomplete="off" placeholder="Cerca e seleziona il genere primario" /></label>
