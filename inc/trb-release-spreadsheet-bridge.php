@@ -100,7 +100,8 @@ function trb_release_bridge_payload( $release_id ) {
         delete_transient( 'trb_release_bridge_isrc_' . $post->post_author );
         $seen = array();
         foreach ( $tracks as $index => &$track ) {
-            $code = $codes[ $index ] ?? '';
+            $code = isset( $track['isrc'] ) ? strtoupper( preg_replace( '/[^A-Z0-9]/i', '', (string) $track['isrc'] ) ) : '';
+            if ( ! $code ) $code = $codes[ $index ] ?? ''; // Compatibility with practices created before persistent ISRC storage.
             if ( ! $code || isset( $seen[ $code ] ) ) return new WP_Error( 'invalid_isrc', 'ISRC mancante o duplicato.' );
             $track['isrc'] = $code;
             $seen[ $code ] = true;
@@ -117,12 +118,18 @@ function trb_release_bridge_payload( $release_id ) {
         'user_id'=>(int)$post->post_author,'name'=>$user->first_name,'surname'=>$user->last_name,'email'=>$user->user_email,
         'phone'=>trb_release_bridge_profile_value($post->post_author,'phone'),'artist_name'=>trb_release_bridge_profile_value($post->post_author,'artist_name'),
         'tax_code'=>trb_release_bridge_profile_value($post->post_author,'tax_code'),'birth_date'=>trb_release_bridge_profile_value($post->post_author,'birth_date'),
-        'birth_place'=>trb_release_bridge_profile_value($post->post_author,'birth_place'),'document_type'=>trb_release_bridge_profile_value($post->post_author,'document_type'),
-        'document_number'=>trb_release_bridge_profile_value($post->post_author,'document_number'),'address'=>trb_release_bridge_profile_value($post->post_author,'address'),
-        'street_number'=>trb_release_bridge_profile_value($post->post_author,'street_number'),'postcode'=>trb_release_bridge_profile_value($post->post_author,'postcode'),
-        'municipality'=>trb_release_bridge_profile_value($post->post_author,'municipality'),'province'=>trb_release_bridge_profile_value($post->post_author,'province'),
+        'birth_place'=>trb_release_bridge_profile_value($post->post_author,'birth_place'),'birth_province'=>trb_release_bridge_profile_value($post->post_author,'birth_province'),
+        'document_type'=>trb_release_bridge_profile_value($post->post_author,'document_type','Carta d’identità'),
+        'document_number'=>trb_release_bridge_profile_value($post->post_author,'document_number'),'address'=>trb_release_bridge_profile_value($post->post_author,'street'),
+        'street_number'=>trb_release_bridge_profile_value($post->post_author,'street_number'),'postcode'=>trb_release_bridge_profile_value($post->post_author,'postal_code'),
+        'municipality'=>trb_release_bridge_profile_value($post->post_author,'city'),'province'=>trb_release_bridge_profile_value($post->post_author,'province'),
         'country'=>trb_release_bridge_profile_value($post->post_author,'country','Italia'),
     );
+    foreach ( array( 'name','surname','email','phone','artist_name','tax_code','birth_date','birth_place','address','street_number','postcode','municipality','province','country' ) as $required ) {
+        if ( '' === trim( (string) $artist[ $required ] ) ) return new WP_Error( 'artist_data_missing', 'Dato contrattuale mancante: ' . $required . '.' );
+    }
+    if ( ! in_array( $profile, array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'profile_invalid', 'Profilo contrattuale non riconosciuto.' );
+    if ( empty( $tracks ) ) return new WP_Error( 'tracks_missing', 'Nessun brano disponibile per il contratto.' );
     return array('action'=>'portal_release','release_id'=>(int)$release_id,'profile'=>$profile,'title'=>$post->post_title,
         'release_type'=>(string)get_post_meta($release_id,'_trb_release_type',true),'release_state'=>$state,
         'release_date'=>(string)get_post_meta($release_id,'_trb_release_date',true),
