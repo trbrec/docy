@@ -126,8 +126,17 @@ function trb_release_bridge_add_meta_box() {
 add_action( 'add_meta_boxes_trb_release', 'trb_release_bridge_add_meta_box' );
 
 function trb_release_bridge_render_meta_box( $post ) {
+	$technical = (array) get_post_meta( $post->ID, '_trb_release_technical_analysis', true );
+	$decision  = (array) get_post_meta( $post->ID, '_trb_release_analysis_decision', true );
+	$technical_summary = isset( $technical['status'] ) ? (string) $technical['status'] : '';
+	if ( ! empty( $technical['errors'] ) ) $technical_summary .= ' · errori: ' . implode( ', ', array_map( 'sanitize_text_field', (array) $technical['errors'] ) );
+	if ( ! empty( $technical['warnings'] ) ) $technical_summary .= ' · avvisi: ' . implode( ', ', array_map( 'sanitize_text_field', (array) $technical['warnings'] ) );
+	$decision_summary = isset( $decision['semaphore'] ) ? (string) $decision['semaphore'] : '';
+	if ( ! empty( $decision['state'] ) ) $decision_summary .= ' · ' . (string) $decision['state'];
     $rows = array(
         'Pipeline release'  => get_post_meta( $post->ID, '_trb_release_pipeline_status', true ),
+		'Analisi tecnica'   => $technical_summary,
+		'Decisione audio'   => $decision_summary,
         'Stato contratto'   => get_post_meta( $post->ID, '_trb_contract_state', true ),
         'Errore contratto'  => get_post_meta( $post->ID, '_trb_contract_error', true ),
         'Numero contratto'  => get_post_meta( $post->ID, '_trb_contract_number', true ),
@@ -137,6 +146,16 @@ function trb_release_bridge_render_meta_box( $post ) {
     echo '<table class="widefat striped"><tbody>';
     foreach ( $rows as $label => $value ) echo '<tr><th style="width:190px">' . esc_html( $label ) . '</th><td>' . esc_html( '' !== (string) $value ? $value : '—' ) . '</td></tr>';
     echo '</tbody></table>';
+	if ( current_user_can( 'manage_options' ) && function_exists( 'trb_resource_tables' ) ) {
+		global $wpdb;
+		$usage_table = trb_resource_tables()['usage'];
+		$usage_rows = $wpdb->get_results( $wpdb->prepare( "SELECT service,track_index,status,attempts,last_error,provider_reference,payload,updated_at FROM $usage_table WHERE release_id=%d ORDER BY id", $post->ID ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $usage_rows ) {
+			echo '<details style="margin-top:12px"><summary><strong>Diagnostica analisi audio</strong></summary><table class="widefat striped" style="margin-top:8px"><thead><tr><th>Servizio</th><th>Brano</th><th>Stato</th><th>Tentativi</th><th>Errore</th><th>Riferimento</th><th>Aggiornato</th></tr></thead><tbody>';
+			foreach ( $usage_rows as $usage ) echo '<tr><td>' . esc_html( $usage['service'] ) . '</td><td>' . esc_html( absint( $usage['track_index'] ) + 1 ) . '</td><td>' . esc_html( $usage['status'] ) . '</td><td>' . esc_html( absint( $usage['attempts'] ) ) . '</td><td>' . esc_html( $usage['last_error'] ?: '—' ) . '</td><td>' . esc_html( $usage['provider_reference'] ?: '—' ) . '</td><td>' . esc_html( $usage['updated_at'] ) . '</td></tr>';
+			echo '</tbody></table><details style="margin-top:8px"><summary>Risultati grezzi del provider</summary><pre style="max-height:420px;overflow:auto;white-space:pre-wrap">' . esc_html( wp_json_encode( $usage_rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) ) . '</pre></details></details>';
+		}
+	}
     if ( 'approved' === get_post_meta( $post->ID, '_trb_release_pipeline_status', true ) && ! in_array( get_post_meta( $post->ID, '_trb_contract_state', true ), array( 'contract_sent', 'signed' ), true ) ) {
         echo '<p><a class="button button-primary" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_release_bridge_retry&release_id=' . absint( $post->ID ) ), 'trb_release_bridge_retry_' . absint( $post->ID ) ) ) . '">Riprova invio contratto</a></p>';
     }
