@@ -1564,6 +1564,40 @@ function trb_portal_release_submission_response( $status, $message = '', $http_s
 	exit;
 }
 
+/** Persist release form text fields across expired sessions and new tabs. */
+function trb_portal_save_release_draft() {
+	if ( ! is_user_logged_in() ) {
+		wp_send_json_error( array( 'message' => 'Sessione scaduta.' ), 401 );
+	}
+	check_ajax_referer( 'trb_portal_release_draft', 'nonce' );
+	$user_id = get_current_user_id();
+	if ( 'clear' === sanitize_key( wp_unslash( $_POST['mode'] ?? '' ) ) ) {
+		delete_user_meta( $user_id, '_trb_release_form_draft' );
+		wp_send_json_success();
+	}
+	$raw = isset( $_POST['pairs'] ) ? wp_unslash( $_POST['pairs'] ) : '';
+	if ( ! is_string( $raw ) || strlen( $raw ) > 512000 ) {
+		wp_send_json_error( array( 'message' => 'Bozza non valida.' ), 422 );
+	}
+	$pairs = json_decode( $raw, true );
+	if ( ! is_array( $pairs ) || count( $pairs ) > 4000 ) {
+		wp_send_json_error( array( 'message' => 'Bozza non valida.' ), 422 );
+	}
+	$excluded = array( 'action', 'trb_portal_release_nonce', 'trb_release_stage_nonce', 'trb_release_submission_token' );
+	$clean = array();
+	foreach ( $pairs as $pair ) {
+		if ( ! is_array( $pair ) || 2 !== count( $pair ) || ! is_scalar( $pair[0] ) || ! is_scalar( $pair[1] ) ) continue;
+		$name = sanitize_text_field( (string) $pair[0] );
+		if ( '' === $name || strlen( $name ) > 240 || in_array( $name, $excluded, true ) ) continue;
+		$value = sanitize_textarea_field( (string) $pair[1] );
+		if ( strlen( $value ) > 5000 ) $value = substr( $value, 0, 5000 );
+		$clean[] = array( $name, $value );
+	}
+	update_user_meta( $user_id, '_trb_release_form_draft', array( 'version' => 1, 'savedAt' => time() * 1000, 'pairs' => $clean ) );
+	wp_send_json_success( array( 'saved_at' => time() ) );
+}
+add_action( 'wp_ajax_trb_portal_save_release_draft', 'trb_portal_save_release_draft' );
+
 function trb_portal_release_upload_error_message( $code ) {
 	$messages = array(
 		'missing_cover'              => 'La copertina non è arrivata al server. Selezionala nuovamente e riprova.',
@@ -3097,6 +3131,8 @@ function trb_portal_render_release_section() {
 	$minimum_release_date = ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+30 days' )->format( 'Y-m-d' );
 	$ddb12_limit_reached = trb_portal_ddb12_limit_reached();
 	$ddb12_reset_label   = trb_portal_ddb12_next_reset_label();
+	$server_draft        = get_user_meta( get_current_user_id(), '_trb_release_form_draft', true );
+	$server_draft        = is_array( $server_draft ) ? $server_draft : array();
 	?>
 	<section id="release" class="trb-portal__section trb-portal__section--releases">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Inserisci metadati, crediti e file audio della pubblicazione, quindi ricevi il contratto da sottoscrivere per avviare l’iter di distribuzione.</p></div>
@@ -3121,7 +3157,7 @@ function trb_portal_render_release_section() {
 			<div class="trb-portal__release-gate"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Hai già creato la release disponibile per questo mese con il profilo DDB12. Il conteggio comprende qualsiasi tipologia di pubblicazione e si azzera automaticamente il primo giorno del mese. Potrai avviare una nuova pratica dal <?php echo esc_html( $ddb12_reset_label ); ?>; il piano consente fino a 12 release ogni anno.</p></div>
 		<?php else : ?>
 		<div class="trb-portal__release-workspace">
-			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-stage-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-submit-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-draft-key="trb-release-draft-<?php echo esc_attr( get_current_user_id() ); ?>" data-qa-mode="<?php echo current_user_can( 'manage_options' ) ? '1' : '0'; ?>" data-release-form>
+			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-stage-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-submit-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-draft-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-draft-nonce="<?php echo esc_attr( wp_create_nonce( 'trb_portal_release_draft' ) ); ?>" data-draft-key="trb-release-draft-<?php echo esc_attr( get_current_user_id() ); ?>" data-qa-mode="<?php echo current_user_can( 'manage_options' ) ? '1' : '0'; ?>" data-release-form>
 				<input type="hidden" name="action" value="trb_portal_start_release" />
 				<input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" />
 				<input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" />
@@ -3131,6 +3167,7 @@ function trb_portal_render_release_section() {
 				<section class="trb-release-panel"><header><span>3</span><div><h3>Dati e materiali della release</h3><p>Inserisci il titolo, la copertina, tutti i brani e il materiale editoriale richiesto.</p></div></header><label class="trb-portal__release-title">Titolo della release <span aria-hidden="true">*</span><small data-single-title-note hidden>Per un singolo, questo titolo deve coincidere esattamente con il titolo del brano.</small><input type="text" name="trb_release_title" maxlength="160" required placeholder="Titolo del singolo, EP o album" /></label><div class="trb-release-upload trb-release-upload--cover"><strong>Copertina della release <span>*</span></strong><p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px. Il sistema verifica formato, proporzioni e dimensioni.</p><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /><label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che la copertina è stata esportata a 300 DPI.</label></div><div data-tracks></div><button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button><div class="trb-release-upload trb-release-upload--presentation"><strong>Presentazione della release <span>*</span></strong><p>Racconta la pubblicazione con informazioni che possano trasformarsi in contenuti: origine del progetto, significato, curiosità, riferimenti, collaborazioni e dettagli utili a redazioni, radio, playlist editor, ufficio stampa e comunicazione social. Una presentazione concreta e ricca di spunti ci permette di valorizzare meglio la release e riduce le successive richieste di integrazione.</p><input type="file" name="trb_release_presentation" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" required /><small>Formati elaborabili in modo efficiente: TXT, DOCX, ODT o RTF · massimo 5 MB.</small></div></section>
 				<button class="trb-button trb-button--submit-release" type="submit">Crea la pratica release</button><div class="trb-portal__upload-progress" data-release-upload-progress hidden aria-live="polite"><div class="trb-portal__upload-progress-head"><strong>Caricamento sicuro della release</strong><span data-release-upload-value>0%</span></div><progress max="100" value="0" data-release-upload-bar>0%</progress><p data-release-upload-text>Preparazione e verifica dei file…</p></div>
 			</form>
+			<script type="application/json" data-release-server-draft><?php echo wp_json_encode( $server_draft, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></script>
 		</div>
 		<?php endif; ?>
 	</section>
