@@ -121,6 +121,7 @@ function trb_analysis_track_findings( $spec, $track, $declared_seconds ) {
 	if ( $spec['sample_rate'] < 44100 || $spec['sample_rate'] > 96000 ) $errors[] = 'SAMPLE_RATE_INVALID';
 	if ( $spec['bit_depth'] < 16 || $spec['bit_depth'] > 24 ) $errors[] = 'BIT_DEPTH_INVALID';
 	if ( $declared_seconds <= 0 || abs( $spec['duration_seconds'] - $declared_seconds ) > 1.0 ) $errors[] = 'DURATION_MISMATCH';
+	if ( $spec['duration_seconds'] < 15.0 ) $warnings[] = 'AUDIO_TOO_SHORT_FOR_RELIABLE_RECOGNITION';
 	if ( null !== $spec['true_peak_dbtp'] && $spec['true_peak_dbtp'] > (float) $s['true_peak_warning'] ) $warnings[] = 'TRUE_PEAK_HIGH';
 	if ( ! empty( $spec['clipping_suspected'] ) ) $warnings[] = 'CLIPPING_SUSPECTED';
 	if ( null !== $spec['loudness_range_lu'] && $spec['loudness_range_lu'] < 2.0 ) $warnings[] = 'EXCESSIVE_LIMITING_REVIEW';
@@ -223,7 +224,7 @@ function trb_analysis_decide_release( $release_id ) {
 	$rows = $wpdb->get_results( $wpdb->prepare( "SELECT track_index,file_hash,payload,status FROM $table WHERE release_id=%d AND provider='acrcloud' AND service IN ('fingerprinting','fingerprinting_reuse') ORDER BY id ASC", $release_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$current_hashes = array(); foreach ( (array) get_post_meta( $release_id, '_trb_release_files', true ) as $file ) if ( 'audio' === ( $file['kind'] ?? '' ) ) $current_hashes[ absint( $file['track'] ?? 0 ) ] = (string) ( $file['sha256'] ?? '' );
 	$s = trb_analysis_settings();
-	$normalized = array(); $red = false; $yellow = false;
+	$normalized = array(); $limitations = array(); $red = false; $yellow = false;
 	foreach ( $rows as $row ) {
 		if ( 'completed' !== $row['status'] ) continue;
 		if ( empty( $current_hashes[ absint( $row['track_index'] ) ] ) || ! hash_equals( $current_hashes[ absint( $row['track_index'] ) ], (string) $row['file_hash'] ) ) continue;
@@ -234,6 +235,12 @@ function trb_analysis_decide_release( $release_id ) {
 	$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
 	$release_state = (string) get_post_meta( $release_id, '_trb_release_state', true );
 	if ( 'warning' === ( $technical['status'] ?? '' ) ) $yellow = true;
+	foreach ( (array) ( $technical['tracks'] ?? array() ) as $index => $track ) {
+		if ( (float) ( $track['spec']['duration_seconds'] ?? 0 ) > 0 && (float) $track['spec']['duration_seconds'] < 15.0 ) {
+			$yellow = true;
+			$limitations[ absint( $index ) ][] = 'AUDIO_TOO_SHORT_FOR_RELIABLE_RECOGNITION';
+		}
+	}
 	foreach ( $normalized as $index => $result ) {
 		$nature = $declarations[ $index ]['nature'] ?? 'original';
 		foreach ( $result['matches'] as $match ) {
@@ -249,7 +256,7 @@ function trb_analysis_decide_release( $release_id ) {
 	$documents = is_array( $documents ) ? array_values( array_filter( $documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 	$documents_ready = false; foreach ( $documents as $document ) if ( 'synced' === ( $document['status'] ?? '' ) ) { $documents_ready = true; break; }
 	$state = 'red' === $semaphore ? ( 'unreleased' === $release_state ? 'published_audio_conflict' : ( $documents_ready ? 'manual_review' : 'copyright_documents_needed' ) ) : ( 'yellow' === $semaphore ? 'manual_review' : ( $benchmark_ready && ! empty( $s['auto_approval'] ) ? 'approved' : 'manual_review' ) );
-	$decision = array( 'semaphore' => $semaphore, 'state' => $state, 'results' => $normalized, 'benchmark_ready' => $benchmark_ready, 'decided_at' => time() );
+	$decision = array( 'semaphore' => $semaphore, 'state' => $state, 'results' => $normalized, 'limitations' => $limitations, 'benchmark_ready' => $benchmark_ready, 'decided_at' => time() );
 	update_post_meta( $release_id, '_trb_release_analysis_decision', $decision );
 	update_post_meta( $release_id, '_trb_release_pipeline_status', $state );
 	if ( 'approved' === $state ) do_action( 'trb_release_analysis_approved', $release_id );
