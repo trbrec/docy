@@ -499,7 +499,8 @@ function trb_resource_release_rights_folder( $release_id, $track_index ) {
 }
 
 function trb_resource_sync_rights_document( $release_id, $document_index ) {
-	$documents = (array) get_post_meta( $release_id, '_trb_release_rights_documents', true );
+	$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
+	$documents = is_array( $documents ) ? array_values( array_filter( $documents, 'is_array' ) ) : array();
 	if ( ! isset( $documents[ $document_index ] ) ) return new WP_Error( 'RIGHTS_DOCUMENT_MISSING' );
 	$document = $documents[ $document_index ];
 	$folder = trb_resource_release_rights_folder( $release_id, isset( $document['track'] ) ? $document['track'] : 0 );
@@ -549,7 +550,8 @@ function trb_resource_upload_rights_document() {
 	if ( ! wp_mkdir_p( $directory ) ) { wp_safe_redirect( add_query_arg( 'trb_release', 'rights_error', $dashboard ) . $anchor ); exit; }
 	$stored_name = wp_unique_filename( $directory, 'Diritti - ' . $name ); $target = trailingslashit( $directory ) . $stored_name;
 	if ( ! move_uploaded_file( $file['tmp_name'], $target ) ) { wp_safe_redirect( add_query_arg( 'trb_release', 'rights_error', $dashboard ) . $anchor ); exit; }
-	$documents = (array) get_post_meta( $release_id, '_trb_release_rights_documents', true );
+	$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
+	$documents = is_array( $documents ) ? array_values( array_filter( $documents, 'is_array' ) ) : array();
 	$documents[] = array( 'kind' => 'rights', 'track' => $track, 'name' => $stored_name, 'original_name' => $name, 'path' => $relative . '/' . $stored_name, 'type' => sanitize_mime_type( $file['type'] ), 'size' => filesize( $target ), 'sha256' => hash_file( 'sha256', $target ), 'status' => 'pending', 'uploaded_at' => time() );
 	update_post_meta( $release_id, '_trb_release_rights_documents', $documents ); $index = count( $documents ) - 1;
 	$result = trb_resource_sync_rights_document( $release_id, $index );
