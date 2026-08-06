@@ -244,6 +244,7 @@ function trb_release_bridge_dispatch( $release_id ) {
     $s = trb_release_bridge_settings();
     $url = 'trb' === $payload['profile'] ? $s['trb_webapp_url'] : $s['ddb_webapp_url'];
     if ( ! $url || ! $s['shared_secret'] ) { update_post_meta($release_id,'_trb_contract_state','configuration_required'); return; }
+	$payload['rows'] = array( $payload );
     $payload['secret'] = $s['shared_secret'];
     $response = trb_release_bridge_post_webapp( $url, $payload );
     if ( is_wp_error( $response ) ) { update_post_meta($release_id,'_trb_contract_state','dispatch_error'); update_post_meta($release_id,'_trb_contract_error',$response->get_error_message()); wp_schedule_single_event(time()+15*MINUTE_IN_SECONDS,'trb_release_bridge_dispatch',array($release_id)); return; }
