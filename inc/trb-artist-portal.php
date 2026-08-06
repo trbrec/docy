@@ -802,6 +802,7 @@ function trb_portal_handle_artist_profile() {
 	exit;
 }
 add_action( 'admin_post_trb_portal_save_artist_profile', 'trb_portal_handle_artist_profile' );
+add_action( 'wp_ajax_trb_portal_save_artist_profile', 'trb_portal_handle_artist_profile' );
 
 /**
  * Store identity files outside the normal Media Library and deny direct web
@@ -1108,7 +1109,7 @@ function trb_portal_hydrate_release_post() {
 		trb_portal_set_nested_post_value( $pair[0], $pair[1] );
 	}
 }
-add_action( 'admin_init', 'trb_portal_hydrate_release_post', 0 );
+add_action( 'init', 'trb_portal_hydrate_release_post', -1 );
 
 /**
  * Dispatch the portal's public-facing admin-post actions before role redirect
@@ -1117,8 +1118,9 @@ add_action( 'admin_init', 'trb_portal_hydrate_release_post', 0 );
  * form and protected-file transport used by that dashboard itself.
  */
 function trb_portal_route_frontend_admin_post() {
-	$script = isset( $_SERVER['SCRIPT_NAME'] ) ? basename( sanitize_text_field( wp_unslash( $_SERVER['SCRIPT_NAME'] ) ) ) : '';
-	if ( 'admin-post.php' !== $script ) return;
+	$script  = isset( $_SERVER['SCRIPT_NAME'] ) ? basename( sanitize_text_field( wp_unslash( $_SERVER['SCRIPT_NAME'] ) ) ) : '';
+	$pagenow = isset( $GLOBALS['pagenow'] ) ? sanitize_file_name( (string) $GLOBALS['pagenow'] ) : '';
+	if ( 'admin-post.php' !== $script && 'admin-post.php' !== $pagenow ) return;
 
 	$raw_action = isset( $_REQUEST['action'] ) ? wp_unslash( $_REQUEST['action'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$action = is_string( $raw_action ) ? sanitize_key( $raw_action ) : '';
@@ -1141,7 +1143,7 @@ function trb_portal_route_frontend_admin_post() {
 	do_action( $hook );
 	wp_die( 'La richiesta non ha restituito una risposta.', 'Portale Artisti TRB rec', array( 'response' => 500 ) );
 }
-add_action( 'admin_init', 'trb_portal_route_frontend_admin_post', 1 );
+add_action( 'init', 'trb_portal_route_frontend_admin_post', 0 );
 
 function trb_portal_release_staging_root( $user_id = 0 ) {
 	$uploads = wp_upload_dir();
@@ -3483,7 +3485,7 @@ function trb_portal_enqueue_assets() {
 		wp_enqueue_style( 'trb-artist-portal', get_template_directory_uri() . '/assets/css/trb-artist-portal.css', array(), $style_version );
 		$script_path = get_template_directory() . '/assets/js/trb-artist-profile.js';
 		wp_enqueue_script( 'trb-artist-profile', get_template_directory_uri() . '/assets/js/trb-artist-profile.js', array(), file_exists( $script_path ) ? (string) filemtime( $script_path ) : DOCY_VERSION, true );
-		wp_localize_script( 'trb-artist-profile', 'trbArtistProfile', array( 'postcodeEndpoint' => esc_url_raw( rest_url( 'trb/v1/postcode/' ) ), 'municipalityEndpoint' => esc_url_raw( rest_url( 'trb/v1/municipalities' ) ), 'restNonce' => wp_create_nonce( 'wp_rest' ) ) );
+		wp_localize_script( 'trb-artist-profile', 'trbArtistProfile', array( 'postcodeEndpoint' => esc_url_raw( rest_url( 'trb/v1/postcode/' ) ), 'municipalityEndpoint' => esc_url_raw( rest_url( 'trb/v1/municipalities' ) ), 'ajaxUrl' => esc_url_raw( admin_url( 'admin-ajax.php' ) ), 'restNonce' => wp_create_nonce( 'wp_rest' ) ) );
 		$academy_path = get_template_directory() . '/assets/js/trb-video-academy.js';
 		wp_enqueue_script( 'trb-video-academy', get_template_directory_uri() . '/assets/js/trb-video-academy.js', array(), file_exists( $academy_path ) ? (string) filemtime( $academy_path ) : DOCY_VERSION, true );
 		wp_localize_script( 'trb-video-academy', 'trbVideoAcademy', array( 'restRoot' => esc_url_raw( rest_url( 'trb/v1/' ) ), 'restNonce' => wp_create_nonce( 'wp_rest' ) ) );
