@@ -1341,6 +1341,57 @@ function trb_portal_replace_release_file() {
 }
 add_action( 'admin_post_trb_portal_replace_release_file', 'trb_portal_replace_release_file' );
 
+/**
+ * Finish a release submission without making an AJAX failure look successful.
+ * Keeping the browser on the form also keeps every typed value and selected
+ * local file available for a corrected retry.
+ */
+function trb_portal_release_submission_response( $status, $message = '', $http_status = 422, $release_id = 0 ) {
+	$status     = sanitize_key( $status );
+	$release_id = absint( $release_id );
+	$is_success = 'created' === $status;
+	$redirect   = add_query_arg( 'trb_release', $status, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release';
+
+	if ( ! $is_success && is_user_logged_in() ) {
+		update_user_meta( get_current_user_id(), '_trb_release_last_submission_error', array(
+			'code' => $status,
+			'at'   => time(),
+		) );
+	}
+
+	if ( isset( $_POST['trb_release_ajax'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['trb_release_ajax'] ) ) ) {
+		$data = array(
+			'status'     => $status,
+			'message'    => $message,
+			'redirect'   => $redirect,
+			'release_id' => $release_id,
+		);
+		if ( $is_success ) wp_send_json_success( $data, 200 );
+		wp_send_json_error( $data, $http_status );
+	}
+
+	wp_safe_redirect( $redirect );
+	exit;
+}
+
+function trb_portal_release_upload_error_message( $code ) {
+	$messages = array(
+		'missing_cover'              => 'La copertina non è arrivata al server. Selezionala nuovamente e riprova.',
+		'invalid_cover'              => 'La copertina non rispetta formato, dimensioni o proporzioni richieste.',
+		'missing_presentation'       => 'La presentazione della release non è arrivata al server.',
+		'invalid_presentation'       => 'La presentazione deve essere un file TXT, DOCX, ODT o RTF valido fino a 5 MB.',
+		'missing_audio'              => 'Il file WAV non è arrivato al server. Controlla dimensione e connessione.',
+		'invalid_audio'              => 'Il file audio deve essere un WAV stereo PCM tra 44.100 e 96.000 Hz e tra 16 e 24 bit.',
+		'audio_duration_mismatch'    => 'La durata indicata non coincide con il WAV: è ammessa una tolleranza massima di 1 secondo.',
+		'audio_standard_mismatch'    => 'Tutti i WAV della release devono avere la stessa frequenza di campionamento e profondità in bit.',
+		'missing_rights_document'    => 'La licenza obbligatoria non è arrivata al server.',
+		'invalid_rights_document'    => 'La licenza deve essere un PDF valido fino a 10 MB.',
+		'TEMP_STORAGE_LIMIT_REACHED' => 'Lo spazio temporaneo del server non è sufficiente: la pratica non è stata registrata.',
+		'TEMP_STORAGE_UNVERIFIED'    => 'Il server non è riuscito a verificare lo spazio disponibile: la pratica non è stata registrata.',
+	);
+	return isset( $messages[ $code ] ) ? $messages[ $code ] : 'Uno o più file non rispettano i requisiti indicati. La pratica non è stata registrata.';
+}
+
 function trb_portal_start_release() {
 	if ( ! is_user_logged_in() ) {
 		auth_redirect();
@@ -1348,12 +1399,11 @@ function trb_portal_start_release() {
 
 	check_admin_referer( 'trb_portal_start_release', 'trb_portal_release_nonce' );
 	if ( ! trb_portal_user_profile() && ! current_user_can( 'manage_options' ) ) {
-		wp_die( 'Il tuo profilo non è ancora configurato.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
+		trb_portal_release_submission_response( 'profile_required', 'Il tuo profilo non è ancora configurato.', 403 );
 	}
 
 	if ( ! trb_portal_artist_profile_is_complete() && ! current_user_can( 'manage_options' ) ) {
-		wp_safe_redirect( add_query_arg( 'trb_release', 'profile_required', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
-		exit;
+		trb_portal_release_submission_response( 'profile_required', 'Completa prima tutti i dati obbligatori del profilo artista.', 422 );
 	}
 	$user_id = get_current_user_id();
 	$profile = trb_portal_user_profile();
@@ -1432,13 +1482,19 @@ function trb_portal_start_release() {
 	}
 	$single_title_mismatch = 'single' === $type && '' !== $title && 1 === count( $tracks ) && $title !== $tracks[0]['title'];
 	if ( $single_title_mismatch ) {
-		wp_safe_redirect( add_query_arg( 'trb_release', 'single_title_mismatch', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
-		exit;
+		trb_portal_release_submission_response( 'single_title_mismatch', 'Per un singolo, il titolo della release deve coincidere esattamente con il titolo del brano.', 422 );
 	}
-	if ( ( ! $is_catalogue && '' === $title ) || ! isset( $types[ $type ] ) || empty( $tracks ) || count( $tracks ) !== count( $posted_tracks ) || count( $tracks ) < $types[ $type ]['min'] || ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) || ( 'unreleased' === $release_state && ! $release_date_valid ) || ( 'previously_released' === $release_state && ! $original_date_valid ) || ( $is_catalogue && 'previously_released' !== $release_state ) || count( $tracks ) > $types[ $type ]['max'] || is_wp_error( $uploads_valid ) ) {
-		$invalid_status = is_wp_error( $uploads_valid ) && 'audio_duration_mismatch' === $uploads_valid->get_error_code() ? 'duration_mismatch' : 'invalid';
-		wp_safe_redirect( add_query_arg( 'trb_release', $invalid_status, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
-		exit;
+	if ( ! isset( $types[ $type ] ) ) trb_portal_release_submission_response( 'invalid', 'Seleziona una tipologia di pubblicazione valida.', 422 );
+	if ( ! $is_catalogue && '' === $title ) trb_portal_release_submission_response( 'invalid', 'Inserisci il titolo della release.', 422 );
+	if ( empty( $posted_tracks ) || empty( $tracks ) || count( $tracks ) !== count( $posted_tracks ) ) trb_portal_release_submission_response( 'invalid', 'Uno o più brani hanno metadati, generi, autori o crediti mancanti o non validi.', 422 );
+	if ( count( $tracks ) < $types[ $type ]['min'] || count( $tracks ) > $types[ $type ]['max'] ) trb_portal_release_submission_response( 'invalid', 'Il numero di brani non corrisponde alla tipologia di pubblicazione selezionata.', 422 );
+	if ( ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) ) trb_portal_release_submission_response( 'invalid', 'Seleziona lo stato della pubblicazione.', 422 );
+	if ( 'unreleased' === $release_state && ! $release_date_valid ) trb_portal_release_submission_response( 'invalid', 'Scegli una data di uscita non inferiore a 30 giorni da oggi.', 422 );
+	if ( 'previously_released' === $release_state && ! $original_date_valid ) trb_portal_release_submission_response( 'invalid', 'Inserisci una data di pubblicazione originale valida e non futura.', 422 );
+	if ( $is_catalogue && 'previously_released' !== $release_state ) trb_portal_release_submission_response( 'invalid', 'Un catalogo o repertorio edito deve essere indicato come già pubblicato.', 422 );
+	if ( is_wp_error( $uploads_valid ) ) {
+		$upload_code = $uploads_valid->get_error_code();
+		trb_portal_release_submission_response( 'audio_duration_mismatch' === $upload_code ? 'duration_mismatch' : 'invalid', trb_portal_release_upload_error_message( $upload_code ), 422 );
 	}
 	if ( $is_catalogue && '' === $title ) {
 		$title = 'Catalogo / repertorio edito';
@@ -1464,7 +1520,23 @@ function trb_portal_start_release() {
 	$existing_submit_lock = absint( get_user_meta( $user_id, $submit_lock_key, true ) );
 	if ( $existing_submit_lock && time() - $existing_submit_lock > 30 * MINUTE_IN_SECONDS ) delete_user_meta( $user_id, $submit_lock_key );
 	if ( ! add_user_meta( $user_id, $submit_lock_key, time(), true ) ) {
-		wp_safe_redirect( add_query_arg( 'trb_release', 'upload_in_progress', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' ); exit;
+		trb_portal_release_submission_response( 'upload_in_progress', 'Una richiesta precedente è ancora in elaborazione. Attendi senza inviare nuovamente i file.', 409 );
+	}
+	$submission_token = isset( $_POST['trb_release_submission_token'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ) ) : '';
+	if ( $submission_token ) {
+		$existing_release = get_posts( array(
+			'post_type'      => 'trb_release',
+			'post_status'    => array( 'publish', 'private', 'pending', 'draft' ),
+			'author'         => $user_id,
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'meta_key'       => '_trb_release_submission_token',
+			'meta_value'     => $submission_token,
+		) );
+		if ( $existing_release ) {
+			delete_user_meta( $user_id, $submit_lock_key );
+			trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: non è stato creato alcun duplicato.', 200, $existing_release[0] );
+		}
 	}
 
 	$release_id = wp_insert_post(
@@ -1503,12 +1575,20 @@ function trb_portal_start_release() {
 		$file_error = false;
 		foreach ( $release_files as $file ) if ( is_wp_error( $file ) ) $file_error = true;
 		if ( $file_error ) {
-			trb_portal_delete_release_files( array_filter( $release_files, 'is_array' ) );
-			wp_delete_post( $release_id, true );
+			$stored_files = array_values( array_filter( $release_files, 'is_array' ) );
+			update_post_meta( $release_id, '_trb_release_type', $type );
+			update_post_meta( $release_id, '_trb_release_state', $release_state );
+			update_post_meta( $release_id, '_trb_release_date', 'unreleased' === $release_state ? $release_date : '' );
+			update_post_meta( $release_id, '_trb_release_original_date', 'previously_released' === $release_state ? $original_date : '' );
+			update_post_meta( $release_id, '_trb_release_tracks', $tracks );
+			update_post_meta( $release_id, '_trb_release_files', $stored_files );
+			update_post_meta( $release_id, '_trb_release_pipeline_status', 'upload_failed' );
+			update_post_meta( $release_id, '_trb_contract_state', 'upload_failed' );
+			if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
+			wp_update_post( array( 'ID' => $release_id, 'post_status' => 'private' ) );
 			if ( $ddb12_reservation_key ) delete_user_meta( $user_id, $ddb12_reservation_key );
 			delete_user_meta( $user_id, $submit_lock_key );
-			wp_safe_redirect( add_query_arg( 'trb_release', 'error', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
-			exit;
+			trb_portal_release_submission_response( 'error', 'I dati della pratica sono stati conservati, ma uno o più file non sono stati archiviati. Non reinviare tutto: la pratica è visibile e può essere completata.', 500, $release_id );
 		}
 		if ( $ddb12_reservation_key ) {
 			update_user_meta( $user_id, $ddb12_reservation_key, (string) $release_id );
@@ -1520,6 +1600,7 @@ function trb_portal_start_release() {
 		update_post_meta( $release_id, '_trb_release_date', 'unreleased' === $release_state ? $release_date : '' );
 		update_post_meta( $release_id, '_trb_release_original_date', 'previously_released' === $release_state ? $original_date : '' );
 		update_post_meta( $release_id, '_trb_release_tracks', $tracks );
+		if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
 		update_post_meta( $release_id, '_trb_release_rights_declarations', array_map( static function ( $track ) { return array( 'nature' => $track['content_nature'], 'basis' => $track['rights_basis'], 'reference' => isset( $track['rights_reference'] ) ? $track['rights_reference'] : '' ); }, $tracks ) );
 		if ( $stored_rights_documents ) update_post_meta( $release_id, '_trb_release_rights_documents', $stored_rights_documents );
 		$security_blocked = false;
@@ -1537,16 +1618,14 @@ function trb_portal_start_release() {
 			if ( function_exists( 'trb_resource_event' ) ) trb_resource_event( 'release-' . $release_id, 'security', 'critical', 'Materiali conservati nello storage privato in attesa di scansione antivirus.', array( 'release_id' => $release_id ) );
 		} elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
 		delete_user_meta( $user_id, $submit_lock_key );
-		wp_safe_redirect( add_query_arg( 'trb_release', 'created', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
-		exit;
+		trb_portal_release_submission_response( 'created', 'Pratica creata correttamente.', 200, $release_id );
 	}
 	if ( $ddb12_reservation_key ) {
 		delete_user_meta( $user_id, $ddb12_reservation_key, $ddb12_reservation_value );
 	}
 	delete_user_meta( $user_id, $submit_lock_key );
 
-	wp_safe_redirect( add_query_arg( 'trb_release', 'error', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
-	exit;
+	trb_portal_release_submission_response( 'error', 'Il server non è riuscito a creare la pratica. I dati compilati sono ancora presenti nel modulo.', 500 );
 }
 add_action( 'admin_post_trb_portal_start_release', 'trb_portal_start_release' );
 
@@ -2731,6 +2810,7 @@ function trb_portal_release_pipeline_label( $release_id ) {
 		'copyright_queued'           => 'Controllo dei diritti in coda',
 		'security_scan_waiting'      => 'I materiali sono conservati in sicurezza e attendono il controllo antivirus. Non caricarli nuovamente.',
 		'security_rejected'          => 'Un materiale richiede verifica di sicurezza da parte di TRB.',
+		'upload_failed'              => 'Dati acquisiti: caricamento dei file incompleto',
 		'analysis_in_progress'        => 'Controllo del brano in corso',
 		'analysis_waiting_configuration' => 'Il controllo del brano è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',
 		'ACR_BUDGET_LIMIT_REACHED'    => 'Il controllo del brano è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',
@@ -2785,6 +2865,7 @@ function trb_portal_render_release_section() {
 		<?php if ( 'monthly_limit' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Il profilo DDB12 consente di avviare una sola pratica per ogni mese solare, indipendentemente dal tipo di pubblicazione: singolo, EP, album, doppio album, compilation, collection o catalogo. Il limite si rinnova automaticamente il primo giorno di ogni mese; potrai creare una nuova release dal <?php echo esc_html( $ddb12_reset_label ); ?>, per un massimo complessivo di 12 release nell’anno.</p></div><?php endif; ?>
 		<?php if ( 'upload_in_progress' === $status ) : ?><div class="trb-portal__message"><strong>Caricamento già in elaborazione</strong><p>La richiesta precedente è ancora in corso. Non inviare nuovamente i file: la pagina si aggiornerà al completamento.</p></div><?php endif; ?>
 		<?php if ( 'single_title_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I titoli non coincidono.</strong><p>Per una pubblicazione di tipo Singolo, il titolo della release deve essere identico al titolo del brano, comprese maiuscole, accenti e punteggiatura.</p></div><?php endif; ?>
+		<?php if ( 'upload_failed' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Caricamento incompleto.</strong><p>I dati della pratica sono stati conservati, ma uno o più file devono essere verificati o sostituiti.</p></div><?php endif; ?>
 		<?php if ( 'invalid' === $status || 'error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Alcuni dati sono mancanti o non validi. Controlla tutti i campi evidenziati.</div><?php endif; ?>
 		<?php if ( ! empty( $releases ) ) : ?><div class="trb-portal__request-history trb-portal__release-history"><h3>Release inviate</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); ?><li data-release-item="<?php echo esc_attr( $release->ID ); ?>"><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> · <b data-release-current-state><?php echo esc_html( trb_portal_release_current_state_label( $release->ID ) ); ?></b></span><?php trb_portal_render_release_files( $release->ID ); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
@@ -2795,6 +2876,7 @@ function trb_portal_render_release_section() {
 		<div class="trb-portal__release-workspace">
 			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-release-form>
 				<input type="hidden" name="action" value="trb_portal_start_release" />
+				<input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" />
 				<?php wp_nonce_field( 'trb_portal_start_release', 'trb_portal_release_nonce' ); ?>
 				<section class="trb-release-panel"><header><span>1</span><div><h3>Tipo di pubblicazione</h3><p>Scegli il formato che corrisponde al numero totale dei brani.</p></div></header><div class="trb-portal__release-types"><?php foreach ( $types as $key => $type ) : ?><label><input type="radio" name="trb_release_type" value="<?php echo esc_attr( $key ); ?>" required data-catalogue="<?php echo ! empty( $type['catalogue'] ) ? '1' : '0'; ?>" data-min="<?php echo esc_attr( $type['min'] ); ?>" data-max="<?php echo esc_attr( $type['max'] ); ?>" /><span><strong><?php echo esc_html( $type['label'] ); ?></strong><small><?php echo esc_html( $type['range'] ); ?></small></span></label><?php endforeach; ?></div></section>
 				<section class="trb-release-panel"><header><span>2</span><div><h3>Stato della pubblicazione</h3><p>Indica se la release è inedita o già pubblicata e completa la data richiesta.</p></div></header><div class="trb-portal__radios"><label><input type="radio" name="trb_release_state" value="unreleased" required /> Inedita: mai distribuita prima</label><label><input type="radio" name="trb_release_state" value="previously_released" required /> Edita: precedentemente rilasciata ed attualmente distribuita</label></div><label class="trb-portal__release-date" hidden><strong>Scegli la data di uscita della release <span aria-hidden="true">*</span></strong><small>Puoi selezionare una data di pubblicazione a partire dal trentesimo giorno successivo a oggi.</small><input type="date" name="trb_release_date" min="<?php echo esc_attr( $minimum_release_date ); ?>" /></label><label class="trb-portal__original-date" hidden>Data di pubblicazione originale <small>Puoi selezionare soltanto oggi o una data precedente.</small><input type="date" name="trb_release_original_date" max="<?php echo esc_attr( $today ); ?>" /></label></section>
