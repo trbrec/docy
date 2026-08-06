@@ -667,6 +667,7 @@ body:has(.trb-landing) .navbar_fixed_menu { display: none !important; }
 .trb-track-version-label { align-items: center; display: flex; gap: 5px; min-height: 18px; white-space: nowrap; }
 .trb-track-version-label .trb-portal__info { flex: 0 0 18px; margin: 0 !important; }
 .trb-portal__release-form .trb-track-version-label small { display: inline; font-size: 13px; line-height: 1; margin: 0; }
+.trb-portal__release-form .trb-track-version-label + input { margin-top: 5px !important; }
 .trb-track-featuring { grid-column: 1 / -1; max-width: calc(50% - 7.5px); }
 .trb-portal__credit-info { background: #edf5fb; border-radius: 8px; color: var(--trb-ink-soft); font-size: 12px; line-height: 1.55; margin: 2px 0 13px; padding: 11px; }
 .trb-portal__credit-info[hidden] { display: none; }
