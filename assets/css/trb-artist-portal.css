@@ -664,6 +664,9 @@ body:has(.trb-landing) .navbar_fixed_menu { display: none !important; }
 .trb-portal__info { align-items: center; background: var(--trb-ink); border: 0; border-radius: 50%; color: #fff !important; cursor: help; display: inline-flex !important; font: inherit; font-size: 11px !important; font-weight: 800; height: 18px; justify-content: center; margin-left: 5px !important; padding: 0; position: relative; vertical-align: middle; width: 18px; }
 .trb-portal__info::after { background: #101114; border-radius: 5px; bottom: calc(100% + 8px); color: #fff; content: attr(data-tooltip); display: none; font-size: 12px; font-weight: 600; left: 50%; line-height: 1.4; padding: 9px 11px; position: absolute; text-align: left; transform: translateX(-50%); width: min(290px, 72vw); z-index: 50; }
 .trb-portal__info:hover::after, .trb-portal__info:focus::after { display: block; }
+.trb-track-version-label { align-items: center; display: flex; gap: 5px; min-height: 18px; white-space: nowrap; }
+.trb-track-version-label .trb-portal__info { flex: 0 0 18px; margin: 0 !important; }
+.trb-portal__release-form .trb-track-version-label small { display: inline; font-size: 13px; line-height: 1; margin: 0; }
 .trb-track-featuring { grid-column: 1 / -1; max-width: calc(50% - 7.5px); }
 .trb-portal__credit-info { background: #edf5fb; border-radius: 8px; color: var(--trb-ink-soft); font-size: 12px; line-height: 1.55; margin: 2px 0 13px; padding: 11px; }
 .trb-portal__credit-info[hidden] { display: none; }
