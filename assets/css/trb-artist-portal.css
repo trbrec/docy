@@ -1055,6 +1055,16 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
 .trb-track-lyrics { background: #eef7f2; border: 1px solid #b9dcc9; border-radius: 12px; margin-top: 18px; padding: 15px; }
 .trb-track-lyrics[hidden] { display: none !important; }
 .trb-track-lyrics small, .trb-release-upload small { color: var(--trb-ink-soft); display: block; margin-top: 7px; }
+.trb-rights-reference,
+.trb-rights-document { background: #f4f8fb; border: 1px solid #cad9e5; border-radius: 12px; grid-column: 1 / -1; padding: 15px; }
+.trb-rights-reference[hidden],
+.trb-rights-document[hidden] { display: none !important; }
+.trb-rights-document input[type="file"] { background: #fff; border: 1px dashed #9eb3c3; border-radius: 10px; cursor: pointer; padding: 10px; width: 100%; }
+.trb-rights-reference small,
+.trb-rights-document small,
+.trb-rights-policy-note { color: var(--trb-ink-soft); display: block; font-weight: 500; line-height: 1.45; margin-top: 7px; }
+.trb-rights-document small,
+.trb-rights-policy-note { color: #9a3412; font-weight: 700; }
 .trb-track-audio { background: #eef5fb; border: 1px solid #bdd3e4; border-radius: 12px; margin-top: 18px; padding: 16px; }
 .trb-track-audio > strong { color: var(--trb-ink); display: block; margin-bottom: 10px; }
 .trb-track-audio > strong span { color: #c9332b; }

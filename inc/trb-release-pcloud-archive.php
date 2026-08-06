@@ -136,6 +136,7 @@ function trb_release_pcloud_sync( $release_id ) {
 	if ( is_wp_error( $master_ready ) ) return $master_ready;
 	foreach ( $files as $file ) {
 		if ( empty( $file['kind'] ) ) continue;
+		if ( 'rights_document' === $file['kind'] ) continue;
 		if ( 'audio' !== $file['kind'] ) {
 			if ( 'clean' !== ( $file['security_status'] ?? '' ) ) return new WP_Error( 'SECURITY_SCAN_PENDING' );
 			$local = trb_release_pcloud_local_file( $file ); if ( ! $local ) return new WP_Error( 'release_material_missing' );
@@ -163,6 +164,11 @@ function trb_release_pcloud_sync( $release_id ) {
 	}
 	$archive = array( 'status' => 'synced', 'time' => time(), 'files' => $uploaded, 'materials' => $materials, 'folders' => $folders, 'verified' => true );
 	update_post_meta( $release_id, '_trb_release_pcloud_archive', $archive );
+	foreach ( (array) get_post_meta( $release_id, '_trb_release_rights_documents', true ) as $document_index => $document ) {
+		if ( 'synced' === ( $document['status'] ?? '' ) || ! function_exists( 'trb_resource_sync_rights_document' ) ) continue;
+		$rights_result = trb_resource_sync_rights_document( $release_id, $document_index );
+		if ( is_wp_error( $rights_result ) ) return $rights_result;
+	}
 	update_post_meta( $release_id, '_trb_release_pipeline_status', 'archived_pending_analysis' );
 	$previous_files = (array) get_post_meta( $release_id, '_trb_release_previous_files', true );
 	if ( $previous_files ) {

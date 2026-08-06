@@ -1152,6 +1152,10 @@ function trb_portal_validate_release_upload( $file, $kind ) {
 		if ( 'wav' !== $extension || (int) $file['size'] > 1024 * MB_IN_BYTES ) return new WP_Error( 'invalid_audio' );
 		$spec = trb_portal_wav_spec( $file['tmp_name'] );
 		if ( is_wp_error( $spec ) || 2 !== (int) $spec['channels'] || $spec['sample_rate'] < 44100 || $spec['sample_rate'] > 96000 || $spec['bit_depth'] < 16 || $spec['bit_depth'] > 24 ) return new WP_Error( 'invalid_audio' );
+	} elseif ( 'rights_document' === $kind ) {
+		if ( 'pdf' !== $extension || (int) $file['size'] > 10 * MB_IN_BYTES ) return new WP_Error( 'invalid_rights_document' );
+		$head = file_get_contents( $file['tmp_name'], false, null, 0, 8 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		if ( false === $head || 0 !== strpos( $head, '%PDF-' ) ) return new WP_Error( 'invalid_rights_document' );
 	} else {
 		if ( ! in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) || (int) $file['size'] > 5 * MB_IN_BYTES || ! trb_portal_validate_release_document( $file['tmp_name'], $extension ) ) return new WP_Error( 'invalid_' . $kind );
 	}
@@ -1191,7 +1195,7 @@ function trb_portal_store_release_upload( $release_id, $file, $kind, $track_inde
 	if ( ! wp_mkdir_p( $directory ) ) return new WP_Error( 'release_storage_failed' );
 	$rules = trailingslashit( $uploads['basedir'] ) . 'trb-release-private/.htaccess';
 	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-	$prefix = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) );
+	$prefix = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : ( 'rights_document' === $kind ? 'Licenza diritti brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) ) );
 	$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ), PATHINFO_EXTENSION ) );
 	if ( 'audio' === $kind ) {
 		$canonical_filename = trb_portal_release_audio_filename(
@@ -1271,7 +1275,7 @@ function trb_portal_replace_release_file() {
 	$old_file = is_array( $files ) && isset( $files[ $file_index ] ) ? $files[ $file_index ] : array();
 	$new_upload = trb_portal_release_upload_item( 'trb_release_replacement' );
 	$kind = isset( $old_file['kind'] ) ? $old_file['kind'] : '';
-	$valid = in_array( $kind, array( 'cover', 'presentation', 'lyrics', 'audio' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind ) : new WP_Error( 'invalid_file' );
+	$valid = in_array( $kind, array( 'cover', 'presentation', 'lyrics', 'audio', 'rights_document' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind ) : new WP_Error( 'invalid_file' );
 	if ( 'cover' === $kind && empty( $_POST['trb_release_cover_300dpi'] ) ) $valid = new WP_Error( 'invalid_cover' );
 	if ( 'audio' === $kind && ! is_wp_error( $valid ) ) {
 		$release_tracks    = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
@@ -1317,6 +1321,19 @@ function trb_portal_replace_release_file() {
 	}
 	$files[ $file_index ] = $stored;
 	update_post_meta( $release_id, '_trb_release_files', array_values( $files ) );
+	if ( 'rights_document' === $kind && is_array( $stored ) ) {
+		$documents = (array) get_post_meta( $release_id, '_trb_release_rights_documents', true );
+		foreach ( $documents as $document_index => $document ) {
+			if ( empty( $old_file['sha256'] ) || empty( $document['sha256'] ) || ! hash_equals( (string) $old_file['sha256'], (string) $document['sha256'] ) ) continue;
+			$rights_meta = $stored;
+			$rights_meta['kind'] = 'rights';
+			$rights_meta['status'] = 'pending';
+			$rights_meta['uploaded_at'] = time();
+			$documents[ $document_index ] = $rights_meta;
+			break;
+		}
+		update_post_meta( $release_id, '_trb_release_rights_documents', array_values( $documents ) );
+	}
 	if ( $security_blocked ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
 	elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id, true );
 	wp_safe_redirect( add_query_arg( 'trb_release', 'file_replaced', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
@@ -1372,6 +1389,7 @@ function trb_portal_start_release() {
 	if ( ! is_wp_error( $uploads_valid ) ) $uploads_valid = trb_portal_validate_release_upload( $presentation, 'presentation' );
 	if ( ! is_wp_error( $uploads_valid ) && empty( $_POST['trb_release_cover_300dpi'] ) ) $uploads_valid = new WP_Error( 'invalid_cover' );
 	$release_audio_standard = null;
+	$rights_documents = array();
 	foreach ( $posted_tracks as $track_index => $posted_track ) {
 		$advisory = isset( $posted_track['advisory'] ) ? sanitize_key( $posted_track['advisory'] ) : '';
 		$audio_status = isset( $posted_track['audio_status'] ) ? sanitize_key( $posted_track['audio_status'] ) : '';
@@ -1397,6 +1415,19 @@ function trb_portal_start_release() {
 		} elseif ( ! empty( $lyrics['name'] ) ) {
 			$lyrics_valid = trb_portal_validate_release_upload( $lyrics, 'lyrics' );
 			if ( is_wp_error( $lyrics_valid ) ) $uploads_valid = $lyrics_valid;
+		}
+		$nature = isset( $posted_track['content_nature'] ) ? sanitize_key( $posted_track['content_nature'] ) : '';
+		$rights_basis = isset( $posted_track['rights_basis'] ) ? sanitize_key( $posted_track['rights_basis'] ) : '';
+		$requires_rights_document = 'type_beat' === $nature || 'protected_samples' === $nature || ( 'remix' === $nature && 'licensed' === $rights_basis );
+		if ( $requires_rights_document ) {
+			$rights_document = trb_portal_release_upload_item( 'trb_track_rights_document', $track_index );
+			$rights_valid = trb_portal_validate_release_upload( $rights_document, 'rights_document' );
+			if ( is_wp_error( $rights_valid ) ) {
+				$uploads_valid = $rights_valid;
+			} else {
+				$rights_documents[ $track_index ] = $rights_document;
+				if ( isset( $tracks[ $track_index ] ) ) $tracks[ $track_index ]['rights_document'] = sanitize_file_name( $rights_document['name'] );
+			}
 		}
 	}
 	if ( ( ! $is_catalogue && '' === $title ) || ! isset( $types[ $type ] ) || empty( $tracks ) || count( $tracks ) !== count( $posted_tracks ) || count( $tracks ) < $types[ $type ]['min'] || ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) || ( 'unreleased' === $release_state && ! $release_date_valid ) || ( 'previously_released' === $release_state && ! $original_date_valid ) || ( $is_catalogue && 'previously_released' !== $release_state ) || count( $tracks ) > $types[ $type ]['max'] || is_wp_error( $uploads_valid ) ) {
@@ -1441,6 +1472,7 @@ function trb_portal_start_release() {
 	);
 	if ( $release_id && ! is_wp_error( $release_id ) ) {
 		$release_files = array();
+		$stored_rights_documents = array();
 		$release_files[] = trb_portal_store_release_upload( $release_id, $cover, 'cover' );
 		$release_files[] = trb_portal_store_release_upload( $release_id, $presentation, 'presentation' );
 		foreach ( $posted_tracks as $track_index => $posted_track ) {
@@ -1451,6 +1483,17 @@ function trb_portal_start_release() {
 			$release_files[] = $stored_audio;
 			$lyrics = trb_portal_release_upload_item( 'trb_track_lyrics', $track_index );
 			if ( ! empty( $lyrics['name'] ) ) $release_files[] = trb_portal_store_release_upload( $release_id, $lyrics, 'lyrics', $track_index );
+			if ( isset( $rights_documents[ $track_index ] ) ) {
+				$stored_rights = trb_portal_store_release_upload( $release_id, $rights_documents[ $track_index ], 'rights_document', $track_index );
+				$release_files[] = $stored_rights;
+				if ( is_array( $stored_rights ) ) {
+					$rights_meta = $stored_rights;
+					$rights_meta['kind'] = 'rights';
+					$rights_meta['status'] = 'pending';
+					$rights_meta['uploaded_at'] = time();
+					$stored_rights_documents[] = $rights_meta;
+				}
+			}
 		}
 		$file_error = false;
 		foreach ( $release_files as $file ) if ( is_wp_error( $file ) ) $file_error = true;
@@ -1472,7 +1515,8 @@ function trb_portal_start_release() {
 		update_post_meta( $release_id, '_trb_release_date', 'unreleased' === $release_state ? $release_date : '' );
 		update_post_meta( $release_id, '_trb_release_original_date', 'previously_released' === $release_state ? $original_date : '' );
 		update_post_meta( $release_id, '_trb_release_tracks', $tracks );
-		update_post_meta( $release_id, '_trb_release_rights_declarations', array_map( static function ( $track ) { return array( 'nature' => $track['content_nature'], 'basis' => $track['rights_basis'] ); }, $tracks ) );
+		update_post_meta( $release_id, '_trb_release_rights_declarations', array_map( static function ( $track ) { return array( 'nature' => $track['content_nature'], 'basis' => $track['rights_basis'], 'reference' => isset( $track['rights_reference'] ) ? $track['rights_reference'] : '' ); }, $tracks ) );
+		if ( $stored_rights_documents ) update_post_meta( $release_id, '_trb_release_rights_documents', $stored_rights_documents );
 		$security_blocked = false;
 		if ( function_exists( 'trb_analysis_antivirus_scan' ) ) foreach ( $release_files as &$release_file ) {
 			if ( ! is_array( $release_file ) || 'audio' === ( $release_file['kind'] ?? '' ) ) continue;
@@ -1553,11 +1597,13 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 		$additional_credits = trb_portal_sanitize_contributors( isset( $credits['credits'] ) ? $credits['credits'] : array(), $roles['credits'] );
 		$nature = isset( $track['content_nature'] ) ? sanitize_key( $track['content_nature'] ) : '';
 		$rights_basis = isset( $track['rights_basis'] ) ? sanitize_key( $track['rights_basis'] ) : '';
-		$allowed_rights = array( 'original' => array( 'owned' ), 'cover' => array( 'rerecorded' ), 'type_beat' => array( 'exclusive', 'nonexclusive' ), 'sample' => array( 'licensed', 'documents_pending' ), 'remix' => array( 'authorized', 'documents_pending' ) );
+		$rights_reference = isset( $track['rights_reference'] ) ? sanitize_text_field( $track['rights_reference'] ) : '';
+		$allowed_rights = array( 'original' => array( 'owned' ), 'type_beat' => array( 'exclusive', 'nonexclusive' ), 'remix' => array( 'same_release', 'licensed' ), 'protected_samples' => array( 'licensed' ) );
 		if (
 			'' === $title || '00:00' === $duration || ! preg_match( '/^[0-9]{2}:[0-5][0-9]$/', $duration ) ||
 			! in_array( $primary, $genres, true ) || ( '' !== $secondary && ( $secondary === $primary || ! in_array( $secondary, $genres, true ) ) ) ||
-			empty( $writers ) || empty( $additional_credits ) || ! isset( $allowed_rights[ $nature ] ) || ! in_array( $rights_basis, $allowed_rights[ $nature ], true )
+			empty( $writers ) || empty( $additional_credits ) || ! isset( $allowed_rights[ $nature ] ) || ! in_array( $rights_basis, $allowed_rights[ $nature ], true ) ||
+			( 'remix' === $nature && 'same_release' === $rights_basis && '' === $rights_reference )
 		) {
 			continue;
 		}
@@ -1580,6 +1626,7 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 			'audio_status' => isset( $track['audio_status'] ) ? sanitize_key( $track['audio_status'] ) : '',
 			'content_nature' => $nature,
 			'rights_basis' => $rights_basis,
+			'rights_reference' => 'remix' === $nature && 'same_release' === $rights_basis ? $rights_reference : '',
 			'credits' => array(
 				'writers' => $writers, 'credits' => $additional_credits,
 				'authors' => $writer_summary( $writers, 'Lyricist' ), 'composers' => $writer_summary( $writers, 'Composer' ),
@@ -1588,7 +1635,14 @@ function trb_portal_sanitize_release_tracks( $tracks ) {
 			),
 		);
 	}
-	return $clean;
+	$original_titles = array();
+	foreach ( $clean as $track ) {
+		if ( 'original' === $track['content_nature'] ) $original_titles[] = sanitize_title( $track['title'] );
+	}
+	foreach ( $clean as $index => $track ) {
+		if ( 'remix' === $track['content_nature'] && 'same_release' === $track['rights_basis'] && ! in_array( sanitize_title( $track['rights_reference'] ), $original_titles, true ) ) unset( $clean[ $index ] );
+	}
+	return array_values( $clean );
 }
 
 /**
@@ -1681,7 +1735,7 @@ function trb_portal_seed_guides() {
 		$guides[ $prefix . 'metadati' ] = array(
 			'title' => 'Metadati, crediti e diritti: controlli obbligatori', 'profiles' => array( $profile ),
 			'excerpt' => 'Titoli, featuring, autori, compositori e titolarità senza errori.',
-			'content' => '<p>Prima dell’invio verifica che titolo, nome d’arte, versione, featuring e crediti siano corretti e definitivi.</p><ul><li>Indica tutti gli autori, compositori, interpreti, produttori e musicisti coinvolti.</li><li>Scrivi il featuring esattamente come deve comparire sulle piattaforme.</li><li>Per sample, beat, basi e contenuti di terzi devi possedere autorizzazioni e diritti necessari.</li><li>Segnala se la release è già stata pubblicata e inserisci la data originale.</li><li>Non cambiare metadati dopo l’avvio senza aprire una segnalazione.</li></ul>',
+			'content' => '<p>Prima dell’invio verifica che titolo, nome d’arte, versione, featuring e crediti siano corretti e definitivi.</p><ul><li>Indica tutti gli autori, compositori, interpreti, produttori e musicisti coinvolti.</li><li>Scrivi il featuring esattamente come deve comparire sulle piattaforme.</li><li>TRB rec non accetta cover o reinterpretazioni.</li><li>Per type beat, remix non collegati a un originale incluso nella stessa release ed estratti da film o altri brani protetti devi allegare una licenza specifica valida.</li><li>In assenza della documentazione richiesta, il brano non può essere inviato né pubblicato.</li><li>Segnala se la release è già stata pubblicata e inserisci la data originale.</li><li>Non cambiare metadati dopo l’avvio senza aprire una segnalazione.</li></ul>',
 		);
 		$guides[ $prefix . 'tempistiche' ] = array(
 			'title' => 'Tempistiche e programmazione della pubblicazione', 'profiles' => array( $profile ),
@@ -2663,9 +2717,9 @@ function trb_portal_render_release_files( $release_id ) {
 	if ( ! is_array( $files ) || empty( $files ) ) return;
 	?><div class="trb-release-files" id="release-files-<?php echo esc_attr( $release_id ); ?>"><h4>Materiali caricati</h4><div class="trb-release-files__list"><?php foreach ( $files as $index => $file ) :
 		$kind = isset( $file['kind'] ) ? $file['kind'] : '';
-		$label = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : 'Testo del brano' ) );
-		if ( in_array( $kind, array( 'lyrics', 'audio' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
-		$accept = 'cover' === $kind ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : ( 'audio' === $kind ? '.wav,audio/wav,audio/x-wav' : '.txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text' );
+		$label = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) );
+		if ( in_array( $kind, array( 'lyrics', 'audio', 'rights_document' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
+		$accept = 'cover' === $kind ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : ( 'audio' === $kind ? '.wav,audio/wav,audio/x-wav' : ( 'rights_document' === $kind ? '.pdf,application/pdf' : '.txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text' ) );
 		?><article class="trb-release-file"><?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?><div class="trb-release-file__details"><strong><?php echo esc_html( $label ); ?></strong><span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span><?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'mastering richiesto' : 'master' ) ); ?></small><?php endif; ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica il file</a><details><summary>Sostituisci</summary><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_replace_release_file" /><input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" /><input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" /><?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?><input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required /><?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV stereo · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?><button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button></form></details></div></article><?php endforeach; ?></div><?php $analysis_report = (array) get_post_meta( $release_id, '_trb_release_analysis_report', true ); if ( ! empty( $analysis_report['name'] ) && function_exists( 'trb_analysis_report_url' ) ) : ?><div class="trb-portal__message"><strong>Report di analisi</strong><p>Il controllo tecnico e dei diritti è documentato e collegato alla versione del WAV tramite hash SHA-256.</p><a class="trb-button trb-button--compact" href="<?php echo esc_url( trb_analysis_report_url( $release_id ) ); ?>">Scarica il report PDF</a></div><?php endif; ?><?php if ( function_exists( 'trb_resource_render_rights_box' ) ) trb_resource_render_rights_box( $release_id ); ?></div><?php
 }
 
@@ -2749,8 +2803,10 @@ function trb_portal_render_release_section() {
 				<label>Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required data-track-advisory><option value="" selected disabled>Seleziona una voce</option><option value="no_lyrics">Nessun testo</option><option value="non_explicit">Testo non esplicito</option><option value="clean">Clean (versione censurata)</option><option value="explicit">Testo con contenuti espliciti</option></select></label>
 				<label>Genere musicale primario <span aria-hidden="true">*</span><input type="search" name="trb_tracks[__INDEX__][primary_genre]" required list="trb-release-genres" autocomplete="off" placeholder="Cerca e seleziona il genere primario" /></label>
 				<label>Genere musicale secondario <small>facoltativo</small><input type="search" name="trb_tracks[__INDEX__][secondary_genre]" list="trb-release-genres" autocomplete="off" placeholder="Cerca un eventuale genere secondario" /></label>
-				<label>Natura del contenuto <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][content_nature]" required data-content-nature><option value="" selected disabled>Seleziona una voce</option><option value="original">Opera originale</option><option value="cover">Cover / reinterpretazione</option><option value="type_beat">Type beat / beat con licenza</option><option value="sample">Contiene sample</option><option value="remix">Remix</option></select></label>
-				<label>Titolarità e autorizzazioni <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][rights_basis]" required data-rights-basis disabled><option value="">Seleziona prima la natura</option></select><small data-rights-help>La dichiarazione determina i controlli e l'eventuale documentazione richiesta.</small></label>
+				<label>Natura del contenuto <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][content_nature]" required data-content-nature><option value="" selected disabled>Seleziona una voce</option><option value="original">Opera originale</option><option value="type_beat">Type beat / beat con licenza</option><option value="remix">Remix</option><option value="protected_samples">Contiene estratti da film o da altri brani protetti da copyright</option></select><small class="trb-rights-policy-note">Le cover e le reinterpretazioni non sono accettate da TRB rec.</small></label>
+				<label>Titolarità e autorizzazioni <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][rights_basis]" required data-rights-basis disabled><option value="">Seleziona prima la natura</option></select><small data-rights-help>La dichiarazione determina i controlli e la documentazione richiesta.</small></label>
+				<label class="trb-rights-reference" data-rights-reference hidden>Brano originale presente nella stessa release <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][rights_reference]" maxlength="160" disabled placeholder="Inserisci il titolo esatto del brano originale" /><small>Il titolo deve corrispondere a un altro brano indicato come opera originale in questa stessa release.</small></label>
+				<label class="trb-rights-document" data-rights-document hidden>Licenza o autorizzazione specifica <span aria-hidden="true">*</span><input type="file" name="trb_track_rights_document[__INDEX__]" accept=".pdf,application/pdf" disabled /><small>Allega un unico PDF completo, massimo 10 MB. Se non disponi della licenza necessaria, il brano non può essere inviato né pubblicato.</small></label>
 			</div><div class="trb-track-audio"><strong>File audio del brano <span>*</span></strong><input type="file" name="trb_track_audio[__INDEX__]" accept=".wav,audio/wav,audio/x-wav" required /><small>Solo formato WAV · minimo 44.100 Hz / 16 bit. È fortemente consigliato 48.000 Hz / 24 bit. Il sistema verifica automaticamente caratteristiche e durata reale del file.</small><span class="trb-audio-duration-check" data-audio-duration-check aria-live="polite"></span><?php if ( 'dds' === $profile ) : ?><input type="hidden" name="trb_tracks[__INDEX__][audio_status]" value="mastered" /><p class="trb-audio-dds-note">Per il profilo DDS il file audio deve essere già in versione master.</p><?php else : ?><fieldset class="trb-audio-status"><legend>Stato del file audio <span>*</span></legend><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastered" required /> Il brano è già in versione master</label><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastering" required /> Richiedo il mastering del brano</label></fieldset><?php endif; ?></div><label class="trb-track-lyrics" data-track-lyrics hidden>Testo del brano <span>*</span><input type="file" name="trb_track_lyrics[__INDEX__]" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" disabled /><small>Obbligatorio quando il brano contiene un testo. Allega TXT, DOCX, ODT o RTF · massimo 5 MB.</small></label></div>
 			<fieldset class="trb-portal__credits"><legend>Crediti</legend><p class="trb-portal__field-help">Inserisci ogni persona separatamente e seleziona tutti i ruoli che si applicano.</p>
 				<div class="trb-contributor-group" data-contributor-group="writers"><h4>Autori e compositori <span>*</span></h4><p>Indica chi ha scritto il testo e chi ha composto la musica. La quota viene ripartita automaticamente in parti uguali fra le persone inserite.</p><div data-contributor-rows><div class="trb-contributor-row trb-contributor-row--writer"><input type="text" name="trb_tracks[__INDEX__][credits][writers][0][name]" required aria-label="Nome dell’autore o compositore" placeholder="Nome completo" /><fieldset class="trb-writer-roles"><legend>Ruolo <span>*</span></legend><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Lyricist" /> Autore</label><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Composer" /> Compositore</label></fieldset><label class="trb-writer-share">Quota diritto d’autore<input type="text" name="trb_tracks[__INDEX__][credits][writers][0][share]" value="100,00%" readonly tabindex="-1" data-writer-share /></label><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi autore/compositore</button></div>
@@ -2768,11 +2824,12 @@ function trb_portal_render_release_section() {
 		function contributorPrototype(group){var source=template.content.querySelector('[data-contributor-group="'+group.dataset.contributorGroup+'"] [data-contributor-rows] > .trb-contributor-row');return source?source.cloneNode(true):null;}
 		function validateGenres(track){var primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]'),same=primary.value.trim()!==''&&primary.value.trim()===secondary.value.trim();secondary.setCustomValidity(same?'Il genere secondario deve essere diverso dal genere primario.':'');}
 		function updateLyrics(track){var advisory=track.querySelector('[data-track-advisory]'),wrap=track.querySelector('[data-track-lyrics]'),file=wrap.querySelector('input[type="file"]'),required=advisory.value!==''&&advisory.value!=='no_lyrics';wrap.hidden=!required;file.disabled=!required;file.required=required;if(!required)file.value='';}
-		function updateRights(track){var nature=track.querySelector('[data-content-nature]'),basis=track.querySelector('[data-rights-basis]'),help=track.querySelector('[data-rights-help]'),choices={original:[['owned','Confermo di controllare i diritti necessari']],cover:[['rerecorded','Nuova registrazione senza uso del master originale']],type_beat:[['exclusive','Licenza esclusiva / diritti completi'],['nonexclusive','Licenza non esclusiva / basic']],sample:[['licensed','Sample autorizzato e documentabile'],['documents_pending','Documentazione da fornire']],remix:[['authorized','Remix autorizzato e documentabile'],['documents_pending','Documentazione da fornire']]};basis.innerHTML='';(choices[nature.value]||[]).forEach(function(item){var option=document.createElement('option');option.value=item[0];option.textContent=item[1];basis.appendChild(option);});basis.disabled=!choices[nature.value];if(choices[nature.value]){var first=document.createElement('option');first.value='';first.textContent='Seleziona una dichiarazione';first.disabled=true;first.selected=true;basis.insertBefore(first,basis.firstChild);}help.textContent=nature.value==='type_beat'?'Le licenze non esclusive possono impedire Content ID e monetizzazione social. Conserva il contratto di licenza.':'La dichiarazione determina i controlli e l’eventuale documentazione richiesta.';}
+		function syncRightsFields(track){var nature=track.querySelector('[data-content-nature]'),basis=track.querySelector('[data-rights-basis]'),referenceWrap=track.querySelector('[data-rights-reference]'),documentWrap=track.querySelector('[data-rights-document]');if(!nature||!basis||!referenceWrap||!documentWrap)return;var reference=referenceWrap.querySelector('input'),documentInput=documentWrap.querySelector('input'),needsReference=nature.value==='remix'&&basis.value==='same_release',needsDocument=nature.value==='type_beat'||nature.value==='protected_samples'||(nature.value==='remix'&&basis.value==='licensed');referenceWrap.hidden=!needsReference;reference.disabled=!needsReference;reference.required=needsReference;if(!needsReference)reference.value='';documentWrap.hidden=!needsDocument;documentInput.disabled=!needsDocument;documentInput.required=needsDocument;if(!needsDocument)documentInput.value='';}
+		function updateRights(track){var nature=track.querySelector('[data-content-nature]'),basis=track.querySelector('[data-rights-basis]'),help=track.querySelector('[data-rights-help]'),choices={original:[['owned','Confermo che musica, testo e master sono originali e non includono contenuti di terzi']],type_beat:[['exclusive','Dispongo di una licenza esclusiva'],['nonexclusive','Dispongo di una licenza non esclusiva / basic']],remix:[['same_release','Il brano originale è incluso nella stessa release'],['licensed','Dispongo di una licenza specifica per realizzare e pubblicare il remix']],protected_samples:[['licensed','Dispongo delle licenze specifiche per tutti i contenuti protetti utilizzati']]};basis.innerHTML='';(choices[nature.value]||[]).forEach(function(item){var option=document.createElement('option');option.value=item[0];option.textContent=item[1];basis.appendChild(option);});basis.disabled=!choices[nature.value];if(choices[nature.value]){var first=document.createElement('option');first.value='';first.textContent='Seleziona una dichiarazione';first.disabled=true;first.selected=true;basis.insertBefore(first,basis.firstChild);}var helps={original:'Seleziona questa voce solo se il brano non utilizza opere, master o contenuti protetti appartenenti a terzi.',type_beat:'La licenza del beat è obbligatoria. Le licenze non esclusive possono escludere Content ID e monetizzazione social.',remix:'Se il brano originale non è incluso nella stessa release, devi allegare una licenza specifica per il remix e la sua pubblicazione.',protected_samples:'Questa voce riguarda estratti da film o altri brani protetti da copyright. Senza licenze specifiche il brano non può essere inviato.'};help.textContent=helps[nature.value]||'La dichiarazione determina i controlli e la documentazione richiesta.';syncRightsFields(track);}
 		function updateWriterShares(group){var rows=contributorRows(group),count=rows.length,base=Math.floor(10000/count),remainder=10000-(base*count);rows.forEach(function(row,index){var share=row.querySelector('[data-writer-share]'),roles=row.querySelectorAll('.trb-writer-roles input[type="checkbox"]'),selected=Array.prototype.some.call(roles,function(role){return role.checked;});if(share){var cents=base+(index<remainder?1:0);share.value=(cents/100).toFixed(2).replace('.',',')+'%';}if(roles.length)roles[0].setCustomValidity(selected?'':'Seleziona Autore, Compositore oppure entrambi.');});}
 		function renumberContributors(track){track.querySelectorAll('[data-contributor-group]').forEach(function(group){var key=group.dataset.contributorGroup; contributorRows(group).forEach(function(row,index){row.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(new RegExp('(credits\\]\\['+key+'\\]\\[)\\d+(\\])'),'$1'+index+'$2');}); var remove=row.querySelector('[data-remove-contributor]'); if(remove)remove.hidden=contributorRows(group).length===1;});if(key==='writers')updateWriterShares(group);});}
-		function renumber(){var tracks=wrap.querySelectorAll('[data-track]');tracks.forEach(function(track,index){track.querySelector('[data-track-number]').textContent=index+1;track.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/trb_tracks\[\d+\]/,'trb_tracks['+index+']').replace(/trb_track_lyrics\[\d+\]/,'trb_track_lyrics['+index+']').replace(/trb_track_audio\[\d+\]/,'trb_track_audio['+index+']');});renumberContributors(track);track.querySelector('[data-remove-track]').hidden=tracks.length===1;});var selected=form.querySelector('input[name="trb_release_type"]:checked');if(selected){var max=Number(selected.dataset.max||60);add.disabled=tracks.length>=max;add.textContent=tracks.length>=max?'Limite raggiunto':'+ Aggiungi un altro brano';}}
-		function addTrack(){var index=wrap.querySelectorAll('[data-track]').length,html=template.innerHTML.replace(/__INDEX__/g,index);wrap.insertAdjacentHTML('beforeend',html);var track=wrap.lastElementChild,primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]'),advisory=track.querySelector('[data-track-advisory]'),nature=track.querySelector('[data-content-nature]');primary.addEventListener('input',function(){validateGenres(track);});secondary.addEventListener('input',function(){validateGenres(track);});advisory.addEventListener('change',function(){updateLyrics(track);});nature.addEventListener('change',function(){updateRights(track);});updateLyrics(track);updateRights(track);renumber();}
+		function renumber(){var tracks=wrap.querySelectorAll('[data-track]');tracks.forEach(function(track,index){track.querySelector('[data-track-number]').textContent=index+1;track.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/trb_tracks\[\d+\]/,'trb_tracks['+index+']').replace(/trb_track_lyrics\[\d+\]/,'trb_track_lyrics['+index+']').replace(/trb_track_audio\[\d+\]/,'trb_track_audio['+index+']').replace(/trb_track_rights_document\[\d+\]/,'trb_track_rights_document['+index+']');});renumberContributors(track);track.querySelector('[data-remove-track]').hidden=tracks.length===1;});var selected=form.querySelector('input[name="trb_release_type"]:checked');if(selected){var max=Number(selected.dataset.max||60);add.disabled=tracks.length>=max;add.textContent=tracks.length>=max?'Limite raggiunto':'+ Aggiungi un altro brano';}}
+		function addTrack(){var index=wrap.querySelectorAll('[data-track]').length,html=template.innerHTML.replace(/__INDEX__/g,index);wrap.insertAdjacentHTML('beforeend',html);var track=wrap.lastElementChild,primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]'),advisory=track.querySelector('[data-track-advisory]'),nature=track.querySelector('[data-content-nature]'),basis=track.querySelector('[data-rights-basis]');primary.addEventListener('input',function(){validateGenres(track);});secondary.addEventListener('input',function(){validateGenres(track);});advisory.addEventListener('change',function(){updateLyrics(track);});nature.addEventListener('change',function(){updateRights(track);});basis.addEventListener('change',function(){syncRightsFields(track);});updateLyrics(track);updateRights(track);renumber();}
 		function updateType(){var selected=form.querySelector('input[name="trb_release_type"]:checked'),catalogue=selected&&selected.dataset.catalogue==='1';title.hidden=!!catalogue;title.querySelector('input').required=!catalogue;if(catalogue){title.querySelector('input').value='';var old=form.querySelector('input[value="previously_released"]');old.checked=true;}updateState();renumber();}
 		function updateState(){var selected=form.querySelector('input[name="trb_release_state"]:checked'),unreleased=selected&&selected.value==='unreleased',old=selected&&selected.value==='previously_released';releaseDate.hidden=!unreleased;releaseDateInput.required=!!unreleased;releaseDateInput.disabled=!unreleased;if(!unreleased)releaseDateInput.value='';originalDate.hidden=!old;originalDateInput.required=!!old;originalDateInput.disabled=!old;if(!old)originalDateInput.value='';}
 		add.addEventListener('click',addTrack);

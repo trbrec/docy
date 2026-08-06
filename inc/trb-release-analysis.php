@@ -241,7 +241,7 @@ function trb_analysis_decide_release( $release_id ) {
 		}
 		if ( ! empty( $result['deepright'] ) ) $yellow = true;
 	}
-	foreach ( $declarations as $declaration ) if ( in_array( $declaration['nature'] ?? '', array( 'cover','type_beat','sample','remix' ), true ) ) $yellow = true;
+	foreach ( $declarations as $declaration ) if ( in_array( $declaration['nature'] ?? '', array( 'type_beat','protected_samples','remix' ), true ) ) $yellow = true;
 	$semaphore = $red ? 'red' : ( $yellow ? 'yellow' : 'green' );
 	$benchmark_ready = ! empty( $s['benchmark_complete'] ) && trb_analysis_benchmark_count() >= absint( $s['benchmark_required'] );
 	$documents = (array) get_post_meta( $release_id, '_trb_release_rights_documents', true );
@@ -318,7 +318,7 @@ function trb_analysis_generate_report( $release_id ) {
 	}
 	foreach ( $decision['results'] ?? array() as $index => $result ) foreach ( $result['matches'] ?? array() as $match ) $lines[] = 'Match brano ' . ( $index + 1 ) . ': ' . $match['engine'] . ' - ' . $match['title'] . ' - ' . implode( ', ', $match['artists'] ) . ' - score ' . $match['score'];
 	if ( function_exists( 'trb_resource_tables' ) ) { global $wpdb; $ledger = trb_resource_tables()['usage']; $current_hashes = array(); foreach ( (array) get_post_meta( $release_id, '_trb_release_files', true ) as $file ) if ( 'audio' === ( $file['kind'] ?? '' ) ) $current_hashes[ absint( $file['track'] ?? 0 ) ] = (string) ( $file['sha256'] ?? '' ); $raw_rows = $wpdb->get_results( $wpdb->prepare( "SELECT track_index,file_hash,payload FROM $ledger WHERE release_id=%d AND provider='acrcloud' AND service IN ('fingerprinting','fingerprinting_reuse') AND status='completed' ORDER BY id", $release_id ), ARRAY_A ); foreach ( $raw_rows as $raw_row ) { if ( empty( $current_hashes[ absint( $raw_row['track_index'] ) ] ) || ! hash_equals( $current_hashes[ absint( $raw_row['track_index'] ) ], (string) $raw_row['file_hash'] ) ) continue; $lines[] = 'Risultato grezzo ACR brano ' . ( absint( $raw_row['track_index'] ) + 1 ) . ':'; foreach ( str_split( (string) $raw_row['payload'], 100 ) as $chunk ) $lines[] = $chunk; } }
-	foreach ( (array) get_post_meta( $release_id, '_trb_release_rights_declarations', true ) as $index => $declaration ) $lines[] = 'Dichiarazione brano ' . ( $index + 1 ) . ': ' . ( $declaration['nature'] ?? '' ) . ' / ' . ( $declaration['basis'] ?? '' );
+	foreach ( (array) get_post_meta( $release_id, '_trb_release_rights_declarations', true ) as $index => $declaration ) $lines[] = 'Dichiarazione brano ' . ( $index + 1 ) . ': ' . ( $declaration['nature'] ?? '' ) . ' / ' . ( $declaration['basis'] ?? '' ) . ( ! empty( $declaration['reference'] ) ? ' / riferimento: ' . $declaration['reference'] : '' );
 	foreach ( (array) get_post_meta( $release_id, '_trb_release_rights_documents', true ) as $document ) $lines[] = 'Documento diritti: ' . ( $document['original_name'] ?? $document['name'] ?? '' ) . ' - SHA256 ' . ( $document['sha256'] ?? '' ) . ' - ' . ( $document['status'] ?? '' );
 	foreach ( (array) get_post_meta( $release_id, '_trb_release_decision_history', true ) as $event ) { $user = get_userdata( absint( $event['user_id'] ?? 0 ) ); $lines[] = 'Cronologia: ' . gmdate( 'c', absint( $event['at'] ?? 0 ) ) . ' - ' . ( $event['action'] ?? '' ) . ' - ' . ( $user ? $user->user_login : 'sistema' ); }
 	$lines[] = 'Restrizioni Content ID/social: le licenze non esclusive o basic richiedono verifica e possono escludere la monetizzazione.';
