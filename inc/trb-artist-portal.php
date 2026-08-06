@@ -1110,6 +1110,39 @@ function trb_portal_hydrate_release_post() {
 }
 add_action( 'admin_init', 'trb_portal_hydrate_release_post', 0 );
 
+/**
+ * Dispatch the portal's public-facing admin-post actions before role redirect
+ * plugins can replace their response with the artist dashboard. Artists must
+ * remain outside wp-admin, but these narrowly allowlisted endpoints are the
+ * form and protected-file transport used by that dashboard itself.
+ */
+function trb_portal_route_frontend_admin_post() {
+	$script = isset( $_SERVER['SCRIPT_NAME'] ) ? basename( sanitize_text_field( wp_unslash( $_SERVER['SCRIPT_NAME'] ) ) ) : '';
+	if ( 'admin-post.php' !== $script ) return;
+
+	$raw_action = isset( $_REQUEST['action'] ) ? wp_unslash( $_REQUEST['action'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$action = is_string( $raw_action ) ? sanitize_key( $raw_action ) : '';
+	$allowed = array(
+		'trb_portal_save_artist_profile',
+		'trb_portal_stage_release_chunk',
+		'trb_portal_release_file',
+		'trb_portal_replace_release_file',
+		'trb_portal_start_release',
+		'trb_portal_private_file',
+		'trb_portal_submit_demo',
+		'trb_portal_submit_support',
+		'trb_resource_upload_rights',
+		'trb_analysis_download_report',
+	);
+	if ( ! in_array( $action, $allowed, true ) ) return;
+
+	$hook = is_user_logged_in() ? 'admin_post_' . $action : 'admin_post_nopriv_' . $action;
+	if ( ! has_action( $hook ) ) return;
+	do_action( $hook );
+	wp_die( 'La richiesta non ha restituito una risposta.', 'Portale Artisti TRB rec', array( 'response' => 500 ) );
+}
+add_action( 'admin_init', 'trb_portal_route_frontend_admin_post', 1 );
+
 function trb_portal_release_staging_root( $user_id = 0 ) {
 	$uploads = wp_upload_dir();
 	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
