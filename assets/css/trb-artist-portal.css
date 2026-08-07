@@ -325,6 +325,7 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-release-file form input[type="file"] { background: #fff; border: 1px dashed var(--trb-line); font-size: 12px; max-width: 340px; padding: 7px; }
 .trb-release-file form label { align-items: center; display: flex; font-size: 12px; gap: 6px; }
 .trb-release-file form label input { height: auto; margin: 0; width: auto; }
+.trb-release-audio { display: block; height: 42px; margin: 6px 0 2px; max-width: 620px; width: 100%; }
 .trb-portal__release-list { display: grid; gap: 12px; }
 .trb-portal__release-list article { background: #fff; border: 1px solid var(--trb-line); border-left: 4px solid var(--trb-accent); border-radius: 12px; display: grid; gap: 5px; padding: 19px 21px; }
 .trb-portal__release-list article.is-active { border-color: #77a0c3; box-shadow: 0 10px 28px rgba(9,43,87,.12); }
