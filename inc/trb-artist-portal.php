@@ -1428,6 +1428,7 @@ function trb_portal_wav_spec( $path ) {
 	}
 	$spec = null;
 	$data_size = null;
+	$data_offset = null;
 	while ( ! feof( $handle ) ) {
 		$chunk = fread( $handle, 8 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
 		if ( 8 !== strlen( $chunk ) ) break;
@@ -1453,6 +1454,7 @@ function trb_portal_wav_spec( $path ) {
 		}
 		if ( 'data' === substr( $chunk, 0, 4 ) ) {
 			$data_size = $size;
+			$data_offset = ftell( $handle );
 			if ( is_array( $spec ) ) break;
 		}
 		fseek( $handle, $size + ( $size % 2 ), SEEK_CUR );
@@ -1460,8 +1462,53 @@ function trb_portal_wav_spec( $path ) {
 	fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 	if ( ! is_array( $spec ) || ! in_array( $spec['format'], array( 1, 65534 ), true ) || null === $data_size || $spec['byte_rate'] <= 0 ) return new WP_Error( 'invalid_audio' );
 	$spec['data_size'] = $data_size;
+	$spec['data_offset'] = $data_offset;
 	$spec['duration_seconds'] = $data_size / $spec['byte_rate'];
 	return $spec;
+}
+
+/** Build a compact waveform without loading the complete WAV into memory. */
+function trb_portal_wav_waveform_peaks( $path, $points = 720 ) {
+	$spec = trb_portal_wav_spec( $path );
+	if ( is_wp_error( $spec ) || empty( $spec['data_offset'] ) || empty( $spec['data_size'] ) ) return array();
+	$points = min( 1200, max( 240, absint( $points ) ) );
+	$block_align = max( 1, (int) ( $spec['channels'] * ( $spec['bit_depth'] / 8 ) ) );
+	$bytes_per_sample = (int) ( $spec['bit_depth'] / 8 );
+	$total_frames = (int) floor( $spec['data_size'] / $block_align );
+	if ( $total_frames <= 0 || ! in_array( $bytes_per_sample, array( 2, 3 ), true ) ) return array();
+
+	$handle = @fopen( $path, 'rb' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+	if ( ! $handle ) return array();
+	$peaks = array();
+	for ( $point = 0; $point < $points; $point++ ) {
+		$bucket_start = (int) floor( $point * $total_frames / $points );
+		$bucket_end   = (int) floor( ( $point + 1 ) * $total_frames / $points );
+		$bucket_span  = max( 1, $bucket_end - $bucket_start );
+		$window_frames = min( 384, $bucket_span );
+		$peak = 0.0;
+		foreach ( array( 0.18, 0.50, 0.82 ) as $position ) {
+			$window_start = $bucket_start + (int) floor( max( 0, $bucket_span - $window_frames ) * $position );
+			fseek( $handle, (int) $spec['data_offset'] + ( $window_start * $block_align ) );
+			$audio = fread( $handle, $window_frames * $block_align ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+			$length = strlen( $audio );
+			for ( $offset = 0; $offset + $bytes_per_sample <= $length; $offset += $bytes_per_sample ) {
+				if ( 2 === $bytes_per_sample ) {
+					$unpacked = unpack( 'vvalue', substr( $audio, $offset, 2 ) );
+					$value = (int) $unpacked['value'];
+					if ( $value >= 32768 ) $value -= 65536;
+					$amplitude = abs( $value ) / 32768;
+				} else {
+					$value = ord( $audio[ $offset ] ) | ( ord( $audio[ $offset + 1 ] ) << 8 ) | ( ord( $audio[ $offset + 2 ] ) << 16 );
+					if ( $value & 0x800000 ) $value -= 0x1000000;
+					$amplitude = abs( $value ) / 8388608;
+				}
+				if ( $amplitude > $peak ) $peak = $amplitude;
+			}
+		}
+		$peaks[] = round( min( 1, $peak ), 4 );
+	}
+	fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+	return $peaks;
 }
 
 /** Validate the real structure of the small text documents accepted by the portal. */
@@ -1576,7 +1623,10 @@ function trb_portal_store_release_upload( $release_id, $file, $kind, $track_inde
 	$stored = array( 'kind' => $kind, 'track' => null === $track_index ? null : absint( $track_index ), 'name' => 'audio' === $kind ? $canonical_filename : $filename, 'original_name' => sanitize_file_name( $file['name'] ), 'path' => $relative_dir . '/' . $filename, 'type' => sanitize_mime_type( $file['type'] ), 'size' => filesize( $target ), 'sha256' => hash_file( 'sha256', $target ) );
 	if ( 'audio' === $kind ) {
 		$spec = trb_portal_wav_spec( $target );
-		if ( ! is_wp_error( $spec ) ) $stored['audio_spec'] = $spec;
+		if ( ! is_wp_error( $spec ) ) {
+			$stored['audio_spec'] = $spec;
+			$stored['waveform_peaks'] = trb_portal_wav_waveform_peaks( $target );
+		}
 	}
 	return $stored;
 }
@@ -1597,6 +1647,41 @@ function trb_portal_release_file_url( $release_id, $file_index, $inline = false,
 	);
 	return wp_nonce_url( $url, 'trb_portal_release_file_' . absint( $release_id ) . '_' . absint( $file_index ) );
 }
+
+function trb_portal_release_waveform_url( $release_id, $file_index ) {
+	$url = add_query_arg(
+		array( 'action' => 'trb_portal_release_waveform', 'release_id' => absint( $release_id ), 'file_index' => absint( $file_index ) ),
+		admin_url( 'admin-post.php' )
+	);
+	return wp_nonce_url( $url, 'trb_portal_release_waveform_' . absint( $release_id ) . '_' . absint( $file_index ) );
+}
+
+/** Lazily build waveform data for legacy releases only when their card is opened. */
+function trb_portal_release_waveform() {
+	if ( ! is_user_logged_in() ) auth_redirect();
+	$release_id = isset( $_GET['release_id'] ) ? absint( $_GET['release_id'] ) : 0;
+	$file_index = isset( $_GET['file_index'] ) ? absint( $_GET['file_index'] ) : 0;
+	check_admin_referer( 'trb_portal_release_waveform_' . $release_id . '_' . $file_index );
+	if ( ! trb_portal_current_user_can_access_release( $release_id ) ) wp_send_json_error( array( 'message' => 'Operazione non consentita.' ), 403 );
+	$files = get_post_meta( $release_id, '_trb_release_files', true );
+	if ( ! is_array( $files ) || empty( $files[ $file_index ] ) || 'audio' !== ( $files[ $file_index ]['kind'] ?? '' ) ) wp_send_json_error( array( 'message' => 'File audio non disponibile.' ), 404 );
+	$file = $files[ $file_index ];
+	$peaks = isset( $file['waveform_peaks'] ) && is_array( $file['waveform_peaks'] ) ? $file['waveform_peaks'] : array();
+	if ( empty( $peaks ) ) {
+		$local = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $file ) : '';
+		if ( ! $local || ! is_file( $local ) ) wp_send_json_error( array( 'message' => 'Forma d’onda temporaneamente non disponibile.' ), 404 );
+		$peaks = trb_portal_wav_waveform_peaks( $local );
+		if ( empty( $peaks ) ) wp_send_json_error( array( 'message' => 'Forma d’onda temporaneamente non disponibile.' ), 422 );
+		$files[ $file_index ]['waveform_peaks'] = $peaks;
+		update_post_meta( $release_id, '_trb_release_files', array_values( $files ) );
+	}
+	wp_send_json_success( array(
+		'peaks'    => array_values( $peaks ),
+		'duration' => (float) ( $file['audio_spec']['duration_seconds'] ?? 0 ),
+		'name'     => sanitize_file_name( $file['name'] ?? 'audio.wav' ),
+	) );
+}
+add_action( 'admin_post_trb_portal_release_waveform', 'trb_portal_release_waveform' );
 
 function trb_portal_current_user_can_access_release( $release_id ) {
 	$post = get_post( $release_id );
@@ -3342,7 +3427,17 @@ function trb_portal_render_release_files( $release_id ) {
 						<span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span>
 						<?php if ( $metadata ) : ?><small><?php echo esc_html( $metadata ); ?></small><?php endif; ?>
 						<?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'Mastering richiesto · il master finale comparirà qui automaticamente' : 'Master finale' ) ); ?></small><?php endif; ?>
-						<?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><audio class="trb-release-audio" controls preload="metadata" src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, false, true ) ); ?>">Il browser non supporta il player audio.</audio><?php endif; ?>
+						<?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) :
+							$waveform_peaks = isset( $file['waveform_peaks'] ) && is_array( $file['waveform_peaks'] ) ? array_values( $file['waveform_peaks'] ) : array();
+							$audio_duration = (float) ( $file['audio_spec']['duration_seconds'] ?? 0 );
+							?>
+							<div class="trb-waveform-player" data-trb-waveform-player data-peaks="<?php echo esc_attr( wp_json_encode( $waveform_peaks ) ); ?>" data-waveform-url="<?php echo esc_url( trb_portal_release_waveform_url( $release_id, $index ) ); ?>">
+								<button class="trb-waveform-player__play" type="button" aria-label="Riproduci <?php echo esc_attr( $file['name'] ?? 'il master WAV' ); ?>"><span aria-hidden="true">▶</span></button>
+								<button class="trb-waveform-player__seek" type="button" aria-label="Sposta la riproduzione lungo la forma d’onda"><canvas width="900" height="92" aria-hidden="true"></canvas></button>
+								<div class="trb-waveform-player__meta"><span><b data-waveform-current>00:00</b><i aria-hidden="true">/</i><b data-waveform-duration><?php echo esc_html( gmdate( $audio_duration >= HOUR_IN_SECONDS ? 'H:i:s' : 'i:s', max( 0, (int) round( $audio_duration ) ) ) ); ?></b></span><strong><?php echo esc_html( $file['name'] ?? 'Master WAV' ); ?></strong></div>
+								<audio class="trb-waveform-player__audio" preload="metadata" src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, false, true ) ); ?>">Il browser non supporta il player audio.</audio>
+							</div>
+						<?php endif; ?>
 						<div class="trb-portal__stored-file-actions">
 							<?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica master WAV</a><?php elseif ( 'audio' !== $kind ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica originale</a><?php endif; ?>
 						</div>
@@ -3752,6 +3847,8 @@ function trb_portal_enqueue_assets() {
 		wp_enqueue_script( 'trb-demo-evaluation', get_template_directory_uri() . '/assets/js/trb-demo-evaluation.js', array(), file_exists( $demo_path ) ? (string) filemtime( $demo_path ) : DOCY_VERSION, true );
 		$release_upload_path = get_template_directory() . '/assets/js/trb-release-upload.js';
 		wp_enqueue_script( 'trb-release-upload', get_template_directory_uri() . '/assets/js/trb-release-upload.js', array(), file_exists( $release_upload_path ) ? (string) filemtime( $release_upload_path ) : DOCY_VERSION, true );
+		$waveform_path = get_template_directory() . '/assets/js/trb-audio-waveform.js';
+		wp_enqueue_script( 'trb-audio-waveform', get_template_directory_uri() . '/assets/js/trb-audio-waveform.js', array(), file_exists( $waveform_path ) ? (string) filemtime( $waveform_path ) : DOCY_VERSION, true );
 
 		// The retired forum is not part of the Artist Portal. Some legacy plugins
 		// enqueue their assets globally, so prevent them from affecting or slowing

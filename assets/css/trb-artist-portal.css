@@ -346,7 +346,26 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-release-file form input[type="file"] { background: #fff; border: 1px dashed var(--trb-line); font-size: 12px; max-width: 340px; padding: 7px; }
 .trb-release-file form label { align-items: center; display: flex; font-size: 12px; gap: 6px; }
 .trb-release-file form label input { height: auto; margin: 0; width: auto; }
-.trb-release-audio { display: block; height: 42px; margin: 6px 0 2px; max-width: 620px; width: 100%; }
+.trb-waveform-player { align-items: center; background: #fff; border: 1px solid #d7dee8; border-radius: 12px; display: grid; gap: 10px; grid-template-columns: 44px minmax(0,1fr); margin: 7px 0 3px; max-width: 780px; padding: 10px 12px; width: 100%; }
+.trb-waveform-player__play { align-items: center; background: #071f40; border: 0; border-radius: 50%; color: #fff; cursor: pointer; display: flex; font-size: 15px; height: 42px; justify-content: center; padding: 0 0 0 2px; transition: background .18s ease, transform .18s ease; width: 42px; }
+.trb-waveform-player__play:hover, .trb-waveform-player__play:focus-visible { background: #145a96; outline: none; transform: scale(1.04); }
+.trb-waveform-player.is-playing .trb-waveform-player__play { padding-left: 0; }
+.trb-waveform-player__seek { background: transparent; border: 0; cursor: pointer; display: block; height: 70px; margin: 0; overflow: hidden; padding: 0; position: relative; width: 100%; }
+.trb-waveform-player__seek canvas { display: block; height: 70px; width: 100%; }
+.trb-waveform-player__seek:focus-visible { border-radius: 6px; box-shadow: 0 0 0 3px rgba(9,43,87,.18); outline: none; }
+.trb-waveform-player__meta { align-items: center; display: flex; gap: 8px 14px; grid-column: 2; justify-content: space-between; min-width: 0; }
+.trb-waveform-player__meta > span { color: #18283c; display: inline-flex; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; gap: 5px; }
+.trb-waveform-player__meta i { color: #8290a0; font-style: normal; }
+.trb-waveform-player__meta > strong { color: var(--trb-ink); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trb-waveform-player__audio { display: none; }
+.trb-waveform-player.is-loading .trb-waveform-player__seek { opacity: .58; }
+@media (max-width: 560px) {
+  .trb-waveform-player { gap: 8px; grid-template-columns: 38px minmax(0,1fr); padding: 9px; }
+  .trb-waveform-player__play { height: 38px; width: 38px; }
+  .trb-waveform-player__seek, .trb-waveform-player__seek canvas { height: 58px; }
+  .trb-waveform-player__meta { align-items: start; display: grid; gap: 4px; }
+  .trb-waveform-player__meta > strong { max-width: 100%; }
+}
 .trb-portal__release-list { display: grid; gap: 12px; }
 .trb-portal__release-list article { background: #fff; border: 1px solid var(--trb-line); border-left: 4px solid var(--trb-accent); border-radius: 12px; display: grid; gap: 5px; padding: 19px 21px; }
 .trb-portal__release-list article.is-active { border-color: #77a0c3; box-shadow: 0 10px 28px rgba(9,43,87,.12); }
