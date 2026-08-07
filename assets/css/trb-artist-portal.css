@@ -359,6 +359,11 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__profile-progress-heading strong { color: var(--trb-accent); font-size: 22px; }
 .trb-portal__profile-progress-track { background: #d8e5ef; border-radius: 999px; height: 9px; margin-top: 15px; overflow: hidden; }
 .trb-portal__profile-progress-track span { background: linear-gradient(90deg,var(--trb-accent),#2f75ad); border-radius: inherit; display: block; height: 100%; min-width: 0; transition: width .3s ease; }
+.trb-portal__missing-requirements { background: #fff; border: 1px solid #efc7c2; border-radius: 10px; margin-top: 15px; padding: 12px 14px; }
+.trb-portal__missing-requirements > strong { color: #a92b20; font-size: 13px; }
+.trb-portal__missing-requirements ul { display: grid; gap: 5px; margin: 8px 0 0 18px; padding: 0; }
+.trb-portal__missing-requirements a { color: #a92b20; font-weight: 800; }
+.trb-portal__missing-requirements small { color: var(--trb-ink-soft); }
 .trb-portal__profile-accordions { display: grid; gap: 14px; }
 .trb-portal__profile-module { border: 1px solid var(--trb-line); border-radius: 16px; overflow: hidden; }
 .trb-portal__profile-module > summary { align-items: center; cursor: pointer; display: flex; justify-content: space-between; list-style: none; padding: 21px 24px; }
@@ -622,6 +627,8 @@ body:has(.trb-landing) .navbar_fixed_menu { display: none !important; }
 .trb-portal__photo-card label { padding: 0; }
 .trb-portal__file-list { display: grid; gap: 8px; }
 .trb-portal__stored-file { align-items: center; background: #fff; border: 1px solid var(--trb-line); border-radius: 9px; display: flex; gap: 12px; justify-content: space-between; padding: 10px 12px; }
+.trb-portal__stored-file > span > b { color: #176b3a; font-size: 12px; }
+.trb-portal__stored-file > span > small { color: var(--trb-ink-soft); display: block; margin-top: 3px; }
 .trb-portal__stored-file-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; padding: 9px 10px; }
 .trb-portal__stored-file-actions a { color: var(--trb-accent); font-size: 12px; font-weight: 800; text-decoration: none; }
 @media (max-width: 700px) {
