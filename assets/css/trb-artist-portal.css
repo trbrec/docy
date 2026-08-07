@@ -352,6 +352,7 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__demo h2 { color: var(--trb-ink); font-size: clamp(25px, 3vw, 34px); letter-spacing: -.035em; margin: 0 0 8px; }
 .trb-portal__demo > p:not(.trb-portal__eyebrow) { color: var(--trb-ink-soft); max-width: 690px; }
 .trb-portal__field-grid { display: grid; gap: 15px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.trb-portal__field-grid > .trb-portal__field-wide { grid-column: 1 / -1; }
 .trb-portal__profile-form { gap: 22px; }
 .trb-portal__profile-progress { background: linear-gradient(120deg,#edf5fb,#fff); border: 1px solid #cfdeeb; border-radius: 16px; margin-bottom: 16px; padding: 19px 22px; }
 .trb-portal__profile-progress-heading { align-items: center; display: flex; gap: 18px; justify-content: space-between; }
