@@ -81,6 +81,85 @@ function trb_portal_profiles() {
 }
 
 /**
+ * Canonical service catalogue for every contractual profile.
+ *
+ * This is the single source of truth for future portal sections, release
+ * cards and contextual Store offers. Do not infer entitlements from the
+ * apparent hierarchy of profiles: always read them from this matrix.
+ *
+ * Status values:
+ * - included: supplied by the artist's agreement;
+ * - store_50: not included, purchasable with the reserved 50% discount;
+ * - unavailable: neither included nor currently offered as an add-on.
+ */
+function trb_portal_service_catalogue() {
+	$all          = array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' );
+	$development  = array( 'ddb12', 'ddb', 'ddb_trb', 'trb' );
+	$press_roster = array( 'ddb_trb', 'trb' );
+
+	$service = static function( $label, $included, $store_50 = array(), $store_slug = '' ) use ( $all ) {
+		$statuses = array_fill_keys( $all, 'unavailable' );
+		foreach ( $included as $profile ) $statuses[ $profile ] = 'included';
+		foreach ( $store_50 as $profile ) $statuses[ $profile ] = 'store_50';
+		return array( 'label' => $label, 'profiles' => $statuses, 'store_slug' => $store_slug );
+	};
+
+	return array(
+		'digital_distribution' => $service( 'Distribuzione digitale mondiale', $all ),
+		'isrc_upc'              => $service( 'Codici ISRC e UPC', $all ),
+		'ugc_monetization'      => $service( 'Monetizzazione UGC, YouTube e social', $all ),
+		'mastering'             => $service( 'Mastering', $development, array( 'dds' ), 'mastering' ),
+		'cover_artwork'         => $service( 'Copertina grafica professionale', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'copertina-grafica' ),
+		'profile_optimization'  => $service( 'Ottimizzazione profilo Spotify/Apple Music', $development, array( 'dds' ), 'ottimizzazione-profilo-spotify-apple' ),
+		'smartlink'             => $service( 'Smartlink', $all ),
+		'promo_cards'           => $service( 'Promo Cards', $all ),
+		'editorial_pitching'    => $service( 'Pitching editoriale', $all ),
+		'owned_playlists'       => $service( 'Inserimento nelle playlist proprietarie', $all ),
+		'landing_page'          => $service( 'Landing page artista e release', $development ),
+		'digital_press_kit'     => $service( 'Digital Press Kit ed E-card', $development ),
+		'curator_campaigns'     => $service( 'Campagne verso curatori, blogger e influencer', $development, array( 'dds' ), 'campagne-curatori-blogger-influencer' ),
+		'press_release'         => $service( 'Comunicato stampa con diffusione', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'comunicato-stampa' ),
+		'radio_date'            => $service( 'Radio Date', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'radio-date' ),
+		'booking'               => $service( 'Booking e scouting live', $development ),
+		'training'              => $service( 'Formazione e Knowledge Hub', array( 'dds', 'ddb12', 'ddb', 'ddb_trb' ) ),
+		'priority_mentoring'    => $service( 'Assistenza prioritaria e mentoring', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
+		'certificate'           => $service( 'Certificato o attestato finale', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
+		'reporting'             => $service( 'Report e rendicontazione royalty', $all ),
+	);
+}
+
+/** Return one profile's status for a service, or false for unknown keys. */
+function trb_portal_service_status( $service, $profile = null ) {
+	$profile   = $profile ? sanitize_key( $profile ) : trb_portal_user_profile();
+	$catalogue = trb_portal_service_catalogue();
+	return isset( $catalogue[ $service ]['profiles'][ $profile ] ) ? $catalogue[ $service ]['profiles'][ $profile ] : false;
+}
+
+function trb_portal_profile_has_service( $service, $profile = null ) {
+	return 'included' === trb_portal_service_status( $service, $profile );
+}
+
+function trb_portal_service_store_url( $service, $profile = null ) {
+	if ( 'store_50' !== trb_portal_service_status( $service, $profile ) ) return '';
+	$catalogue = trb_portal_service_catalogue();
+	$slug      = isset( $catalogue[ $service ]['store_slug'] ) ? $catalogue[ $service ]['store_slug'] : '';
+	// Until each product exists, never manufacture a potentially broken URL.
+	// The Store integration will replace the fallback with the exact product URL.
+	return apply_filters( 'trb_portal_service_store_url', 'https://store.trbrec.com/', $service, $profile, $slug );
+}
+
+/** Contract rules which are not individual services. */
+function trb_portal_contract_rules() {
+	return array(
+		'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'base', 'indefinite_trb_roster' => false ),
+		'ddb12' => array( 'duration_months' => 12, 'release_limit' => 'one_per_month_max_12_year', 'training_level' => 'complete', 'indefinite_trb_roster' => false ),
+		'ddb' => array( 'duration_months' => 12, 'release_limit' => 'unlimited', 'training_level' => 'complete', 'indefinite_trb_roster' => false ),
+		'ddb_trb' => array( 'duration_months' => 24, 'release_limit' => 'unlimited', 'training_level' => 'complete', 'indefinite_trb_roster' => true, 'trb_roster_after_months' => 24, 'services_continue_indefinitely' => true ),
+		'trb' => array( 'duration_months' => null, 'release_limit' => 'unlimited', 'training_level' => 'not_applicable', 'indefinite_trb_roster' => true, 'services_continue_indefinitely' => true ),
+	);
+}
+
+/**
  * Read the one contractual profile assigned to a user.
  * Legacy TRB Basic remains readable until the controlled migration is run.
  */
@@ -371,8 +450,8 @@ add_action( 'template_redirect', 'trb_portal_protect_tagged_resource', 1 );
 
 /**
  * Small request centre. Individual forms are introduced one by one, based on
- * the services included in each agreement. Cover requests are intentionally
- * unavailable to DDS and DDB.
+ * the services included in each agreement. Included cover requests belong to
+ * DDB-TRB and TRB; the other profiles can purchase the service separately.
  */
 function trb_portal_register_request_type() {
 	register_post_type(
@@ -1702,7 +1781,7 @@ function trb_portal_start_release() {
 	$release_date = isset( $_POST['trb_release_date'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_date'] ) ) : '';
 	$original_date = isset( $_POST['trb_release_original_date'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_original_date'] ) ) : '';
 	$tracks = isset( $_POST['trb_tracks'] ) && is_array( $_POST['trb_tracks'] ) ? (array) wp_unslash( $_POST['trb_tracks'] ) : array();
-	if ( 'dds' === $profile ) {
+	if ( ! trb_portal_profile_has_service( 'mastering', $profile ) ) {
 		foreach ( $tracks as &$dds_track ) $dds_track['audio_status'] = 'mastered';
 		unset( $dds_track );
 	}
@@ -1729,7 +1808,7 @@ function trb_portal_start_release() {
 		$audio_status = isset( $posted_track['audio_status'] ) ? sanitize_key( $posted_track['audio_status'] ) : '';
 		$audio = trb_portal_release_upload_item( 'trb_track_audio', $track_index );
 		$audio_valid = trb_portal_validate_release_upload( $audio, 'audio' );
-		if ( is_wp_error( $audio_valid ) || ! in_array( $audio_status, array( 'mastered', 'mastering' ), true ) || ( 'dds' === $profile && 'mastered' !== $audio_status ) ) $uploads_valid = is_wp_error( $audio_valid ) ? $audio_valid : new WP_Error( 'invalid_audio' );
+		if ( is_wp_error( $audio_valid ) || ! in_array( $audio_status, array( 'mastered', 'mastering' ), true ) || ( ! trb_portal_profile_has_service( 'mastering', $profile ) && 'mastered' !== $audio_status ) ) $uploads_valid = is_wp_error( $audio_valid ) ? $audio_valid : new WP_Error( 'invalid_audio' );
 		if ( ! is_wp_error( $audio_valid ) ) {
 			$wav_spec = trb_portal_wav_spec( $audio['tmp_name'] );
 			$declared_seconds = ( isset( $posted_track['duration_minutes'] ) ? absint( $posted_track['duration_minutes'] ) : 0 ) * 60 + ( isset( $posted_track['duration_seconds'] ) ? absint( $posted_track['duration_seconds'] ) : 0 );
@@ -2082,8 +2161,8 @@ function trb_portal_seed_guides() {
 			'label' => 'DDS',
 			'audio' => '<p>Per la distribuzione devi consegnare il <strong>master definitivo</strong> in WAV o AIFF stereo a <strong>48.000 Hz / 24 bit</strong>. Il file deve essere già approvato e pronto per la pubblicazione.</p><ul><li>Non inviare MP3, M4A, audio WhatsApp o file estratti da piattaforme streaming.</li><li>Non normalizzare o convertire nuovamente il master dopo l’approvazione.</li><li>Esporta dall’inizio corretto e controlla che intro, dissolvenze e code non siano tagliate.</li><li>Per pubblicazioni con più brani usa lo stesso standard tecnico per ogni traccia.</li></ul>',
 			'cover' => '<p>Devi caricare la <strong>copertina definitiva già realizzata</strong>, collegandola alla pratica della release.</p><ul><li>Formato quadrato RGB, 3.000 × 3.000 px, 300 DPI.</li><li>Niente immagini sfocate, bordi involontari, URL, loghi di store o contenuti non autorizzati.</li><li>Nome d’arte e titolo devono coincidere esattamente con i metadati inseriti.</li></ul><p>Controlla attentamente il file prima dell’invio: una copertina non conforme blocca la programmazione.</p>',
-			'platforms' => '<p>Il tuo percorso comprende la distribuzione sulle piattaforme digitali previste. Inserisci link corretti ai profili artista già esistenti per evitare la creazione di pagine duplicate.</p><p>La consegna dei materiali non costituisce candidatura editoriale alle playlist ufficiali. Puoi comunque curare autonomamente Spotify for Artists e gli strumenti messi a disposizione dalle piattaforme.</p>',
-			'promo' => '<p>Prepara una biografia aggiornata, fotografie ad alta qualità e link social corretti. Questi elementi permettono di identificare il progetto e accompagnare correttamente la pubblicazione.</p><p>Le eventuali opportunità nel network interno dipendono dall’idoneità della release e non costituiscono un risultato garantito.</p>',
+			'platforms' => '<p>Il tuo percorso comprende la distribuzione e il <strong>pitching editoriale</strong> sulle piattaforme digitali previste. Inserisci link corretti ai profili artista già esistenti per evitare pagine duplicate e consegna i materiali entro la finestra utile.</p><p>Il pitching costituisce una candidatura: non garantisce l’inserimento nelle playlist editoriali delle piattaforme.</p>',
+			'promo' => '<p>Prepara una biografia aggiornata, fotografie ad alta qualità e link social corretti. Il percorso comprende Smartlink, Promo Cards e inserimento nelle playlist proprietarie TRB rec.</p><p>Mastering, ottimizzazione dei profili, campagne verso curatori, comunicato stampa e Radio Date possono essere richiesti separatamente nello Store con lo sconto riservato del 50%.</p>',
 		),
 		'ddb' => array(
 			'label' => 'DDB',
@@ -3253,7 +3332,7 @@ function trb_portal_render_release_section() {
 				<label class="trb-track-content-nature">Natura del contenuto <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][content_nature]" required data-content-nature><option value="" selected disabled>Seleziona una voce</option><option value="original">Opera originale</option><option value="type_beat">Type beat / beat con licenza</option><option value="remix">Remix di un brano edito con licenza</option><option value="protected_samples">Contiene estratti da film o da altri brani protetti da copyright</option></select><small class="trb-rights-policy-note">Le cover e le reinterpretazioni non sono accettate da TRB rec.</small></label>
 				<label class="trb-track-rights-basis">Titolarità e autorizzazioni <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][rights_basis]" required data-rights-basis disabled><option value="">Seleziona prima la natura</option></select><small data-rights-help>La dichiarazione determina i controlli e la documentazione richiesta.</small></label>
 				<label class="trb-rights-document" data-rights-document hidden>Licenza o autorizzazione specifica <span aria-hidden="true">*</span><input type="file" name="trb_track_rights_document[__INDEX__]" accept=".pdf,application/pdf" disabled /><small>Allega un unico PDF completo, massimo 10 MB. Se non disponi della licenza necessaria, il brano non può essere inviato né pubblicato.</small></label>
-			</div><div class="trb-track-audio"><strong>File audio del brano <span>*</span></strong><input type="file" name="trb_track_audio[__INDEX__]" accept=".wav,audio/wav,audio/x-wav" required /><small>Solo formato WAV · minimo 44.100 Hz / 16 bit. È fortemente consigliato 48.000 Hz / 24 bit. Il sistema verifica automaticamente caratteristiche e durata reale del file.</small><span class="trb-audio-duration-check" data-audio-duration-check aria-live="polite"></span><?php if ( 'dds' === $profile ) : ?><input type="hidden" name="trb_tracks[__INDEX__][audio_status]" value="mastered" /><p class="trb-audio-dds-note">Per il profilo DDS il file audio deve essere già in versione master.</p><?php else : ?><fieldset class="trb-audio-status"><legend>Stato del file audio <span>*</span></legend><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastered" required /> Il brano è già in versione master</label><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastering" required /> Richiedo il mastering del brano</label></fieldset><?php endif; ?></div><label class="trb-track-lyrics" data-track-lyrics hidden>Testo del brano <span>*</span><input type="file" name="trb_track_lyrics[__INDEX__]" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" disabled /><small>Obbligatorio quando il brano contiene un testo. Allega TXT, DOCX, ODT o RTF · massimo 5 MB.</small></label></div>
+			</div><div class="trb-track-audio"><strong>File audio del brano <span>*</span></strong><input type="file" name="trb_track_audio[__INDEX__]" accept=".wav,audio/wav,audio/x-wav" required /><small>Solo formato WAV · minimo 44.100 Hz / 16 bit. È fortemente consigliato 48.000 Hz / 24 bit. Il sistema verifica automaticamente caratteristiche e durata reale del file.</small><span class="trb-audio-duration-check" data-audio-duration-check aria-live="polite"></span><?php if ( ! trb_portal_profile_has_service( 'mastering', $profile ) ) : ?><input type="hidden" name="trb_tracks[__INDEX__][audio_status]" value="mastered" /><p class="trb-audio-dds-note">Il mastering non è incluso nel tuo profilo: carica il master definitivo oppure richiedi il servizio nello Store con lo sconto riservato del 50%.</p><?php else : ?><fieldset class="trb-audio-status"><legend>Stato del file audio <span>*</span></legend><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastered" required /> Il brano è già in versione master</label><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastering" required /> Richiedo il mastering del brano</label></fieldset><?php endif; ?></div><label class="trb-track-lyrics" data-track-lyrics hidden>Testo del brano <span>*</span><input type="file" name="trb_track_lyrics[__INDEX__]" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" disabled /><small>Obbligatorio quando il brano contiene un testo. Allega TXT, DOCX, ODT o RTF · massimo 5 MB.</small></label></div>
 			<fieldset class="trb-portal__credits"><legend>Crediti</legend><p class="trb-portal__field-help">Inserisci ogni persona separatamente e seleziona tutti i ruoli che si applicano.</p>
 				<div class="trb-contributor-group" data-contributor-group="writers"><h4>Autori e compositori <span>*</span></h4><p>Indica chi ha scritto il testo e chi ha composto la musica. La quota viene ripartita automaticamente in parti uguali fra le persone inserite.</p><div data-contributor-rows><div class="trb-contributor-row trb-contributor-row--writer"><input type="text" name="trb_tracks[__INDEX__][credits][writers][0][name]" required aria-label="Nome dell’autore o compositore" placeholder="Nome completo" /><fieldset class="trb-writer-roles"><legend>Ruolo <span>*</span></legend><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Lyricist" /> Autore</label><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Composer" /> Compositore</label></fieldset><label class="trb-writer-share">Quota diritto d’autore<input type="text" name="trb_tracks[__INDEX__][credits][writers][0][share]" value="100,00%" readonly tabindex="-1" data-writer-share /></label><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi autore/compositore</button></div>
 				<div class="trb-contributor-group" data-contributor-group="credits"><h4>Crediti <span>*</span></h4><p>Inserisci ogni ulteriore partecipante al brano e seleziona il ruolo Too Lost corrispondente. Aggiungi una riga distinta per ciascuna persona e per ciascun ruolo. <strong>Sono consentiti solo nominativi completi di persone o nomi di aziende realmente esistenti.</strong></p><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][credits][0][name]" required aria-label="Nome della persona accreditata" placeholder="Nome completo o nome d’arte" /><input type="search" name="trb_tracks[__INDEX__][credits][credits][0][role]" required aria-label="Ruolo nei crediti" list="trb-credit-roles" autocomplete="off" placeholder="Cerca ruolo" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi credito</button></div>
