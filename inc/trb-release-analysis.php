@@ -135,6 +135,46 @@ function trb_analysis_track_findings( $spec, $track, $declared_seconds ) {
 }
 
 
+/** Convert internal finding codes into concise administrator-facing labels. */
+function trb_analysis_finding_email_label( $code ) {
+	$code = sanitize_key( $code );
+	$labels = array(
+		'audio_not_stereo'                         => 'Il file non è stereo',
+		'sample_rate_invalid'                      => 'Frequenza di campionamento non valida',
+		'bit_depth_invalid'                        => 'Profondità in bit non valida',
+		'duration_mismatch'                        => 'Durata dichiarata e durata del WAV non corrispondono',
+		'audio_too_short_for_reliable_recognition' => 'Audio troppo breve per un riconoscimento affidabile',
+		'true_peak_high'                           => 'True peak troppo elevato',
+		'clipping_suspected'                       => 'Possibile clipping',
+		'excessive_limiting_review'                => 'Dinamica eccessivamente limitata',
+		'abrupt_end_review'                        => 'Finale del brano da controllare',
+		'abrupt_start_review'                      => 'Inizio del brano da controllare',
+		'long_silence'                             => 'Silenzio prolungato nel brano',
+		'premaster_headroom_low'                   => 'Headroom insufficiente nel pre-master',
+		'master_loudness_review'                   => 'Loudness del master fuori dall’intervallo previsto',
+		'release_audio_inconsistent'               => 'Specifiche audio non uniformi fra i brani',
+		'local_archive_missing'                    => 'File locale non disponibile per l’analisi',
+		'wav_decode_failed'                        => 'Il WAV non può essere decodificato',
+		'wav_not_pcm'                              => 'Il WAV non è in formato PCM',
+	);
+	$label = $labels[ $code ] ?? ucwords( strtolower( str_replace( '_', ' ', $code ) ) );
+	return $label . ' (' . strtoupper( $code ) . ')';
+}
+
+/** Add the technical outcome to the single administrator review email. */
+function trb_analysis_admin_technical_email_rows( $payload ) {
+	$rows  = array();
+	$codes = array_values( array_unique( array_merge( (array) ( $payload['errors'] ?? array() ), (array) ( $payload['warnings'] ?? array() ) ) ) );
+	$rows[] = '<strong>Esito tecnico:</strong> ' . esc_html( $payload['status'] ?? 'n/d' );
+	$rows[] = '<strong>Criticità tecniche:</strong> ' . esc_html( $codes ? implode( '; ', array_map( 'trb_analysis_finding_email_label', $codes ) ) : 'Nessuna' );
+	foreach ( (array) ( $payload['tracks'] ?? array() ) as $index => $track ) {
+		$findings   = (array) ( $track['findings'] ?? array() );
+		$track_codes = array_values( array_unique( array_merge( (array) ( $findings['errors'] ?? array() ), (array) ( $findings['warnings'] ?? array() ) ) ) );
+		if ( $track_codes ) $rows[] = '<strong>Brano ' . ( absint( $index ) + 1 ) . ':</strong> ' . esc_html( implode( '; ', array_map( 'trb_analysis_finding_email_label', $track_codes ) ) );
+	}
+	return $rows;
+}
+
 /** Queue one consolidated, idempotent administrator email for a release requiring attention. */
 function trb_analysis_queue_admin_review_email( $release_id, $stage, $payload ) {
 	if ( ! function_exists( 'trb_resource_queue_email' ) ) return;
@@ -142,7 +182,28 @@ function trb_analysis_queue_admin_review_email( $release_id, $stage, $payload ) 
 	if ( ! $release || 'trb_release' !== $release->post_type ) return;
 
 	$stage = sanitize_key( $stage );
-	$timestamp = absint( $payload[ 'technical' === $stage ? 'completed_at' : 'decided_at' ] ?? time() );
+	if ( 'technical' === $stage ) {
+		$technical_hashes = array_values( array_filter( array_map( static function( $track ) {
+			return isset( $track['sha256'] ) ? sanitize_text_field( $track['sha256'] ) : '';
+		}, (array) ( $payload['tracks'] ?? array() ) ) ) );
+		$notification_signature = 'technical-' . substr( hash( 'sha256', wp_json_encode( array(
+			'status'   => sanitize_key( $payload['status'] ?? '' ),
+			'errors'   => (array) ( $payload['errors'] ?? array() ),
+			'warnings' => (array) ( $payload['warnings'] ?? array() ),
+			'hashes'   => $technical_hashes,
+		) ) ), 0, 20 );
+	} else {
+		$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
+		$technical_hashes = array_values( array_filter( array_map( static function( $track ) {
+			return isset( $track['sha256'] ) ? sanitize_text_field( $track['sha256'] ) : '';
+		}, (array) ( $technical['tracks'] ?? array() ) ) ) );
+		$notification_signature = 'decision-' . substr( hash( 'sha256', wp_json_encode( array(
+			'state'       => sanitize_key( $payload['state'] ?? '' ),
+			'semaphore'   => sanitize_key( $payload['semaphore'] ?? '' ),
+			'limitations' => (array) ( $payload['limitations'] ?? array() ),
+			'hashes'      => $technical_hashes,
+		) ) ), 0, 20 );
+	}
 	$artist = function_exists( 'trb_portal_artist_profile_value' ) ? trb_portal_artist_profile_value( 'artist_name', $release->post_author ) : '';
 	if ( ! $artist ) {
 		$user = get_userdata( $release->post_author );
@@ -156,27 +217,21 @@ function trb_analysis_queue_admin_review_email( $release_id, $stage, $payload ) 
 	);
 
 	if ( 'technical' === $stage ) {
-		$codes = array_values( array_unique( array_merge( (array) ( $payload['errors'] ?? array() ), (array) ( $payload['warnings'] ?? array() ) ) ) );
-		$rows[] = '<strong>Esito tecnico:</strong> ' . esc_html( $payload['status'] ?? 'n/d' );
-		$rows[] = '<strong>Criticità:</strong> ' . esc_html( $codes ? implode( ', ', $codes ) : 'Verifica richiesta' );
-		foreach ( (array) ( $payload['tracks'] ?? array() ) as $index => $track ) {
-			$findings = (array) ( $track['findings'] ?? array() );
-			$track_codes = array_values( array_unique( array_merge( (array) ( $findings['errors'] ?? array() ), (array) ( $findings['warnings'] ?? array() ) ) ) );
-			if ( $track_codes ) $rows[] = '<strong>Brano ' . ( absint( $index ) + 1 ) . ':</strong> ' . esc_html( implode( ', ', $track_codes ) );
-		}
-		$subject = 'Analisi audio da verificare: pratica #' . absint( $release_id ) . ' - ' . $release->post_title;
+		$rows = array_merge( $rows, trb_analysis_admin_technical_email_rows( $payload ) );
+		$subject = 'Release bloccata da errore tecnico: pratica #' . absint( $release_id ) . ' - ' . $release->post_title;
 	} else {
 		$limitations = array();
 		foreach ( (array) ( $payload['limitations'] ?? array() ) as $index => $codes ) foreach ( (array) $codes as $code ) $limitations[] = 'brano ' . ( absint( $index ) + 1 ) . ': ' . sanitize_text_field( $code );
+		if ( $technical ) $rows = array_merge( $rows, trb_analysis_admin_technical_email_rows( $technical ) );
 		$rows[] = '<strong>Semaforo:</strong> ' . esc_html( $payload['semaphore'] ?? 'n/d' );
 		$rows[] = '<strong>Decisione:</strong> ' . esc_html( $payload['state'] ?? 'n/d' );
 		if ( $limitations ) $rows[] = '<strong>Limitazioni:</strong> ' . esc_html( implode( '; ', $limitations ) );
-		$subject = 'Release da verificare manualmente: pratica #' . absint( $release_id ) . ' - ' . $release->post_title;
+		$subject = 'Nuova release da verificare: pratica #' . absint( $release_id ) . ' - ' . $release->post_title;
 	}
 
 	$rows[] = '<a href="' . esc_url( $edit_url ) . '">Apri direttamente la pratica in WordPress</a>';
 	$body = '<p>' . implode( '</p><p>', $rows ) . '</p>';
-	trb_resource_queue_email( 'release-analysis-' . $stage . '-' . absint( $release_id ) . '-' . $timestamp, $subject, $body, true );
+	trb_resource_queue_email( 'release-analysis-' . absint( $release_id ) . '-' . $notification_signature, $subject, $body, true );
 }
 
 /** Choose the first 90 consecutive seconds after technical leading silence only. */
@@ -221,7 +276,9 @@ function trb_analysis_run_technical( $release_id ) {
 	if ( 'failed' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_error' );
 	elseif ( 'warning' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_review' );
 	else update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_queued' );
-	if ( 'passed' !== $status ) trb_analysis_queue_admin_review_email( $release_id, 'technical', $payload );
+	// Warnings continue through copyright analysis and are included in its single final email.
+	// Only a terminal technical failure needs an immediate administrator notification.
+	if ( 'failed' === $status ) trb_analysis_queue_admin_review_email( $release_id, 'technical', $payload );
 	return $payload;
 }
 
