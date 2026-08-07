@@ -85,6 +85,119 @@ function trb_release_pcloud_remote_size( $remote ) {
 	return preg_match( '/^Content-Length:\s*(\d+)/mi', $result['headers'], $matches ) ? (int) $matches[1] : new WP_Error( 'pcloud_size_unavailable' );
 }
 
+/** Download a remote WAV without loading it into PHP memory. */
+function trb_release_pcloud_download_file( $remote, $local ) {
+	$settings = trb_demo_settings();
+	if ( empty( $settings['webdav_endpoint'] ) || empty( $settings['pcloud_user'] ) || empty( $settings['pcloud_pass'] ) || ! function_exists( 'curl_init' ) ) return new WP_Error( 'missing_webdav_settings' );
+	$handle = fopen( $local, 'wb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+	if ( ! $handle ) return new WP_Error( 'master_local_file_failed' );
+	$curl = curl_init( trb_demo_remote_url( $settings['webdav_endpoint'], $remote ) );
+	curl_setopt_array( $curl, array(
+		CURLOPT_FILE           => $handle,
+		CURLOPT_USERPWD        => $settings['pcloud_user'] . ':' . $settings['pcloud_pass'],
+		CURLOPT_HTTPAUTH        => CURLAUTH_BASIC,
+		CURLOPT_CONNECTTIMEOUT => 30,
+		CURLOPT_TIMEOUT        => 0,
+		CURLOPT_FAILONERROR    => false,
+	) );
+	curl_exec( $curl );
+	$code = (int) curl_getinfo( $curl, CURLINFO_RESPONSE_CODE );
+	$error = curl_error( $curl );
+	curl_close( $curl );
+	fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+	if ( 200 !== $code ) {
+		wp_delete_file( $local );
+		return new WP_Error( 'master_download_failed', $error ? $error : 'WebDAV GET ' . $code );
+	}
+	return true;
+}
+
+function trb_release_pcloud_master_import_notice( $release_id, $code ) {
+	$key = '_trb_master_import_notice_' . sanitize_key( $code );
+	if ( get_transient( $key . '_' . absint( $release_id ) ) ) return;
+	set_transient( $key . '_' . absint( $release_id ), 1, 12 * HOUR_IN_SECONDS );
+	$release = get_post( $release_id );
+	$subject = 'Master non importato automaticamente: pratica #' . absint( $release_id );
+	$body = sprintf( '<p><strong>Release:</strong> #%d · %s</p><p><strong>Errore:</strong> %s</p><p>Il file resta su pCloud e verrà controllato nuovamente.</p>', absint( $release_id ), esc_html( $release ? $release->post_title : '' ), esc_html( $code ) );
+	if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'master-import-' . absint( $release_id ) . '-' . sanitize_key( $code ) . '-' . wp_date( 'YmdH' ), $subject, $body, true );
+	else wp_mail( 'info@trbrec.com', '[PRIORITÀ] ' . $subject, wp_strip_all_tags( $body ) );
+}
+
+/** Import the final (MST) counterpart of every pending PRE-MST from pCloud. */
+function trb_release_pcloud_import_masters() {
+	if ( get_transient( 'trb_master_import_lock' ) ) return;
+	set_transient( 'trb_master_import_lock', 1, 4 * MINUTE_IN_SECONDS );
+	$releases = get_posts( array( 'post_type' => 'trb_release', 'post_status' => 'any', 'posts_per_page' => -1, 'orderby' => 'ID', 'order' => 'ASC' ) );
+	foreach ( $releases as $release ) {
+		$files = (array) get_post_meta( $release->ID, '_trb_release_files', true );
+		$tracks = (array) get_post_meta( $release->ID, '_trb_release_tracks', true );
+		$user = get_userdata( $release->post_author );
+		if ( ! $user ) continue;
+		$artist_name = trb_portal_artist_profile_value( 'artist_name', $user->ID );
+		$folder = trb_release_pcloud_mastering_folder( $artist_name, $release->post_title, $release->ID );
+		foreach ( $files as $index => $file ) {
+			if ( 'audio' !== ( $file['kind'] ?? '' ) || 'mastering' !== ( $file['audio_status'] ?? '' ) ) continue;
+			$track_index = absint( $file['track'] ?? 0 );
+			$track_title = $tracks[ $track_index ]['title'] ?? ( 'Brano ' . ( $track_index + 1 ) );
+			$remote_name = trb_portal_release_audio_filename( $release->ID, $track_index, $track_title, 'mastered' );
+			$remote = $folder . '/' . $remote_name;
+			$size = trb_release_pcloud_remote_size( $remote );
+			if ( is_wp_error( $size ) ) continue; // A missing MST is the normal pending state.
+
+			/* Require the same byte count on two scans so a synchronizing file is never imported halfway. */
+			$candidate_key = 'trb_mst_' . md5( $remote );
+			$candidate = get_transient( $candidate_key );
+			if ( ! is_array( $candidate ) || (int) ( $candidate['size'] ?? -1 ) !== (int) $size ) {
+				set_transient( $candidate_key, array( 'size' => (int) $size ), HOUR_IN_SECONDS );
+				continue;
+			}
+
+			$temporary = wp_tempnam( $remote_name );
+			if ( ! $temporary ) { trb_release_pcloud_master_import_notice( $release->ID, 'master_local_file_failed' ); continue; }
+			$result = trb_release_pcloud_download_file( $remote, $temporary );
+			if ( is_wp_error( $result ) || ! is_file( $temporary ) || (int) filesize( $temporary ) !== (int) $size ) {
+				wp_delete_file( $temporary );
+				trb_release_pcloud_master_import_notice( $release->ID, is_wp_error( $result ) ? $result->get_error_code() : 'master_size_mismatch' );
+				continue;
+			}
+			$spec = trb_portal_wav_spec( $temporary );
+			$declared = isset( $tracks[ $track_index ] ) ? trb_portal_release_track_duration_seconds( $tracks[ $track_index ] ) : 0;
+			if ( is_wp_error( $spec ) || $declared <= 0 || abs( $spec['duration_seconds'] - $declared ) > 1.0 ) {
+				wp_delete_file( $temporary );
+				trb_release_pcloud_master_import_notice( $release->ID, 'master_audio_invalid' );
+				continue;
+			}
+			$upload = array( 'name' => $remote_name, 'type' => 'audio/wav', 'tmp_name' => $temporary, 'error' => UPLOAD_ERR_OK, 'size' => (int) $size, '_trb_staged' => true );
+			$stored = trb_portal_store_release_upload( $release->ID, $upload, 'audio', $track_index, array( 'track_title' => $track_title, 'audio_status' => 'mastered', 'replacement' => true ) );
+			if ( is_wp_error( $stored ) ) {
+				wp_delete_file( $temporary );
+				trb_release_pcloud_master_import_notice( $release->ID, $stored->get_error_code() );
+				continue;
+			}
+			$stored['audio_status'] = 'mastered';
+			$previous = (array) get_post_meta( $release->ID, '_trb_release_previous_files', true );
+			$previous[] = $file;
+			update_post_meta( $release->ID, '_trb_release_previous_files', $previous );
+			$files[ $index ] = $stored;
+			if ( isset( $tracks[ $track_index ] ) ) $tracks[ $track_index ]['audio_status'] = 'mastered';
+			update_post_meta( $release->ID, '_trb_release_files', array_values( $files ) );
+			update_post_meta( $release->ID, '_trb_release_tracks', array_values( $tracks ) );
+			update_post_meta( $release->ID, '_trb_release_pipeline_status', 'master_imported_pending_archive' );
+			delete_transient( $candidate_key );
+			trb_release_pcloud_schedule_sync( $release->ID, true );
+		}
+	}
+	delete_transient( 'trb_master_import_lock' );
+}
+add_action( 'trb_release_pcloud_import_masters', 'trb_release_pcloud_import_masters' );
+add_filter( 'cron_schedules', static function( $schedules ) {
+	$schedules['trb_master_scan'] = array( 'interval' => 5 * MINUTE_IN_SECONDS, 'display' => 'Ogni 5 minuti (master pCloud)' );
+	return $schedules;
+} );
+add_action( 'init', static function() {
+	if ( ! wp_next_scheduled( 'trb_release_pcloud_import_masters' ) ) wp_schedule_event( time() + MINUTE_IN_SECONDS, 'trb_master_scan', 'trb_release_pcloud_import_masters' );
+} );
+
 /**
  * Upload to a temporary remote name, verify the complete byte count and only
  * then replace the canonical WAV. A failed transfer therefore leaves the
