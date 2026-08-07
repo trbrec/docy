@@ -614,21 +614,25 @@ function trb_resource_render_rights_box( $release_id ) {
 function trb_resource_daily_health() {
 	$anomalies = array();
 	$pcloud = trb_resource_pcloud_userinfo();
-	if ( is_wp_error( $pcloud ) ) $anomalies[] = 'Quota pCloud non verificabile: ' . $pcloud->get_error_code();
+	// WebDAV often omits quota properties even while file transfers work. Keep
+	// that diagnostic in the monitor without turning it into an email alert.
+	if ( is_wp_error( $pcloud ) ) trb_resource_event( 'quota-check-' . wp_date( 'Ymd' ), 'pcloud', 'info', 'Quota pCloud non verificabile.', array( 'code' => $pcloud->get_error_code() ) );
 	else {
 		$s = trb_resource_settings();
 		if ( $pcloud['used_percent'] >= (float) $s['pcloud_warning_2'] ) $anomalies[] = 'pCloud utilizzato al ' . number_format_i18n( $pcloud['used_percent'], 1 ) . '%.';
 	}
 	$storage = trb_resource_storage_snapshot();
 	$s = trb_resource_settings();
-	if ( null === $storage['used_percent'] ) $anomalies[] = 'Storage temporaneo non verificabile.';
+	if ( null === $storage['used_percent'] ) trb_resource_event( 'storage-check-' . wp_date( 'Ymd' ), 'storage', 'info', 'Storage temporaneo non verificabile.' );
 	elseif ( $storage['used_percent'] >= (float) $s['temp_warning_2'] ) $anomalies[] = 'Storage temporaneo utilizzato al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%.';
 	global $wpdb; $tables = trb_resource_tables();
-	$stuck = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key='_trb_release_pipeline_status' AND meta_value IN ('pcloud_transfer_waiting','analysis_in_progress','analysis_waiting_configuration','technical_error','security_scan_waiting','security_rejected','manual_review','ACR_BUDGET_LIMIT_REACHED','PCLOUD_QUOTA_LIMIT_REACHED','PCLOUD_QUOTA_UNVERIFIED')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$failed_mail = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$tables['notifications']} WHERE status IN ('pending','retry')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	if ( $stuck ) $anomalies[] = $stuck . ' pratiche richiedono attenzione.';
-	if ( $failed_mail ) $anomalies[] = $failed_mail . ' notifiche email sono in coda.';
-	if ( $anomalies ) trb_resource_queue_email( 'daily-digest-' . wp_date( 'Ymd' ), 'Riepilogo giornaliero anomalie Portale Artisti', '<p>' . implode( '</p><p>', array_map( 'esc_html', $anomalies ) ) . '</p>' );
+	// Manual review and active processing are expected workflow states. Notify
+	// Andrea only for states that indicate an actual block or rejected content.
+	$blocked = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key='_trb_release_pipeline_status' AND meta_value IN ('technical_error','security_rejected')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$failed_mail = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$tables['notifications']} WHERE status='retry' AND attempts>0" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	if ( $blocked ) $anomalies[] = $blocked . ' pratiche risultano realmente bloccate.';
+	if ( $failed_mail ) $anomalies[] = $failed_mail . ' notifiche email non sono state recapitate.';
+	if ( $anomalies ) trb_resource_queue_email( 'daily-digest-' . wp_date( 'Ymd' ), 'Intervento richiesto sul Portale Artisti', '<p>' . implode( '</p><p>', array_map( 'esc_html', $anomalies ) ) . '</p>', true );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_daily_health', 'trb_resource_daily_health' );

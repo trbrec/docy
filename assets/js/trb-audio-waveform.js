@@ -140,4 +140,17 @@
 	}
 
 	document.querySelectorAll('[data-trb-waveform-player]').forEach(init);
+	document.querySelectorAll('[data-release-close]').forEach(function (button) {
+		button.addEventListener('click', function () {
+			var details = button.closest('.trb-release-card__details');
+			var card = button.closest('.trb-release-card');
+			var summary = details ? details.querySelector('summary') : null;
+			if (!details) return;
+			details.open = false;
+			window.requestAnimationFrame(function () {
+				if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				if (summary) summary.focus({ preventScroll: true });
+			});
+		});
+	});
 }());
