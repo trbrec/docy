@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.0.5' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.0.6' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -134,6 +134,51 @@ function trb_analysis_track_findings( $spec, $track, $declared_seconds ) {
 	return array( 'errors' => array_values( array_unique( $errors ) ), 'warnings' => array_values( array_unique( $warnings ) ) );
 }
 
+
+/** Queue one consolidated, idempotent administrator email for a release requiring attention. */
+function trb_analysis_queue_admin_review_email( $release_id, $stage, $payload ) {
+	if ( ! function_exists( 'trb_resource_queue_email' ) ) return;
+	$release = get_post( $release_id );
+	if ( ! $release || 'trb_release' !== $release->post_type ) return;
+
+	$stage = sanitize_key( $stage );
+	$timestamp = absint( $payload[ 'technical' === $stage ? 'completed_at' : 'decided_at' ] ?? time() );
+	$artist = function_exists( 'trb_portal_artist_profile_value' ) ? trb_portal_artist_profile_value( 'artist_name', $release->post_author ) : '';
+	if ( ! $artist ) {
+		$user = get_userdata( $release->post_author );
+		$artist = $user ? $user->display_name : 'Non indicato';
+	}
+	$edit_url = admin_url( 'post.php?post=' . absint( $release_id ) . '&action=edit' );
+	$rows = array(
+		'<strong>Pratica:</strong> #' . absint( $release_id ),
+		'<strong>Artista:</strong> ' . esc_html( $artist ),
+		'<strong>Release:</strong> ' . esc_html( $release->post_title ),
+	);
+
+	if ( 'technical' === $stage ) {
+		$codes = array_values( array_unique( array_merge( (array) ( $payload['errors'] ?? array() ), (array) ( $payload['warnings'] ?? array() ) ) ) );
+		$rows[] = '<strong>Esito tecnico:</strong> ' . esc_html( $payload['status'] ?? 'n/d' );
+		$rows[] = '<strong>Criticità:</strong> ' . esc_html( $codes ? implode( ', ', $codes ) : 'Verifica richiesta' );
+		foreach ( (array) ( $payload['tracks'] ?? array() ) as $index => $track ) {
+			$findings = (array) ( $track['findings'] ?? array() );
+			$track_codes = array_values( array_unique( array_merge( (array) ( $findings['errors'] ?? array() ), (array) ( $findings['warnings'] ?? array() ) ) ) );
+			if ( $track_codes ) $rows[] = '<strong>Brano ' . ( absint( $index ) + 1 ) . ':</strong> ' . esc_html( implode( ', ', $track_codes ) );
+		}
+		$subject = 'Analisi audio da verificare: pratica #' . absint( $release_id ) . ' - ' . $release->post_title;
+	} else {
+		$limitations = array();
+		foreach ( (array) ( $payload['limitations'] ?? array() ) as $index => $codes ) foreach ( (array) $codes as $code ) $limitations[] = 'brano ' . ( absint( $index ) + 1 ) . ': ' . sanitize_text_field( $code );
+		$rows[] = '<strong>Semaforo:</strong> ' . esc_html( $payload['semaphore'] ?? 'n/d' );
+		$rows[] = '<strong>Decisione:</strong> ' . esc_html( $payload['state'] ?? 'n/d' );
+		if ( $limitations ) $rows[] = '<strong>Limitazioni:</strong> ' . esc_html( implode( '; ', $limitations ) );
+		$subject = 'Release da verificare manualmente: pratica #' . absint( $release_id ) . ' - ' . $release->post_title;
+	}
+
+	$rows[] = '<a href="' . esc_url( $edit_url ) . '">Apri direttamente la pratica in WordPress</a>';
+	$body = '<p>' . implode( '</p><p>', $rows ) . '</p>';
+	trb_resource_queue_email( 'release-analysis-' . $stage . '-' . absint( $release_id ) . '-' . $timestamp, $subject, $body, true );
+}
+
 /** Choose the first 90 consecutive seconds after technical leading silence only. */
 function trb_analysis_excerpt_window( $path, $maximum_seconds = 90 ) {
 	$ffmpeg = trb_analysis_binary( 'ffmpeg' ); $ffprobe = trb_analysis_binary( 'ffprobe' );
@@ -176,6 +221,7 @@ function trb_analysis_run_technical( $release_id ) {
 	if ( 'failed' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_error' );
 	elseif ( 'warning' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_review' );
 	else update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_queued' );
+	if ( 'passed' !== $status ) trb_analysis_queue_admin_review_email( $release_id, 'technical', $payload );
 	return $payload;
 }
 
@@ -261,6 +307,7 @@ function trb_analysis_decide_release( $release_id ) {
 	update_post_meta( $release_id, '_trb_release_pipeline_status', $state );
 	if ( 'approved' === $state ) do_action( 'trb_release_analysis_approved', $release_id );
 	trb_analysis_generate_report( $release_id );
+	if ( 'approved' !== $state ) trb_analysis_queue_admin_review_email( $release_id, 'decision', $decision );
 }
 
 function trb_analysis_benchmark_count() { return count( (array) get_option( 'trb_analysis_benchmark_cases', array() ) ); }
