@@ -304,7 +304,25 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__request-history { margin-top: 30px; }
 .trb-portal__release-history { background: #f7faff; border: 1px solid #cfdeeb; border-radius: 16px; margin: 0 0 24px; padding: 20px 22px; }
 .trb-portal__release-history h3 { margin-bottom: 12px; }
-.trb-portal__release-history li { background: #fff; border: 1px solid #dce4ea; border-radius: 11px; margin-top: 10px; padding: 14px 16px; }
+.trb-portal__release-history > ul { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.trb-portal__release-history li.trb-release-card { align-content: start; background: #fff; border: 1px solid #dce4ea; border-radius: 14px; display: grid; gap: 0; margin: 0; overflow: hidden; padding: 0; }
+.trb-release-card__cover { aspect-ratio: 1; background: #e8eef6; display: grid; overflow: hidden; place-items: center; width: 100%; }
+.trb-release-card__cover img { height: 100%; object-fit: cover; width: 100%; }
+.trb-release-card__cover span { color: var(--trb-accent); font-size: 54px; }
+.trb-release-card__summary { align-content: start; display: grid; gap: 5px; min-height: 118px; padding: 14px 15px 12px; }
+.trb-release-card__summary > strong { font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
+.trb-release-card__summary > span { color: var(--trb-ink-soft); font-size: 12px; }
+.trb-release-card__summary > b { color: var(--trb-accent); font-size: 12px; line-height: 1.3; }
+.trb-release-card__summary .trb-release-isrc-summary { color: var(--trb-ink); font-size: 11px; font-weight: 800; }
+.trb-release-card__details { border-top: 1px solid var(--trb-line); grid-column: 1 / -1; padding: 0 15px 14px; }
+.trb-release-card__details > summary { color: var(--trb-accent); cursor: pointer; font-size: 13px; font-weight: 900; padding: 12px 0 0; }
+.trb-release-card__details[open] { grid-column: 1 / -1; }
+.trb-portal__release-history:has(.trb-release-card__details[open]) > ul { grid-template-columns: 1fr; }
+.trb-release-create { background: #fff; border: 1px solid #cfdeeb; border-radius: 14px; margin-top: 18px; overflow: hidden; }
+.trb-release-create > summary { color: var(--trb-accent); cursor: pointer; font-size: 16px; font-weight: 900; list-style: none; padding: 17px 20px; }
+.trb-release-create > summary::-webkit-details-marker { display: none; }
+.trb-release-create[open] > summary { background: #f7faff; border-bottom: 1px solid #cfdeeb; }
+.trb-release-create .trb-portal__release-workspace { margin: 0; padding: 20px; }
 .trb-portal__release-history [data-release-current-state] { color: var(--trb-accent); }
 .trb-portal__request-history ul { border-top: 1px solid var(--trb-line); list-style: none; margin: 0; padding: 0; }
 .trb-portal__release-history ul { border-top: 0; }

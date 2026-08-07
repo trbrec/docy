@@ -207,7 +207,9 @@
       documentExpiry.addEventListener('change', function () {
         var today = new Date();
         var localToday = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
-        documentExpiry.setCustomValidity(documentExpiry.value && documentExpiry.value >= localToday ? '' : 'Inserisci una data di scadenza valida: il documento non può essere già scaduto.');
+        var maximum = new Date(today.getFullYear() + 10, today.getMonth(), today.getDate());
+        var localMaximum = [maximum.getFullYear(), String(maximum.getMonth() + 1).padStart(2, '0'), String(maximum.getDate()).padStart(2, '0')].join('-');
+        documentExpiry.setCustomValidity(documentExpiry.value && documentExpiry.value >= localToday && documentExpiry.value <= localMaximum ? '' : 'Inserisci una scadenza valida, compresa tra oggi e un massimo di 10 anni.');
       });
       documentExpiry.dispatchEvent(new Event('change'));
     }
@@ -235,6 +237,10 @@
           form.appendChild(panel);
         }
 
+        var formData = new FormData(form);
+        var hasFiles = Array.prototype.some.call(form.querySelectorAll('input[type="file"]'), function (input) {
+          return input.files && input.files.length > 0;
+        });
         var percent = panel.querySelector('[data-trb-upload-percent]');
         var bar = panel.querySelector('.trb-portal__upload-progress-track span');
         var status = panel.querySelector('[data-trb-upload-status]');
@@ -242,12 +248,18 @@
         var submitUrl = window.trbArtistProfile && window.trbArtistProfile.ajaxUrl ? window.trbArtistProfile.ajaxUrl : form.action;
         xhr.open('POST', submitUrl, true);
         xhr.withCredentials = true;
+        if (!hasFiles) {
+          status.textContent = 'Salvataggio dei dati del profilo…';
+        }
         xhr.upload.addEventListener('progress', function (uploadEvent) {
           if (!uploadEvent.lengthComputable) return;
-          var value = Math.min(99, Math.round((uploadEvent.loaded / uploadEvent.total) * 100));
+          var uploadComplete = uploadEvent.loaded >= uploadEvent.total;
+          var value = uploadComplete ? 99 : Math.min(98, Math.round((uploadEvent.loaded / uploadEvent.total) * 100));
           percent.textContent = value + '%';
           bar.style.width = value + '%';
-          status.textContent = value < 100 ? 'Caricamento dei file in corso…' : 'File caricati. Salvataggio del profilo…';
+          status.textContent = hasFiles
+            ? (uploadComplete ? 'File caricati. Salvataggio del profilo…' : 'Caricamento dei file in corso…')
+            : 'Salvataggio dei dati del profilo…';
         });
         xhr.addEventListener('load', function () {
           var responseUrl = xhr.responseURL || '';
@@ -275,7 +287,7 @@
           status.textContent = 'Connessione interrotta. Nessun nuovo invio è stato avviato: controlla la rete e riprova.';
           if (button) { button.disabled = false; button.textContent = originalLabel; }
         });
-        xhr.send(new FormData(form));
+        xhr.send(formData);
       });
     });
   }

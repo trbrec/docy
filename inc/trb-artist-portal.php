@@ -652,7 +652,8 @@ function trb_portal_validate_identity_document_number( $value ) {
 function trb_portal_validate_identity_document_expiry( $value ) {
 	$value = trim( (string) $value );
 	if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts ) || ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) return false;
-	return $value >= wp_date( 'Y-m-d' ) ? $value : false;
+	$maximum = ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+10 years' )->format( 'Y-m-d' );
+	return $value >= wp_date( 'Y-m-d' ) && $value <= $maximum ? $value : false;
 }
 
 function trb_portal_identity_document_is_expired( $user_id = 0 ) {
@@ -720,6 +721,9 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 	);
 	foreach ( $contract_fields as $field => $label ) {
 		$value    = trb_portal_artist_profile_value( $field, $user_id );
+		// Do not alter untouched legacy profiles or their completion percentage.
+		// Every new submission still requires the expiry at form/server level.
+		if ( 'document_expiry' === $field && '' === trim( $value ) ) continue;
 		$complete = 'document_number' === $field ? (bool) trb_portal_validate_identity_document_number( $value ) : ( 'document_expiry' === $field ? (bool) trb_portal_validate_identity_document_expiry( $value ) : '' !== trim( $value ) );
 		$add( $field, $label, 'contract', $complete );
 	}
@@ -744,25 +748,31 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 	$add( 'spotify', 'Profilo Spotify oppure richiesta di nuovo profilo', 'identity', '' !== trim( trb_portal_artist_profile_value( 'spotify_url', $user_id ) ) || '1' === trb_portal_artist_profile_value( 'spotify_new', $user_id ) );
 	$add( 'youtube', 'Canale YouTube oppure dichiarazione “Non ho un canale YouTube”', 'identity', '' !== trim( trb_portal_artist_profile_value( 'youtube_url', $user_id ) ) || '1' === trb_portal_artist_profile_value( 'youtube_none', $user_id ) );
 	$add( 'soundcloud', 'Profilo SoundCloud oppure dichiarazione “Non ho un canale SoundCloud”', 'identity', '' !== trim( trb_portal_artist_profile_value( 'soundcloud_url', $user_id ) ) || '1' === trb_portal_artist_profile_value( 'soundcloud_none', $user_id ) );
-	$add( 'live_fee', 'Cachet per esibizioni live o DJ set', 'identity', '' !== trim( trb_portal_artist_profile_value( 'live_fee', $user_id ) ) );
+	if ( trb_portal_profile_has_service( 'booking', trb_portal_user_profile( $user ) ) ) {
+		$add( 'live_fee', 'Cachet per esibizioni live o DJ set', 'identity', '' !== trim( trb_portal_artist_profile_value( 'live_fee', $user_id ) ) );
+	}
 	$add( 'artist_photo', 'Almeno una foto artista', 'identity', $has_photo );
 	return $requirements;
 }
 
 /** Return a transparent completion score and the exact missing requirements. */
 function trb_portal_artist_profile_completion( $user_id = 0 ) {
+	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+	static $request_cache = array();
+	if ( isset( $request_cache[ $user_id ] ) ) return $request_cache[ $user_id ];
 	$requirements = trb_portal_artist_profile_requirements( $user_id );
 	$missing = array_values( array_filter( $requirements, static function( $requirement ) { return empty( $requirement['complete'] ); } ) );
 	$total = count( $requirements );
 	$completed = $total - count( $missing );
 
-	return array(
+	$request_cache[ $user_id ] = array(
 		'completed' => $completed,
 		'total' => $total,
 		'remaining' => count( $missing ),
 		'percentage' => $total ? (int) round( ( $completed / $total ) * 100 ) : 0,
 		'missing' => $missing,
 	);
+	return $request_cache[ $user_id ];
 }
 
 function trb_portal_handle_artist_profile() {
@@ -879,7 +889,9 @@ function trb_portal_handle_artist_profile() {
 		}
 	}
 	trb_portal_remove_private_profile_files( $user_id );
-	trb_portal_handle_private_profile_uploads( $user_id );
+	if ( trb_portal_has_private_profile_uploads() ) {
+		trb_portal_handle_private_profile_uploads( $user_id );
+	}
 	$refresh_after = absint( get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) );
 	if ( $refresh_after ) {
 		$fresh_sides = array();
@@ -981,6 +993,18 @@ function trb_portal_private_upload_items( $input_name ) {
 	return $items;
 }
 
+/** Return whether the request contains at least one file that PHP received successfully. */
+function trb_portal_has_private_profile_uploads() {
+	foreach ( array_keys( $_FILES ) as $input_name ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		foreach ( trb_portal_private_upload_items( $input_name ) as $upload ) {
+			if ( ! empty( $upload['name'] ) && ! empty( $upload['tmp_name'] ) && UPLOAD_ERR_OK === (int) $upload['error'] ) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 /** Remove byte-identical private files while preserving the first valid copy. */
 function trb_portal_deduplicate_private_profile_files( $user_id ) {
 	$upload_dir = wp_upload_dir();
@@ -988,24 +1012,27 @@ function trb_portal_deduplicate_private_profile_files( $user_id ) {
 	$unique = array();
 	$seen = array();
 	$removed = 0;
+	$changed = false;
 	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
 		$target = ! empty( $file['path'] ) ? realpath( trailingslashit( $upload_dir['basedir'] ) . ltrim( $file['path'], '/' ) ) : false;
 		if ( ! $private_dir || ! $target || 0 !== strpos( $target, $private_dir . DIRECTORY_SEPARATOR ) || ! is_file( $target ) ) {
 			$unique[] = $file;
 			continue;
 		}
-		$hash = hash_file( 'sha256', $target );
+		$hash = ! empty( $file['sha256'] ) && preg_match( '/^[a-f0-9]{64}$/i', $file['sha256'] ) ? strtolower( $file['sha256'] ) : hash_file( 'sha256', $target );
 		$key = ( isset( $file['group'] ) ? $file['group'] : '' ) . '|' . ( isset( $file['label'] ) ? $file['label'] : '' ) . '|' . $hash;
 		if ( isset( $seen[ $key ] ) ) {
 			wp_delete_file( $target );
 			$removed++;
+			$changed = true;
 			continue;
 		}
 		$seen[ $key ] = true;
+		if ( empty( $file['sha256'] ) || $hash !== $file['sha256'] ) $changed = true;
 		$file['sha256'] = $hash;
 		$unique[] = $file;
 	}
-	update_user_meta( $user_id, '_trb_artist_private_files', $unique );
+	if ( $changed ) update_user_meta( $user_id, '_trb_artist_private_files', $unique );
 	return $removed;
 }
 
@@ -1015,6 +1042,7 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 	require_once ABSPATH . 'wp-admin/includes/file.php';
 	trb_portal_deduplicate_private_profile_files( $user_id );
 	$existing       = trb_portal_private_profile_files( $user_id );
+	$files_changed  = false;
 	$known_hashes   = array();
 	foreach ( $existing as $stored_file ) {
 		if ( ! empty( $stored_file['sha256'] ) ) {
@@ -1076,6 +1104,7 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 					$kept[] = $stored_file;
 				}
 				$existing = $kept;
+				$files_changed = true;
 			}
 
 			$upload_dir = wp_upload_dir();
@@ -1098,6 +1127,7 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 				'time'  => time(),
 				'sha256' => $incoming_hash,
 			);
+			$files_changed = true;
 			$known_hashes[ $hash_key ] = true;
 			if ( 'photo' === $settings['group'] ) {
 				$photos_count++;
@@ -1105,8 +1135,7 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 		}
 	}
 
-	update_user_meta( $user_id, '_trb_artist_private_files', $existing );
-	trb_portal_deduplicate_private_profile_files( $user_id );
+	if ( $files_changed ) update_user_meta( $user_id, '_trb_artist_private_files', $existing );
 }
 
 function trb_portal_user_releases() {
@@ -1715,6 +1744,10 @@ function trb_portal_release_submission_response( $status, $message = '', $http_s
 	$release_id = absint( $release_id );
 	$is_success = 'created' === $status;
 	$redirect   = add_query_arg( 'trb_release', $status, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release';
+	if ( $is_success && is_user_logged_in() ) {
+		delete_user_meta( get_current_user_id(), '_trb_release_form_draft' );
+		delete_user_meta( get_current_user_id(), '_trb_release_last_submission_error' );
+	}
 
 	if ( ! $is_success && is_user_logged_in() ) {
 		update_user_meta( get_current_user_id(), '_trb_release_last_submission_error', array(
@@ -2925,8 +2958,8 @@ function trb_portal_render_artist_profile_section() {
 		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero di cellulare italiano valido, con 10 cifre e iniziale 3; il prefisso +39 è facoltativo.</div><?php endif; ?>
 		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: il codice fiscale non supera il controllo formale e della lettera finale. Verifica attentamente i 16 caratteri.</div><?php endif; ?>
 		<?php if ( 'invalid_document_number' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: il numero della Carta d’Identità Elettronica deve contenere 2 lettere, 5 cifre e 2 lettere, ad esempio CA12345AB.</div><?php endif; ?>
-		<?php if ( 'invalid_document_expiry' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: la Carta d’Identità Elettronica risulta scaduta oppure la data di scadenza non è valida.</div><?php endif; ?>
-		<?php if ( $document_expired ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Carta d’identità scaduta</strong><p>Per continuare devi inserire numero e scadenza della nuova CIE e caricare nuovamente sia il fronte sia il retro. Fino all’aggiornamento il profilo resta incompleto e non puoi avviare nuove release.</p></div><?php endif; ?>
+		<?php if ( 'invalid_document_expiry' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: la scadenza deve essere valida, non antecedente a oggi e non superiore a 10 anni.</div><?php endif; ?>
+		<?php if ( $document_expired ) : ?><?php $renewal_deadline = ( new DateTimeImmutable( trb_portal_artist_profile_value( 'document_expiry' ), wp_timezone() ) )->modify( '+30 days' ); $renewal_days = max( 0, (int) ( new DateTimeImmutable( 'today', wp_timezone() ) )->diff( $renewal_deadline )->format( '%r%a' ) ); ?><div class="trb-portal__message trb-portal__message--error"><strong>Carta d’identità scaduta</strong><p>Il profilo rimane attivo, ma non puoi avviare nuove release finché non inserisci numero e scadenza della nuova CIE e carichi nuovamente fronte e retro. <?php echo $renewal_days > 0 ? esc_html( 'Hai ancora ' . $renewal_days . ' giorni per completare l’aggiornamento.' ) : 'Il termine di 30 giorni per l’aggiornamento è trascorso.'; ?></p></div><?php endif; ?>
 		<?php if ( 'invalid_account_name' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci nome e cognome anagrafici completi.</div><?php endif; ?>
 		<?php if ( 'artist_name_taken' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Questo nome d’arte risulta già assegnato a un altro account. Apri una segnalazione se ritieni che si tratti di un errore.</div><?php endif; ?>
 		<?php if ( 'bio_required' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Allega la biografia artistica in formato TXT, DOCX, ODT o RTF prima di salvare l’identità artistica.</div><?php endif; ?>
@@ -2953,8 +2986,8 @@ function trb_portal_render_artist_profile_section() {
 						<label>Comune di nascita <span>*</span><input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" autocomplete="off" list="trb-birthplace-options" data-trb-birthplace required /><datalist id="trb-birthplace-options"></datalist><small data-trb-birthplace-status>Digita almeno due lettere e seleziona il Comune dall’archivio italiano.</small></label>
 						<label>Provincia di nascita <span>*</span><input type="text" name="trb_artist_birth_province" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_province' ) ); ?>" data-trb-birth-province readonly required /></label>
 						<label class="trb-portal__field-wide">Codice fiscale <span>*</span><input type="text" name="trb_artist_tax_code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_code' ) ); ?>" minlength="16" maxlength="16" autocapitalize="characters" spellcheck="false" data-trb-tax-code required /><small>Il sistema controlla struttura e carattere finale prima del salvataggio.</small></label>
-						<label>Numero della Carta d’Identità Elettronica <span>*</span><input type="text" name="trb_artist_document_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'document_number' ) ); ?>" autocomplete="off" minlength="9" maxlength="20" pattern="[A-Za-z]{2}[0-9]{5}[A-Za-z]{2}" autocapitalize="characters" spellcheck="false" placeholder="Es. CA12345AB" data-trb-document-number required /><small>Inserisci i 9 caratteri stampati sulla CIE: 2 lettere, 5 cifre e 2 lettere. Il sistema rimuove automaticamente spazi e trattini.</small></label>
-						<label>Scadenza della Carta d’Identità Elettronica <span>*</span><input type="date" name="trb_artist_document_expiry" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'document_expiry' ) ); ?>" min="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>" data-trb-document-expiry required /><small>Alla scadenza riceverai un’e-mail e dovrai caricare fronte e retro della nuova CIE.</small></label>
+						<label>Numero della Carta d’Identità Elettronica <span>*</span><input type="text" name="trb_artist_document_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'document_number' ) ); ?>" autocomplete="off" minlength="9" maxlength="20" pattern="[A-Za-z]{2}[0-9]{5}[A-Za-z]{2}" autocapitalize="characters" spellcheck="false" placeholder="Es. CA12345AB" data-trb-document-number required /><small>Inserisci i 9 caratteri stampati sulla CIE: 2 lettere, 5 cifre e 2 lettere.</small></label>
+						<label>Scadenza della Carta d’Identità Elettronica <span>*</span><input type="date" name="trb_artist_document_expiry" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'document_expiry' ) ); ?>" min="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>" max="<?php echo esc_attr( ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+10 years' )->format( 'Y-m-d' ) ); ?>" data-trb-document-expiry required /><small>Alla scadenza riceverai un’e-mail e avrai 30 giorni per caricare fronte e retro della nuova CIE. Il profilo resterà attivo, ma non potrai avviare nuove release fino all’aggiornamento.</small></label>
 						<label>Indirizzo di residenza <span>*</span><input type="text" name="trb_artist_street" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street' ) ); ?>" required /></label>
 						<label>Numero civico <span>*</span><input type="text" name="trb_artist_street_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
 						<label>CAP <span>*</span><input type="text" name="trb_artist_postal_code" autocomplete="postal-code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" data-trb-postcode required /><small data-trb-postcode-status>Inserisci il CAP: Comune e provincia saranno ricavati dall’archivio nazionale.</small></label>
@@ -2988,7 +3021,7 @@ function trb_portal_render_artist_profile_section() {
 						<?php trb_portal_render_platform_field( 'soundcloud', 'Profilo SoundCloud', 'Copia il link al profilo SoundCloud ufficiale, se esistente.', 'soundcloud_none', 'Non ho un canale SoundCloud' ); ?>
 					</div></fieldset>
 					<fieldset class="trb-portal__platforms"><legend>Social e contatti pubblici <small>facoltativi</small></legend><div class="trb-portal__social-grid"><?php foreach ( array( 'facebook' => 'Facebook', 'instagram' => 'Instagram', 'linkedin' => 'LinkedIn', 'tiktok' => 'TikTok', 'discord' => 'Discord', 'twitch' => 'Twitch', 'x' => 'X (ex Twitter)', 'snapchat' => 'Snapchat', 'threads' => 'Threads' ) as $social_key => $social_label ) : ?><label><?php echo esc_html( $social_label ); ?><input type="url" name="trb_artist_<?php echo esc_attr( $social_key ); ?>_url" value="<?php echo esc_attr( trb_portal_artist_profile_value( $social_key . '_url' ) ); ?>" placeholder="https://" /></label><?php endforeach; ?></div></fieldset>
-					<label>Cachet per esibizioni live o DJ set <span>*</span><input type="text" name="trb_artist_live_fee" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'live_fee' ) ); ?>" required placeholder="Es. € 800 + viaggio e alloggio" /><small>Indica il compenso normalmente richiesto per una singola esibizione dal vivo o DJ set e specifica cosa comprende: durata, organico, esigenze tecniche, viaggio, vitto, alloggio e imposte. Il dato serve per valutare correttamente eventuali proposte di booking e non costituisce un prezzo pubblico o definitivo.</small></label>
+					<?php if ( trb_portal_profile_has_service( 'booking', $profile ) ) : ?><label>Cachet per esibizioni live o DJ set <span>*</span><input type="text" name="trb_artist_live_fee" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'live_fee' ) ); ?>" required placeholder="Es. € 800 + viaggio e alloggio" /><small>Indica il compenso normalmente richiesto per una singola esibizione dal vivo o DJ set e specifica cosa comprende: durata, organico, esigenze tecniche, viaggio, vitto, alloggio e imposte. Il dato serve per valutare correttamente eventuali proposte di booking e non costituisce un prezzo pubblico o definitivo.</small></label><?php endif; ?>
 					<div class="trb-portal__private-documents"><strong>Foto artista</strong><p>Carica immagini ufficiali ad alta qualità. Puoi conservare fino a 6 fotografie, eliminarne una o più e sostituirle in qualsiasi momento.</p><label>Aggiungi fotografie <small>JPG, PNG o WEBP · massimo 6 immagini complessive</small><input type="file" name="trb_artist_photos[]" accept="image/jpeg,image/png,image/webp" multiple /></label><?php trb_portal_render_private_files( 'photo' ); ?></div>
 					<button class="trb-button" type="submit">Salva identità artistica</button>
 				</form>
@@ -3043,9 +3076,11 @@ function trb_portal_render_private_files( $group = '' ) {
 		$files = array_filter( $files, function( $file ) use ( $group ) { return isset( $file['group'] ) && $group === $file['group']; } );
 	}
 	if ( empty( $files ) ) return;
+	$uploads = null;
+	$base = null;
 	?><fieldset class="trb-portal__uploaded-files <?php echo 'photo' === $group ? 'trb-portal__uploaded-photos' : ''; ?>"><legend><?php echo 'photo' === $group ? 'Fotografie caricate correttamente' : 'File caricati correttamente'; ?></legend><p>Questi sono i file attualmente conservati nel tuo profilo. Puoi scaricare l’originale o sostituirlo caricando una nuova versione.</p><div class="<?php echo 'photo' === $group ? 'trb-portal__photo-grid' : 'trb-portal__file-list'; ?>"><?php foreach ( $files as $file ) :
 		$size = absint( $file['size'] ?? 0 );
-		if ( ! $size && ! empty( $file['path'] ) ) { $uploads = wp_upload_dir(); $target = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) ); $base = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' ); if ( $base && $target && 0 === strpos( $target, $base . DIRECTORY_SEPARATOR ) && is_file( $target ) ) $size = filesize( $target ); }
+		if ( ! $size && ! empty( $file['path'] ) ) { if ( null === $uploads ) { $uploads = wp_upload_dir(); $base = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' ); } $target = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) ); if ( $base && $target && 0 === strpos( $target, $base . DIRECTORY_SEPARATOR ) && is_file( $target ) ) $size = filesize( $target ); }
 		$meta = strtoupper( pathinfo( $file['name'] ?? '', PATHINFO_EXTENSION ) );
 		if ( $size ) $meta .= ' · ' . size_format( $size, 1 );
 		if ( ! empty( $file['time'] ) ) $meta .= ' · caricato il ' . wp_date( 'd/m/Y', absint( $file['time'] ) );
@@ -3269,10 +3304,11 @@ function trb_portal_render_release_files( $release_id ) {
 	?><div class="trb-release-files" id="release-files-<?php echo esc_attr( $release_id ); ?>"><h4>Materiali caricati</h4><div class="trb-release-files__list"><?php foreach ( $files as $index => $file ) :
 		$kind = isset( $file['kind'] ) ? $file['kind'] : '';
 		$label = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) );
+		$uploaded_label = in_array( $kind, array( 'cover', 'presentation', 'rights_document' ), true ) ? 'caricata correttamente' : 'caricato correttamente';
 		if ( in_array( $kind, array( 'lyrics', 'audio', 'rights_document' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
 		$accept = 'cover' === $kind ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : ( 'audio' === $kind ? '.wav,audio/wav,audio/x-wav' : ( 'rights_document' === $kind ? '.pdf,application/pdf' : '.txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text' ) );
 		$metadata = strtoupper( pathinfo( $file['original_name'] ?? $file['name'] ?? '', PATHINFO_EXTENSION ) ); if ( ! empty( $file['size'] ) ) $metadata .= ' · ' . size_format( absint( $file['size'] ), 1 );
-		?><article class="trb-release-file"><?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?><div class="trb-release-file__details"><strong>✓ <?php echo esc_html( $label ); ?> caricato correttamente</strong><span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span><?php if ( $metadata ) : ?><small><?php echo esc_html( $metadata ); ?></small><?php endif; ?><?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'Mastering richiesto · il master finale comparirà qui automaticamente' : 'Master finale' ) ); ?></small><?php endif; ?><?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><audio class="trb-release-audio" controls preload="metadata" src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, false, true ) ); ?>">Il browser non supporta il player audio.</audio><?php endif; ?><div class="trb-portal__stored-file-actions"><?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica master WAV</a><?php elseif ( 'audio' !== $kind ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica originale</a><?php endif; ?></div><details><summary>Sostituisci</summary><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_replace_release_file" /><input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" /><input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" /><input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" /><input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" /><?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?><input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required /><?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV stereo · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?><button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button></form></details></div></article><?php endforeach; ?></div><?php $analysis_report = (array) get_post_meta( $release_id, '_trb_release_analysis_report', true ); if ( ! empty( $analysis_report['name'] ) && function_exists( 'trb_analysis_report_url' ) ) : ?><div class="trb-portal__message"><strong>Report di analisi</strong><p>Il controllo tecnico e dei diritti è documentato e collegato alla versione del WAV tramite hash SHA-256.</p><a class="trb-button trb-button--compact" href="<?php echo esc_url( trb_analysis_report_url( $release_id ) ); ?>">Scarica il report PDF</a></div><?php endif; ?><?php if ( function_exists( 'trb_resource_render_rights_box' ) ) trb_resource_render_rights_box( $release_id ); ?></div><?php
+		?><article class="trb-release-file"><?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?><div class="trb-release-file__details"><strong>✓ <?php echo esc_html( $label . ' ' . $uploaded_label ); ?></strong><span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span><?php if ( $metadata ) : ?><small><?php echo esc_html( $metadata ); ?></small><?php endif; ?><?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'Mastering richiesto · il master finale comparirà qui automaticamente' : 'Master finale' ) ); ?></small><?php endif; ?><?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><audio class="trb-release-audio" controls preload="metadata" src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, false, true ) ); ?>">Il browser non supporta il player audio.</audio><?php endif; ?><div class="trb-portal__stored-file-actions"><?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica master WAV</a><?php elseif ( 'audio' !== $kind ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica originale</a><?php endif; ?></div><details><summary>Sostituisci</summary><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_replace_release_file" /><input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" /><input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" /><input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" /><input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" /><?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?><input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required /><?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV stereo · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?><button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button></form></details></div></article><?php endforeach; ?></div><?php $analysis_report = (array) get_post_meta( $release_id, '_trb_release_analysis_report', true ); if ( ! empty( $analysis_report['name'] ) && function_exists( 'trb_analysis_report_url' ) ) : ?><div class="trb-portal__message"><strong>Report di analisi</strong><p>Il controllo tecnico e dei diritti è documentato e collegato alla versione del WAV tramite hash SHA-256.</p><a class="trb-button trb-button--compact" href="<?php echo esc_url( trb_analysis_report_url( $release_id ) ); ?>">Scarica il report PDF</a></div><?php endif; ?><?php if ( function_exists( 'trb_resource_render_rights_box' ) ) trb_resource_render_rights_box( $release_id ); ?></div><?php
 }
 
 function trb_portal_release_pipeline_label( $release_id ) {
@@ -3346,12 +3382,25 @@ function trb_portal_render_release_section() {
 		<?php if ( 'single_title_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I titoli non coincidono.</strong><p>Per una pubblicazione di tipo Singolo, il titolo della release deve essere identico al titolo del brano, comprese maiuscole, accenti e punteggiatura.</p></div><?php endif; ?>
 		<?php if ( 'upload_failed' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Caricamento incompleto.</strong><p>I dati della pratica sono stati conservati, ma uno o più file devono essere verificati o sostituiti.</p></div><?php endif; ?>
 		<?php if ( 'invalid' === $status || 'error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Alcuni dati sono mancanti o non validi. Controlla tutti i campi evidenziati.</div><?php endif; ?>
-		<?php if ( ! empty( $releases ) ) : ?><div class="trb-portal__request-history trb-portal__release-history"><h3>Release inviate</h3><ul><?php foreach ( $releases as $release ) : $release_type = get_post_meta( $release->ID, '_trb_release_type', true ); $release_tracks = (array) get_post_meta( $release->ID, '_trb_release_tracks', true ); $release_isrcs = array_values( array_filter( array_map( static function ( $track ) { return isset( $track['isrc'] ) ? sanitize_text_field( $track['isrc'] ) : ''; }, $release_tracks ) ) ); ?><li data-release-item="<?php echo esc_attr( $release->ID ); ?>"><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?> · <b data-release-current-state><?php echo esc_html( trb_portal_release_current_state_label( $release->ID ) ); ?></b></span><?php if ( $release_isrcs ) : ?><span class="trb-release-isrc-summary"><?php echo esc_html( 1 === count( $release_isrcs ) ? 'ISRC assegnato: ' . $release_isrcs[0] : 'ISRC assegnati: ' . implode( ', ', $release_isrcs ) ); ?></span><?php endif; ?><?php trb_portal_render_release_files( $release->ID ); ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+		<?php if ( ! empty( $releases ) ) : ?><div class="trb-portal__request-history trb-portal__release-history"><h3>Il tuo catalogo</h3><ul><?php foreach ( $releases as $release ) :
+			$release_type  = get_post_meta( $release->ID, '_trb_release_type', true );
+			$release_tracks = (array) get_post_meta( $release->ID, '_trb_release_tracks', true );
+			$release_files  = (array) get_post_meta( $release->ID, '_trb_release_files', true );
+			$release_isrcs  = array_values( array_filter( array_map( static function ( $track ) { return isset( $track['isrc'] ) ? sanitize_text_field( $track['isrc'] ) : ''; }, $release_tracks ) ) );
+			$cover_index    = null;
+			foreach ( $release_files as $file_index => $release_file ) if ( isset( $release_file['kind'] ) && 'cover' === $release_file['kind'] ) { $cover_index = $file_index; break; }
+			?><li class="trb-release-card" data-release-item="<?php echo esc_attr( $release->ID ); ?>">
+				<div class="trb-release-card__cover"><?php if ( null !== $cover_index ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release->ID, $cover_index, true ) ); ?>" alt="Copertina di <?php echo esc_attr( $release->post_title ); ?>" loading="lazy" /><?php else : ?><span aria-hidden="true">♪</span><?php endif; ?></div>
+				<div class="trb-release-card__summary"><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?></span><b data-release-current-state><?php echo esc_html( trb_portal_release_current_state_label( $release->ID ) ); ?></b><?php if ( $release_isrcs ) : ?><small class="trb-release-isrc-summary"><?php echo esc_html( 1 === count( $release_isrcs ) ? 'ISRC ' . $release_isrcs[0] : count( $release_isrcs ) . ' codici ISRC assegnati' ); ?></small><?php endif; ?></div>
+				<details class="trb-release-card__details"><summary>Apri la release</summary><?php trb_portal_render_release_files( $release->ID ); ?></details>
+			</li><?php endforeach; ?></ul></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
 			<div class="trb-portal__release-gate"><strong>Completa il profilo per iniziare.</strong><p>Quando il profilo raggiunge il 100% potrai creare la prima release.</p><a class="trb-button" href="#profilo">Completa il profilo</a></div>
 		<?php elseif ( $ddb12_limit_reached ) : ?>
 			<div class="trb-portal__release-gate"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Hai già creato la release disponibile per questo mese con il profilo DDB12. Il conteggio comprende qualsiasi tipologia di pubblicazione e si azzera automaticamente il primo giorno del mese. Potrai avviare una nuova pratica dal <?php echo esc_html( $ddb12_reset_label ); ?>; il piano consente fino a 12 release ogni anno.</p></div>
 		<?php else : ?>
+		<details class="trb-release-create" <?php echo empty( $releases ) || in_array( $status, array( 'invalid', 'error', 'duration_mismatch', 'file_invalid', 'file_error', 'single_title_mismatch', 'upload_failed' ), true ) ? 'open' : ''; ?>>
+			<summary>+ Crea una nuova release</summary>
 		<div class="trb-portal__release-workspace">
 			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-stage-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-submit-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-draft-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-draft-nonce="<?php echo esc_attr( wp_create_nonce( 'trb_portal_release_draft' ) ); ?>" data-draft-key="trb-release-draft-<?php echo esc_attr( get_current_user_id() ); ?>" data-qa-mode="<?php echo current_user_can( 'manage_options' ) ? '1' : '0'; ?>" data-release-form>
 				<input type="hidden" name="action" value="trb_portal_start_release" />
@@ -3365,6 +3414,7 @@ function trb_portal_render_release_section() {
 			</form>
 			<script type="application/json" data-release-server-draft><?php echo wp_json_encode( $server_draft, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></script>
 		</div>
+		</details>
 		<?php endif; ?>
 	</section>
 	<template id="trb-portal-track-template">
@@ -4201,16 +4251,22 @@ function trb_portal_check_identity_expirations() {
 		$expiry = trim( (string) get_user_meta( $user->ID, '_trb_artist_document_expiry', true ) );
 		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $expiry ) || $expiry >= $today ) continue;
 		if ( ! get_user_meta( $user->ID, '_trb_identity_documents_refresh_after', true ) ) update_user_meta( $user->ID, '_trb_identity_documents_refresh_after', time() );
-		if ( $expiry === get_user_meta( $user->ID, '_trb_identity_expiry_notified_for', true ) ) continue;
+		$expired_date = new DateTimeImmutable( $expiry, wp_timezone() );
+		$overdue_days = (int) $expired_date->diff( new DateTimeImmutable( 'today', wp_timezone() ) )->format( '%a' );
+		$notice_stage = $overdue_days >= 30 ? 'deadline' : 'expired';
+		$notice_token = $expiry . ':' . $notice_stage;
+		if ( $notice_token === get_user_meta( $user->ID, '_trb_identity_expiry_notified_for', true ) ) continue;
 
 		$dashboard = home_url( '/area-artisti/#profilo' );
 		$name      = trim( (string) $user->display_name ) ? $user->display_name : 'Artista';
 		$subject   = '[Portale Artisti] Carta d’identità scaduta';
-		$message   = "Ciao {$name},\n\nla Carta d’Identità Elettronica registrata nel Portale Artisti è scaduta il {$expiry}.\n\nPer continuare a utilizzare il portale devi inserire numero e scadenza della nuova CIE e caricare nuovamente sia il fronte sia il retro. Fino all’aggiornamento non potrai avviare nuove release.\n\nAggiorna i documenti: {$dashboard}\n\nTRB rec - Music Publishing";
+		$message   = 'deadline' === $notice_stage
+			? "Ciao {$name},\n\nsono trascorsi 30 giorni dalla scadenza della Carta d’Identità Elettronica registrata nel Portale Artisti. Il profilo resta accessibile, ma non puoi avviare nuove release finché non inserisci numero e scadenza della nuova CIE e carichi nuovamente fronte e retro.\n\nAggiorna i documenti: {$dashboard}\n\nTRB rec - Music Publishing"
+			: "Ciao {$name},\n\nla Carta d’Identità Elettronica registrata nel Portale Artisti è scaduta il {$expiry}. Hai 30 giorni per inserire numero e scadenza della nuova CIE e caricare nuovamente fronte e retro. Il profilo resta accessibile, ma fino all’aggiornamento non puoi avviare nuove release.\n\nAggiorna i documenti: {$dashboard}\n\nTRB rec - Music Publishing";
 		$headers   = array( 'From: TRB rec - Music Publishing <info@trbrec.com>' );
 		$artist_sent = wp_mail( $user->user_email, $subject, $message, $headers );
-		$admin_sent  = wp_mail( 'info@trbrec.com', $subject . ' — ' . $name, "L’artista {$name} ({$user->user_email}) ha una CIE scaduta dal {$expiry}. Il profilo è stato bloccato fino all’aggiornamento di numero, scadenza, fronte e retro.\n\nProfilo utente: " . admin_url( 'user-edit.php?user_id=' . $user->ID ), $headers );
-		if ( $artist_sent && $admin_sent ) update_user_meta( $user->ID, '_trb_identity_expiry_notified_for', $expiry );
+		$admin_sent  = wp_mail( 'info@trbrec.com', $subject . ' — ' . $name, "L’artista {$name} ({$user->user_email}) ha una CIE scaduta dal {$expiry}. Il profilo resta accessibile; è sospeso soltanto l’avvio di nuove release fino all’aggiornamento di numero, scadenza, fronte e retro.\n\nProfilo utente: " . admin_url( 'user-edit.php?user_id=' . $user->ID ), $headers );
+		if ( $artist_sent && $admin_sent ) update_user_meta( $user->ID, '_trb_identity_expiry_notified_for', $notice_token );
 	}
 }
 add_action( 'trb_portal_check_identity_expirations', 'trb_portal_check_identity_expirations' );
