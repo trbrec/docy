@@ -317,6 +317,7 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-release-card__details { border-top: 1px solid var(--trb-line); grid-column: 1 / -1; padding: 0 15px 14px; }
 .trb-release-card__details > summary { color: var(--trb-accent); cursor: pointer; font-size: 13px; font-weight: 900; padding: 12px 0 0; }
 .trb-release-card__details[open] { grid-column: 1 / -1; }
+.trb-release-card:has(> .trb-release-card__details[open]) > .trb-release-card__cover { display: none; }
 .trb-portal__release-history:has(.trb-release-card__details[open]) > ul { grid-template-columns: 1fr; }
 .trb-release-create { background: #fff; border: 1px solid #cfdeeb; border-radius: 14px; margin-top: 18px; overflow: hidden; }
 .trb-release-create > summary { color: var(--trb-accent); cursor: pointer; font-size: 16px; font-weight: 900; list-style: none; padding: 17px 20px; }
@@ -331,6 +332,8 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-portal__request-history span { color: var(--trb-ink-soft); flex: 0 0 auto; font-size: 13px; }
 .trb-release-files { border-top: 1px solid var(--trb-line); grid-column: 1 / -1; margin-top: 14px; padding-top: 14px; width: 100%; }
 .trb-release-files h4 { font-size: 14px; margin: 0 0 10px; }
+.trb-release-files__locked { font-weight: 600; margin: 0 0 12px; }
+.trb-release-files__locked p { margin: 6px 0 12px; }
 .trb-release-files__list { display: grid; gap: 10px; }
 .trb-release-file { align-items: start; background: #f7f9fc; border: 1px solid var(--trb-line); border-radius: 10px; display: grid; gap: 12px; grid-template-columns: auto minmax(0,1fr); padding: 10px; }
 .trb-release-file > img { border-radius: 7px; height: 74px; object-fit: cover; width: 74px; }

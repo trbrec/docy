@@ -1655,12 +1655,25 @@ function trb_portal_serve_release_file() {
 }
 add_action( 'admin_post_trb_portal_release_file', 'trb_portal_serve_release_file' );
 
+/** Artists cannot replace definitive materials after TRB has approved a release. */
+function trb_portal_release_files_are_locked( $release_id ) {
+	$release_id = absint( $release_id );
+	if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) ) return false;
+	$pipeline = sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
+	$contract = sanitize_key( get_post_meta( $release_id, '_trb_contract_state', true ) );
+	return 'approved' === $pipeline || in_array( $contract, array( 'preparing', 'contract_sent', 'signed' ), true );
+}
+
 function trb_portal_replace_release_file() {
 	if ( ! is_user_logged_in() ) auth_redirect();
 	$release_id = isset( $_POST['trb_release_id'] ) ? absint( $_POST['trb_release_id'] ) : 0;
 	$file_index = isset( $_POST['trb_release_file_index'] ) ? absint( $_POST['trb_release_file_index'] ) : 0;
 	check_admin_referer( 'trb_portal_replace_release_file_' . $release_id . '_' . $file_index, 'trb_release_file_nonce' );
 	if ( ! trb_portal_current_user_can_access_release( $release_id ) ) wp_die( 'Operazione non consentita.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
+	if ( trb_portal_release_files_are_locked( $release_id ) && ! current_user_can( 'manage_options' ) ) {
+		wp_safe_redirect( add_query_arg( 'trb_release', 'files_locked', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
+		exit;
+	}
 	$files = get_post_meta( $release_id, '_trb_release_files', true );
 	$old_file = is_array( $files ) && isset( $files[ $file_index ] ) ? $files[ $file_index ] : array();
 	$new_upload = trb_portal_release_upload_item( 'trb_release_replacement' );
@@ -2313,7 +2326,7 @@ function trb_portal_seed_guides() {
 		$guides[ $prefix . 'correzioni' ] = array(
 			'title' => 'Correzioni, sostituzioni e variazioni dopo l’invio', 'profiles' => array( $profile ),
 			'excerpt' => 'Cosa fare quando un dato o un file deve essere modificato.',
-			'content' => '<p>Non aprire una seconda pratica per correggere quella esistente. Apri una segnalazione indicando titolo della release, dato errato e correzione richiesta.</p><ul><li>Prima della consegna alle piattaforme, la modifica viene valutata nella pratica corrente.</li><li>Dopo la consegna, una sostituzione può richiedere nuovi tempi tecnici o lo spostamento della data.</li><li>Dopo la pubblicazione, modifiche sostanziali e rimozioni seguono procedure specifiche e non sono immediate.</li></ul><p>Non inviare autonomamente versioni alternative senza aver ricevuto indicazioni.</p>',
+			'content' => '<p>Non aprire una seconda pratica per correggere quella esistente.</p><ul><li>Finché la release non è approvata, puoi sostituire nella pratica i materiali che devono essere corretti.</li><li>Dopo l’approvazione, tutti i file diventano definitivi: apri una segnalazione indicando titolo della release, file interessato e modifica richiesta.</li><li>Dopo la consegna alle piattaforme, una variazione può richiedere nuovi tempi tecnici o lo spostamento della data.</li><li>Dopo la pubblicazione, modifiche sostanziali e rimozioni seguono procedure specifiche e non sono immediate.</li></ul><p>Non inviare autonomamente versioni alternative senza aver ricevuto indicazioni.</p>',
 		);
 	}
 	return $guides;
@@ -3298,17 +3311,69 @@ add_action( 'admin_post_trb_portal_submit_demo', 'trb_portal_submit_demo' );
 add_action( 'wp_ajax_trb_portal_submit_demo', 'trb_portal_submit_demo' );
 
 function trb_portal_render_release_files( $release_id ) {
-	$files  = get_post_meta( $release_id, '_trb_release_files', true );
-	$tracks = get_post_meta( $release_id, '_trb_release_tracks', true );
+	$files       = get_post_meta( $release_id, '_trb_release_files', true );
+	$tracks      = get_post_meta( $release_id, '_trb_release_tracks', true );
+	$files_locked = trb_portal_release_files_are_locked( $release_id ) && ! current_user_can( 'manage_options' );
 	if ( ! is_array( $files ) || empty( $files ) ) return;
-	?><div class="trb-release-files" id="release-files-<?php echo esc_attr( $release_id ); ?>"><h4>Materiali caricati</h4><div class="trb-release-files__list"><?php foreach ( $files as $index => $file ) :
-		$kind = isset( $file['kind'] ) ? $file['kind'] : '';
-		$label = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) );
-		$uploaded_label = in_array( $kind, array( 'cover', 'presentation', 'rights_document' ), true ) ? 'caricata correttamente' : 'caricato correttamente';
-		if ( in_array( $kind, array( 'lyrics', 'audio', 'rights_document' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
-		$accept = 'cover' === $kind ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : ( 'audio' === $kind ? '.wav,audio/wav,audio/x-wav' : ( 'rights_document' === $kind ? '.pdf,application/pdf' : '.txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text' ) );
-		$metadata = strtoupper( pathinfo( $file['original_name'] ?? $file['name'] ?? '', PATHINFO_EXTENSION ) ); if ( ! empty( $file['size'] ) ) $metadata .= ' · ' . size_format( absint( $file['size'] ), 1 );
-		?><article class="trb-release-file"><?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?><div class="trb-release-file__details"><strong>✓ <?php echo esc_html( $label . ' ' . $uploaded_label ); ?></strong><span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span><?php if ( $metadata ) : ?><small><?php echo esc_html( $metadata ); ?></small><?php endif; ?><?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'Mastering richiesto · il master finale comparirà qui automaticamente' : 'Master finale' ) ); ?></small><?php endif; ?><?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><audio class="trb-release-audio" controls preload="metadata" src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, false, true ) ); ?>">Il browser non supporta il player audio.</audio><?php endif; ?><div class="trb-portal__stored-file-actions"><?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica master WAV</a><?php elseif ( 'audio' !== $kind ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica originale</a><?php endif; ?></div><details><summary>Sostituisci</summary><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_portal_replace_release_file" /><input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" /><input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" /><input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" /><input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" /><?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?><input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required /><?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV stereo · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?><button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button></form></details></div></article><?php endforeach; ?></div><?php $analysis_report = (array) get_post_meta( $release_id, '_trb_release_analysis_report', true ); if ( ! empty( $analysis_report['name'] ) && function_exists( 'trb_analysis_report_url' ) ) : ?><div class="trb-portal__message"><strong>Report di analisi</strong><p>Il controllo tecnico e dei diritti è documentato e collegato alla versione del WAV tramite hash SHA-256.</p><a class="trb-button trb-button--compact" href="<?php echo esc_url( trb_analysis_report_url( $release_id ) ); ?>">Scarica il report PDF</a></div><?php endif; ?><?php if ( function_exists( 'trb_resource_render_rights_box' ) ) trb_resource_render_rights_box( $release_id ); ?></div><?php
+	?>
+	<div class="trb-release-files" id="release-files-<?php echo esc_attr( $release_id ); ?>">
+		<h4>Materiali caricati</h4>
+		<?php if ( $files_locked ) : ?>
+			<div class="trb-portal__message trb-release-files__locked">
+				<strong>Materiali approvati e definitivi</strong>
+				<p>Questa release ha superato l’approvazione: i file non possono più essere sostituiti autonomamente. Per richiedere una modifica, apri una segnalazione indicando il titolo della release e il file da valutare.</p>
+				<a class="trb-button trb-button--compact" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Apri una segnalazione</a>
+			</div>
+		<?php endif; ?>
+		<div class="trb-release-files__list">
+			<?php foreach ( $files as $index => $file ) :
+				$kind = isset( $file['kind'] ) ? $file['kind'] : '';
+				$label = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) );
+				$uploaded_label = in_array( $kind, array( 'cover', 'presentation', 'rights_document' ), true ) ? 'caricata correttamente' : 'caricato correttamente';
+				if ( in_array( $kind, array( 'lyrics', 'audio', 'rights_document' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
+				$accept = 'cover' === $kind ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : ( 'audio' === $kind ? '.wav,audio/wav,audio/x-wav' : ( 'rights_document' === $kind ? '.pdf,application/pdf' : '.txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text' ) );
+				$metadata = strtoupper( pathinfo( $file['original_name'] ?? $file['name'] ?? '', PATHINFO_EXTENSION ) );
+				if ( ! empty( $file['size'] ) ) $metadata .= ' · ' . size_format( absint( $file['size'] ), 1 );
+				?>
+				<article class="trb-release-file">
+					<?php if ( 'cover' === $kind ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, true ) ); ?>" alt="Copertina della release" loading="lazy" /><?php endif; ?>
+					<div class="trb-release-file__details">
+						<strong>✓ <?php echo esc_html( $label . ' ' . $uploaded_label ); ?></strong>
+						<span><?php echo esc_html( 'audio' === $kind && ! empty( $file['name'] ) ? $file['name'] : ( isset( $file['original_name'] ) ? $file['original_name'] : $file['name'] ) ); ?></span>
+						<?php if ( $metadata ) : ?><small><?php echo esc_html( $metadata ); ?></small><?php endif; ?>
+						<?php if ( 'audio' === $kind && ! empty( $file['audio_spec'] ) ) : ?><small><?php echo esc_html( number_format_i18n( $file['audio_spec']['sample_rate'], 0 ) . ' Hz · ' . $file['audio_spec']['bit_depth'] . ' bit · ' . ( ! empty( $file['audio_status'] ) && 'mastering' === $file['audio_status'] ? 'Mastering richiesto · il master finale comparirà qui automaticamente' : 'Master finale' ) ); ?></small><?php endif; ?>
+						<?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><audio class="trb-release-audio" controls preload="metadata" src="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index, false, true ) ); ?>">Il browser non supporta il player audio.</audio><?php endif; ?>
+						<div class="trb-portal__stored-file-actions">
+							<?php if ( 'audio' === $kind && 'mastered' === ( $file['audio_status'] ?? '' ) ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica master WAV</a><?php elseif ( 'audio' !== $kind ) : ?><a href="<?php echo esc_url( trb_portal_release_file_url( $release_id, $index ) ); ?>">Scarica originale</a><?php endif; ?>
+						</div>
+						<?php if ( ! $files_locked ) : ?>
+							<details>
+								<summary>Sostituisci</summary>
+								<form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+									<input type="hidden" name="action" value="trb_portal_replace_release_file" />
+									<input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" />
+									<input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" />
+									<input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" />
+									<input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" />
+									<?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?>
+									<input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required />
+									<?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV stereo · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?>
+									<button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button>
+								</form>
+							</details>
+						<?php endif; ?>
+					</div>
+				</article>
+			<?php endforeach; ?>
+		</div>
+		<?php
+		$analysis_report = (array) get_post_meta( $release_id, '_trb_release_analysis_report', true );
+		if ( ! empty( $analysis_report['name'] ) && function_exists( 'trb_analysis_report_url' ) ) : ?>
+			<div class="trb-portal__message"><strong>Report di analisi</strong><p>Il controllo tecnico e dei diritti è documentato e collegato alla versione del WAV tramite hash SHA-256.</p><a class="trb-button trb-button--compact" href="<?php echo esc_url( trb_analysis_report_url( $release_id ) ); ?>">Scarica il report PDF</a></div>
+		<?php endif; ?>
+		<?php if ( function_exists( 'trb_resource_render_rights_box' ) ) trb_resource_render_rights_box( $release_id ); ?>
+	</div>
+	<?php
 }
 
 function trb_portal_release_pipeline_label( $release_id ) {
@@ -3377,6 +3442,7 @@ function trb_portal_render_release_section() {
 		<?php if ( 'duration_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>La durata indicata non coincide con il file WAV.</strong><p>Correggi minuti e secondi del brano: è ammessa una tolleranza massima di 1 secondo rispetto alla durata reale del file.</p></div><?php endif; ?>
 		<?php if ( 'file_invalid' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Il file sostitutivo non è stato acquisito.</strong><p>Formato, dimensioni o caratteristiche tecniche non rispettano i requisiti indicati. Il file precedente è rimasto invariato.</p></div><?php endif; ?>
 		<?php if ( 'file_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>La sostituzione non è stata completata.</strong><p>Il file precedente è rimasto invariato. Controlla la connessione e riprova una sola volta.</p></div><?php endif; ?>
+		<?php if ( 'files_locked' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I materiali di questa release sono definitivi.</strong><p>Dopo l’approvazione non è possibile sostituirli autonomamente. Apri una segnalazione per richiedere la valutazione della modifica.</p></div><?php endif; ?>
 		<?php if ( 'monthly_limit' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Il profilo DDB12 consente di avviare una sola pratica per ogni mese solare, indipendentemente dal tipo di pubblicazione: singolo, EP, album, doppio album, compilation, collection o catalogo. Il limite si rinnova automaticamente il primo giorno di ogni mese; potrai creare una nuova release dal <?php echo esc_html( $ddb12_reset_label ); ?>, per un massimo complessivo di 12 release nell’anno.</p></div><?php endif; ?>
 		<?php if ( 'upload_in_progress' === $status ) : ?><div class="trb-portal__message"><strong>Caricamento già in elaborazione</strong><p>La richiesta precedente è ancora in corso. Non inviare nuovamente i file: la pagina si aggiornerà al completamento.</p></div><?php endif; ?>
 		<?php if ( 'single_title_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I titoli non coincidono.</strong><p>Per una pubblicazione di tipo Singolo, il titolo della release deve essere identico al titolo del brano, comprese maiuscole, accenti e punteggiatura.</p></div><?php endif; ?>
