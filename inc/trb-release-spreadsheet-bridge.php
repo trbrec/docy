@@ -544,7 +544,10 @@ add_action( 'admin_post_trb_release_contract_callback', 'trb_release_bridge_publ
 function trb_release_bridge_rest_routes() {
     register_rest_route('trb/v1','/release-contract-status',array('methods'=>'GET','permission_callback'=>function(){return is_user_logged_in();},'callback'=>function(){
         $releases=get_posts(array('post_type'=>'trb_release','post_status'=>array('publish','private','pending','draft'),'author'=>get_current_user_id(),'numberposts'=>100)); $out=array();
-        foreach($releases as $release)$out[]=array('release_id'=>$release->ID,'state'=>get_post_meta($release->ID,'_trb_contract_state',true)?:'waiting_analysis','pipeline_state'=>get_post_meta($release->ID,'_trb_release_pipeline_status',true),'state_label'=>function_exists('trb_portal_release_current_state_label')?trb_portal_release_current_state_label($release->ID):'Controllo del brano in corso','release_date'=>get_post_meta($release->ID,'_trb_release_date',true));
+        foreach($releases as $release){
+            $summary=function_exists('trb_portal_release_status_summary')?trb_portal_release_status_summary($release->ID):array();
+            $out[]=array_merge(array('release_id'=>$release->ID,'state'=>get_post_meta($release->ID,'_trb_contract_state',true)?:'waiting_analysis','pipeline_state'=>get_post_meta($release->ID,'_trb_release_pipeline_status',true),'state_label'=>function_exists('trb_portal_release_current_state_label')?trb_portal_release_current_state_label($release->ID):'Controllo del brano in corso','release_date'=>get_post_meta($release->ID,'_trb_release_date',true)),$summary);
+        }
         return rest_ensure_response($out);
     }));
     register_rest_route('trb/v1','/release-contract-callback',array('methods'=>'POST','permission_callback'=>'__return_true','callback'=>function(WP_REST_Request $request){

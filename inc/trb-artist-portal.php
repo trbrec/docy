@@ -3499,17 +3499,113 @@ function trb_portal_release_pipeline_label( $release_id ) {
 }
 
 function trb_portal_release_current_state_label( $release_id ) {
+	$summary = trb_portal_release_status_summary( $release_id );
+	return $summary['headline'];
+}
+
+/**
+ * Return the two independent states an artist needs to understand at a glance.
+ *
+ * Contract and distribution are intentionally kept separate: a contract can be
+ * waiting for signature while the release has already passed the content checks.
+ */
+function trb_portal_release_status_summary( $release_id ) {
 	$contract = (string) get_post_meta( $release_id, '_trb_contract_state', true );
-	$labels = array(
-		'preparing'              => 'Invio del contratto in corso',
-		'contract_sent'          => 'Contratto inviato: firma richiesta',
-		'signed'                 => 'Contratto firmato',
-		'dispatch_error'         => 'Invio del contratto in verifica',
-		'data_error'             => 'Dati contrattuali in verifica',
-		'configuration_required' => 'Collegamento contrattuale in verifica',
+	$pipeline = (string) get_post_meta( $release_id, '_trb_release_pipeline_status', true );
+	$date     = (string) get_post_meta( $release_id, '_trb_release_date', true );
+	$summary  = array(
+		'tone'                => 'pending',
+		'headline'            => trb_portal_release_pipeline_label( $release_id ),
+		'contract_tone'       => 'pending',
+		'contract_label'      => 'Contratto non ancora inviato',
+		'contract_detail'     => 'Verrà preparato dopo il superamento dei controlli della release.',
+		'distribution_tone'   => 'pending',
+		'distribution_label'  => 'Valutazione della release in corso',
+		'distribution_detail' => 'Non devi caricare nuovamente i file mentre sono in elaborazione.',
 	);
-	if ( isset( $labels[ $contract ] ) ) return $labels[ $contract ];
-	return trb_portal_release_pipeline_label( $release_id );
+
+	$blocked = array(
+		'copyright_documents_needed' => array( 'Release non approvata: documentazione necessaria', 'Carica i documenti richiesti per consentire la verifica dei diritti.' ),
+		'published_audio_conflict'    => array( 'Release non approvata: brano già pubblicato rilevato', 'Apri una segnalazione se ritieni che il controllo non sia corretto.' ),
+		'technical_error'             => array( 'Release non approvata: correzione tecnica necessaria', 'Il file resta conservato; consulta le indicazioni ricevute prima di sostituirlo.' ),
+		'security_rejected'           => array( 'Release sospesa: materiale da verificare', 'TRB deve verificare uno dei materiali caricati.' ),
+		'upload_failed'               => array( 'Release non approvata: caricamento incompleto', 'Controlla i file indicati e completa il caricamento.' ),
+	);
+	if ( isset( $blocked[ $pipeline ] ) ) {
+		$summary['tone']                = 'blocked';
+		$summary['headline']            = $blocked[ $pipeline ][0];
+		$summary['contract_tone']       = 'blocked';
+		$summary['contract_detail']     = 'Il contratto non può essere inviato finché la verifica non è completata.';
+		$summary['distribution_tone']   = 'blocked';
+		$summary['distribution_label']  = $blocked[ $pipeline ][0];
+		$summary['distribution_detail'] = $blocked[ $pipeline ][1];
+	}
+
+	if ( in_array( $pipeline, array( 'technical_review', 'copyright_review', 'manual_review' ), true ) ) {
+		$summary['headline']            = 'Verifica manuale della release in corso';
+		$summary['distribution_label']  = 'Release in verifica';
+		$summary['distribution_detail'] = 'La pratica è stata acquisita ed è in controllo presso TRB.';
+	}
+
+	if ( 'approved' === $pipeline ) {
+		$summary['headline']            = 'Release approvata: preparazione del contratto';
+		$summary['distribution_tone']   = 'success';
+		$summary['distribution_label']  = 'Release approvata per la distribuzione';
+		$summary['distribution_detail'] = 'I controlli della release sono stati superati.';
+	}
+
+	if ( 'preparing' === $contract ) {
+		$summary['headline']        = 'Contratto in preparazione';
+		$summary['contract_label']  = 'Contratto in preparazione';
+		$summary['contract_detail'] = 'I controlli sono conclusi e il contratto sta per essere inviato.';
+	}
+
+	if ( 'contract_sent' === $contract ) {
+		$summary['headline']            = 'Contratto inviato — in attesa di firma';
+		$summary['contract_label']      = 'Contratto inviato — in attesa di firma';
+		$summary['contract_detail']     = 'Apri l’invito ricevuto da OTPService e completa la firma.';
+		$summary['distribution_tone']   = 'pending';
+		$summary['distribution_label']  = 'Distribuzione in attesa della firma';
+		$summary['distribution_detail'] = 'La release è approvata; la firma è l’ultimo passaggio necessario.';
+	}
+
+	if ( in_array( $contract, array( 'dispatch_error', 'data_error', 'configuration_required' ), true ) ) {
+		$summary['tone']            = 'warning';
+		$summary['headline']        = 'Contratto temporaneamente in verifica';
+		$summary['contract_tone']   = 'warning';
+		$summary['contract_label']  = 'Contratto temporaneamente in verifica';
+		$summary['contract_detail'] = 'TRB sta controllando il collegamento contrattuale. Non devi reinviare la release.';
+	}
+
+	if ( 'signed' === $contract ) {
+		$summary['tone']                = 'success';
+		$summary['headline']            = 'Contratto firmato — release approvata';
+		$summary['contract_tone']       = 'success';
+		$summary['contract_label']      = 'Contratto firmato';
+		$summary['contract_detail']     = 'La sottoscrizione contrattuale è stata completata correttamente.';
+		$summary['distribution_tone']   = 'success';
+		$summary['distribution_label']  = 'Release approvata per la distribuzione';
+		$summary['distribution_detail'] = $date ? 'Data di uscita prevista: ' . wp_date( 'j F Y', strtotime( $date ) ) . '.' : 'L’iter può proseguire verso la distribuzione.';
+	}
+
+	return $summary;
+}
+
+function trb_portal_render_release_status( $release_id ) {
+	$status = trb_portal_release_status_summary( $release_id );
+	?>
+	<section class="trb-release-status trb-release-status--<?php echo esc_attr( $status['tone'] ); ?>" data-release-status-panel aria-label="Stato della release">
+		<h4>Stato della release</h4>
+		<div class="trb-release-status__grid">
+			<div class="trb-release-status__item trb-release-status__item--<?php echo esc_attr( $status['contract_tone'] ); ?>">
+				<span>Contratto</span><strong data-release-contract-label><?php echo esc_html( $status['contract_label'] ); ?></strong><p data-release-contract-detail><?php echo esc_html( $status['contract_detail'] ); ?></p>
+			</div>
+			<div class="trb-release-status__item trb-release-status__item--<?php echo esc_attr( $status['distribution_tone'] ); ?>">
+				<span>Distribuzione</span><strong data-release-distribution-label><?php echo esc_html( $status['distribution_label'] ); ?></strong><p data-release-distribution-detail><?php echo esc_html( $status['distribution_detail'] ); ?></p>
+			</div>
+		</div>
+	</section>
+	<?php
 }
 
 function trb_portal_render_release_section() {
@@ -3554,7 +3650,7 @@ function trb_portal_render_release_section() {
 			?><li class="trb-release-card" data-release-item="<?php echo esc_attr( $release->ID ); ?>">
 				<div class="trb-release-card__cover"><?php if ( null !== $cover_index ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release->ID, $cover_index, true ) ); ?>" alt="Copertina di <?php echo esc_attr( $release->post_title ); ?>" loading="lazy" /><?php else : ?><span aria-hidden="true">♪</span><?php endif; ?></div>
 				<div class="trb-release-card__summary"><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?></span><b data-release-current-state><?php echo esc_html( trb_portal_release_current_state_label( $release->ID ) ); ?></b><?php if ( $release_isrcs ) : ?><small class="trb-release-isrc-summary"><?php echo esc_html( 1 === count( $release_isrcs ) ? 'ISRC ' . $release_isrcs[0] : count( $release_isrcs ) . ' codici ISRC assegnati' ); ?></small><?php endif; ?></div>
-				<details class="trb-release-card__details"><summary><span class="trb-release-card__open-label">Apri la release</span><span class="trb-release-card__close-label">Chiudi la release</span></summary><?php trb_portal_render_release_files( $release->ID ); ?><button type="button" class="trb-button trb-button--secondary trb-release-card__close" data-release-close>Chiudi la release</button></details>
+				<details class="trb-release-card__details"><summary><span class="trb-release-card__open-label">Apri la release</span><span class="trb-release-card__close-label">Chiudi la release</span></summary><?php trb_portal_render_release_status( $release->ID ); ?><?php trb_portal_render_release_files( $release->ID ); ?><button type="button" class="trb-button trb-button--secondary trb-release-card__close" data-release-close>Chiudi la release</button></details>
 			</li><?php endforeach; ?></ul></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
 			<div class="trb-portal__release-gate"><strong>Completa il profilo per iniziare.</strong><p>Quando il profilo raggiunge il 100% potrai creare la prima release.</p><a class="trb-button" href="#profilo">Completa il profilo</a></div>

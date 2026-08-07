@@ -323,6 +323,25 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-release-card__details[open] { grid-column: 1 / -1; }
 .trb-release-card:has(> .trb-release-card__details[open]) > .trb-release-card__cover { display: none; }
 .trb-portal__release-history:has(.trb-release-card__details[open]) > ul { grid-template-columns: 1fr; }
+.trb-release-status { background: #f7f9fc; border: 1px solid #d7e0ea; border-left: 5px solid #7c8da3; border-radius: 12px; margin: 16px 0; padding: 15px; }
+.trb-release-status--success { background: #eff9f1; border-color: #b8dbbf; border-left-color: #33804a; }
+.trb-release-status--warning { background: #fff7e8; border-color: #ead29e; border-left-color: #ad741b; }
+.trb-release-status--blocked { background: #fff1f0; border-color: #edc1bd; border-left-color: #b33c32; }
+.trb-release-status > h4 { color: var(--trb-ink); font-size: 16px; margin: 0 0 12px; }
+.trb-release-status__grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.trb-release-status__item { background: rgba(255,255,255,.76); border: 1px solid #dce4ea; border-radius: 10px; display: grid; gap: 5px; padding: 12px 13px; }
+.trb-release-status__item--success { border-color: #9dccaa; }
+.trb-release-status__item--warning { border-color: #ddb86d; }
+.trb-release-status__item--blocked { border-color: #df9a94; }
+.trb-release-status__item > span { color: var(--trb-ink-soft); font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.trb-release-status__item > strong { color: var(--trb-ink); font-size: 14px; line-height: 1.35; }
+.trb-release-status__item > p { color: var(--trb-ink-soft); font-size: 12px; line-height: 1.45; margin: 0; }
+.trb-contract-modal { align-items: center; background: rgba(10,18,32,.72); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 100001; }
+.trb-contract-modal__box { background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,.35); padding: 28px; width: min(620px,100%); }
+.trb-contract-modal__box h2 { margin: 0 0 12px; }
+.trb-contract-modal__box p { color: #475569; line-height: 1.6; }
+.trb-contract-modal__box button { margin-top: 8px; }
+@media (max-width: 640px) { .trb-release-status__grid { grid-template-columns: 1fr; } }
 .trb-release-create { background: #fff; border: 1px solid #cfdeeb; border-radius: 14px; margin-top: 18px; overflow: hidden; }
 .trb-release-create > summary { color: var(--trb-accent); cursor: pointer; font-size: 16px; font-weight: 900; list-style: none; padding: 17px 20px; }
 .trb-release-create > summary::-webkit-details-marker { display: none; }
