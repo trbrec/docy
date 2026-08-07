@@ -160,6 +160,8 @@
   function initIdentityValidation() {
     var phone = document.querySelector('input[name="trb_artist_phone"]');
     var taxCode = document.querySelector('[data-trb-tax-code]');
+    var documentNumber = document.querySelector('[data-trb-document-number]');
+    var documentExpiry = document.querySelector('[data-trb-document-expiry]');
 
     if (phone) {
       phone.addEventListener('input', function () {
@@ -191,6 +193,23 @@
         taxCode.setCustomValidity(taxCode.value.length === 16 && validTaxCode(taxCode.value) ? '' : 'Controlla il codice fiscale: devono essere validi tutti i 16 caratteri, compresa la lettera finale.');
       });
       taxCode.dispatchEvent(new Event('input'));
+    }
+
+    if (documentNumber) {
+      documentNumber.addEventListener('input', function () {
+        documentNumber.value = documentNumber.value.toUpperCase().replace(/[\s-]/g, '').slice(0, 9);
+        documentNumber.setCustomValidity(/^[A-Z]{2}[0-9]{5}[A-Z]{2}$/.test(documentNumber.value) ? '' : 'Inserisci il numero CIE nel formato corretto: 2 lettere, 5 cifre e 2 lettere (es. CA12345AB).');
+      });
+      documentNumber.dispatchEvent(new Event('input'));
+    }
+
+    if (documentExpiry) {
+      documentExpiry.addEventListener('change', function () {
+        var today = new Date();
+        var localToday = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+        documentExpiry.setCustomValidity(documentExpiry.value && documentExpiry.value >= localToday ? '' : 'Inserisci una data di scadenza valida: il documento non può essere già scaduto.');
+      });
+      documentExpiry.dispatchEvent(new Event('change'));
     }
   }
 
