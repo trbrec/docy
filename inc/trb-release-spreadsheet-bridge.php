@@ -186,6 +186,7 @@ function trb_release_bridge_render_meta_box( $post ) {
         'Numero contratto'  => get_post_meta( $post->ID, '_trb_contract_number', true ),
         'Dossier OTP'       => get_post_meta( $post->ID, '_trb_otp_dossier_id', true ),
         'Contratto inviato' => get_post_meta( $post->ID, '_trb_contract_sent_at', true ),
+        'Contratto firmato' => get_post_meta( $post->ID, '_trb_contract_signed_at', true ),
     );
     echo '<table class="widefat striped"><tbody>';
     foreach ( $rows as $label => $value ) echo '<tr><th style="width:190px">' . esc_html( $label ) . '</th><td>' . esc_html( '' !== (string) $value ? $value : '—' ) . '</td></tr>';
@@ -205,6 +206,9 @@ function trb_release_bridge_render_meta_box( $post ) {
 	}
     if ( 'approved' === get_post_meta( $post->ID, '_trb_release_pipeline_status', true ) && ! in_array( get_post_meta( $post->ID, '_trb_contract_state', true ), array( 'contract_sent', 'signed' ), true ) ) {
         echo '<p><a class="button button-primary" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_release_bridge_retry&release_id=' . absint( $post->ID ) ), 'trb_release_bridge_retry_' . absint( $post->ID ) ) ) . '">Riprova invio contratto</a></p>';
+    }
+    if ( current_user_can( 'manage_options' ) && 'contract_sent' === get_post_meta( $post->ID, '_trb_contract_state', true ) && get_post_meta( $post->ID, '_trb_otp_dossier_id', true ) ) {
+        echo '<p><a class="button" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_release_bridge_confirm_signed&release_id=' . absint( $post->ID ) ), 'trb_release_bridge_confirm_signed_' . absint( $post->ID ) ) ) . '" onclick="return confirm(\'Usa questo recupero soltanto dopo aver verificato su OTPService che il dossier risulta completato e che il PDF firmato e stato archiviato. Confermi?\');">Firma verificata: sincronizza la pratica</a></p>';
     }
 }
 
@@ -232,6 +236,32 @@ function trb_release_bridge_retry_dispatch() {
     exit;
 }
 add_action( 'admin_post_trb_release_bridge_retry', 'trb_release_bridge_retry_dispatch' );
+
+/** Administrative fallback for dossiers completed by OTPService without a delivered callback. */
+function trb_release_bridge_confirm_signed_dispatch() {
+    if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Non autorizzato.' );
+    $release_id = isset( $_GET['release_id'] ) ? absint( $_GET['release_id'] ) : 0;
+    check_admin_referer( 'trb_release_bridge_confirm_signed_' . $release_id );
+    if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) ) wp_die( 'Pratica non valida.' );
+    $dossier_id = sanitize_text_field( (string) get_post_meta( $release_id, '_trb_otp_dossier_id', true ) );
+    if ( ! $dossier_id ) wp_die( 'Dossier OTP mancante.' );
+    $result = trb_release_bridge_apply_callback( array(
+        'release_id' => $release_id,
+        'dossier_id' => $dossier_id,
+        'status'     => 'completed',
+        'signed_at'  => gmdate( DATE_ATOM ),
+    ) );
+    if ( is_wp_error( $result ) ) wp_die( esc_html( $result->get_error_message() ) );
+    wp_safe_redirect( add_query_arg( 'trb_contract_reconciled', '1', get_edit_post_link( $release_id, 'url' ) ) );
+    exit;
+}
+add_action( 'admin_post_trb_release_bridge_confirm_signed', 'trb_release_bridge_confirm_signed_dispatch' );
+
+function trb_release_bridge_reconciled_notice() {
+    if ( ! current_user_can( 'manage_options' ) || empty( $_GET['trb_contract_reconciled'] ) ) return;
+    echo '<div class="notice notice-success is-dismissible"><p>Firma sincronizzata: la pratica risulta ora contrattualmente completata.</p></div>';
+}
+add_action( 'admin_notices', 'trb_release_bridge_reconciled_notice' );
 
 function trb_release_bridge_profile_value( $user_id, $key, $fallback = '' ) {
     if ( function_exists( 'trb_portal_artist_profile_value' ) ) {
@@ -325,7 +355,7 @@ function trb_release_bridge_payload( $release_id ) {
         'release_type'=>(string)get_post_meta($release_id,'_trb_release_type',true),'release_state'=>$state,
         'release_date'=>(string)get_post_meta($release_id,'_trb_release_date',true),
         'original_date'=>(string)get_post_meta($release_id,'_trb_release_original_date',true),'confirmed_at'=>get_post_time(DATE_ATOM,true,$post),
-        'confirmation_accepted'=>true,'artist'=>$artist,'tracks'=>$tracks,'files'=>$files,'portal_callback_url'=>rest_url('trb/v1/release-contract-callback'));
+        'confirmation_accepted'=>true,'artist'=>$artist,'tracks'=>$tracks,'files'=>$files,'portal_callback_url'=>trb_release_bridge_callback_url());
 }
 
 /**
@@ -450,6 +480,67 @@ function trb_release_bridge_dispatch( $release_id ) {
 }
 add_action( 'trb_release_bridge_dispatch', 'trb_release_bridge_dispatch', 10, 1 );
 
+/**
+ * Use admin-post for provider callbacks because this installation protects the
+ * whole REST API with a login requirement before route permissions are checked.
+ */
+function trb_release_bridge_callback_url() {
+    return admin_url( 'admin-post.php?action=trb_release_contract_callback' );
+}
+
+/** Apply a verified contract callback once; repeated completed callbacks are harmless. */
+function trb_release_bridge_apply_callback( $payload ) {
+    $release_id = absint( $payload['release_id'] ?? 0 );
+    if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) ) return new WP_Error( 'not_found', 'Release non trovata.', array( 'status' => 404 ) );
+
+    $dossier_id = sanitize_text_field( (string) ( $payload['dossier_id'] ?? '' ) );
+    if ( ! $dossier_id ) return new WP_Error( 'dossier_missing', 'Dossier OTP mancante.', array( 'status' => 400 ) );
+    $stored_dossier = sanitize_text_field( (string) get_post_meta( $release_id, '_trb_otp_dossier_id', true ) );
+    if ( $stored_dossier && ! hash_equals( $stored_dossier, $dossier_id ) ) return new WP_Error( 'dossier_mismatch', 'Il dossier OTP non corrisponde alla pratica.', array( 'status' => 409 ) );
+    if ( ! $stored_dossier ) update_post_meta( $release_id, '_trb_otp_dossier_id', $dossier_id );
+
+    $status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
+    if ( ! in_array( $status, array( 'completed', 'contract_sent' ), true ) ) return new WP_Error( 'status_invalid', 'Stato firma non valido.', array( 'status' => 400 ) );
+    if ( 'completed' !== $status ) {
+        if ( 'signed' !== get_post_meta( $release_id, '_trb_contract_state', true ) ) update_post_meta( $release_id, '_trb_contract_state', 'contract_sent' );
+        return array( 'success' => true, 'state' => get_post_meta( $release_id, '_trb_contract_state', true ) );
+    }
+
+    $already_signed = 'signed' === get_post_meta( $release_id, '_trb_contract_state', true );
+    if ( ! $already_signed ) {
+        $signed_at = sanitize_text_field( (string) ( $payload['signed_at'] ?? '' ) );
+        update_post_meta( $release_id, '_trb_contract_state', 'signed' );
+        update_post_meta( $release_id, '_trb_contract_signed_at', $signed_at ?: gmdate( DATE_ATOM ) );
+        delete_post_meta( $release_id, '_trb_contract_error' );
+    }
+    return array(
+        'success'      => true,
+        'state'        => 'signed',
+        'idempotent'   => $already_signed,
+        'release_date' => (string) get_post_meta( $release_id, '_trb_release_date', true ),
+    );
+}
+
+/** Public provider endpoint authenticated with the same shared bridge secret. */
+function trb_release_bridge_public_callback() {
+    if ( 'POST' !== strtoupper( (string) ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) ) {
+        status_header( 405 );
+        wp_send_json_error( array( 'message' => 'Metodo non consentito.' ), 405 );
+    }
+    $raw = file_get_contents( 'php://input' );
+    $payload = json_decode( (string) $raw, true );
+    if ( ! is_array( $payload ) ) $payload = wp_unslash( $_POST );
+    $settings = trb_release_bridge_settings();
+    $header_secret = isset( $_SERVER['HTTP_X_TRB_PORTAL_SECRET'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRB_PORTAL_SECRET'] ) ) : '';
+    $secret = $header_secret ?: sanitize_text_field( (string) ( $payload['secret'] ?? '' ) );
+    if ( ! $settings['shared_secret'] || ! $secret || ! hash_equals( (string) $settings['shared_secret'], $secret ) ) wp_send_json_error( array( 'message' => 'Secret non valido.' ), 403 );
+    $result = trb_release_bridge_apply_callback( $payload );
+    if ( is_wp_error( $result ) ) wp_send_json_error( array( 'message' => $result->get_error_message() ), absint( $result->get_error_data()['status'] ?? 400 ) );
+    wp_send_json_success( $result );
+}
+add_action( 'admin_post_nopriv_trb_release_contract_callback', 'trb_release_bridge_public_callback' );
+add_action( 'admin_post_trb_release_contract_callback', 'trb_release_bridge_public_callback' );
+
 function trb_release_bridge_rest_routes() {
     register_rest_route('trb/v1','/release-contract-status',array('methods'=>'GET','permission_callback'=>function(){return is_user_logged_in();},'callback'=>function(){
         $releases=get_posts(array('post_type'=>'trb_release','post_status'=>array('publish','private','pending','draft'),'author'=>get_current_user_id(),'numberposts'=>100)); $out=array();
@@ -459,9 +550,8 @@ function trb_release_bridge_rest_routes() {
     register_rest_route('trb/v1','/release-contract-callback',array('methods'=>'POST','permission_callback'=>'__return_true','callback'=>function(WP_REST_Request $request){
         $s=trb_release_bridge_settings(); $secret=(string)($request->get_header('x-trb-portal-secret')?:$request->get_param('secret'));
         if(!$s['shared_secret']||!hash_equals($s['shared_secret'],$secret))return new WP_Error('forbidden','Secret non valido.',array('status'=>403));
-        $release_id=absint($request->get_param('release_id')); if('trb_release'!==get_post_type($release_id))return new WP_Error('not_found','Release non trovata.',array('status'=>404));
-        $dossier_id=sanitize_text_field((string)$request->get_param('dossier_id')); if($dossier_id)update_post_meta($release_id,'_trb_otp_dossier_id',$dossier_id);
-        $status=sanitize_key($request->get_param('status')); if('completed'===$status){$signed_at=sanitize_text_field($request->get_param('signed_at')?:gmdate(DATE_ATOM));$release_date=(string)get_post_meta($release_id,'_trb_release_date',true);update_post_meta($release_id,'_trb_contract_state','signed');update_post_meta($release_id,'_trb_contract_signed_at',$signed_at);return rest_ensure_response(array('success'=>true,'release_date'=>$release_date));} update_post_meta($release_id,'_trb_contract_state',$status?:'contract_sent'); return rest_ensure_response(array('success'=>true));
+        $result=trb_release_bridge_apply_callback($request->get_params());
+        return is_wp_error($result)?$result:rest_ensure_response($result);
     }));
 }
 add_action('rest_api_init','trb_release_bridge_rest_routes');
