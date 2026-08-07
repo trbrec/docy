@@ -383,6 +383,7 @@ function trb_release_bridge_rest_routes() {
         $s=trb_release_bridge_settings(); $secret=(string)($request->get_header('x-trb-portal-secret')?:$request->get_param('secret'));
         if(!$s['shared_secret']||!hash_equals($s['shared_secret'],$secret))return new WP_Error('forbidden','Secret non valido.',array('status'=>403));
         $release_id=absint($request->get_param('release_id')); if('trb_release'!==get_post_type($release_id))return new WP_Error('not_found','Release non trovata.',array('status'=>404));
+        $dossier_id=sanitize_text_field((string)$request->get_param('dossier_id')); if($dossier_id)update_post_meta($release_id,'_trb_otp_dossier_id',$dossier_id);
         $status=sanitize_key($request->get_param('status')); if('completed'===$status){$signed_at=sanitize_text_field($request->get_param('signed_at')?:gmdate(DATE_ATOM));$release_date=(string)get_post_meta($release_id,'_trb_release_date',true);update_post_meta($release_id,'_trb_contract_state','signed');update_post_meta($release_id,'_trb_contract_signed_at',$signed_at);return rest_ensure_response(array('success'=>true,'release_date'=>$release_date));} update_post_meta($release_id,'_trb_contract_state',$status?:'contract_sent'); return rest_ensure_response(array('success'=>true));
     }));
 }
