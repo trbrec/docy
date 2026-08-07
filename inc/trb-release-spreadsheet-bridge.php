@@ -7,36 +7,77 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 const TRB_RELEASE_BRIDGE_OPTION = 'trb_release_bridge_settings';
 
+/** Recover the highest portal-assigned sequence if an annual counter is missing. */
+function trb_release_bridge_recover_isrc_seed( $year, $is_trb, $fallback ) {
+    global $wpdb;
+
+    $prefix = 'ITV24' . sprintf( '%02d', absint( $year ) );
+    $values = $wpdb->get_col( $wpdb->prepare(
+        "SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key='_trb_release_tracks' AND meta_value LIKE %s",
+        '%' . $wpdb->esc_like( $prefix ) . '%'
+    ) );
+    $highest = absint( $fallback );
+    foreach ( $values as $value ) {
+        $tracks = maybe_unserialize( $value );
+        if ( ! is_array( $tracks ) ) continue;
+        foreach ( $tracks as $track ) {
+            $code = isset( $track['isrc'] ) ? strtoupper( preg_replace( '/[^A-Z0-9]/i', '', (string) $track['isrc'] ) ) : '';
+            if ( ! preg_match( '/^' . preg_quote( $prefix, '/' ) . '([0-9]{5})$/', $code, $match ) ) continue;
+            $sequence = absint( $match[1] );
+            if ( ( $is_trb && $sequence >= 1 && $sequence <= 9999 ) || ( ! $is_trb && $sequence >= 10000 && $sequence <= 99999 ) ) $highest = max( $highest, $sequence );
+        }
+    }
+    return $highest;
+}
+
 /**
- * Reserve a consecutive block of TRB ISRCs with one atomic database write.
- * The 2026 register already contains ITV242600001–ITV242600004, therefore the
- * first portal allocation starts at ITV242600005. Each following year starts
- * from 00001 and receives the current two-digit year in the ISRC itself.
+ * Reserve a consecutive block of TRB rec ISRCs with one atomic database write.
+ * TRB releases use 00001–09999 (2026 starts at 00005); DDS, DDB12, DDB and
+ * DDB-TRB use 10000–99999. Each year has independent counters and receives the
+ * current two-digit year in the ISRC itself.
  */
-function trb_release_bridge_allocate_isrcs( $quantity ) {
+function trb_release_bridge_allocate_isrcs( $quantity, $profile = 'trb' ) {
     global $wpdb;
 
     $quantity = absint( $quantity );
     if ( $quantity < 1 || $quantity > 60 ) return new WP_Error( 'invalid_isrc_quantity', 'Numero di ISRC da assegnare non valido.' );
 
-    $year = absint( wp_date( 'y' ) );
-    $seed = 26 === $year ? 4 : 0;
-    $option_name = 'trb_release_isrc_sequence_' . sprintf( '%02d', $year );
-    $initial_end = $seed + $quantity;
+    $profile = sanitize_key( $profile );
+    if ( ! in_array( $profile, array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'invalid_isrc_profile', 'Gruppo contrattuale non valido per l’assegnazione ISRC.' );
 
-    $sql = $wpdb->prepare(
-        "INSERT INTO {$wpdb->options} (option_name, option_value, autoload)
-         VALUES (%s, LAST_INSERT_ID(%d), 'no')
-         ON DUPLICATE KEY UPDATE option_value = LAST_INSERT_ID(CAST(option_value AS UNSIGNED) + %d)",
+    $year = absint( wp_date( 'y' ) );
+    $is_trb = 'trb' === $profile;
+    $seed = $is_trb ? ( 26 === $year ? 4 : 0 ) : 9999;
+    $range_start = $is_trb ? 1 : 10000;
+    $range_end = $is_trb ? 9999 : 99999;
+    // Preserve the existing TRB counter name so already allocated codes remain reserved.
+    $option_name = $is_trb ? 'trb_release_isrc_sequence_' . sprintf( '%02d', $year ) : 'trb_release_isrc_distribution_sequence_' . sprintf( '%02d', $year );
+    $counter_exists = null !== $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", $option_name ) );
+    if ( ! $counter_exists ) $seed = trb_release_bridge_recover_isrc_seed( $year, $is_trb, $seed );
+    // Create the annual counter at its seed, then increment it in a dedicated
+    // atomic UPDATE. Keeping LAST_INSERT_ID() out of the INSERT avoids MySQL
+    // returning wp_options.option_id during the very first allocation.
+    $created = $wpdb->query( $wpdb->prepare(
+        "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %d, 'no')",
         $option_name,
-        $initial_end,
-        $quantity
-    );
-    if ( false === $wpdb->query( $sql ) ) return new WP_Error( 'isrc_reservation_failed', 'Il sistema non è riuscito a riservare gli ISRC.' );
+        $seed
+    ) );
+    if ( false === $created ) return new WP_Error( 'isrc_reservation_failed', 'Il sistema non è riuscito a inizializzare il registro ISRC.' );
+
+    $updated = $wpdb->query( $wpdb->prepare(
+        "UPDATE {$wpdb->options}
+         SET option_value = LAST_INSERT_ID(CAST(option_value AS UNSIGNED) + %d)
+         WHERE option_name = %s AND CAST(option_value AS UNSIGNED) BETWEEN %d AND %d",
+        $quantity,
+        $option_name,
+        $seed,
+        $range_end - $quantity
+    ) );
+    if ( 1 !== $updated ) return new WP_Error( 'isrc_sequence_exhausted', 'La sequenza ISRC disponibile non è valida o risulta esaurita.' );
 
     $end = absint( $wpdb->get_var( 'SELECT LAST_INSERT_ID()' ) );
     $start = $end - $quantity + 1;
-    if ( $start < 1 || $end > 99999 ) return new WP_Error( 'isrc_sequence_exhausted', 'La sequenza ISRC disponibile non è valida o risulta esaurita.' );
+    if ( $start < $range_start || $end > $range_end ) return new WP_Error( 'isrc_sequence_exhausted', 'La sequenza ISRC disponibile non è valida o risulta esaurita.' );
 
     wp_cache_delete( $option_name, 'options' );
     $prefix = 'ITV24' . sprintf( '%02d', $year );
@@ -209,7 +250,44 @@ function trb_release_bridge_payload( $release_id ) {
     $profile = trb_portal_user_profile( $user );
     $tracks  = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
     $state   = (string) get_post_meta( $release_id, '_trb_release_state', true );
-    if ( 'previously_released' === $state || ( 'trb' === $profile && 'unreleased' === $state ) ) {
+    if ( ! in_array( $profile, array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'profile_invalid', 'Profilo contrattuale non riconosciuto.' );
+    if ( 'unreleased' === $state ) {
+        $missing_indexes = array();
+        foreach ( $tracks as $index => $track ) {
+            $code = isset( $track['isrc'] ) ? strtoupper( preg_replace( '/[^A-Z0-9]/i', '', (string) $track['isrc'] ) ) : '';
+            if ( ! $code ) $missing_indexes[] = $index;
+        }
+        if ( $missing_indexes ) {
+            $lock_key = '_trb_release_isrc_assignment_lock';
+            $lock_time = absint( get_post_meta( $release_id, $lock_key, true ) );
+            if ( $lock_time && time() - $lock_time > 10 * MINUTE_IN_SECONDS ) delete_post_meta( $release_id, $lock_key );
+            if ( ! add_post_meta( $release_id, $lock_key, time(), true ) ) return new WP_Error( 'isrc_assignment_in_progress', 'L’assegnazione ISRC della pratica è già in corso.' );
+
+            // Re-read after acquiring the lock: another dispatch may have
+            // completed the assignment while this request was waiting.
+            $tracks = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
+            $missing_indexes = array();
+            foreach ( $tracks as $index => $track ) {
+                $code = isset( $track['isrc'] ) ? strtoupper( preg_replace( '/[^A-Z0-9]/i', '', (string) $track['isrc'] ) ) : '';
+                if ( ! $code ) $missing_indexes[] = $index;
+            }
+        }
+        if ( $missing_indexes ) {
+            $reserved = trb_release_bridge_allocate_isrcs( count( $missing_indexes ), $profile );
+            if ( is_wp_error( $reserved ) || count( $reserved ) !== count( $missing_indexes ) ) {
+                delete_post_meta( $release_id, $lock_key );
+                return new WP_Error( 'isrc_assignment_failed', 'Il sistema non è riuscito ad assegnare gli ISRC mancanti.' );
+            }
+            foreach ( $missing_indexes as $position => $track_index ) $tracks[ $track_index ]['isrc'] = $reserved[ $position ];
+            if ( false === update_post_meta( $release_id, '_trb_release_tracks', $tracks ) ) {
+                delete_post_meta( $release_id, $lock_key );
+                return new WP_Error( 'isrc_assignment_failed', 'Il sistema non è riuscito a salvare gli ISRC assegnati.' );
+            }
+            update_post_meta( $release_id, '_trb_release_isrc_allocation', array( 'pool' => 'trb' === $profile ? 'trb' : 'distribution', 'year' => wp_date( 'y' ), 'codes' => $reserved, 'assigned_at' => time(), 'source' => 'contract_backfill' ) );
+        }
+        if ( isset( $lock_key ) ) delete_post_meta( $release_id, $lock_key );
+    }
+    if ( in_array( $state, array( 'previously_released', 'unreleased' ), true ) ) {
         $codes = (array) get_transient( 'trb_release_bridge_isrc_' . $post->post_author );
         delete_transient( 'trb_release_bridge_isrc_' . $post->post_author );
         $seen = array();
@@ -242,7 +320,6 @@ function trb_release_bridge_payload( $release_id ) {
     foreach ( array( 'name','surname','email','phone','artist_name','tax_code','birth_date','birth_place','birth_province','document_type','document_number','address','street_number','postcode','municipality','province','country' ) as $required ) {
         if ( '' === trim( (string) $artist[ $required ] ) ) return new WP_Error( 'artist_data_missing', 'Dato contrattuale mancante: ' . $required . '.' );
     }
-    if ( ! in_array( $profile, array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'profile_invalid', 'Profilo contrattuale non riconosciuto.' );
     if ( empty( $tracks ) ) return new WP_Error( 'tracks_missing', 'Nessun brano disponibile per il contratto.' );
     return array('action'=>'portal_release','release_id'=>(int)$release_id,'profile'=>$profile,'title'=>$post->post_title,
         'release_type'=>(string)get_post_meta($release_id,'_trb_release_type',true),'release_state'=>$state,

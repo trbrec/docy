@@ -2142,8 +2142,8 @@ function trb_portal_start_release() {
 			if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
 			trb_portal_release_submission_response( 'error', 'I dati della pratica sono stati conservati, ma uno o più file non sono stati archiviati. Causa: ' . trb_portal_release_upload_error_message( $file_error->get_error_code() ) . ' Non reinviare tutto: la pratica è visibile e può essere completata.', 500, $release_id );
 		}
-		if ( 'trb' === $profile && 'unreleased' === $release_state ) {
-			$assigned_isrcs = function_exists( 'trb_release_bridge_allocate_isrcs' ) ? trb_release_bridge_allocate_isrcs( count( $tracks ) ) : new WP_Error( 'isrc_allocator_missing' );
+		if ( 'unreleased' === $release_state ) {
+			$assigned_isrcs = function_exists( 'trb_release_bridge_allocate_isrcs' ) ? trb_release_bridge_allocate_isrcs( count( $tracks ), $profile ) : new WP_Error( 'isrc_allocator_missing' );
 			if ( is_wp_error( $assigned_isrcs ) || count( $assigned_isrcs ) !== count( $tracks ) ) {
 				update_post_meta( $release_id, '_trb_release_type', $type );
 				update_post_meta( $release_id, '_trb_release_state', $release_state );
@@ -2161,6 +2161,7 @@ function trb_portal_start_release() {
 			}
 			foreach ( $tracks as $track_index => &$track ) $track['isrc'] = $assigned_isrcs[ $track_index ];
 			unset( $track );
+			update_post_meta( $release_id, '_trb_release_isrc_allocation', array( 'pool' => 'trb' === $profile ? 'trb' : 'distribution', 'year' => wp_date( 'y' ), 'codes' => $assigned_isrcs, 'assigned_at' => time() ) );
 		}
 		if ( $ddb12_reservation_key ) {
 			update_user_meta( $user_id, $ddb12_reservation_key, (string) $release_id );
