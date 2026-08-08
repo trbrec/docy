@@ -498,14 +498,40 @@ add_action( 'init', 'trb_portal_register_release_type', 5 );
 
 function trb_portal_release_types() {
 	return array(
-		'single'       => array( 'label' => 'Singolo', 'range' => '1 brano', 'min' => 1, 'max' => 1 ),
-		'ep'           => array( 'label' => 'EP', 'range' => '4–8 brani', 'min' => 4, 'max' => 8 ),
-		'album'        => array( 'label' => 'Album', 'range' => '9–15 brani', 'min' => 9, 'max' => 15 ),
+		// Too Lost classifies 1–3 tracks under ten minutes as a Single. An EP
+		// normally has 4–6 tracks, or 1–3 tracks when at least one lasts ten
+		// minutes or more and the complete release remains under 30 minutes.
+		'single'       => array( 'label' => 'Singolo', 'range' => '1–3 brani · ciascuno sotto 10 min', 'min' => 1, 'max' => 3 ),
+		'ep'           => array( 'label' => 'EP', 'range' => '4–6 brani · oppure 1–3 con un brano di almeno 10 min', 'min' => 1, 'max' => 6 ),
+		'album'        => array( 'label' => 'Album', 'range' => '7–15 brani · oppure durata totale di almeno 30 min', 'min' => 1, 'max' => 15 ),
 		'double_album' => array( 'label' => 'Doppio album', 'range' => '16–30 brani', 'min' => 16, 'max' => 30 ),
 		'compilation'  => array( 'label' => 'Compilation', 'range' => '16–24 brani', 'min' => 16, 'max' => 24 ),
 		'collection'   => array( 'label' => 'Collection', 'range' => '20–40 brani', 'min' => 20, 'max' => 40 ),
 		'catalogue'    => array( 'label' => 'Catalogo / repertorio edito', 'range' => 'fino a 60 brani', 'min' => 1, 'max' => 60, 'catalogue' => true ),
 	);
+}
+
+/** Validate store-facing release formats using both track count and duration. */
+function trb_portal_release_type_matches_tracks( $type, $tracks, $types = null ) {
+	$types = is_array( $types ) ? $types : trb_portal_release_types();
+	if ( ! isset( $types[ $type ] ) || ! is_array( $tracks ) || empty( $tracks ) ) return false;
+
+	$count         = count( $tracks );
+	$total_seconds = 0;
+	$long_tracks   = 0;
+	foreach ( $tracks as $track ) {
+		$duration = isset( $track['duration'] ) ? (string) $track['duration'] : '';
+		if ( ! preg_match( '/^(\d{2}):([0-5]\d)$/', $duration, $parts ) ) return false;
+		$seconds = ( (int) $parts[1] * 60 ) + (int) $parts[2];
+		$total_seconds += $seconds;
+		if ( $seconds >= 10 * MINUTE_IN_SECONDS ) $long_tracks++;
+	}
+
+	if ( 'single' === $type ) return $count <= 3 && 0 === $long_tracks;
+	if ( 'ep' === $type ) return $total_seconds < 30 * MINUTE_IN_SECONDS && ( ( $count >= 4 && $count <= 6 ) || ( $count <= 3 && $long_tracks > 0 ) );
+	if ( 'album' === $type ) return ( $count >= 7 && $count <= 15 ) || ( $count <= 15 && $total_seconds >= 30 * MINUTE_IN_SECONDS );
+
+	return $count >= $types[ $type ]['min'] && $count <= $types[ $type ]['max'];
 }
 
 function trb_portal_genres() {
@@ -2091,7 +2117,7 @@ function trb_portal_start_release() {
 	if ( ! isset( $types[ $type ] ) ) trb_portal_release_submission_response( 'invalid', 'Seleziona una tipologia di pubblicazione valida.', 422 );
 	if ( ! $is_catalogue && '' === $title ) trb_portal_release_submission_response( 'invalid', 'Inserisci il titolo della release.', 422 );
 	if ( empty( $posted_tracks ) || empty( $tracks ) || count( $tracks ) !== count( $posted_tracks ) ) trb_portal_release_submission_response( 'invalid', 'Uno o più brani hanno metadati, generi, autori o crediti mancanti o non validi.', 422 );
-	if ( count( $tracks ) < $types[ $type ]['min'] || count( $tracks ) > $types[ $type ]['max'] ) trb_portal_release_submission_response( 'invalid', 'Il numero di brani non corrisponde alla tipologia di pubblicazione selezionata.', 422 );
+	if ( ! trb_portal_release_type_matches_tracks( $type, $tracks, $types ) ) trb_portal_release_submission_response( 'invalid', 'Numero o durata dei brani non corrispondono alla tipologia di pubblicazione selezionata.', 422 );
 	if ( ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) ) trb_portal_release_submission_response( 'invalid', 'Seleziona lo stato della pubblicazione.', 422 );
 	if ( 'unreleased' === $release_state && ! $release_date_valid ) trb_portal_release_submission_response( 'invalid', 'Scegli una data di uscita non inferiore a 30 giorni da oggi.', 422 );
 	if ( 'previously_released' === $release_state && ! $original_date_valid ) trb_portal_release_submission_response( 'invalid', 'Inserisci una data di pubblicazione originale valida e non futura.', 422 );
@@ -2475,7 +2501,7 @@ function trb_portal_seed_guides() {
 		$guides[ $prefix . 'tipologie-release' ] = array(
 			'title' => 'Quale tipologia di release devo scegliere?', 'profiles' => array( $profile ),
 			'excerpt' => 'Singolo, EP, album, compilation, collection e catalogo.',
-			'content' => '<p>Scegli la tipologia in base al numero effettivo di brani della pratica:</p><ul><li><strong>Singolo:</strong> 1 brano.</li><li><strong>EP:</strong> da 4 a 8 brani.</li><li><strong>Album:</strong> da 9 a 15 brani.</li><li><strong>Doppio album:</strong> da 16 a 30 brani.</li><li><strong>Compilation:</strong> da 16 a 24 brani.</li><li><strong>Collection:</strong> da 20 a 40 brani.</li><li><strong>Catalogo o repertorio musicale edito:</strong> da 1 a 60 brani già pubblicati.</li></ul><p>Non dividere artificialmente un progetto e non usare “catalogo” per aggirare i limiti di una nuova uscita. Se la nuova release contiene 2 o 3 brani, il modulo non dispone attualmente di una categoria compatibile: apri una segnalazione prima dell’invio.</p>',
+			'content' => '<p>Scegli la tipologia in base al numero effettivo dei brani e alla loro durata:</p><ul><li><strong>Singolo:</strong> da 1 a 3 brani, tutti di durata inferiore a 10 minuti.</li><li><strong>EP:</strong> da 4 a 6 brani con durata complessiva inferiore a 30 minuti; rientrano nell’EP anche 1–3 brani quando almeno uno dura 10 minuti o più e la release resta sotto i 30 minuti.</li><li><strong>Album:</strong> da 7 a 15 brani oppure una durata complessiva di almeno 30 minuti.</li><li><strong>Doppio album:</strong> da 16 a 30 brani.</li><li><strong>Compilation:</strong> da 16 a 24 brani.</li><li><strong>Collection:</strong> da 20 a 40 brani.</li><li><strong>Catalogo o repertorio musicale edito:</strong> da 1 a 60 brani già pubblicati.</li></ul><p>Il portale controlla automaticamente quantità e durata prima di creare la pratica. Gli store possono comunque determinare autonomamente come visualizzare il formato finale. Non dividere artificialmente un progetto e non usare “catalogo” per aggirare i limiti di una nuova uscita.</p>',
 		);
 		$guides[ $prefix . 'inedita-o-edita' ] = array(
 			'title' => 'Release inedita o già pubblicata: come indicarla', 'profiles' => array( $profile ),
@@ -3814,7 +3840,7 @@ function trb_portal_render_release_section() {
 				<?php wp_nonce_field( 'trb_portal_start_release', 'trb_portal_release_nonce' ); ?>
 				<section class="trb-release-panel"><header><span>1</span><div><h3>Tipo di pubblicazione</h3><p>Scegli il formato che corrisponde al numero totale dei brani.</p></div></header><div class="trb-portal__release-types"><?php foreach ( $types as $key => $type ) : ?><label><input type="radio" name="trb_release_type" value="<?php echo esc_attr( $key ); ?>" required data-catalogue="<?php echo ! empty( $type['catalogue'] ) ? '1' : '0'; ?>" data-min="<?php echo esc_attr( $type['min'] ); ?>" data-max="<?php echo esc_attr( $type['max'] ); ?>" /><span><strong><?php echo esc_html( $type['label'] ); ?></strong><small><?php echo esc_html( $type['range'] ); ?></small></span></label><?php endforeach; ?></div></section>
 				<section class="trb-release-panel"><header><span>2</span><div><h3>Stato della pubblicazione</h3><p>Indica se la release è inedita o già pubblicata e completa la data richiesta.</p></div></header><div class="trb-portal__radios"><label><input type="radio" name="trb_release_state" value="unreleased" required /> Inedita: mai distribuita prima</label><label><input type="radio" name="trb_release_state" value="previously_released" required /> Edita: precedentemente rilasciata ed attualmente distribuita</label></div><label class="trb-portal__release-date" hidden><strong>Scegli la data di uscita della release <span aria-hidden="true">*</span></strong><small>Puoi selezionare una data di pubblicazione a partire dal trentesimo giorno successivo a oggi.</small><input type="date" name="trb_release_date" min="<?php echo esc_attr( $minimum_release_date ); ?>" /></label><label class="trb-portal__original-date" hidden>Data di pubblicazione originale <small>Puoi selezionare soltanto oggi o una data precedente.</small><input type="date" name="trb_release_original_date" max="<?php echo esc_attr( $today ); ?>" /></label></section>
-				<section class="trb-release-panel"><header><span>3</span><div><h3>Dati e materiali della release</h3><p>Inserisci il titolo, la copertina, tutti i brani e il materiale editoriale richiesto.</p></div></header><label class="trb-portal__release-title">Titolo della release <span aria-hidden="true">*</span><small data-single-title-note hidden>Per un singolo, questo titolo deve coincidere esattamente con il titolo del brano.</small><input type="text" name="trb_release_title" maxlength="160" required placeholder="Titolo del singolo, EP o album" /></label><div class="trb-release-upload trb-release-upload--cover"><strong>Copertina della release <span>*</span></strong><p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px. Il sistema verifica formato, proporzioni e dimensioni.</p><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /><label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che la copertina è stata esportata a 300 DPI.</label></div><div data-tracks></div><button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button><div class="trb-release-upload trb-release-upload--presentation"><strong>Presentazione della release <span>*</span></strong><p>Racconta la pubblicazione con informazioni che possano trasformarsi in contenuti: origine del progetto, significato, curiosità, riferimenti, collaborazioni e dettagli utili a redazioni, radio, playlist editor, ufficio stampa e comunicazione social. Una presentazione concreta e ricca di spunti ci permette di valorizzare meglio la release e riduce le successive richieste di integrazione.</p><input type="file" name="trb_release_presentation" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" required /><small>Formati elaborabili in modo efficiente: TXT, DOCX, ODT o RTF · massimo 5 MB.</small></div></section>
+				<section class="trb-release-panel"><header><span>3</span><div><h3>Dati e materiali della release</h3><p>Inserisci il titolo, la copertina, tutti i brani e il materiale editoriale richiesto.</p></div></header><label class="trb-portal__release-title">Titolo della release <span aria-hidden="true">*</span><small data-single-title-note hidden>Quando il singolo contiene un solo brano, il titolo della release deve coincidere esattamente con quello del brano.</small><input type="text" name="trb_release_title" maxlength="160" required placeholder="Titolo del singolo, EP o album" /></label><div class="trb-release-upload trb-release-upload--cover"><strong>Copertina della release <span>*</span></strong><p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px. Il sistema verifica formato, proporzioni e dimensioni.</p><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /><label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che la copertina è stata esportata a 300 DPI.</label></div><div data-tracks></div><button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button><div class="trb-release-upload trb-release-upload--presentation"><strong>Presentazione della release <span>*</span></strong><p>Racconta la pubblicazione con informazioni che possano trasformarsi in contenuti: origine del progetto, significato, curiosità, riferimenti, collaborazioni e dettagli utili a redazioni, radio, playlist editor, ufficio stampa e comunicazione social. Una presentazione concreta e ricca di spunti ci permette di valorizzare meglio la release e riduce le successive richieste di integrazione.</p><input type="file" name="trb_release_presentation" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" required /><small>Formati elaborabili in modo efficiente: TXT, DOCX, ODT o RTF · massimo 5 MB.</small></div></section>
 				<button class="trb-button trb-button--submit-release" type="submit">Crea la pratica release</button><div class="trb-portal__upload-progress" data-release-upload-progress hidden aria-live="polite"><div class="trb-portal__upload-progress-head"><strong>Caricamento sicuro della release</strong><span data-release-upload-value>0%</span></div><progress max="100" value="0" data-release-upload-bar>0%</progress><p data-release-upload-text>Preparazione e verifica dei file…</p></div>
 			</form>
 			<script type="application/json" data-release-server-draft><?php echo wp_json_encode( $server_draft, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></script>
