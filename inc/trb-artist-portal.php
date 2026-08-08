@@ -2586,12 +2586,18 @@ add_action( 'init', 'trb_portal_maybe_seed_guides', 35 );
  * their key and refreshed in place.
  */
 function trb_portal_sync_canonical_guides() {
-	if ( get_option( 'trb_portal_guides_synced_v10' ) ) {
-		return;
-	}
-
 	$canonical = trb_portal_seed_guides();
-	$offset    = max( 0, (int) get_option( 'trb_portal_guides_synced_v10_offset', 0 ) );
+	$content_hash = md5( wp_json_encode( $canonical ) );
+	if ( hash_equals( (string) get_option( 'trb_portal_guides_content_hash', '' ), $content_hash ) ) return;
+
+	// If code changes while a previous batch is still running, restart from
+	// the beginning. This prevents a mixed database containing two revisions.
+	$pending_hash = (string) get_option( 'trb_portal_guides_pending_hash', '' );
+	if ( ! hash_equals( $pending_hash, $content_hash ) ) {
+		update_option( 'trb_portal_guides_pending_hash', $content_hash, false );
+		delete_option( 'trb_portal_guides_sync_offset' );
+	}
+	$offset    = max( 0, (int) get_option( 'trb_portal_guides_sync_offset', 0 ) );
 	$batch     = array_slice( $canonical, $offset, 12, true );
 	foreach ( $batch as $key => $guide ) {
 		$existing = get_posts( array(
@@ -2652,7 +2658,7 @@ function trb_portal_sync_canonical_guides() {
 	}
 	$processed = $offset + count( $batch );
 	if ( $processed < count( $canonical ) ) {
-		update_option( 'trb_portal_guides_synced_v10_offset', $processed, false );
+		update_option( 'trb_portal_guides_sync_offset', $processed, false );
 		if ( ! wp_next_scheduled( 'trb_portal_sync_canonical_guides_batch' ) ) wp_schedule_single_event( time() + 5, 'trb_portal_sync_canonical_guides_batch' );
 		return;
 	}
@@ -2665,7 +2671,11 @@ function trb_portal_sync_canonical_guides() {
 		}
 	}
 
-	update_option( 'trb_portal_guides_synced_v10', time(), false );
+	update_option( 'trb_portal_guides_content_hash', $content_hash, false );
+	delete_option( 'trb_portal_guides_pending_hash' );
+	delete_option( 'trb_portal_guides_sync_offset' );
+	// Remove obsolete one-shot flags after the content-hash migration.
+	delete_option( 'trb_portal_guides_synced_v10' );
 	delete_option( 'trb_portal_guides_synced_v10_offset' );
 }
 add_action( 'init', 'trb_portal_sync_canonical_guides', 38 );
