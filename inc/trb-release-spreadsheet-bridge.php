@@ -89,12 +89,13 @@ function trb_release_bridge_allocate_isrcs( $quantity, $profile = 'trb' ) {
 }
 
 function trb_release_bridge_settings() {
-    $defaults = array('ddb_webapp_url'=>'','trb_webapp_url'=>'','shared_secret'=>'');
+    $defaults = array('ddb_webapp_url'=>'','trb_webapp_url'=>'','shared_secret'=>'','dds_store_secret'=>'');
     $saved = get_option( TRB_RELEASE_BRIDGE_OPTION, array() );
     $saved = is_array( $saved ) ? $saved : array();
     if ( defined( 'TRB_DDB_WEBAPP_URL' ) && empty( $saved['ddb_webapp_url'] ) ) $saved['ddb_webapp_url'] = TRB_DDB_WEBAPP_URL;
     if ( defined( 'TRB_TRB_WEBAPP_URL' ) && empty( $saved['trb_webapp_url'] ) ) $saved['trb_webapp_url'] = TRB_TRB_WEBAPP_URL;
     if ( defined( 'TRB_RELEASE_BRIDGE_SECRET' ) && empty( $saved['shared_secret'] ) ) $saved['shared_secret'] = TRB_RELEASE_BRIDGE_SECRET;
+    if ( defined( 'TRB_DDS_STORE_SECRET' ) && empty( $saved['dds_store_secret'] ) ) $saved['dds_store_secret'] = TRB_DDS_STORE_SECRET;
     return wp_parse_args( $saved, $defaults );
 }
 
@@ -111,6 +112,7 @@ function trb_release_bridge_settings_page() {
             'ddb_webapp_url' => esc_url_raw( wp_unslash( $_POST['ddb_webapp_url'] ?? '' ) ),
             'trb_webapp_url' => esc_url_raw( wp_unslash( $_POST['trb_webapp_url'] ?? '' ) ),
             'shared_secret'  => sanitize_text_field( wp_unslash( $_POST['shared_secret'] ?? '' ) ),
+            'dds_store_secret' => sanitize_text_field( wp_unslash( $_POST['dds_store_secret'] ?? '' ) ),
         ), false );
         echo '<div class="notice notice-success"><p>Impostazioni salvate.</p></div>';
     }
@@ -123,6 +125,7 @@ function trb_release_bridge_settings_page() {
     <tr><th><label for="ddb_webapp_url">Web App DDB</label></th><td><input class="large-text" id="ddb_webapp_url" name="ddb_webapp_url" value="<?php echo esc_attr( $s['ddb_webapp_url'] ); ?>"></td></tr>
     <tr><th><label for="trb_webapp_url">Web App TRB</label></th><td><input class="large-text" id="trb_webapp_url" name="trb_webapp_url" value="<?php echo esc_attr( $s['trb_webapp_url'] ); ?>"></td></tr>
     <tr><th><label for="shared_secret">Segreto condiviso</label></th><td><input class="regular-text" id="shared_secret" name="shared_secret" value="<?php echo esc_attr( $s['shared_secret'] ); ?>"><p class="description">Usare lo stesso valore nella proprietà PORTAL_SHARED_SECRET di entrambi i progetti Apps Script.</p></td></tr>
+    <tr><th><label for="dds_store_secret">Segreto Store DDS</label></th><td><input type="password" class="regular-text" id="dds_store_secret" name="dds_store_secret" value="<?php echo esc_attr( $s['dds_store_secret'] ); ?>" autocomplete="new-password"><p class="description">Chiave HMAC dedicata all’attivazione DDS dallo Store. Non riutilizzare il segreto dei contratti.</p></td></tr>
     </tbody></table><p><button class="button button-primary" name="trb_release_bridge_save" value="1">Salva</button></p></form></div>
     <?php
 }
@@ -137,7 +140,7 @@ function trb_release_bridge_render_preliminary_contract_field( $user ) {
     <h2>Contratto preliminare</h2>
     <table class="form-table" role="presentation"><tbody><tr>
         <th><label for="trb_artist_preliminary_contract">Contratto preliminare</label></th>
-        <td><input type="text" class="regular-text" id="trb_artist_preliminary_contract" name="trb_artist_preliminary_contract" value="<?php echo esc_attr( $value ); ?>" maxlength="120"><p class="description">Campo amministrativo riservato e invisibile all’artista. Identifica il contratto preliminare di riferimento.</p></td>
+        <td><input type="text" class="regular-text" id="trb_artist_preliminary_contract" name="trb_artist_preliminary_contract" value="<?php echo esc_attr( $value ); ?>" maxlength="120"><p class="description">Campo amministrativo riservato e invisibile all’artista. <?php echo esc_html( trb_release_bridge_expected_contract_label( $user ) ); ?> Gli abbinamenti incompatibili vengono bloccati.</p></td>
     </tr><tr>
         <th><label for="trb_artist_contract_term">Data di attuazione/scadenza</label></th>
         <td><input type="text" class="regular-text" id="trb_artist_contract_term" name="trb_artist_contract_term" value="<?php echo esc_attr( $term ); ?>" maxlength="50" placeholder="08/08/26 - 08/08/27"><p class="description">Formato: GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO. Campo riservato e invisibile all’artista. Dal giorno successivo alla scadenza i profili DDB-TRB passano automaticamente a TRB; i profili DDS, DDB12 e DDB vengono sospesi fino a un rinnovo approvato dalla Direzione.</p></td>
@@ -180,6 +183,41 @@ function trb_release_bridge_contract_term_dates( $value ) {
     return array( 'value' => $value, 'start' => $start, 'end' => $end );
 }
 
+/** Return the portal profile, accounting for a role changed in the same save. */
+function trb_release_bridge_contract_profile( $user ) {
+    if ( ! $user instanceof WP_User || ! function_exists( 'trb_portal_profiles' ) ) return false;
+    $posted_role = current_user_can( 'manage_options' ) && isset( $_POST['role'] ) ? sanitize_key( wp_unslash( $_POST['role'] ) ) : '';
+    foreach ( trb_portal_profiles() as $key => $profile ) {
+        $roles = array_merge( array( $profile['role'] ?? '' ), (array) ( $profile['aliases'] ?? array() ) );
+        $roles = array_values( array_filter( array_map( 'sanitize_key', $roles ) ) );
+        if ( ( $posted_role && in_array( $posted_role, $roles, true ) ) || ( ! $posted_role && array_intersect( $roles, (array) $user->roles ) ) ) return $key;
+    }
+    return false;
+}
+
+function trb_release_bridge_expected_contract_label( $user ) {
+    $profile = trb_release_bridge_contract_profile( $user );
+    if ( 'ddb12' === $profile ) return 'Per DDB12 è ammesso esclusivamente il modello DDB CSAE 600.';
+    if ( 'ddb' === $profile ) return 'Per DDB sono ammessi esclusivamente i modelli DDB CCAD 600, CCAD 800 e CCAD 1200.';
+    return 'Identifica il contratto preliminare di riferimento.';
+}
+
+/** Enforce the canonical group-to-contract matrix without changing free text used by Apps Script. */
+function trb_release_bridge_validate_preliminary_contract( $user, $value ) {
+    if ( ! $user instanceof WP_User ) return new WP_Error( 'contract_user_invalid', 'Profilo artista non valido.' );
+    $value = strtoupper( sanitize_text_field( (string) $value ) );
+    if ( '' === trim( $value ) ) return true;
+    $profile  = trb_release_bridge_contract_profile( $user );
+    $is_csae  = (bool) preg_match( '/\bCSAE\s*600\b/', $value );
+    $is_ccad  = (bool) preg_match( '/\bCCAD\s*(600|800|1200)\b/', $value );
+    $known_ddb_model = $is_csae || $is_ccad;
+
+    if ( 'ddb12' === $profile && ! $is_csae ) return new WP_Error( 'ddb12_contract_mismatch', 'Il gruppo DDB12 deve utilizzare esclusivamente il contratto DDB CSAE 600.' );
+    if ( 'ddb' === $profile && ! $is_ccad ) return new WP_Error( 'ddb_contract_mismatch', 'Il gruppo DDB deve utilizzare esclusivamente un contratto DDB CCAD 600, CCAD 800 o CCAD 1200.' );
+    if ( ! in_array( $profile, array( 'ddb12', 'ddb' ), true ) && $known_ddb_model ) return new WP_Error( 'contract_group_mismatch', 'Il modello CSAE 600 appartiene a DDB12; i modelli CCAD 600/800/1200 appartengono a DDB.' );
+    return true;
+}
+
 function trb_release_bridge_validate_contract_term( $errors, $update, $user ) {
     if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['trb_artist_contract_term'] ) ) return;
     $value = trb_release_bridge_normalize_contract_term( $_POST['trb_artist_contract_term'] );
@@ -188,6 +226,13 @@ function trb_release_bridge_validate_contract_term( $errors, $update, $user ) {
     if ( is_wp_error( $dates ) ) $errors->add( $dates->get_error_code(), $dates->get_error_message() );
 }
 add_action( 'user_profile_update_errors', 'trb_release_bridge_validate_contract_term', 10, 3 );
+
+function trb_release_bridge_validate_contract_model( $errors, $update, $user ) {
+    if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['trb_artist_preliminary_contract'] ) ) return;
+    $valid = trb_release_bridge_validate_preliminary_contract( $user, wp_unslash( $_POST['trb_artist_preliminary_contract'] ) );
+    if ( is_wp_error( $valid ) ) $errors->add( $valid->get_error_code(), $valid->get_error_message() );
+}
+add_action( 'user_profile_update_errors', 'trb_release_bridge_validate_contract_model', 10, 3 );
 
 /** Canonical and legacy role slugs involved in the one-way DDB-TRB to TRB transition. */
 function trb_release_bridge_transition_roles() {
@@ -416,6 +461,8 @@ function trb_release_bridge_save_preliminary_contract_field( $user_id ) {
     $nonce = sanitize_text_field( wp_unslash( $_POST['trb_release_bridge_preliminary_contract_nonce'] ?? '' ) );
     if ( ! $nonce || ! wp_verify_nonce( $nonce, 'trb_release_bridge_save_preliminary_contract_' . $user_id ) ) return;
     $value = sanitize_text_field( wp_unslash( $_POST['trb_artist_preliminary_contract'] ?? '' ) );
+	$user = get_userdata( $user_id );
+	if ( is_wp_error( trb_release_bridge_validate_preliminary_contract( $user, $value ) ) ) return;
     if ( '' === $value ) delete_user_meta( $user_id, '_trb_artist_preliminary_contract' );
     else update_user_meta( $user_id, '_trb_artist_preliminary_contract', $value );
     $term = trb_release_bridge_normalize_contract_term( $_POST['trb_artist_contract_term'] ?? '' );
@@ -498,6 +545,7 @@ function trb_release_bridge_render_user_contract_column( $output, $column_name, 
         </div>
         <div class="trb-contract-cell__editor" data-trb-contract-editor hidden>
             <label><span>Contratto preliminare</span><input type="text" maxlength="120" value="<?php echo esc_attr( $preliminary ); ?>" data-trb-preliminary-input></label>
+            <small><?php echo esc_html( trb_release_bridge_expected_contract_label( $user ) ); ?></small>
             <label><span>Data di attuazione/scadenza</span><input type="text" maxlength="50" placeholder="08/08/26 - 08/08/27" value="<?php echo esc_attr( $term ); ?>" data-trb-term-input></label>
             <small>GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO</small>
             <div class="trb-contract-cell__actions"><button type="button" class="button button-primary" data-trb-contract-save>Salva</button><button type="button" class="button" data-trb-contract-cancel>Annulla</button></div>
@@ -524,6 +572,8 @@ function trb_release_bridge_quick_update_contract() {
     $term = trb_release_bridge_normalize_contract_term( $_POST['term'] ?? '' );
     if ( function_exists( 'mb_substr' ) ) $preliminary = mb_substr( $preliminary, 0, 120 );
     else $preliminary = substr( $preliminary, 0, 120 );
+	$valid_contract = trb_release_bridge_validate_preliminary_contract( $user, $preliminary );
+	if ( is_wp_error( $valid_contract ) ) wp_send_json_error( array( 'message' => $valid_contract->get_error_message() ), 422 );
     if ( '' !== $term ) {
         $dates = trb_release_bridge_contract_term_dates( $term );
         if ( is_wp_error( $dates ) ) wp_send_json_error( array( 'message' => $dates->get_error_message() ), 422 );

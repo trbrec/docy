@@ -162,6 +162,120 @@ function trb_portal_contract_rules() {
 }
 
 /**
+ * Stable DDS service definition. Billing may change without changing the
+ * artist entitlement: every service year contains twelve monthly releases.
+ */
+function trb_portal_dds_service_config() {
+	return apply_filters(
+		'trb_portal_dds_service_config',
+		array(
+			'releases_per_year'        => 12,
+			'releases_per_month'       => 1,
+			'current_monthly_price_eur'=> 49,
+			'billing_modes'            => array( 'monthly', 'annual' ),
+			'default_billing_mode'     => 'monthly',
+			'store_url'                => 'https://store.trbrec.com/',
+		)
+	);
+}
+
+/**
+ * Integration point for the future Store product. Repeated monthly payments
+ * extend access but never reset the twelve-release service year.
+ */
+function trb_portal_activate_dds_service( $user_id, $starts_at = '', $billing_mode = 'monthly', $external_reference = '' ) {
+	$user = get_userdata( absint( $user_id ) );
+	if ( ! $user instanceof WP_User ) return new WP_Error( 'dds_user_missing', 'Account artista non trovato.' );
+	$config = trb_portal_dds_service_config();
+	$billing_mode = sanitize_key( $billing_mode );
+	if ( ! in_array( $billing_mode, $config['billing_modes'], true ) ) return new WP_Error( 'dds_billing_invalid', 'Modalità di pagamento DDS non valida.' );
+
+	$timezone = wp_timezone();
+	$start = $starts_at ? DateTimeImmutable::createFromFormat( '!Y-m-d', sanitize_text_field( $starts_at ), $timezone ) : new DateTimeImmutable( 'today', $timezone );
+	if ( ! $start ) return new WP_Error( 'dds_start_invalid', 'Data di attivazione DDS non valida.' );
+	$cycle_start_value = (string) get_user_meta( $user->ID, '_trb_dds_service_cycle_start', true );
+	$cycle_start = $cycle_start_value ? DateTimeImmutable::createFromFormat( '!Y-m-d', $cycle_start_value, $timezone ) : false;
+	if ( ! $cycle_start || $start >= $cycle_start->modify( '+1 year' ) ) {
+		$cycle_start = $start;
+		update_user_meta( $user->ID, '_trb_dds_service_cycle_start', $cycle_start->format( 'Y-m-d' ) );
+	}
+
+	$paid_until = 'annual' === $billing_mode ? $start->modify( '+1 year -1 day' ) : $start->modify( '+1 month -1 day' );
+	$current_paid_until_value = (string) get_user_meta( $user->ID, '_trb_dds_paid_until', true );
+	$current_paid_until = $current_paid_until_value ? DateTimeImmutable::createFromFormat( '!Y-m-d', $current_paid_until_value, $timezone ) : false;
+	if ( $current_paid_until && $current_paid_until > $paid_until ) $paid_until = $current_paid_until;
+
+	update_user_meta( $user->ID, '_trb_dds_billing_mode', $billing_mode );
+	update_user_meta( $user->ID, '_trb_dds_paid_until', $paid_until->format( 'Y-m-d' ) );
+	if ( $external_reference ) update_user_meta( $user->ID, '_trb_dds_store_reference', sanitize_text_field( $external_reference ) );
+	update_user_meta( $user->ID, '_trb_artist_contract_term', $cycle_start->format( 'd/m/y' ) . ' - ' . $paid_until->format( 'd/m/y' ) );
+
+	$profiles = trb_portal_profiles();
+	$role = $profiles['dds']['role'];
+	foreach ( trb_portal_profiles() as $profile ) {
+		foreach ( array_merge( array( $profile['role'] ), (array) $profile['aliases'] ) as $artist_role ) if ( $artist_role && $artist_role !== $role ) $user->remove_role( $artist_role );
+	}
+	$user->add_role( $role );
+	do_action( 'trb_portal_dds_service_activated', $user->ID, $billing_mode, $cycle_start, $paid_until, $external_reference );
+	return array( 'user_id' => $user->ID, 'billing_mode' => $billing_mode, 'cycle_start' => $cycle_start->format( 'Y-m-d' ), 'paid_until' => $paid_until->format( 'Y-m-d' ), 'releases_per_year' => 12 );
+}
+
+function trb_portal_dds_store_secret() {
+	$settings = get_option( 'trb_release_bridge_settings', array() );
+	$secret = is_array( $settings ) ? (string) ( $settings['dds_store_secret'] ?? '' ) : '';
+	if ( defined( 'TRB_DDS_STORE_SECRET' ) && '' === $secret ) $secret = (string) TRB_DDS_STORE_SECRET;
+	return trim( $secret );
+}
+
+/** Authenticate Store callbacks with a dedicated five-minute HMAC signature. */
+function trb_portal_verify_dds_store_request( $request ) {
+	$secret    = trb_portal_dds_store_secret();
+	$timestamp = (string) $request->get_header( 'x-trb-timestamp' );
+	$signature = strtolower( (string) $request->get_header( 'x-trb-signature' ) );
+	if ( '' === $secret ) return new WP_Error( 'dds_store_not_configured', 'Collegamento Store DDS non configurato.', array( 'status' => 503 ) );
+	if ( ! ctype_digit( $timestamp ) || abs( time() - (int) $timestamp ) > 300 || ! preg_match( '/^[a-f0-9]{64}$/', $signature ) ) {
+		return new WP_Error( 'dds_store_signature_invalid', 'Firma della richiesta non valida o scaduta.', array( 'status' => 401 ) );
+	}
+	$expected = hash_hmac( 'sha256', $timestamp . '.' . $request->get_body(), $secret );
+	return hash_equals( $expected, $signature ) ? true : new WP_Error( 'dds_store_signature_invalid', 'Firma della richiesta non valida.', array( 'status' => 401 ) );
+}
+
+function trb_portal_handle_dds_store_activation( $request ) {
+	$payload = $request->get_json_params();
+	$payload = is_array( $payload ) ? $payload : array();
+	$reference = sanitize_text_field( (string) ( $payload['reference'] ?? '' ) );
+	if ( '' === $reference ) return new WP_Error( 'dds_reference_missing', 'Riferimento ordine mancante.', array( 'status' => 422 ) );
+
+	$user = ! empty( $payload['user_id'] ) ? get_userdata( absint( $payload['user_id'] ) ) : false;
+	if ( ! $user && ! empty( $payload['email'] ) ) $user = get_user_by( 'email', sanitize_email( $payload['email'] ) );
+	if ( ! $user instanceof WP_User ) return new WP_Error( 'dds_user_missing', 'Account artista non trovato.', array( 'status' => 404 ) );
+	if ( hash_equals( (string) get_user_meta( $user->ID, '_trb_dds_store_reference', true ), $reference ) ) {
+		return rest_ensure_response( array( 'success' => true, 'idempotent' => true, 'user_id' => $user->ID ) );
+	}
+
+	$result = trb_portal_activate_dds_service(
+		$user->ID,
+		sanitize_text_field( (string) ( $payload['starts_at'] ?? '' ) ),
+		sanitize_key( (string) ( $payload['billing_mode'] ?? 'monthly' ) ),
+		$reference
+	);
+	if ( is_wp_error( $result ) ) {
+		$result->add_data( array( 'status' => 422 ) );
+		return $result;
+	}
+	return rest_ensure_response( array( 'success' => true, 'entitlement' => $result ) );
+}
+
+function trb_portal_register_dds_store_route() {
+	register_rest_route( 'trb/v1', '/dds-activation', array(
+		'methods'             => WP_REST_Server::CREATABLE,
+		'callback'            => 'trb_portal_handle_dds_store_activation',
+		'permission_callback' => 'trb_portal_verify_dds_store_request',
+	) );
+}
+add_action( 'rest_api_init', 'trb_portal_register_dds_store_route' );
+
+/**
  * Read the one contractual profile assigned to a user.
  * Legacy TRB Basic remains readable until the controlled migration is run.
  */
@@ -1230,6 +1344,76 @@ function trb_portal_monthly_release_count( $user_id = 0 ) {
 	return $counts[ $cache_key ];
 }
 
+/**
+ * Resolve the active twelve-month release allowance. DDB12 follows the CSAE
+ * contract start; DDS uses the same invariant independently of whether the
+ * commercial billing cadence is monthly or annual.
+ */
+function trb_portal_annual_release_period( $user_id = 0 ) {
+	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+	$user    = $user_id ? get_userdata( $user_id ) : false;
+	$profile = $user ? trb_portal_user_profile( $user ) : false;
+	if ( ! in_array( $profile, array( 'dds', 'ddb12' ), true ) ) return false;
+
+	$timezone = wp_timezone();
+	$start    = null;
+	$stored   = 'dds' === $profile ? (string) get_user_meta( $user_id, '_trb_dds_service_cycle_start', true ) : '';
+	if ( $stored && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $stored ) ) {
+		$start = DateTimeImmutable::createFromFormat( '!Y-m-d', $stored, $timezone );
+	}
+	if ( ! $start && function_exists( 'trb_release_bridge_contract_term_dates' ) ) {
+		$dates = trb_release_bridge_contract_term_dates( get_user_meta( $user_id, '_trb_artist_contract_term', true ) );
+		if ( ! is_wp_error( $dates ) && ! empty( $dates['start'] ) && $dates['start'] instanceof DateTimeImmutable ) $start = $dates['start'];
+	}
+	if ( ! $start ) return false;
+
+	$today = new DateTimeImmutable( 'today', $timezone );
+	while ( $start->modify( '+1 year' ) <= $today ) $start = $start->modify( '+1 year' );
+	$end = $start->modify( '+1 year -1 day' );
+
+	return array(
+		'profile' => $profile,
+		'start'   => $start,
+		'end'     => $end,
+		'key'     => $start->format( 'Ymd' ),
+	);
+}
+
+/** Number of completed practices in the active twelve-month allowance. */
+function trb_portal_annual_release_count( $user_id = 0 ) {
+	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+	$period  = trb_portal_annual_release_period( $user_id );
+	if ( ! $user_id || ! $period ) return 0;
+
+	static $counts = array();
+	$cache_key = $user_id . ':' . $period['key'];
+	if ( isset( $counts[ $cache_key ] ) ) return $counts[ $cache_key ];
+
+	$query = new WP_Query(
+		array(
+			'post_type'      => 'trb_release',
+			'post_status'    => 'publish',
+			'author'         => $user_id,
+			'fields'         => 'ids',
+			'posts_per_page' => 1,
+			'date_query'     => array(
+				array(
+					'after'     => $period['start']->format( 'Y-m-d' ),
+					'before'    => $period['end']->format( 'Y-m-d' ),
+					'inclusive' => true,
+				),
+			),
+		)
+	);
+	$counts[ $cache_key ] = (int) $query->found_posts;
+	return $counts[ $cache_key ];
+}
+
+function trb_portal_annual_release_limit_reached( $user_id = 0 ) {
+	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+	return (bool) trb_portal_annual_release_period( $user_id ) && trb_portal_annual_release_count( $user_id ) >= 12;
+}
+
 /** Keep the previous public helper available for integrations deployed earlier. */
 function trb_portal_ddb12_monthly_release_count( $user_id = 0 ) {
 	return trb_portal_monthly_release_count( $user_id );
@@ -1269,6 +1453,11 @@ function trb_portal_ddb12_next_reset_label() {
 
 function trb_portal_monthly_limit_redirect() {
 	wp_safe_redirect( add_query_arg( 'trb_release', 'monthly_limit', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
+	exit;
+}
+
+function trb_portal_annual_limit_redirect() {
+	wp_safe_redirect( add_query_arg( 'trb_release', 'annual_limit', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
 	exit;
 }
 
@@ -2026,6 +2215,12 @@ function trb_portal_start_release() {
 	}
 	$user_id = get_current_user_id();
 	$profile = trb_portal_user_profile();
+	if ( ! current_user_can( 'manage_options' ) && in_array( $profile, array( 'dds', 'ddb12' ), true ) && ! trb_portal_annual_release_period( $user_id ) ) {
+		trb_portal_release_submission_response( 'annual_period_missing', 'Il periodo annuale delle 12 release non è stato ancora assegnato. Apri una segnalazione senza creare una pratica duplicata.', 422 );
+	}
+	if ( ! current_user_can( 'manage_options' ) && trb_portal_annual_release_limit_reached( $user_id ) ) {
+		trb_portal_annual_limit_redirect();
+	}
 	if ( ! current_user_can( 'manage_options' ) && trb_portal_monthly_limit_reached( $user_id ) ) {
 		trb_portal_monthly_limit_redirect();
 	}
@@ -2133,9 +2328,23 @@ function trb_portal_start_release() {
 	// The unique monthly marker closes the short race window caused by two tabs
 	// submitting at the same time. The post query also covers practices created
 	// before this feature was introduced.
+	$annual_reservation_key    = '';
+	$annual_reservation_value  = '';
 	$monthly_reservation_key   = '';
 	$monthly_reservation_value = '';
 	if ( in_array( $profile, array( 'dds', 'ddb12' ), true ) && ! current_user_can( 'manage_options' ) ) {
+		$annual_period            = trb_portal_annual_release_period( $user_id );
+		$annual_reservation_key   = $annual_period ? '_trb_' . $profile . '_annual_release_' . $annual_period['key'] : '';
+		$annual_reservation_value = (string) time();
+		if ( $annual_reservation_key ) {
+			$existing_annual_reservation = (string) get_user_meta( $user_id, $annual_reservation_key, true );
+			if ( $existing_annual_reservation && ctype_digit( $existing_annual_reservation ) && ( time() - (int) $existing_annual_reservation ) > 900 && trb_portal_annual_release_count( $user_id ) < 12 ) {
+				delete_user_meta( $user_id, $annual_reservation_key );
+			}
+			if ( trb_portal_annual_release_count( $user_id ) >= 12 || ! add_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value, true ) ) {
+				trb_portal_annual_limit_redirect();
+			}
+		}
 		$monthly_reservation_key   = '_trb_' . $profile . '_release_' . wp_date( 'Y_m' );
 		$monthly_reservation_value = (string) time();
 		$existing_reservation      = (string) get_user_meta( $user_id, $monthly_reservation_key, true );
@@ -2143,6 +2352,7 @@ function trb_portal_start_release() {
 			delete_user_meta( $user_id, $monthly_reservation_key );
 		}
 		if ( trb_portal_monthly_release_count( $user_id ) >= 1 || ! add_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value, true ) ) {
+			if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
 			trb_portal_monthly_limit_redirect();
 		}
 	}
@@ -2150,6 +2360,7 @@ function trb_portal_start_release() {
 	$existing_submit_lock = absint( get_user_meta( $user_id, $submit_lock_key, true ) );
 	if ( $existing_submit_lock && time() - $existing_submit_lock > 30 * MINUTE_IN_SECONDS ) delete_user_meta( $user_id, $submit_lock_key );
 	if ( ! add_user_meta( $user_id, $submit_lock_key, time(), true ) ) {
+		if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
 		if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 		trb_portal_release_submission_response( 'upload_in_progress', 'Una richiesta precedente è ancora in elaborazione. Attendi senza inviare nuovamente i file.', 409 );
 	}
@@ -2165,6 +2376,7 @@ function trb_portal_start_release() {
 			'meta_value'     => $submission_token,
 		) );
 		if ( $existing_release ) {
+			if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
 			if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 			delete_user_meta( $user_id, $submit_lock_key );
 			trb_portal_cleanup_release_staging_session( $submission_token );
@@ -2219,6 +2431,7 @@ function trb_portal_start_release() {
 			update_post_meta( $release_id, '_trb_contract_state', 'upload_failed' );
 			if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
 			wp_update_post( array( 'ID' => $release_id, 'post_status' => 'private' ) );
+			if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key );
 			if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key );
 			delete_user_meta( $user_id, $submit_lock_key );
 			if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
@@ -2236,6 +2449,7 @@ function trb_portal_start_release() {
 				update_post_meta( $release_id, '_trb_contract_state', 'data_error' );
 				if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
 				wp_update_post( array( 'ID' => $release_id, 'post_status' => 'private' ) );
+				if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key );
 				if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key );
 				delete_user_meta( $user_id, $submit_lock_key );
 				if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
@@ -2272,9 +2486,13 @@ function trb_portal_start_release() {
 			update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
 			if ( function_exists( 'trb_resource_event' ) ) trb_resource_event( 'release-' . $release_id, 'security', 'critical', 'Materiali conservati nello storage privato in attesa di scansione antivirus.', array( 'release_id' => $release_id ) );
 		} elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
+		if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
 		delete_user_meta( $user_id, $submit_lock_key );
 		if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
 		trb_portal_release_submission_response( 'created', 'Pratica creata correttamente.', 200, $release_id );
+	}
+	if ( $annual_reservation_key ) {
+		delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
 	}
 	if ( $monthly_reservation_key ) {
 		delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
@@ -3805,6 +4023,10 @@ function trb_portal_render_release_section() {
 	$monthly_profile_label = 'ddb12' === $monthly_profile ? 'DDB12' : 'DDS';
 	$monthly_limit_reached = $monthly_profile ? trb_portal_monthly_limit_reached() : false;
 	$monthly_release_count = $monthly_profile ? min( 1, trb_portal_monthly_release_count() ) : 0;
+	$annual_period         = $monthly_profile ? trb_portal_annual_release_period() : false;
+	$annual_release_count = $annual_period ? min( 12, trb_portal_annual_release_count() ) : 0;
+	$annual_limit_reached = $annual_period ? trb_portal_annual_release_limit_reached() : false;
+	$annual_period_label  = $annual_period ? wp_date( 'j F Y', $annual_period['start']->getTimestamp() ) . ' – ' . wp_date( 'j F Y', $annual_period['end']->getTimestamp() ) : 'Periodo annuale non assegnato';
 	$monthly_reset_label   = trb_portal_monthly_next_reset_label();
 	$monthly_guide_url     = add_query_arg( 'trb_search', 'limite mensile ' . $monthly_profile_label, get_permalink() ) . '#risposte';
 	$server_draft        = get_user_meta( get_current_user_id(), '_trb_release_form_draft', true );
@@ -3812,7 +4034,7 @@ function trb_portal_render_release_section() {
 	?>
 	<section id="release" class="trb-portal__section trb-portal__section--releases">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Inserisci metadati, crediti e file audio della pubblicazione, quindi ricevi il contratto da sottoscrivere per avviare l’iter di distribuzione.</p></div>
-		<?php if ( $monthly_profile ) : ?><div class="trb-portal__profile-progress"><div class="trb-portal__profile-progress-heading"><span><b>Il tuo piano <?php echo esc_html( $monthly_profile_label ); ?></b><small><?php echo $monthly_limit_reached ? 'Quota mensile utilizzata' : 'Quota mensile disponibile'; ?> &middot; si rinnova il primo giorno del mese</small></span><strong><?php echo esc_html( $monthly_release_count ); ?>/1</strong></div><p>Puoi creare una release per mese solare. Le bozze e i caricamenti non completati non consumano la quota.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p><a class="trb-portal__link" href="<?php echo esc_url( $monthly_guide_url ); ?>">Leggi come funziona la release mensile <span aria-hidden="true">&rarr;</span></a></div><?php endif; ?>
+		<?php if ( $monthly_profile ) : ?><div class="trb-portal__profile-progress"><div class="trb-portal__profile-progress-heading"><span><b>Il tuo piano <?php echo esc_html( $monthly_profile_label ); ?></b><small><?php echo $monthly_limit_reached ? 'Quota mensile utilizzata' : 'Quota mensile disponibile'; ?> &middot; si rinnova il primo giorno del mese</small></span><strong><?php echo esc_html( $monthly_release_count ); ?>/1 questo mese</strong></div><div class="trb-portal__profile-progress-heading"><span><b>Disponibilità annuale</b><small><?php echo esc_html( $annual_period_label ); ?></small></span><strong><?php echo esc_html( $annual_release_count ); ?>/12</strong></div><p>Puoi creare una release per mese solare, fino a 12 nel periodo annuale. Le bozze e i caricamenti non completati non consumano la disponibilità.</p><a class="trb-portal__link" href="<?php echo esc_url( $monthly_guide_url ); ?>">Leggi come funzionano le 12 release <span aria-hidden="true">&rarr;</span></a></div><?php endif; ?>
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
 		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Nuovo file acquisito. Il precedente verrà rimosso automaticamente soltanto dopo il trasferimento verificato su pCloud.</div><?php endif; ?>
 		<?php if ( 'technical_correction' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Correzione del WAV richiesta.</strong><p>Apri la release interessata: troverai il motivo preciso e il comando per sostituire soltanto il file audio.</p></div><?php endif; ?>
@@ -3825,6 +4047,8 @@ function trb_portal_render_release_section() {
 		<?php if ( 'file_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>La sostituzione non è stata completata.</strong><p>Il file precedente è rimasto invariato. Controlla la connessione e riprova una sola volta.</p></div><?php endif; ?>
 		<?php if ( 'files_locked' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I materiali di questa release sono definitivi.</strong><p>Dopo l’approvazione non è possibile sostituirli autonomamente. Apri una segnalazione per richiedere la valutazione della modifica.</p></div><?php endif; ?>
 		<?php if ( 'monthly_limit' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Il profilo <?php echo esc_html( $monthly_profile_label ); ?> consente di avviare una sola pratica per ogni mese solare, indipendentemente dal tipo di pubblicazione. Il limite si rinnova automaticamente il primo giorno del mese; potrai creare una nuova release dal <?php echo esc_html( $monthly_reset_label ); ?>.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p></div><?php endif; ?>
+		<?php if ( 'annual_limit' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto il limite annuale di 12 release</strong><p>Hai utilizzato tutte le release comprese nel periodo <?php echo esc_html( $annual_period_label ); ?>. Non è possibile creare un’altra pratica fino all’avvio di un nuovo periodo approvato.</p></div><?php endif; ?>
+		<?php if ( 'annual_period_missing' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Periodo annuale non assegnato</strong><p>Il profilo prevede 12 release annue, ma manca la data di inizio necessaria al conteggio. Apri una segnalazione: non creare un nuovo account o una pratica alternativa.</p></div><?php endif; ?>
 		<?php if ( 'upload_in_progress' === $status ) : ?><div class="trb-portal__message"><strong>Caricamento già in elaborazione</strong><p>La richiesta precedente è ancora in corso. Non inviare nuovamente i file: la pagina si aggiornerà al completamento.</p></div><?php endif; ?>
 		<?php if ( 'single_title_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I titoli non coincidono.</strong><p>Per una pubblicazione di tipo Singolo, il titolo della release deve essere identico al titolo del brano, comprese maiuscole, accenti e punteggiatura.</p></div><?php endif; ?>
 		<?php if ( 'upload_failed' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Caricamento incompleto.</strong><p>I dati della pratica sono stati conservati, ma uno o più file devono essere verificati o sostituiti.</p></div><?php endif; ?>
@@ -3843,6 +4067,10 @@ function trb_portal_render_release_section() {
 			</li><?php endforeach; ?></ul></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
 			<div class="trb-portal__release-gate"><strong>Completa il profilo per iniziare.</strong><p>Quando il profilo raggiunge il 100% potrai creare la prima release.</p><a class="trb-button" href="#profilo">Completa il profilo</a></div>
+		<?php elseif ( $monthly_profile && ! $annual_period ) : ?>
+			<div class="trb-portal__release-gate"><strong>Periodo annuale non assegnato</strong><p>Prima di creare una release deve essere registrata la data di inizio del periodo che comprende le 12 pubblicazioni.</p></div>
+		<?php elseif ( $annual_limit_reached ) : ?>
+			<div class="trb-portal__release-gate"><strong>Raggiunto il limite annuale di 12 release</strong><p>Hai utilizzato tutte le release comprese nel periodo <?php echo esc_html( $annual_period_label ); ?>. Una nuova disponibilità richiede l’avvio del periodo annuale successivo.</p></div>
 		<?php elseif ( $monthly_limit_reached ) : ?>
 			<div class="trb-portal__release-gate"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Hai già creato la release disponibile per questo mese con il profilo <?php echo esc_html( $monthly_profile_label ); ?>. Il conteggio comprende qualsiasi tipologia di pubblicazione e si azzera automaticamente il primo giorno del mese. Potrai avviare una nuova pratica dal <?php echo esc_html( $monthly_reset_label ); ?>.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p></div>
 		<?php else : ?>
