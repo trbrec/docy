@@ -122,7 +122,7 @@ function trb_portal_service_catalogue() {
 		'radio_date'            => $service( 'Radio Date', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'radio-date' ),
 		'booking'               => $service( 'Booking e scouting live', $development ),
 		'training'              => $service( 'Formazione e Knowledge Hub', array( 'dds', 'ddb12', 'ddb', 'ddb_trb' ) ),
-		'priority_mentoring'    => $service( 'Assistenza prioritaria e mentoring', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
+		'priority_mentoring'    => $service( 'Assistenza prioritaria e mentoring', array( 'ddb12', 'ddb', 'ddb_trb', 'trb' ) ),
 		'certificate'           => $service( 'Certificato o attestato finale', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
 		'reporting'             => $service( 'Report e rendicontazione royalty', $all ),
 	);
@@ -153,7 +153,9 @@ function trb_portal_contract_rules() {
 	return array(
 		'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'base', 'indefinite_trb_roster' => false ),
 		'ddb12' => array( 'duration_months' => 12, 'release_limit' => 'one_per_month_max_12_year', 'training_level' => 'complete', 'indefinite_trb_roster' => false ),
-		'ddb' => array( 'duration_months' => 12, 'release_limit' => 'unlimited', 'training_level' => 'complete', 'indefinite_trb_roster' => false ),
+		// The current DDB template contains conflicting quantity clauses. Never
+		// automate a numeric limit until the signed template is made unambiguous.
+		'ddb' => array( 'duration_months' => 12, 'release_limit' => 'contract_defined', 'training_level' => 'complete', 'indefinite_trb_roster' => false ),
 		'ddb_trb' => array( 'duration_months' => 24, 'release_limit' => 'unlimited', 'training_level' => 'complete', 'indefinite_trb_roster' => true, 'trb_roster_after_months' => 24, 'services_continue_indefinitely' => true ),
 		'trb' => array( 'duration_months' => null, 'release_limit' => 'unlimited', 'training_level' => 'not_applicable', 'indefinite_trb_roster' => true, 'services_continue_indefinitely' => true ),
 	);
@@ -1170,8 +1172,8 @@ function trb_portal_user_releases() {
 	);
 }
 
-/** Number of DDB12 practices created in the current calendar month. */
-function trb_portal_ddb12_monthly_release_count( $user_id = 0 ) {
+/** Number of completed monthly-plan practices created in the current month. */
+function trb_portal_monthly_release_count( $user_id = 0 ) {
 	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
 	if ( ! $user_id ) {
 		return 0;
@@ -1202,23 +1204,50 @@ function trb_portal_ddb12_monthly_release_count( $user_id = 0 ) {
 	return $counts[ $cache_key ];
 }
 
+/** Keep the previous public helper available for integrations deployed earlier. */
+function trb_portal_ddb12_monthly_release_count( $user_id = 0 ) {
+	return trb_portal_monthly_release_count( $user_id );
+}
+
+function trb_portal_monthly_release_profile( $user_id = 0 ) {
+	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+	$user    = $user_id ? get_userdata( $user_id ) : false;
+	$profile = $user ? trb_portal_user_profile( $user ) : false;
+
+	return in_array( $profile, array( 'dds', 'ddb12' ), true ) ? $profile : false;
+}
+
+function trb_portal_monthly_limit_reached( $user_id = 0 ) {
+	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+
+	return trb_portal_monthly_release_profile( $user_id ) && trb_portal_monthly_release_count( $user_id ) >= 1;
+}
+
 function trb_portal_ddb12_limit_reached( $user_id = 0 ) {
 	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
 	$user    = $user_id ? get_userdata( $user_id ) : false;
 
-	return $user && 'ddb12' === trb_portal_user_profile( $user ) && trb_portal_ddb12_monthly_release_count( $user_id ) >= 1;
+	return $user && 'ddb12' === trb_portal_user_profile( $user ) && trb_portal_monthly_limit_reached( $user_id );
 }
 
-function trb_portal_ddb12_next_reset_label() {
+function trb_portal_monthly_next_reset_label() {
 	$timezone = wp_timezone();
 	$next     = new DateTimeImmutable( 'first day of next month 00:00:00', $timezone );
 
 	return wp_date( 'j F Y', $next->getTimestamp(), $timezone );
 }
 
-function trb_portal_ddb12_limit_redirect() {
+function trb_portal_ddb12_next_reset_label() {
+	return trb_portal_monthly_next_reset_label();
+}
+
+function trb_portal_monthly_limit_redirect() {
 	wp_safe_redirect( add_query_arg( 'trb_release', 'monthly_limit', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
 	exit;
+}
+
+function trb_portal_ddb12_limit_redirect() {
+	trb_portal_monthly_limit_redirect();
 }
 
 /**
@@ -1971,8 +2000,8 @@ function trb_portal_start_release() {
 	}
 	$user_id = get_current_user_id();
 	$profile = trb_portal_user_profile();
-	if ( ! current_user_can( 'manage_options' ) && trb_portal_ddb12_limit_reached( $user_id ) ) {
-		trb_portal_ddb12_limit_redirect();
+	if ( ! current_user_can( 'manage_options' ) && trb_portal_monthly_limit_reached( $user_id ) ) {
+		trb_portal_monthly_limit_redirect();
 	}
 	$title = isset( $_POST['trb_release_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_title'] ) ) : '';
 	$type  = isset( $_POST['trb_release_type'] ) ? sanitize_key( wp_unslash( $_POST['trb_release_type'] ) ) : '';
@@ -2078,24 +2107,24 @@ function trb_portal_start_release() {
 	// The unique monthly marker closes the short race window caused by two tabs
 	// submitting at the same time. The post query also covers practices created
 	// before this feature was introduced.
-	$ddb12_reservation_key   = '';
-	$ddb12_reservation_value = '';
-	if ( 'ddb12' === $profile && ! current_user_can( 'manage_options' ) ) {
-		$ddb12_reservation_key   = '_trb_ddb12_release_' . wp_date( 'Y_m' );
-		$ddb12_reservation_value = (string) time();
-		$existing_reservation    = (string) get_user_meta( $user_id, $ddb12_reservation_key, true );
-		if ( $existing_reservation && ctype_digit( $existing_reservation ) && ( time() - (int) $existing_reservation ) > 900 && 0 === trb_portal_ddb12_monthly_release_count( $user_id ) ) {
-			delete_user_meta( $user_id, $ddb12_reservation_key );
+	$monthly_reservation_key   = '';
+	$monthly_reservation_value = '';
+	if ( in_array( $profile, array( 'dds', 'ddb12' ), true ) && ! current_user_can( 'manage_options' ) ) {
+		$monthly_reservation_key   = '_trb_' . $profile . '_release_' . wp_date( 'Y_m' );
+		$monthly_reservation_value = (string) time();
+		$existing_reservation      = (string) get_user_meta( $user_id, $monthly_reservation_key, true );
+		if ( $existing_reservation && ctype_digit( $existing_reservation ) && ( time() - (int) $existing_reservation ) > 900 && 0 === trb_portal_monthly_release_count( $user_id ) ) {
+			delete_user_meta( $user_id, $monthly_reservation_key );
 		}
-		if ( trb_portal_ddb12_monthly_release_count( $user_id ) >= 1 || ! add_user_meta( $user_id, $ddb12_reservation_key, $ddb12_reservation_value, true ) ) {
-			trb_portal_ddb12_limit_redirect();
+		if ( trb_portal_monthly_release_count( $user_id ) >= 1 || ! add_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value, true ) ) {
+			trb_portal_monthly_limit_redirect();
 		}
 	}
 	$submit_lock_key = '_trb_release_submission_lock';
 	$existing_submit_lock = absint( get_user_meta( $user_id, $submit_lock_key, true ) );
 	if ( $existing_submit_lock && time() - $existing_submit_lock > 30 * MINUTE_IN_SECONDS ) delete_user_meta( $user_id, $submit_lock_key );
 	if ( ! add_user_meta( $user_id, $submit_lock_key, time(), true ) ) {
-		if ( $ddb12_reservation_key ) delete_user_meta( $user_id, $ddb12_reservation_key, $ddb12_reservation_value );
+		if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 		trb_portal_release_submission_response( 'upload_in_progress', 'Una richiesta precedente è ancora in elaborazione. Attendi senza inviare nuovamente i file.', 409 );
 	}
 	$submission_token = isset( $_POST['trb_release_submission_token'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ) ) : '';
@@ -2110,7 +2139,7 @@ function trb_portal_start_release() {
 			'meta_value'     => $submission_token,
 		) );
 		if ( $existing_release ) {
-			if ( $ddb12_reservation_key ) delete_user_meta( $user_id, $ddb12_reservation_key, $ddb12_reservation_value );
+			if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 			delete_user_meta( $user_id, $submit_lock_key );
 			trb_portal_cleanup_release_staging_session( $submission_token );
 			trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: non è stato creato alcun duplicato.', 200, $existing_release[0] );
@@ -2164,7 +2193,7 @@ function trb_portal_start_release() {
 			update_post_meta( $release_id, '_trb_contract_state', 'upload_failed' );
 			if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
 			wp_update_post( array( 'ID' => $release_id, 'post_status' => 'private' ) );
-			if ( $ddb12_reservation_key ) delete_user_meta( $user_id, $ddb12_reservation_key );
+			if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key );
 			delete_user_meta( $user_id, $submit_lock_key );
 			if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
 			trb_portal_release_submission_response( 'error', 'I dati della pratica sono stati conservati, ma uno o più file non sono stati archiviati. Causa: ' . trb_portal_release_upload_error_message( $file_error->get_error_code() ) . ' Non reinviare tutto: la pratica è visibile e può essere completata.', 500, $release_id );
@@ -2181,7 +2210,7 @@ function trb_portal_start_release() {
 				update_post_meta( $release_id, '_trb_contract_state', 'data_error' );
 				if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
 				wp_update_post( array( 'ID' => $release_id, 'post_status' => 'private' ) );
-				if ( $ddb12_reservation_key ) delete_user_meta( $user_id, $ddb12_reservation_key );
+				if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key );
 				delete_user_meta( $user_id, $submit_lock_key );
 				if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
 				trb_portal_release_submission_response( 'error', 'La pratica e i file sono stati conservati, ma il sistema non ha potuto assegnare gli ISRC. Nessun codice è stato mostrato o riutilizzato.', 500, $release_id );
@@ -2190,8 +2219,8 @@ function trb_portal_start_release() {
 			unset( $track );
 			update_post_meta( $release_id, '_trb_release_isrc_allocation', array( 'pool' => 'trb' === $profile ? 'trb' : 'distribution', 'year' => wp_date( 'y' ), 'codes' => $assigned_isrcs, 'assigned_at' => time() ) );
 		}
-		if ( $ddb12_reservation_key ) {
-			update_user_meta( $user_id, $ddb12_reservation_key, (string) $release_id );
+		if ( $monthly_reservation_key ) {
+			update_user_meta( $user_id, $monthly_reservation_key, (string) $release_id );
 		}
 		update_post_meta( $release_id, '_trb_release_type', $type );
 		update_post_meta( $release_id, '_trb_release_step', 'contract' );
@@ -2221,8 +2250,8 @@ function trb_portal_start_release() {
 		if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
 		trb_portal_release_submission_response( 'created', 'Pratica creata correttamente.', 200, $release_id );
 	}
-	if ( $ddb12_reservation_key ) {
-		delete_user_meta( $user_id, $ddb12_reservation_key, $ddb12_reservation_value );
+	if ( $monthly_reservation_key ) {
+		delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 	}
 	delete_user_meta( $user_id, $submit_lock_key );
 
@@ -2359,87 +2388,139 @@ function trb_portal_register_guide_type() {
 }
 add_action( 'init', 'trb_portal_register_guide_type', 6 );
 
+/** Build the entitlement article from the same matrix used by portal features. */
+function trb_portal_profile_services_guide( $profile ) {
+	$labels = array( 'dds' => 'DDS', 'ddb12' => 'DDB12', 'ddb' => 'DDB', 'ddb_trb' => 'DDB-TRB', 'trb' => 'TRB' );
+	$included = array();
+	$store_50 = array();
+	foreach ( trb_portal_service_catalogue() as $service ) {
+		$status = isset( $service['profiles'][ $profile ] ) ? $service['profiles'][ $profile ] : 'unavailable';
+		if ( 'included' === $status ) $included[] = $service['label'];
+		if ( 'store_50' === $status ) $store_50[] = $service['label'];
+	}
+	$list = static function( $items ) {
+		return '<ul><li>' . implode( '</li><li>', array_map( 'esc_html', $items ) ) . '</li></ul>';
+	};
+	$rules = array(
+		'dds'     => '<p><strong>Regola di pubblicazione:</strong> il percorso è mensile e consente una release per mese. La quota non utilizzata non si accumula.</p>',
+		'ddb12'   => '<p><strong>Regola di pubblicazione:</strong> una release per mese solare, fino a 12 release nei dodici mesi contrattuali. La quota non utilizzata non si accumula.</p>',
+		'ddb'     => '<p><strong>Durata e pubblicazioni:</strong> il percorso dura 12 mesi. Fa fede la quantità indicata nel contratto sottoscritto e visibile nella pratica; in caso di dubbio apri una segnalazione prima di creare una nuova release.</p>',
+		'ddb_trb' => '<p><strong>Durata e passaggio al roster:</strong> il percorso iniziale dura 24 mesi e consente pubblicazioni illimitate. Alla scadenza prevista, il profilo passa a TRB mantenendo dati, catalogo e servizi continuativi.</p>',
+		'trb'     => '<p><strong>Durata e pubblicazioni:</strong> permanenza nel roster a tempo indeterminato e pubblicazioni illimitate, sempre soggette alla verifica tecnica, documentale ed editoriale di ogni pratica.</p>',
+	);
+	$content  = '<p>Questa è la sintesi operativa del profilo <strong>' . esc_html( $labels[ $profile ] ) . '</strong>. “Incluso” significa previsto dal percorso: non significa approvazione automatica della singola release né garanzia di risultati editoriali, radiofonici o commerciali.</p>';
+	$content .= isset( $rules[ $profile ] ) ? $rules[ $profile ] : '';
+	$content .= '<h4>Servizi inclusi</h4>' . $list( $included );
+	if ( $store_50 ) {
+		$content .= '<h4>Servizi non inclusi, acquistabili con lo sconto riservato del 50%</h4>' . $list( $store_50 );
+	}
+	$content .= '<h4>Condizioni da ricordare</h4><ul><li>L’inserimento nelle playlist proprietarie TRB rec è incluso e garantito; posizione, durata, ascolti e inserimento nelle playlist editoriali di terzi non sono garantiti.</li><li>Pitching, campagne, booking, radio e stampa dipendono da idoneità, disponibilità e valutazione della release e non costituiscono una promessa di risultato oltre quanto espressamente previsto dal contratto.</li><li>Monetizzazione UGC e Content ID sono attivabili soltanto quando registrazione, beat, sample e licenze rispettano i requisiti dei servizi.</li><li>I collegamenti allo Store vengono mostrati solo per i servizi effettivamente disponibili per il profilo.</li></ul>';
+	return $content;
+}
+
 function trb_portal_seed_guides() {
 	$profiles = array(
 		'dds' => array(
 			'label' => 'DDS',
-			'audio' => '<p>Per la distribuzione devi consegnare il <strong>master definitivo</strong> in formato WAV stereo a <strong>48.000 Hz / 24 bit</strong>. Il file deve essere già approvato e pronto per la pubblicazione.</p><ul><li>Non inviare MP3, M4A, audio WhatsApp o file estratti da piattaforme streaming.</li><li>Non normalizzare o convertire nuovamente il master dopo l’approvazione.</li><li>Esporta dall’inizio corretto e controlla che intro, dissolvenze e code non siano tagliate.</li><li>Per pubblicazioni con più brani usa lo stesso standard tecnico per ogni traccia.</li></ul>',
+			'training' => '<p>DDS comprende l’accesso alla formazione di base e ai materiali del Knowledge Hub utili a preparare profilo e release.</p><ul><li>Il percorso non comprende mentoring prioritario.</li><li>Non è previsto un certificato o attestato finale.</li><li>I contenuti formativi aiutano l’artista, ma non sostituiscono le istruzioni vincolanti mostrate nella pratica.</li></ul>',
+			'audio' => '<p>Per la distribuzione devi consegnare il <strong>master definitivo in WAV stereo</strong>. Il portale accetta almeno <strong>44.100 Hz / 16 bit</strong>; lo standard consigliato, quando disponibile dalla sessione originale, è <strong>48.000 Hz / 24 bit</strong>.</p><ul><li>Non convertire un file di qualità inferiore soltanto per mostrare valori più alti.</li><li>Non inviare MP3, M4A, audio WhatsApp o file estratti da piattaforme streaming.</li><li>Non normalizzare o riconvertire il master dopo l’approvazione.</li><li>Controlla che intro, dissolvenze e code non siano tagliate e usa lo stesso standard per tutte le tracce.</li></ul>',
 			'cover' => '<p>Devi caricare la <strong>copertina definitiva già realizzata</strong>, collegandola alla pratica della release.</p><ul><li>Formato quadrato RGB, 3.000 × 3.000 px, 300 DPI.</li><li>Niente immagini sfocate, bordi involontari, URL, loghi di store o contenuti non autorizzati.</li><li>Nome d’arte e titolo devono coincidere esattamente con i metadati inseriti.</li></ul><p>Controlla attentamente il file prima dell’invio: una copertina non conforme blocca la programmazione.</p>',
-			'platforms' => '<p>Il tuo percorso comprende la distribuzione e il <strong>pitching editoriale</strong> sulle piattaforme digitali previste. Inserisci link corretti ai profili artista già esistenti per evitare pagine duplicate e consegna i materiali entro la finestra utile.</p><p>Il pitching costituisce una candidatura: non garantisce l’inserimento nelle playlist editoriali delle piattaforme.</p>',
-			'promo' => '<p>Prepara una biografia aggiornata, fotografie ad alta qualità e link social corretti. Il percorso comprende Smartlink, Promo Cards e inserimento nelle playlist proprietarie TRB rec.</p><p>Mastering, ottimizzazione dei profili, campagne verso curatori, comunicato stampa e Radio Date possono essere richiesti separatamente nello Store con lo sconto riservato del 50%.</p>',
+			'platforms' => '<p>Il percorso DDS comprende distribuzione digitale mondiale, codici ISRC/UPC, pitching editoriale, Smartlink, Promo Cards e inserimento nelle playlist proprietarie TRB rec.</p><ul><li>Inserisci i link corretti ai profili artista esistenti per evitare pagine duplicate.</li><li>Il pitching è una candidatura e non garantisce playlist editoriali.</li><li>L’inserimento nelle playlist proprietarie riguarda i canali gestiti da TRB rec e non equivale a una garanzia di ascolti.</li></ul>',
+			'promo' => '<p>Per ogni release prepara biografia aggiornata, fotografie ad alta qualità, storia del brano e link social corretti. Smartlink e Promo Cards sono inclusi nel percorso DDS.</p><p>Mastering, ottimizzazione dei profili Spotify/Apple Music, campagne verso curatori, blogger e influencer, copertina grafica, comunicato stampa con diffusione e Radio Date non sono inclusi: quando disponibili possono essere richiesti nello Store con lo sconto riservato del 50%.</p><p>Landing page, Digital Press Kit e booking non fanno parte del profilo DDS.</p>',
 		),
 		'ddb' => array(
 			'label' => 'DDB',
-			'audio' => '<p>Quando richiedi la lavorazione inclusa, consegna il <strong>pre-master WAV stereo a 48.000 Hz / 24 bit</strong>, privo di limiter aggressivi e con margine dinamico sufficiente.</p><ul><li>Non inviare MP3, conversioni o audio provenienti da applicazioni di messaggistica.</li><li>Evita clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Dopo l’approvazione utilizza esclusivamente il master definitivo ricevuto.</li></ul>',
+			'training' => '<p>DDB comprende formazione completa, assistenza prioritaria e mentoring durante i 12 mesi del percorso.</p><ul><li>L’attestato finale viene rilasciato al completamento del percorso secondo le condizioni contrattuali.</li><li>La sola visualizzazione dei contenuti non anticipa automaticamente il rilascio dell’attestato.</li><li>Le richieste operative relative a una release devono restare collegate alla relativa pratica o segnalazione.</li></ul>',
+			'audio' => '<p>Puoi caricare un master già definitivo oppure richiedere il mastering incluso. In questo secondo caso consegna il <strong>pre-master WAV stereo</strong>, preferibilmente a <strong>48.000 Hz / 24 bit</strong>, senza limiter aggressivi, clipping o normalizzazione automatica.</p><ul><li>Il minimo accettato dal portale è 44.100 Hz / 16 bit; non ricampionare materiale inferiore per simulare una qualità maggiore.</li><li>Non inviare MP3 o audio provenienti da applicazioni di messaggistica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Il master finale comparirà nella scheda release; ascoltalo e scaricalo da lì.</li></ul>',
 			'cover' => '<p>La copertina grafica non è compresa nel tuo percorso: devi caricare l’asset definitivo nella pratica della release.</p><ul><li>RGB, 3.000 × 3.000 px, 300 DPI.</li><li>Titolo e nome d’arte identici ai metadati.</li><li>Nessun URL, logo di piattaforma, bordo involontario o immagine non autorizzata.</li></ul><p>Se acquisti separatamente una realizzazione grafica, le indicazioni verranno gestite nella relativa richiesta.</p>',
 			'platforms' => '<p>Il tuo percorso comprende l’ottimizzazione del profilo e la strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci i link esatti ai profili artista e segnala eventuali omonimie.</li><li>Descrivi storia, contesto, pubblico ed elementi distintivi del brano.</li><li>Consegna tutto con sufficiente anticipo rispetto alla data programmata.</li></ul><p>Il pitching è una candidatura editoriale: non garantisce playlist, copertura o risultati specifici.</p>',
-			'promo' => '<p>Collega alla release biografia, fotografie, storia del brano, testi, link e materiali richiesti per le attività editoriali e promozionali comprese.</p><p>Campagne, opportunità di booking e ulteriori attività dipendono dalle condizioni previste e dalla valutazione del progetto o della singola pubblicazione.</p>',
+			'promo' => '<p>Il percorso comprende Smartlink, Promo Cards, landing page, Digital Press Kit, campagne verso curatori, blogger e influencer, inserimento nelle playlist proprietarie e opportunità di booking.</p><p>Comunicato stampa con diffusione e Radio Date non sono inclusi; quando disponibili possono essere acquistati nello Store con lo sconto riservato del 50%. La copertina grafica è anch’essa acquistabile con lo sconto riservato.</p><p>Prepara biografia, fotografie, storia del brano, testi e link verificati: ogni attività resta collegata alla singola release e soggetta a idoneità editoriale.</p>',
 		),
 		'ddb_trb' => array(
 			'label' => 'DDB-TRB',
-			'audio' => '<p>Consegna il <strong>pre-master WAV stereo a 48.000 Hz / 24 bit</strong> per la lavorazione prevista dal tuo percorso.</p><ul><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Non inviare MP3, conversioni o file provenienti da applicazioni di messaggistica.</li><li>Dopo l’approvazione non modificare né riconvertire il master definitivo.</li></ul>',
+			'training' => '<p>DDB-TRB comprende formazione completa, assistenza prioritaria e mentoring durante il biennio iniziale.</p><ul><li>L’attestato finale è previsto al completamento dei 24 mesi secondo le condizioni contrattuali.</li><li>Al passaggio nel roster TRB non devi ripetere la formazione né ricreare il profilo.</li><li>Il mentoring prosegue nel rapporto di roster, mentre l’attestato documenta il percorso iniziale concluso.</li></ul>',
+			'audio' => '<p>Puoi caricare un master già definitivo oppure il <strong>pre-master WAV stereo</strong> per il mastering incluso, preferibilmente a <strong>48.000 Hz / 24 bit</strong>.</p><ul><li>Il minimo accettato è 44.100 Hz / 16 bit; non ricampionare materiale inferiore per simulare una qualità maggiore.</li><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Il master finale comparirà nella scheda release, dove potrai ascoltarlo e scaricarlo.</li></ul>',
 			'cover' => '<p>La realizzazione della copertina è compresa: nella pratica della release devi compilare il <strong>brief grafico</strong>, non caricare una richiesta scollegata.</p><ul><li>Spiega concept, atmosfera e messaggio del progetto.</li><li>Allega riferimenti visivi pertinenti e indica gli elementi da evitare.</li><li>Verifica titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>Le proposte vengono preparate sulla base delle informazioni definitive fornite.</p>',
 			'platforms' => '<p>Il tuo percorso comprende ottimizzazione del profilo e strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci link esatti e segnala eventuali profili duplicati.</li><li>Descrivi storia, contesto, pubblico e punti distintivi della release.</li><li>Consegna i materiali prima della finestra utile al pitching.</li></ul><p>La candidatura non costituisce garanzia di playlist o risultati specifici.</p>',
-			'promo' => '<p>Prepara biografia, fotografie, storia del brano, testi e materiali editoriali completi. Le attività avanzate di comunicazione, radio e ufficio stampa vengono organizzate secondo idoneità e condizioni della singola release.</p><p>Il percorso accompagna lo sviluppo fino all’inserimento previsto nel roster; ogni pubblicazione deve comunque rispettare la procedura e le verifiche indicate.</p>',
+			'promo' => '<p>Il percorso comprende Smartlink, Promo Cards, landing page, Digital Press Kit, campagne verso curatori, blogger e influencer, inserimento nelle playlist proprietarie, booking, comunicato stampa con diffusione e Radio Date.</p><p>Stampa e radio vengono attivate in base all’idoneità editoriale della singola release: la diffusione del comunicato o l’invio ai circuiti non garantiscono pubblicazioni, recensioni o passaggi radiofonici. Prepara biografia, fotografie, storia del brano, testi e crediti completi.</p>',
 		),
 		'trb' => array(
 			'label' => 'TRB',
-			'audio' => '<p>Per la lavorazione prevista dal tuo percorso consegna il <strong>pre-master WAV stereo a 48.000 Hz / 24 bit</strong>.</p><ul><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Non inviare MP3, conversioni o file provenienti da applicazioni di messaggistica.</li><li>Utilizza esclusivamente il master definitivo approvato per la distribuzione.</li></ul>',
+			'training' => '<p>TRB è il profilo di roster destinato ad artisti che hanno già completato il percorso formativo o sono già formati.</p><ul><li>La formazione di base e l’attestato finale non fanno parte del profilo TRB.</li><li>Sono inclusi assistenza prioritaria e mentoring artistico-operativo.</li><li>I materiali di approfondimento eventualmente disponibili nel portale restano consultabili, ma non costituiscono un nuovo corso con certificazione.</li></ul>',
+			'audio' => '<p>Puoi caricare un master già definitivo oppure il <strong>pre-master WAV stereo</strong> per il mastering incluso, preferibilmente a <strong>48.000 Hz / 24 bit</strong>.</p><ul><li>Il minimo accettato è 44.100 Hz / 16 bit; non ricampionare materiale inferiore per simulare una qualità maggiore.</li><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Il master finale comparirà nella scheda release, dove potrai ascoltarlo e scaricarlo.</li></ul>',
 			'cover' => '<p>La realizzazione della copertina è compresa nel tuo percorso. Compila il <strong>brief grafico dentro la pratica della release</strong>.</p><ul><li>Descrivi concept, atmosfera, riferimenti e messaggio artistico.</li><li>Indica chiaramente gli elementi obbligatori e quelli da evitare.</li><li>Conferma titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>La grafica deve rappresentare coerentemente l’identità del progetto nel roster.</p>',
 			'platforms' => '<p>Il tuo percorso comprende ottimizzazione del profilo e strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci link esatti ai profili e segnala omonimie o duplicazioni.</li><li>Descrivi in modo concreto storia, contesto e posizionamento della release.</li><li>Completa i materiali prima della finestra utile alla candidatura.</li></ul><p>Il pitching non garantisce inserimenti editoriali o risultati specifici.</p>',
-			'promo' => '<p>Come artista del roster, collega alla pratica biografia, fotografie, storia del brano, testi, crediti e materiali completi. Promozione avanzata, comunicazione, radio e ufficio stampa vengono pianificati in relazione alla singola release.</p><p>Le opportunità restano soggette a valutazione artistica, editoriale e strategica: non inviare richieste promozionali scollegate dalla pubblicazione.</p>',
+			'promo' => '<p>Il profilo TRB comprende Smartlink, Promo Cards, landing page, Digital Press Kit, campagne verso curatori, blogger e influencer, inserimento nelle playlist proprietarie, booking, comunicato stampa con diffusione e Radio Date.</p><p>Come artista del roster, collega alla pratica biografia, fotografie, storia del brano, testi e crediti completi. Stampa, radio, pitching, campagne e booking restano soggetti alla valutazione artistica, editoriale e strategica della singola release e non garantiscono risultati specifici.</p>',
 		),
 	);
 	// DDB12 follows the complete DDB operational path; only the release quota differs.
 	$profiles['ddb12']          = $profiles['ddb'];
 	$profiles['ddb12']['label'] = 'DDB12';
+	$profiles['ddb12']['training'] = '<p>DDB12 comprende formazione completa, assistenza prioritaria e mentoring durante i 12 mesi contrattuali.</p><ul><li>L’attestato finale è previsto al completamento del percorso secondo le condizioni contrattuali.</li><li>La quota di una release al mese è indipendente dall’avanzamento della formazione.</li><li>I contenuti aiutano a preparare materiali conformi, ma non sostituiscono i controlli della singola pratica.</li></ul>';
+	$profiles['ddb12']['promo'] = '<p>DDB12 comprende gli stessi servizi operativi DDB: Smartlink, Promo Cards, landing page, Digital Press Kit, campagne verso curatori, blogger e influencer, playlist proprietarie e booking. Comprende inoltre formazione completa, mentoring e attestato finale.</p><p>Comunicato stampa con diffusione, Radio Date e copertina grafica non sono inclusi; quando disponibili possono essere acquistati nello Store con lo sconto riservato del 50%.</p><p>Il limite è una pratica release per mese solare, fino a 12 nei dodici mesi contrattuali.</p>';
 
 	$guides = array();
 	foreach ( $profiles as $profile => $copy ) {
 		$prefix = $profile . '-';
+		$guides[ $prefix . 'servizi-profilo' ] = array(
+			'title' => 'Cosa comprende il profilo ' . $copy['label'], 'profiles' => array( $profile ),
+			'excerpt' => 'Servizi inclusi, servizi acquistabili e limiti del tuo percorso.',
+			'content' => trb_portal_profile_services_guide( $profile ),
+		);
 		$guides[ $prefix . 'profilo-artista' ] = array(
 			'title' => 'Profilo artista: dati, documenti e identità', 'profiles' => array( $profile ),
-			'excerpt' => 'Il primo passaggio obbligatorio prima di aprire una pratica.',
-			'content' => '<p>Completa il profilo prima della prima pubblicazione. Nome, cognome ed e-mail provengono dall’account; gli altri dati devono essere inseriti e verificati.</p><ul><li>Dati anagrafici, residenza, codice fiscale e cellulare abilitato alla ricezione SMS.</li><li>Carta d’identità fronte e retro.</li><li>Codice fiscale o tessera sanitaria fronte e retro.</li><li>Biografia artistica aggiornata e fino a sei fotografie ad alta qualità.</li><li>Dati aziendali solo quando pertinenti alla fatturazione.</li></ul><p>Per modificare nome, cognome o e-mail dell’account devi aprire una segnalazione.</p>',
+			'excerpt' => 'Dati obbligatori, documenti, scadenza e aggiornamenti del profilo.',
+			'content' => '<p>Completa il profilo prima della prima pubblicazione. Nome, cognome ed e-mail provengono dall’account; gli altri dati devono essere reali, aggiornati e coerenti con i documenti allegati.</p><ul><li>Dati anagrafici, indirizzo completo, codice fiscale e cellulare abilitato alla ricezione SMS.</li><li>Numero e data di scadenza della carta d’identità, più fronte e retro leggibili.</li><li>Codice fiscale o tessera sanitaria fronte e retro.</li><li>Biografia artistica aggiornata e fino a sei fotografie ad alta qualità.</li><li>Dati aziendali soltanto quando pertinenti alla fatturazione.</li></ul><p>I file già acquisiti restano visibili nel modulo e possono essere scaricati nel formato originale: usa il download per controllare cosa avevi caricato prima di sostituirlo.</p><p>Se un documento registrato scade, il profilo resta consultabile ma non puoi inviare nuove release finché non aggiorni numero, scadenza e allegati richiesti. Per correggere nome, cognome o e-mail dell’account apri una segnalazione.</p>',
 		);
 		$guides[ $prefix . 'tipologie-release' ] = array(
 			'title' => 'Quale tipologia di release devo scegliere?', 'profiles' => array( $profile ),
 			'excerpt' => 'Singolo, EP, album, compilation, collection e catalogo.',
-			'content' => '<p>Scegli la tipologia in base al numero effettivo di brani della pratica:</p><ul><li><strong>Singolo:</strong> 1 brano.</li><li><strong>EP:</strong> da 4 a 8 brani.</li><li><strong>Album:</strong> da 9 a 15 brani.</li><li><strong>Doppio album:</strong> da 16 a 30 brani.</li><li><strong>Compilation:</strong> da 16 a 24 brani.</li><li><strong>Collection:</strong> da 20 a 40 brani.</li><li><strong>Catalogo o repertorio musicale edito:</strong> fino a 60 brani.</li></ul><p>Non dividere artificialmente un progetto e non scegliere una categoria incompatibile con il numero delle tracce.</p>',
+			'content' => '<p>Scegli la tipologia in base al numero effettivo di brani della pratica:</p><ul><li><strong>Singolo:</strong> 1 brano.</li><li><strong>EP:</strong> da 4 a 8 brani.</li><li><strong>Album:</strong> da 9 a 15 brani.</li><li><strong>Doppio album:</strong> da 16 a 30 brani.</li><li><strong>Compilation:</strong> da 16 a 24 brani.</li><li><strong>Collection:</strong> da 20 a 40 brani.</li><li><strong>Catalogo o repertorio musicale edito:</strong> da 1 a 60 brani già pubblicati.</li></ul><p>Non dividere artificialmente un progetto e non usare “catalogo” per aggirare i limiti di una nuova uscita. Se la nuova release contiene 2 o 3 brani, il modulo non dispone attualmente di una categoria compatibile: apri una segnalazione prima dell’invio.</p>',
 		);
 		$guides[ $prefix . 'inedita-o-edita' ] = array(
 			'title' => 'Release inedita o già pubblicata: come indicarla', 'profiles' => array( $profile ),
 			'excerpt' => 'La differenza da dichiarare prima di inserire i brani.',
-			'content' => '<p>Se la release non è mai comparsa ufficialmente sulle piattaforme, seleziona <strong>inedita</strong>. Se è stata distribuita in precedenza, seleziona <strong>già pubblicata</strong> e indica la data di pubblicazione originale.</p><p>Una presenza precedente su store o servizi streaming non deve essere nascosta: serve per valutare correttamente metadati, codici e continuità del catalogo. Non considerare “inedita” una registrazione già pubblicata soltanto perché verrà caricata da un nuovo distributore.</p>',
+			'content' => '<p>Se la registrazione non è mai comparsa ufficialmente su store o piattaforme, seleziona <strong>inedita</strong>. Se è stata distribuita in precedenza, seleziona <strong>già pubblicata</strong> e indica la data originale.</p><ul><li>Un cambio di distributore non rende inedita una release già online.</li><li>Per conservare continuità, ascolti e collegamenti servono metadati coerenti e, quando disponibili, i codici ISRC già attribuiti.</li><li>Una nuova registrazione dello stesso brano non va confusa con il master precedente.</li></ul><p>Dichiarare correttamente lo storico permette di verificare codici, titolarità e possibili conflitti prima della consegna.</p>',
 		);
 		$guides[ $prefix . 'firma-otp' ] = array(
 			'title' => 'Dati contrattuali, firma e codice OTP', 'profiles' => array( $profile ),
 			'excerpt' => 'Come vengono usati i dati inseriti nel profilo e nella pratica.',
-			'content' => '<p>I dati anagrafici del profilo e i metadati della release vengono utilizzati per predisporre la documentazione contrattuale. Controllali prima dell’invio: informazioni incomplete o incoerenti bloccano la pratica.</p><p>Il cellulare indicato deve poter ricevere SMS perché la firma digitale può richiedere un codice OTP personale. Non condividere il codice e non utilizzare il numero di una persona estranea al firmatario.</p>',
+			'content' => '<p>I dati anagrafici del profilo e i metadati della release vengono utilizzati per predisporre la documentazione contrattuale. Controllali prima dell’invio: dati incompleti, documenti scaduti o informazioni incoerenti sospendono la pratica.</p><ol><li>Dopo i controlli ricevi l’invito alla firma all’indirizzo registrato.</li><li>Apri il collegamento personale e verifica il documento prima di firmare.</li><li>Il codice OTP arriva al cellulare del firmatario e deve essere inserito direttamente nel servizio di firma.</li><li>Non comunicare il codice a TRB rec o ad altre persone.</li></ol><p>La release non è approvata per la distribuzione soltanto perché il contratto è stato inviato: devono risultare completati sia la firma sia i controlli tecnici, documentali e sui diritti.</p>',
 		);
 		$guides[ $prefix . 'nuova-release' ] = array(
 			'title' => 'Come avviare e completare una nuova release', 'profiles' => array( $profile ),
 			'excerpt' => 'La sequenza corretta prevista dal tuo percorso ' . $copy['label'] . '.',
-			'content' => '<p>Ogni pubblicazione deve avere una pratica distinta. Non mescolare dati, audio o materiali appartenenti a release diverse.</p><ol><li><strong>Aggiorna il profilo artista.</strong> I dati devono essere completi e verificabili.</li><li><strong>Apri la pratica.</strong> Scegli la tipologia e inserisci metadati e brani.</li><li><strong>Completa audio e copertina.</strong> Segui esclusivamente le istruzioni mostrate nel tuo percorso.</li><li><strong>Inserisci crediti e materiali editoriali.</strong> Ogni informazione deve essere definitiva.</li><li><strong>Attendi la verifica.</strong> La data viene programmata solo quando la pratica è completa.</li></ol>' . ( 'dds' === $profile ? '' : '<p>La valutazione demo rimane facoltativa, sempre disponibile e separata dalla pubblicazione.</p>' ),
+			'content' => '<p>Ogni pubblicazione deve avere una pratica distinta. Non mescolare dati, audio o materiali appartenenti a release diverse.</p><ol><li><strong>Aggiorna il profilo artista.</strong> Dati, documenti, biografia e foto devono essere completi.</li><li><strong>Scegli tipologia e stato.</strong> Indica se la release è inedita o già pubblicata.</li><li><strong>Inserisci metadati e crediti.</strong> Titoli, featuring, autori, compositori e partecipanti devono essere definitivi.</li><li><strong>Carica audio, copertina e documenti sui diritti.</strong> Segui le istruzioni specifiche del profilo ' . esc_html( $copy['label'] ) . '.</li><li><strong>Controlla il riepilogo.</strong> La conferma finale attesta che hai verificato tutti i dati.</li><li><strong>Attendi analisi e firma.</strong> La release è approvata soltanto quando il portale lo indica espressamente.</li></ol>' . ( 'dds' === $profile ? '' : '<p>La valutazione demo è facoltativa, resta separata dalla pubblicazione e non sostituisce la pratica release.</p>' ),
 		);
 		$guides[ $prefix . 'audio' ] = array( 'title' => 'File audio: formato e consegna', 'profiles' => array( $profile ), 'excerpt' => 'Lo standard audio e il file richiesto per il tuo percorso.', 'content' => $copy['audio'] );
 		$guides[ $prefix . 'copertina' ] = array( 'title' => 'Copertina: preparazione e consegna', 'profiles' => array( $profile ), 'excerpt' => 'Come gestire correttamente la copertina della tua release.', 'content' => $copy['cover'] );
 		$guides[ $prefix . 'metadati' ] = array(
 			'title' => 'Metadati, crediti e diritti: controlli obbligatori', 'profiles' => array( $profile ),
 			'excerpt' => 'Titoli, featuring, autori, compositori e titolarità senza errori.',
-			'content' => '<p>Prima dell’invio verifica che titolo, nome d’arte, versione, featuring e crediti siano corretti e definitivi.</p><ul><li>Indica tutti gli autori, compositori, interpreti, produttori e musicisti coinvolti.</li><li>Scrivi il featuring esattamente come deve comparire sulle piattaforme.</li><li>TRB rec non accetta cover o reinterpretazioni.</li><li>Per type beat, remix non collegati a un originale incluso nella stessa release ed estratti da film o altri brani protetti devi allegare una licenza specifica valida.</li><li>In assenza della documentazione richiesta, il brano non può essere inviato né pubblicato.</li><li>Segnala se la release è già stata pubblicata e inserisci la data originale.</li><li>Non cambiare metadati dopo l’avvio senza aprire una segnalazione.</li></ul>',
+			'content' => '<p>Prima dell’invio verifica che titolo, nome d’arte, versione, featuring e crediti siano corretti e definitivi.</p><ul><li>Indica tutti gli autori, compositori, interpreti, produttori e musicisti coinvolti.</li><li>Scrivi featuring e versioni esattamente come devono comparire sulle piattaforme.</li><li>TRB rec non accetta cover o reinterpretazioni.</li><li>Per type beat, remix ed elementi protetti devi dichiarare la base giuridica e allegare una licenza leggibile, valida e riferita proprio alla registrazione inviata.</li><li>Sample, estratti da film, voci, loop o beat di terzi possono impedire Content ID anche quando la distribuzione è autorizzata.</li><li>Il controllo automatico del copyright non sostituisce la documentazione né trasferisce la responsabilità sulla titolarità.</li><li>In assenza delle prove richieste il brano resta sospeso e non viene approvato.</li></ul>',
 		);
 		$guides[ $prefix . 'tempistiche' ] = array(
 			'title' => 'Tempistiche e programmazione della pubblicazione', 'profiles' => array( $profile ),
 			'excerpt' => 'Quando può essere confermata la data della release.',
-			'content' => '<p>Servono normalmente <strong>tre settimane dalla consegna completa</strong> del master approvato e di tutti i materiali richiesti. Una pratica incompleta non consente di confermare la data.</p><ul><li>Le eventuali lavorazioni audio richiedono normalmente 2–3 giorni tecnici.</li><li>Ad agosto, Ferragosto e nel periodo di fine anno considera almeno quattro settimane.</li><li>Correzioni tardive a audio, copertina, metadati, testi o featuring possono spostare la programmazione.</li></ul>',
+			'content' => '<p>Il modulo consente di scegliere come prima data utile una data ad almeno <strong>30 giorni dall’invio</strong>. La data resta una richiesta finché master, copertina, metadati, diritti, documenti e firma non risultano completi.</p><ul><li>Il conteggio parte dalla pratica completa, non dal primo caricamento parziale.</li><li>Mastering, correzioni, licenze mancanti o sostituzioni riaprono i controlli e possono spostare la programmazione.</li><li>Ad agosto, durante Ferragosto e a fine anno considera un margine ulteriore rispetto ai 30 giorni.</li><li>La consegna ai distributori non garantisce che ogni piattaforma renda la release visibile nello stesso momento.</li></ul>',
 		);
 		$guides[ $prefix . 'piattaforme' ] = array( 'title' => 'Piattaforme, profili artista e pitching', 'profiles' => array( $profile ), 'excerpt' => 'Cosa è previsto per distribuzione e profili digitali.', 'content' => $copy['platforms'] );
 		$guides[ $prefix . 'promozione' ] = array( 'title' => 'Materiali promozionali e supporto alla release', 'profiles' => array( $profile ), 'excerpt' => 'Come preparare i materiali previsti dal tuo percorso.', 'content' => $copy['promo'] );
+		$guides[ $prefix . 'formazione-supporto' ] = array( 'title' => 'Formazione, mentoring e attestato', 'profiles' => array( $profile ), 'excerpt' => 'Cosa prevede esattamente il tuo profilo per formazione e supporto.', 'content' => $copy['training'] );
 		$guides[ $prefix . 'correzioni' ] = array(
 			'title' => 'Correzioni, sostituzioni e variazioni dopo l’invio', 'profiles' => array( $profile ),
 			'excerpt' => 'Cosa fare quando un dato o un file deve essere modificato.',
-			'content' => '<p>Non aprire una seconda pratica per correggere quella esistente.</p><ul><li>Finché la release non è approvata, puoi sostituire nella pratica i materiali che devono essere corretti.</li><li>Dopo l’approvazione, tutti i file diventano definitivi: apri una segnalazione indicando titolo della release, file interessato e modifica richiesta.</li><li>Dopo la consegna alle piattaforme, una variazione può richiedere nuovi tempi tecnici o lo spostamento della data.</li><li>Dopo la pubblicazione, modifiche sostanziali e rimozioni seguono procedure specifiche e non sono immediate.</li></ul><p>Non inviare autonomamente versioni alternative senza aver ricevuto indicazioni.</p>',
+			'content' => '<p>Non aprire una seconda pratica per correggere quella esistente.</p><ul><li>Prima dell’approvazione puoi sostituire soltanto i materiali per i quali il portale mostra ancora il comando di sostituzione.</li><li>Se l’analisi tecnica respinge il WAV, sostituisci quel file nella stessa pratica: dati e altri materiali restano salvati.</li><li>Dopo l’approvazione audio, copertina e presentazione diventano definitivi; apri una segnalazione indicando release, file e motivo della richiesta.</li><li>Una modifica dopo la firma o la consegna alle piattaforme richiede una valutazione e può comportare nuovi controlli o lo spostamento della data.</li><li>Dopo la pubblicazione, modifiche sostanziali e rimozioni seguono procedure specifiche e non sono immediate.</li></ul>',
+		);
+		$guides[ $prefix . 'royalty-diritti' ] = array(
+			'title' => 'Royalty, master, diritti e monetizzazione UGC', 'profiles' => array( $profile ),
+			'excerpt' => 'Titolarità dell’artista, rendicontazione e requisiti per Content ID.',
+			'content' => '<p>L’artista conserva la titolarità del master e dei propri diritti d’autore/editoriali; concede a TRB rec i diritti necessari a distribuire, promuovere e monetizzare la registrazione nei limiti del contratto.</p><ul><li>La ripartizione prevista è il <strong>50% dei ricavi netti</strong>, secondo definizioni, rendicontazione e condizioni del contratto sottoscritto.</li><li>I codici ISRC identificano le registrazioni e gli UPC identificano le release: non sono attestati di proprietà.</li><li>La monetizzazione UGC, YouTube e social è inclusa, ma Content ID può essere escluso per beat non esclusivi, loop diffusi, sample, contenuti di pubblico dominio o licenze incompatibili.</li><li>Una corrispondenza rilevata dal controllo copyright apre una verifica: non equivale automaticamente a una violazione, ma può richiedere prove aggiuntive.</li></ul><p>Conserva contratti, licenze, autorizzazioni e ricevute relative a ogni elemento di terzi usato nella registrazione.</p>',
+		);
+		$guides[ $prefix . 'stati-release' ] = array(
+			'title' => 'Stati della release: cosa significano e cosa devi fare', 'profiles' => array( $profile ),
+			'excerpt' => 'Controlli, firma, approvazione, blocchi e azioni richieste.',
+			'content' => '<p>Nella scheda della release contratto e distribuzione sono mostrati separatamente: uno può essere completato mentre l’altro è ancora in verifica.</p><ul><li><strong>Controllo in corso:</strong> file e dati sono acquisiti; non ricaricarli.</li><li><strong>Correzione richiesta:</strong> il portale indica il file o documento da sostituire nella stessa pratica.</li><li><strong>Verifica manuale:</strong> la pratica resta sospesa finché TRB non conclude il controllo; non è ancora approvata.</li><li><strong>Contratto inviato, in attesa di firma:</strong> apri l’invito personale e completa la firma OTP.</li><li><strong>Contratto firmato:</strong> la firma è acquisita, ma la distribuzione richiede anche l’esito positivo degli altri controlli.</li><li><strong>Release approvata per la distribuzione:</strong> tutti i requisiti necessari risultano superati.</li><li><strong>Release non approvata:</strong> manca documentazione oppure esiste un problema tecnico o sui diritti; segui l’azione indicata nella scheda.</li></ul>',
 		);
 	}
 	$guides['ddb12-limite-release'] = array(
@@ -2448,6 +2529,18 @@ function trb_portal_seed_guides() {
 		'excerpt'  => 'Quota, rinnovo mensile e casi che consumano la release disponibile.',
 		'content'  => '<p>Il percorso <strong>DDB12 consente di aprire una pratica release per ciascun mese solare</strong>, fino a 12 release durante i dodici mesi contrattuali. La quota non dipende dalla data di uscita scelta: conta il mese in cui la pratica viene creata correttamente nel Portale Artisti.</p><h4>Cosa conta come una release</h4><ul><li>Singolo, EP, album, doppio album, compilation, collection e catalogo consumano tutti una sola quota mensile.</li><li>Una bozza salvata o un caricamento non completato non consuma la quota.</li><li>Una pratica creata correttamente consuma la quota anche se in seguito richiede una correzione tecnica, documentale o contrattuale.</li></ul><h4>Rinnovo e programmazione</h4><ul><li>La disponibilità si rinnova automaticamente alle 00:00 del primo giorno di ogni mese, secondo il fuso Europe/Rome.</li><li>Le quote non utilizzate non si accumulano e non possono essere trasferite al mese successivo.</li><li>La data di pubblicazione può essere successiva: resta comunque necessario rispettare l’anticipo minimo indicato nel modulo.</li></ul><h4>Se devi correggere una pratica</h4><p>Non creare una seconda release: aggiorna la pratica esistente quando il portale lo consente oppure apri una segnalazione. Un annullamento eccezionale viene valutato dalla Direzione e non ripristina automaticamente una nuova quota.</p><p><strong>Esempio:</strong> se crei una pratica il 18 agosto, potrai aprirne una nuova dal 1° settembre, indipendentemente dalla data di uscita programmata per la release di agosto.</p>',
 	);
+	$guides['dds-limite-release'] = array(
+		'title'    => 'DDS: come funziona la release mensile',
+		'profiles' => array( 'dds' ),
+		'excerpt'  => 'Una pratica per mese, rinnovo della quota e correzioni.',
+		'content'  => '<p>Il percorso <strong>DDS consente una release per mese solare</strong>. Conta il mese in cui la pratica viene creata correttamente, non la data di uscita scelta.</p><ul><li>Ogni pratica completata consuma la quota mensile, indipendentemente dalla tipologia.</li><li>Bozze e caricamenti non completati non consumano la quota.</li><li>La quota si rinnova il primo giorno del mese secondo il fuso Europe/Rome e non si accumula.</li><li>Per correggere una release usa la stessa pratica; non crearne una seconda.</li></ul><p>Se una pratica deve essere annullata, apri una segnalazione: l’annullamento non ripristina automaticamente la quota.</p>',
+	);
+	$guides['ddb_trb-passaggio-roster'] = array(
+		'title'    => 'DDB-TRB: passaggio automatico al roster TRB',
+		'profiles' => array( 'ddb_trb' ),
+		'excerpt'  => 'Cosa accade alla scadenza del biennio e quali dati vengono conservati.',
+		'content'  => '<p>Alla fine dei 24 mesi indicati nella data di attuazione/scadenza, il profilo DDB-TRB passa automaticamente a <strong>TRB dal giorno successivo</strong>.</p><ul><li>Restano invariati account, dati anagrafici, documenti, biografia, fotografie e impostazioni del profilo.</li><li>Il catalogo e tutte le pratiche release rimangono nello stesso account, con file, contratti, stati e codici già attribuiti.</li><li>Non devi registrarti di nuovo né ricaricare le release precedenti.</li><li>Il passaggio non riapre pratiche chiuse e non modifica i diritti o le condizioni già applicate alle singole pubblicazioni.</li></ul><p>Se alla data prevista il portale mostra ancora DDB-TRB, apri una segnalazione senza creare un nuovo account.</p>',
+	);
 	return $guides;
 }
 
@@ -2455,38 +2548,11 @@ function trb_portal_maybe_seed_guides() {
 	if ( get_option( 'trb_portal_guides_seeded_v1' ) ) {
 		return;
 	}
-
-	foreach ( trb_portal_seed_guides() as $key => $guide ) {
-		$guide_id = wp_insert_post( array( 'post_type' => 'trb_guide', 'post_status' => 'publish', 'post_title' => $guide['title'], 'post_excerpt' => $guide['excerpt'], 'post_content' => $guide['content'] ) );
-		if ( ! is_wp_error( $guide_id ) ) {
-			update_post_meta( $guide_id, '_trb_guide_key', $key );
-			update_post_meta( $guide_id, '_trb_portal_profiles', $guide['profiles'] );
-		}
-	}
-
+	// The versioned synchroniser below owns creation and updates in bounded
+	// batches. Retain this flag only for compatibility with older installs.
 	update_option( 'trb_portal_guides_seeded_v1', time(), false );
 }
 add_action( 'init', 'trb_portal_maybe_seed_guides', 35 );
-
-/** Search vocabulary is intentional: artists do not always use the title terms. */
-function trb_portal_index_canonical_guides() {
-	if ( get_option( 'trb_portal_guides_indexed_v2' ) ) return;
-	$terms = array(
-		'nuova-release' => 'nuova release pubblicazione contratto distribuzione avviare iniziare singolo ep album pratica',
-		'formati-audio' => 'formato audio file master premaster pre master wav aiff 48 khz 48000 24 bit lossless spotify tidal mastering',
-		'tempistiche-release' => 'tempi tempistiche quando pubblicare data release tre settimane agosto ferragosto fine anno mastering',
-		'metadati-e-diritti' => 'metadati autori compositori featuring diritti titolarita sample beat isrc',
-		'copertine' => 'copertina cover grafica 3000 3000 rgb dpi brief immagine',
-		'spotify-apple' => 'spotify apple music profilo artista pitching editoriale playlist',
-		'knowledge-hub-avanzata' => 'ebook e-book guida avanzata marketing brand promozione social',
-	);
-	foreach ( $terms as $key => $value ) {
-		$guides = get_posts( array( 'post_type' => 'trb_guide', 'post_status' => 'publish', 'numberposts' => 1, 'meta_key' => '_trb_guide_key', 'meta_value' => $key ) );
-		if ( ! empty( $guides ) ) update_post_meta( $guides[0]->ID, '_trb_portal_search_terms', $value );
-	}
-	update_option( 'trb_portal_guides_indexed_v2', time(), false );
-}
-add_action( 'init', 'trb_portal_index_canonical_guides', 37 );
 
 /**
  * Keep the concise, in-page answers editable from one source. This is an
@@ -2494,12 +2560,14 @@ add_action( 'init', 'trb_portal_index_canonical_guides', 37 );
  * their key and refreshed in place.
  */
 function trb_portal_sync_canonical_guides() {
-	if ( get_option( 'trb_portal_guides_synced_v9' ) ) {
+	if ( get_option( 'trb_portal_guides_synced_v10' ) ) {
 		return;
 	}
 
 	$canonical = trb_portal_seed_guides();
-	foreach ( $canonical as $key => $guide ) {
+	$offset    = max( 0, (int) get_option( 'trb_portal_guides_synced_v10_offset', 0 ) );
+	$batch     = array_slice( $canonical, $offset, 12, true );
+	foreach ( $batch as $key => $guide ) {
 		$existing = get_posts( array(
 			'post_type'   => 'trb_guide',
 			'post_status' => 'publish',
@@ -2524,23 +2592,43 @@ function trb_portal_sync_canonical_guides() {
 			update_post_meta( $guide_id, '_trb_guide_key', $key );
 			update_post_meta( $guide_id, '_trb_portal_profiles', $guide['profiles'] );
 			$topic = preg_replace( '/^(dds|ddb12|ddb_trb|ddb|trb)-/', '', $key );
+			$topic_order = array(
+				'servizi-profilo' => 10, 'limite-release' => 20, 'passaggio-roster' => 20,
+				'profilo-artista' => 30, 'nuova-release' => 40, 'tipologie-release' => 50,
+				'inedita-o-edita' => 60, 'audio' => 70, 'copertina' => 80, 'metadati' => 90,
+				'royalty-diritti' => 100, 'tempistiche' => 110, 'stati-release' => 120,
+				'firma-otp' => 130, 'piattaforme' => 140, 'promozione' => 150,
+				'formazione-supporto' => 160, 'correzioni' => 170,
+			);
+			update_post_meta( $guide_id, '_trb_portal_order', isset( $topic_order[ $topic ] ) ? $topic_order[ $topic ] : 999 );
 			$terms = array(
+				'servizi-profilo' => 'dds ddb12 ddb ddb-trb trb include incluso inclusi comprende compreso servizi vantaggi profilo contratto mastering copertina smartlink promo cards pitching playlist landing page press kit campagne curatori blogger influencer stampa radio date booking formazione mentoring attestato royalty store sconto 50',
 				'nuova-release' => 'nuova release pubblicazione contratto distribuzione iniziare singolo ep album compilation collection catalogo pratica',
-				'profilo-artista' => 'profilo artista dati anagrafici documenti carta identita codice fiscale tessera sanitaria foto biografia cellulare',
+				'profilo-artista' => 'profilo artista dati anagrafici documenti carta identita codice fiscale tessera sanitaria foto biografia cellulare file originale scaricare scarico download sostituire aggiornare scadenza',
 				'tipologie-release' => 'tipologia singolo ep album doppio album compilation collection catalogo repertorio numero brani',
 				'inedita-o-edita' => 'inedita edita gia pubblicata data originale redistribuzione catalogo precedente uscita',
-				'firma-otp' => 'contratto firma digitale otp sms cellulare dati contrattuali documentazione',
-				'audio' => 'formato audio file master premaster pre master wav aiff 48 khz 48000 24 bit lossless mastering stem',
+				'firma-otp' => 'contratto contratti firma firmare firmato digitale otp sms cellulare dati contrattuali documentazione dossier invito',
+				'audio' => 'formato audio file master finale definitivo premaster pre master wav 48 khz 48000 24 bit lossless mastering stem limiter clipping arriva ricevere trovare trovo ascoltare player scaricare download',
 				'copertina' => 'copertina cover grafica 3000 rgb dpi brief immagine artwork',
 				'metadati' => 'metadati autori compositori interpreti musicisti produttori featuring diritti sample beat titolarita',
-				'tempistiche' => 'tempi tempistiche data uscita pubblicare settimane agosto ferragosto fine anno programmazione',
+				'tempistiche' => 'tempi tempo tempistiche quanto data uscita pubblicare pubblicazione trenta 30 giorni mese anticipo agosto ferragosto fine anno programmazione',
 				'piattaforme' => 'spotify apple music profilo artista pitching editoriale playlist distribuzione store',
 				'promozione' => 'promozione biografia foto comunicazione radio ufficio stampa materiali supporto',
-				'correzioni' => 'correzione modifica sostituzione variazione errore rimozione takedown data file metadati',
-				'limite-release' => 'ddb12 una release al mese quota mensile limite rinnovo primo giorno dodici 12 anno bozza caricamento fallito',
+				'formazione-supporto' => 'formazione corso video knowledge hub assistenza supporto prioritaria mentoring certificato attestato finale rilascio durata mesi',
+				'correzioni' => 'correzione correggere modifica modificare cambio cambiare sostituzione sostituire variazione errore rimozione takedown data file audio cover copertina presentazione metadati',
+				'royalty-diritti' => 'royalty ricavi netti 50 percento master proprieta diritti autore editoriale licenza ugc content id youtube monetizzazione isrc upc sample beat',
+				'stati-release' => 'stato release contratto inviato firma firmato approvata distribuzione non approvata sospesa controllo verifica manuale correzione documentazione',
+				'limite-release' => 'dds ddb12 una release al mese quota mensile limite rinnovo primo giorno dodici 12 anno quante pubblicare pubblicazioni bozza caricamento fallito',
+				'passaggio-roster' => 'ddb trb biennio 24 mesi due anni dopo scadenza passaggio automatico roster profilo catalogo release conservati invariati',
 			);
 			update_post_meta( $guide_id, '_trb_portal_search_terms', isset( $terms[ $topic ] ) ? $terms[ $topic ] : '' );
 		}
+	}
+	$processed = $offset + count( $batch );
+	if ( $processed < count( $canonical ) ) {
+		update_option( 'trb_portal_guides_synced_v10_offset', $processed, false );
+		if ( ! wp_next_scheduled( 'trb_portal_sync_canonical_guides_batch' ) ) wp_schedule_single_event( time() + 5, 'trb_portal_sync_canonical_guides_batch' );
+		return;
 	}
 
 	$legacy = get_posts( array( 'post_type' => 'trb_guide', 'post_status' => 'publish', 'numberposts' => -1, 'meta_key' => '_trb_guide_key' ) );
@@ -2551,9 +2639,11 @@ function trb_portal_sync_canonical_guides() {
 		}
 	}
 
-	update_option( 'trb_portal_guides_synced_v9', time(), false );
+	update_option( 'trb_portal_guides_synced_v10', time(), false );
+	delete_option( 'trb_portal_guides_synced_v10_offset' );
 }
 add_action( 'init', 'trb_portal_sync_canonical_guides', 38 );
+add_action( 'trb_portal_sync_canonical_guides_batch', 'trb_portal_sync_canonical_guides' );
 
 /**
  * EazyDocs Pro holds the detailed reference documents. They are intentionally
@@ -2564,25 +2654,25 @@ function trb_portal_eazydocs_manuals() {
 	return array(
 		'audio-consegna' => array(
 			'title' => 'Manuale tecnico: preparazione e consegna dei file audio',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'Specifiche aggiornate per consegnare master o pre-master senza errori di formato.',
-			'content' => '<h2>Formato richiesto</h2><p>Per ogni brano consegna un file stereo <strong>WAV a 48.000 Hz / 24 bit</strong>. Questo è il riferimento per le attuali piattaforme ad alta qualità, incluse le modalità lossless.</p><h2>Prima dell’invio</h2><ul><li>Esporta dall’inizio esatto del brano, senza silenzi accidentali o finali tagliati.</li><li>Non inviare MP3, file estratti da streaming, conversioni, audio ricevuti da WhatsApp o screen recording.</li><li>Non cambiare frequenza di campionamento o profondità bit dopo l’approvazione del master.</li><li>Per EP, album e compilation usa lo stesso standard tecnico per tutte le tracce.</li></ul><h2>Quando è previsto il mastering</h2><p>Consegna il pre-master nello stesso formato, evitando limiter aggressivi sul master bus. Se devi inviare stem, usa la stessa durata e lo stesso punto di partenza per ogni file.</p>',
+			'content' => '<h2>Formato accettato e formato consigliato</h2><p>Per ogni brano consegna un file stereo <strong>WAV</strong>. Il portale accetta almeno <strong>44.100 Hz / 16 bit</strong>; quando la sessione originale lo permette, consigliamo <strong>48.000 Hz / 24 bit</strong>. Aumentare artificialmente frequenza o profondità non migliora la qualità.</p><h2>Prima dell’invio</h2><ul><li>Esporta dall’inizio esatto del brano, senza silenzi accidentali o finali tagliati.</li><li>Non inviare MP3, file estratti da streaming, conversioni, audio ricevuti da WhatsApp o screen recording.</li><li>Non cambiare frequenza di campionamento o profondità bit dopo l’approvazione.</li><li>Per EP, album e compilation usa lo stesso standard tecnico per tutte le tracce.</li></ul><h2>Master definitivo o pre-master</h2><p>DDS deve consegnare il master definitivo. DDB12, DDB, DDB-TRB e TRB possono consegnare un master finale oppure richiedere il mastering incluso caricando un pre-master privo di clipping, normalizzazione automatica e limiter aggressivi. Il master finale viene reso ascoltabile e scaricabile nella scheda release.</p>',
 		),
 		'biografia-artista' => array(
 			'title' => 'Manuale: biografia artistica e materiali stampa',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'Come preparare una biografia chiara, aggiornata e utile per le piattaforme e la comunicazione.',
 			'content' => '<h2>Una biografia utile non è un curriculum</h2><p>Scrivi in terza persona, con un linguaggio concreto. Spiega identità, percorso, suono, riferimenti e direzione del progetto senza formule generiche.</p><h2>Struttura consigliata</h2><ol><li>Nome d’arte e collocazione artistica.</li><li>Origine o momento chiave del progetto.</li><li>Suono, influenze e temi ricorrenti.</li><li>Pubblicazioni, collaborazioni o risultati realmente verificabili.</li><li>Focus attuale e prossima release.</li></ol><h2>Foto</h2><p>Carica fino a sei foto nitide ad alta qualità. Devono rappresentare l’identità attuale del progetto e non contenere loghi, scritte aggiunte o filtri che ne riducano l’utilizzo editoriale.</p>',
 		),
 		'profilo-artista' => array(
 			'title' => 'Profilo artista: dati, documenti e aggiornamenti',
-			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'Dati necessari alla gestione contrattuale, alla compilazione delle pratiche e all’identità artistica.',
-			'content' => '<h2>Perché il profilo è obbligatorio</h2><p>I dati anagrafici e la documentazione permettono di preparare correttamente le pratiche contrattuali. La biografia e le foto sono invece il nucleo della presentazione artistica.</p><h2>Documenti richiesti</h2><ul><li>Carta d’identità fronte e retro.</li><li>Codice fiscale o tessera sanitaria fronte e retro.</li><li>Solo se pertinenti alla fatturazione: ragione sociale, partita IVA, Codice SDI e sede aziendale.</li></ul><p>I documenti restano privati e non vengono usati come materiali pubblici. Aggiorna il profilo quando cambiano dati, foto o biografia.</p>',
+			'content' => '<h2>Perché il profilo è obbligatorio</h2><p>I dati anagrafici e la documentazione permettono di preparare le pratiche contrattuali. Biografia e foto costituiscono invece il nucleo della presentazione artistica.</p><h2>Documenti richiesti</h2><ul><li>Numero e data di scadenza della carta d’identità.</li><li>Carta d’identità fronte e retro leggibili.</li><li>Codice fiscale o tessera sanitaria fronte e retro.</li><li>Solo se pertinenti alla fatturazione: ragione sociale, partita IVA, Codice SDI e sede aziendale.</li></ul><h2>Aggiornamento e scadenza</h2><p>I documenti restano privati e non vengono usati come materiali pubblici. I file acquisiti sono visibili e scaricabili nel formato originale dal modulo. Se un documento registrato scade, l’account resta consultabile ma l’invio di nuove release viene sospeso finché numero, data e allegati non sono aggiornati.</p>',
 		),
 		'promozione-release' => array(
 			'title' => 'Preparare il materiale promozionale di una release',
-			'profiles' => array( 'ddb', 'ddb_trb', 'trb' ),
+			'profiles' => array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'Informazioni e materiali da preparare per pitching, comunicazione e pianificazione della pubblicazione.',
 			'content' => '<h2>Il materiale serve prima della pubblicazione</h2><p>Ogni elemento promozionale va collegato alla stessa pratica di release: non inviare dati di brani diversi nella medesima richiesta.</p><h2>Prepara</h2><ul><li>Storia del brano, contesto, significato e elementi distintivi.</li><li>Link corretti a Spotify for Artists, Apple Music for Artists e social dell’artista.</li><li>Biografia aggiornata, foto utilizzabili e crediti verificati.</li><li>Eventuali testi, visual, riferimenti e indicazioni editoriali.</li></ul><p>Il pitching editoriale è una candidatura: la qualità e la puntualità del materiale aiutano il lavoro, ma non costituiscono garanzia di playlist o risultati.</p>',
 		),
@@ -2590,7 +2680,7 @@ function trb_portal_eazydocs_manuals() {
 }
 
 function trb_portal_sync_eazydocs_manuals() {
-	if ( ! post_type_exists( 'docs' ) || get_option( 'trb_portal_eazydocs_manuals_v3' ) ) {
+	if ( ! post_type_exists( 'docs' ) || get_option( 'trb_portal_eazydocs_manuals_v4' ) ) {
 		return;
 	}
 	foreach ( trb_portal_eazydocs_manuals() as $key => $manual ) {
@@ -2609,7 +2699,7 @@ function trb_portal_sync_eazydocs_manuals() {
 			update_post_meta( $doc_id, '_trb_portal_profiles', $manual['profiles'] );
 		}
 	}
-	update_option( 'trb_portal_eazydocs_manuals_v3', time(), false );
+	update_option( 'trb_portal_eazydocs_manuals_v4', time(), false );
 }
 add_action( 'init', 'trb_portal_sync_eazydocs_manuals', 39 );
 
@@ -3669,16 +3759,18 @@ function trb_portal_render_release_section() {
 	$complete  = trb_portal_artist_profile_is_complete() || current_user_can( 'manage_options' );
 	$today     = wp_date( 'Y-m-d' );
 	$minimum_release_date = ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+30 days' )->format( 'Y-m-d' );
-	$ddb12_limit_reached = trb_portal_ddb12_limit_reached();
-	$ddb12_monthly_count = 'ddb12' === $profile ? trb_portal_ddb12_monthly_release_count() : 0;
-	$ddb12_reset_label   = trb_portal_ddb12_next_reset_label();
-	$ddb12_guide_url     = add_query_arg( 'trb_search', 'limite mensile DDB12', get_permalink() ) . '#risposte';
+	$monthly_profile       = in_array( $profile, array( 'dds', 'ddb12' ), true ) ? $profile : false;
+	$monthly_profile_label = 'ddb12' === $monthly_profile ? 'DDB12' : 'DDS';
+	$monthly_limit_reached = $monthly_profile ? trb_portal_monthly_limit_reached() : false;
+	$monthly_release_count = $monthly_profile ? trb_portal_monthly_release_count() : 0;
+	$monthly_reset_label   = trb_portal_monthly_next_reset_label();
+	$monthly_guide_url     = add_query_arg( 'trb_search', 'limite mensile ' . $monthly_profile_label, get_permalink() ) . '#risposte';
 	$server_draft        = get_user_meta( get_current_user_id(), '_trb_release_form_draft', true );
 	$server_draft        = is_array( $server_draft ) ? $server_draft : array();
 	?>
 	<section id="release" class="trb-portal__section trb-portal__section--releases">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Inserisci metadati, crediti e file audio della pubblicazione, quindi ricevi il contratto da sottoscrivere per avviare l’iter di distribuzione.</p></div>
-		<?php if ( 'ddb12' === $profile ) : ?><div class="trb-portal__profile-progress"><div class="trb-portal__profile-progress-heading"><span><b>Il tuo piano DDB12</b><small><?php echo $ddb12_limit_reached ? 'Quota mensile utilizzata' : 'Quota mensile disponibile'; ?> &middot; si rinnova il primo giorno del mese</small></span><strong><?php echo esc_html( $ddb12_monthly_count ); ?>/1</strong></div><p>Puoi creare una release per mese solare. Le bozze e i caricamenti non completati non consumano la quota.</p><a class="trb-portal__link" href="<?php echo esc_url( $ddb12_guide_url ); ?>">Leggi come funziona la release mensile <span aria-hidden="true">&rarr;</span></a></div><?php endif; ?>
+		<?php if ( $monthly_profile ) : ?><div class="trb-portal__profile-progress"><div class="trb-portal__profile-progress-heading"><span><b>Il tuo piano <?php echo esc_html( $monthly_profile_label ); ?></b><small><?php echo $monthly_limit_reached ? 'Quota mensile utilizzata' : 'Quota mensile disponibile'; ?> &middot; si rinnova il primo giorno del mese</small></span><strong><?php echo esc_html( $monthly_release_count ); ?>/1</strong></div><p>Puoi creare una release per mese solare. Le bozze e i caricamenti non completati non consumano la quota.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p><a class="trb-portal__link" href="<?php echo esc_url( $monthly_guide_url ); ?>">Leggi come funziona la release mensile <span aria-hidden="true">&rarr;</span></a></div><?php endif; ?>
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
 		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Nuovo file acquisito. Il precedente verrà rimosso automaticamente soltanto dopo il trasferimento verificato su pCloud.</div><?php endif; ?>
 		<?php if ( 'technical_correction' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Correzione del WAV richiesta.</strong><p>Apri la release interessata: troverai il motivo preciso e il comando per sostituire soltanto il file audio.</p></div><?php endif; ?>
@@ -3690,7 +3782,7 @@ function trb_portal_render_release_section() {
 		<?php if ( 'file_invalid' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Il file sostitutivo non è stato acquisito.</strong><p>Formato, dimensioni o caratteristiche tecniche non rispettano i requisiti indicati. Il file precedente è rimasto invariato.</p></div><?php endif; ?>
 		<?php if ( 'file_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>La sostituzione non è stata completata.</strong><p>Il file precedente è rimasto invariato. Controlla la connessione e riprova una sola volta.</p></div><?php endif; ?>
 		<?php if ( 'files_locked' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I materiali di questa release sono definitivi.</strong><p>Dopo l’approvazione non è possibile sostituirli autonomamente. Apri una segnalazione per richiedere la valutazione della modifica.</p></div><?php endif; ?>
-		<?php if ( 'monthly_limit' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Il profilo DDB12 consente di avviare una sola pratica per ogni mese solare, indipendentemente dal tipo di pubblicazione: singolo, EP, album, doppio album, compilation, collection o catalogo. Il limite si rinnova automaticamente il primo giorno di ogni mese; potrai creare una nuova release dal <?php echo esc_html( $ddb12_reset_label ); ?>, per un massimo complessivo di 12 release nell’anno.</p></div><?php endif; ?>
+		<?php if ( 'monthly_limit' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Il profilo <?php echo esc_html( $monthly_profile_label ); ?> consente di avviare una sola pratica per ogni mese solare, indipendentemente dal tipo di pubblicazione. Il limite si rinnova automaticamente il primo giorno del mese; potrai creare una nuova release dal <?php echo esc_html( $monthly_reset_label ); ?>.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p></div><?php endif; ?>
 		<?php if ( 'upload_in_progress' === $status ) : ?><div class="trb-portal__message"><strong>Caricamento già in elaborazione</strong><p>La richiesta precedente è ancora in corso. Non inviare nuovamente i file: la pagina si aggiornerà al completamento.</p></div><?php endif; ?>
 		<?php if ( 'single_title_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I titoli non coincidono.</strong><p>Per una pubblicazione di tipo Singolo, il titolo della release deve essere identico al titolo del brano, comprese maiuscole, accenti e punteggiatura.</p></div><?php endif; ?>
 		<?php if ( 'upload_failed' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Caricamento incompleto.</strong><p>I dati della pratica sono stati conservati, ma uno o più file devono essere verificati o sostituiti.</p></div><?php endif; ?>
@@ -3709,8 +3801,8 @@ function trb_portal_render_release_section() {
 			</li><?php endforeach; ?></ul></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
 			<div class="trb-portal__release-gate"><strong>Completa il profilo per iniziare.</strong><p>Quando il profilo raggiunge il 100% potrai creare la prima release.</p><a class="trb-button" href="#profilo">Completa il profilo</a></div>
-		<?php elseif ( $ddb12_limit_reached ) : ?>
-			<div class="trb-portal__release-gate"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Hai già creato la release disponibile per questo mese con il profilo DDB12. Il conteggio comprende qualsiasi tipologia di pubblicazione e si azzera automaticamente il primo giorno del mese. Potrai avviare una nuova pratica dal <?php echo esc_html( $ddb12_reset_label ); ?>; il piano consente fino a 12 release ogni anno.</p></div>
+		<?php elseif ( $monthly_limit_reached ) : ?>
+			<div class="trb-portal__release-gate"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Hai già creato la release disponibile per questo mese con il profilo <?php echo esc_html( $monthly_profile_label ); ?>. Il conteggio comprende qualsiasi tipologia di pubblicazione e si azzera automaticamente il primo giorno del mese. Potrai avviare una nuova pratica dal <?php echo esc_html( $monthly_reset_label ); ?>.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p></div>
 		<?php else : ?>
 		<details class="trb-release-create" <?php echo empty( $releases ) || in_array( $status, array( 'invalid', 'error', 'duration_mismatch', 'file_invalid', 'file_error', 'single_title_mismatch', 'upload_failed' ), true ) ? 'open' : ''; ?>>
 			<summary>+ Crea una nuova release</summary>
@@ -3871,11 +3963,19 @@ function trb_portal_get_resources( $profile ) {
 		$args = array(
 				'post_type'      => $post_type,
 				'post_status'    => 'publish',
-				'posts_per_page' => ( $search && 'trb_guide' === $post_type ) ? 100 : ( 'trb_guide' === $post_type ? 20 : 7 ),
+				'posts_per_page' => ( $search && 'trb_guide' === $post_type ) ? 100 : ( 'trb_guide' === $post_type ? 40 : 7 ),
 				'meta_query'     => $profile_query,
 			);
 		$query = new WP_Query( $args );
 		$posts = $query->posts;
+		if ( ! $search && 'trb_guide' === $post_type ) {
+			usort( $posts, static function( $left, $right ) {
+				$left_order  = (int) get_post_meta( $left->ID, '_trb_portal_order', true );
+				$right_order = (int) get_post_meta( $right->ID, '_trb_portal_order', true );
+				if ( $left_order === $right_order ) return strcasecmp( $left->post_title, $right->post_title );
+				return ( $left_order ?: PHP_INT_MAX ) <=> ( $right_order ?: PHP_INT_MAX );
+			} );
+		}
 		// Search belongs to the Knowledge Hub answers. It must never make the
 		// artist's Library, videos or downloads appear to have disappeared.
 		if ( $search && 'trb_guide' === $post_type ) {
@@ -3884,7 +3984,9 @@ function trb_portal_get_resources( $profile ) {
 				$score = trb_portal_search_score( $post, $search );
 				if ( $score ) $ranked[] = array( 'post' => $post, 'score' => $score );
 			}
-			usort( $ranked, function( $left, $right ) { return $right['score'] <=> $left['score']; } );
+			usort( $ranked, function( $left, $right ) {
+				return $right['score'] === $left['score'] ? strcasecmp( $left['post']->post_title, $right['post']->post_title ) : $right['score'] <=> $left['score'];
+			} );
 			$posts = wp_list_pluck( $ranked, 'post' );
 		}
 		$resources[ $post_type ] = $posts;
@@ -3893,10 +3995,10 @@ function trb_portal_get_resources( $profile ) {
 	return $resources;
 }
 
-/** Search the entire authorised Knowledge Hub, not only the short FAQ cards. */
+/** Search authorised quick answers, detailed manuals and downloads. Videos have their own catalogue search. */
 function trb_portal_get_search_results( $profile, $search ) {
 	$results = array();
-	foreach ( array( 'trb_guide', 'wpdmpro' ) as $post_type ) {
+	foreach ( array( 'trb_guide', 'docs', 'wpdmpro' ) as $post_type ) {
 		$visible_profiles = 'ddb12' === $profile && 'trb_guide' !== $post_type ? array( 'ddb12', 'ddb' ) : array( $profile );
 		$profile_query    = array( 'relation' => 'OR' );
 		foreach ( $visible_profiles as $visible_profile ) {
@@ -3911,30 +4013,56 @@ function trb_portal_get_search_results( $profile, $search ) {
 		foreach ( $query->posts as $post ) {
 			$score = trb_portal_search_score( $post, $search );
 			if ( $score ) {
-				$results[] = array( 'post' => $post, 'score' => $score );
+				$result_key = 'trb_guide' === $post_type ? (string) get_post_meta( $post->ID, '_trb_guide_key', true ) : $post_type . ':' . sanitize_title( $post->post_title );
+				if ( '' === $result_key ) $result_key = $post_type . ':' . $post->ID;
+				if ( ! isset( $results[ $result_key ] ) || $score > $results[ $result_key ]['score'] ) $results[ $result_key ] = array( 'post' => $post, 'score' => $score );
 			}
 		}
 	}
-	usort( $results, function( $left, $right ) { return $right['score'] <=> $left['score']; } );
+	$results = array_values( $results );
+	usort( $results, function( $left, $right ) {
+		return $right['score'] === $left['score'] ? strcasecmp( $left['post']->post_title, $right['post']->post_title ) : $right['score'] <=> $left['score'];
+	} );
 	return array_slice( wp_list_pluck( $results, 'post' ), 0, 12 );
+}
+
+function trb_portal_search_tokens( $value, $remove_stopwords = false ) {
+	$value  = strtolower( remove_accents( wp_strip_all_tags( (string) $value ) ) );
+	$tokens = array_values( array_filter( preg_split( '/[^[:alnum:]]+/u', $value ) ) );
+	if ( ! $remove_stopwords ) return array_values( array_unique( $tokens ) );
+	$stopwords = array( 'a', 'ad', 'al', 'alla', 'alle', 'anche', 'che', 'come', 'con', 'cosa', 'da', 'dal', 'dalla', 'de', 'dei', 'del', 'della', 'devo', 'di', 'dove', 'e', 'ed', 'fare', 'gli', 'i', 'il', 'in', 'la', 'le', 'lo', 'ma', 'mi', 'nel', 'nella', 'o', 'per', 'perche', 'piu', 'posso', 'qual', 'quale', 'quali', 'quando', 'se', 'serve', 'su', 'tra', 'un', 'una', 'voglio', 'vorrei' );
+	$short_terms = array( 'ep', 'isrc', 'otp', 'ugc', 'upc', 'wav' );
+	return array_values( array_unique( array_filter( $tokens, static function( $token ) use ( $stopwords, $short_terms ) {
+		return ! in_array( $token, $stopwords, true ) && ( strlen( $token ) >= 3 || in_array( $token, $short_terms, true ) );
+	} ) ) );
 }
 
 function trb_portal_search_score( $post, $search ) {
 	$search = strtolower( remove_accents( trim( $search ) ) );
-	$tokens = array_filter( preg_split( '/[^[:alnum:]]+/u', $search ) );
+	$tokens = trb_portal_search_tokens( $search, true );
 	if ( empty( $tokens ) ) return 0;
 	$title = strtolower( remove_accents( $post->post_title ) );
 	$excerpt = strtolower( remove_accents( $post->post_excerpt ) );
 	$body = strtolower( remove_accents( wp_strip_all_tags( $post->post_content ) ) );
 	$terms = strtolower( remove_accents( (string) get_post_meta( $post->ID, '_trb_portal_search_terms', true ) ) );
-	$score = false !== strpos( $title . ' ' . $excerpt . ' ' . $body . ' ' . $terms, $search ) ? 12 : 0;
+	$phrase = implode( ' ', $tokens );
+	$exact_phrase = false !== strpos( $title . ' ' . $excerpt . ' ' . $terms, $phrase );
+	$score = $exact_phrase ? 24 : 0;
+	$matched = 0;
+	$title_tokens   = trb_portal_search_tokens( $title );
+	$excerpt_tokens = trb_portal_search_tokens( $excerpt );
+	$body_tokens    = trb_portal_search_tokens( $body );
+	$term_tokens    = trb_portal_search_tokens( $terms );
 	foreach ( $tokens as $token ) {
-		if ( false !== strpos( $title, $token ) ) $score += 8;
-		if ( false !== strpos( $terms, $token ) ) $score += 6;
-		if ( false !== strpos( $excerpt, $token ) ) $score += 3;
-		if ( false !== strpos( $body, $token ) ) $score += 1;
+		$token_matched = false;
+		if ( in_array( $token, $title_tokens, true ) ) { $score += 10; $token_matched = true; }
+		if ( in_array( $token, $term_tokens, true ) ) { $score += 7; $token_matched = true; }
+		if ( in_array( $token, $excerpt_tokens, true ) ) { $score += 4; $token_matched = true; }
+		if ( in_array( $token, $body_tokens, true ) ) { $score += 1; $token_matched = true; }
+		if ( $token_matched ) $matched++;
 	}
-	return $score;
+	$minimum_coverage = count( $tokens ) <= 2 ? count( $tokens ) : (int) ceil( count( $tokens ) * 0.6 );
+	return ( $exact_phrase || $matched >= $minimum_coverage ) ? $score : 0;
 }
 
 function trb_portal_render_resource_section( $id, $title, $description, $posts ) {
