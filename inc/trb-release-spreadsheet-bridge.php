@@ -131,17 +131,51 @@ function trb_release_bridge_settings_page() {
 function trb_release_bridge_render_preliminary_contract_field( $user ) {
     if ( ! current_user_can( 'manage_options' ) || ! $user instanceof WP_User ) return;
     $value = (string) get_user_meta( $user->ID, '_trb_artist_preliminary_contract', true );
+    $term  = (string) get_user_meta( $user->ID, '_trb_artist_contract_term', true );
     wp_nonce_field( 'trb_release_bridge_save_preliminary_contract_' . $user->ID, 'trb_release_bridge_preliminary_contract_nonce' );
     ?>
     <h2>Contratto preliminare</h2>
     <table class="form-table" role="presentation"><tbody><tr>
         <th><label for="trb_artist_preliminary_contract">Contratto preliminare</label></th>
-        <td><input type="text" class="regular-text" id="trb_artist_preliminary_contract" name="trb_artist_preliminary_contract" value="<?php echo esc_attr( $value ); ?>" maxlength="200"><p class="description">Campo amministrativo riservato. Non è mostrato all’artista e viene trasferito nella colonna contrattuale DDB/TRB.</p></td>
+        <td><input type="text" class="regular-text" id="trb_artist_preliminary_contract" name="trb_artist_preliminary_contract" value="<?php echo esc_attr( $value ); ?>" maxlength="120"><p class="description">Campo amministrativo riservato e invisibile all’artista. Identifica il contratto preliminare di riferimento.</p></td>
+    </tr><tr>
+        <th><label for="trb_artist_contract_term">Data di attuazione/scadenza</label></th>
+        <td><input type="text" class="regular-text" id="trb_artist_contract_term" name="trb_artist_contract_term" value="<?php echo esc_attr( $term ); ?>" maxlength="50" placeholder="08/08/26 - 08/08/27"><p class="description">Formato: GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO. Campo riservato e invisibile all’artista.</p></td>
     </tr></tbody></table>
     <?php
 }
 add_action( 'show_user_profile', 'trb_release_bridge_render_preliminary_contract_field' );
 add_action( 'edit_user_profile', 'trb_release_bridge_render_preliminary_contract_field' );
+
+function trb_release_bridge_normalize_contract_term( $value ) {
+    $value = strtoupper( sanitize_text_field( wp_unslash( (string) $value ) ) );
+    $value = preg_replace( '/\s*-\s*/', ' - ', trim( $value ) );
+    return preg_replace( '/\s+/', ' ', $value );
+}
+
+function trb_release_bridge_validate_contract_term( $errors, $update, $user ) {
+    if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['trb_artist_contract_term'] ) ) return;
+    $value = trb_release_bridge_normalize_contract_term( $_POST['trb_artist_contract_term'] );
+    if ( '' === $value ) return;
+    if ( ! preg_match( '/^(\d{2})\/(\d{2})\/(\d{2}|\d{4}) - (?:(\d{2})\/(\d{2})\/(\d{2}|\d{4})|INFINITO)$/', $value, $parts ) ) {
+        $errors->add( 'invalid_contract_term', 'Data di attuazione/scadenza non valida. Usa GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO.' );
+        return;
+    }
+    $year = strlen( $parts[3] ) === 2 ? 2000 + absint( $parts[3] ) : absint( $parts[3] );
+    if ( ! checkdate( absint( $parts[2] ), absint( $parts[1] ), $year ) ) {
+        $errors->add( 'invalid_contract_start', 'La data di attuazione indicata non esiste.' );
+        return;
+    }
+    if ( ! empty( $parts[4] ) ) {
+        $end_year = strlen( $parts[6] ) === 2 ? 2000 + absint( $parts[6] ) : absint( $parts[6] );
+        if ( ! checkdate( absint( $parts[5] ), absint( $parts[4] ), $end_year ) ) {
+            $errors->add( 'invalid_contract_end', 'La data di scadenza indicata non esiste.' );
+        } elseif ( gmmktime( 0, 0, 0, absint( $parts[5] ), absint( $parts[4] ), $end_year ) < gmmktime( 0, 0, 0, absint( $parts[2] ), absint( $parts[1] ), $year ) ) {
+            $errors->add( 'invalid_contract_order', 'La scadenza non può precedere la data di attuazione.' );
+        }
+    }
+}
+add_action( 'user_profile_update_errors', 'trb_release_bridge_validate_contract_term', 10, 3 );
 
 function trb_release_bridge_save_preliminary_contract_field( $user_id ) {
     if ( ! current_user_can( 'manage_options' ) || ! current_user_can( 'edit_user', $user_id ) ) return;
@@ -150,6 +184,9 @@ function trb_release_bridge_save_preliminary_contract_field( $user_id ) {
     $value = sanitize_text_field( wp_unslash( $_POST['trb_artist_preliminary_contract'] ?? '' ) );
     if ( '' === $value ) delete_user_meta( $user_id, '_trb_artist_preliminary_contract' );
     else update_user_meta( $user_id, '_trb_artist_preliminary_contract', $value );
+    $term = trb_release_bridge_normalize_contract_term( $_POST['trb_artist_contract_term'] ?? '' );
+    if ( '' === $term ) delete_user_meta( $user_id, '_trb_artist_contract_term' );
+    else update_user_meta( $user_id, '_trb_artist_contract_term', $term );
 }
 add_action( 'personal_options_update', 'trb_release_bridge_save_preliminary_contract_field' );
 add_action( 'edit_user_profile_update', 'trb_release_bridge_save_preliminary_contract_field' );
@@ -330,10 +367,12 @@ function trb_release_bridge_payload( $release_id ) {
     if ( ! $user ) return new WP_Error( 'artist_missing' );
     $profile = trb_portal_user_profile( $user );
     $preliminary_contract = sanitize_text_field( (string) get_user_meta( $post->post_author, '_trb_artist_preliminary_contract', true ) );
+    $contract_term = trb_release_bridge_normalize_contract_term( get_user_meta( $post->post_author, '_trb_artist_contract_term', true ) );
     $tracks  = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
     $state   = (string) get_post_meta( $release_id, '_trb_release_state', true );
     if ( ! in_array( $profile, array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'profile_invalid', 'Profilo contrattuale non riconosciuto.' );
     if ( '' === $preliminary_contract ) return new WP_Error( 'preliminary_contract_missing', 'Contratto preliminare non assegnato nell’anagrafica amministrativa dell’artista.' );
+    if ( '' === $contract_term ) return new WP_Error( 'contract_term_missing', 'Data di attuazione/scadenza non assegnata nell’anagrafica amministrativa dell’artista.' );
     if ( 'unreleased' === $state ) {
         $missing_indexes = array();
         foreach ( $tracks as $index => $track ) {
@@ -404,7 +443,7 @@ function trb_release_bridge_payload( $release_id ) {
         if ( '' === trim( (string) $artist[ $required ] ) ) return new WP_Error( 'artist_data_missing', 'Dato contrattuale mancante: ' . $required . '.' );
     }
     if ( empty( $tracks ) ) return new WP_Error( 'tracks_missing', 'Nessun brano disponibile per il contratto.' );
-    return array('action'=>'portal_release','release_id'=>(int)$release_id,'profile'=>$profile,'preliminary_contract'=>$preliminary_contract,'title'=>$post->post_title,
+    return array('action'=>'portal_release','release_id'=>(int)$release_id,'profile'=>$profile,'preliminary_contract'=>$preliminary_contract,'contract_term'=>$contract_term,'title'=>$post->post_title,
         'release_type'=>(string)get_post_meta($release_id,'_trb_release_type',true),'release_state'=>$state,
         'release_date'=>(string)get_post_meta($release_id,'_trb_release_date',true),
         'original_date'=>(string)get_post_meta($release_id,'_trb_release_original_date',true),'confirmed_at'=>get_post_time(DATE_ATOM,true,$post),
@@ -494,7 +533,7 @@ function trb_release_bridge_spreadsheet_row( $payload ) {
 function trb_release_bridge_post_webapp( $url, $payload, $secret ) {
     $request_url = add_query_arg( 'secret', (string) $secret, $url );
     $response = wp_remote_post( $request_url, array(
-        'timeout'     => 120,
+        'timeout'     => 300,
         'redirection' => 0,
         'headers'     => array( 'Content-Type' => 'application/json' ),
         'body'        => wp_json_encode( array( $payload ) ),
@@ -507,7 +546,7 @@ function trb_release_bridge_post_webapp( $url, $payload, $secret ) {
         if ( ! $location || ( 'script.googleusercontent.com' !== $host && ! str_ends_with( $host, '.googleusercontent.com' ) ) ) {
             return new WP_Error( 'invalid_contract_redirect', 'Redirect Apps Script non valido.' );
         }
-        $response = wp_remote_get( $location, array( 'timeout' => 120, 'redirection' => 2 ) );
+        $response = wp_remote_get( $location, array( 'timeout' => 300, 'redirection' => 2 ) );
     }
     return $response;
 }
