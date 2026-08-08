@@ -275,6 +275,18 @@ function trb_release_bridge_transition_current_artist() {
 }
 add_action( 'init', 'trb_release_bridge_transition_current_artist', 21 );
 
+/**
+ * Traffic fallback: run at most once per hour even when WP-Cron is disabled or
+ * delayed. Concurrent requests are harmless because every transition is
+ * role-scoped and idempotent.
+ */
+function trb_release_bridge_maybe_run_group_transition_fallback() {
+    if ( wp_doing_cron() || get_transient( 'trb_release_bridge_group_transition_sweep' ) ) return;
+    set_transient( 'trb_release_bridge_group_transition_sweep', 1, HOUR_IN_SECONDS );
+    trb_release_bridge_transition_expired_ddb_trb_users();
+}
+add_action( 'init', 'trb_release_bridge_maybe_run_group_transition_fallback', 22 );
+
 function trb_release_bridge_save_preliminary_contract_field( $user_id ) {
     if ( ! current_user_can( 'manage_options' ) || ! current_user_can( 'edit_user', $user_id ) ) return;
     $nonce = sanitize_text_field( wp_unslash( $_POST['trb_release_bridge_preliminary_contract_nonce'] ?? '' ) );
