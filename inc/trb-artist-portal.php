@@ -233,12 +233,38 @@ function trb_portal_verify_dds_store_request( $request ) {
 	$secret    = trb_portal_dds_store_secret();
 	$timestamp = (string) $request->get_header( 'x-trb-timestamp' );
 	$signature = strtolower( (string) $request->get_header( 'x-trb-signature' ) );
-	if ( '' === $secret ) return new WP_Error( 'dds_store_not_configured', 'Collegamento Store DDS non configurato.', array( 'status' => 503 ) );
-	if ( ! ctype_digit( $timestamp ) || abs( time() - (int) $timestamp ) > 300 || ! preg_match( '/^[a-f0-9]{64}$/', $signature ) ) {
-		return new WP_Error( 'dds_store_signature_invalid', 'Firma della richiesta non valida o scaduta.', array( 'status' => 401 ) );
+	if ( '' !== $secret && ctype_digit( $timestamp ) && abs( time() - (int) $timestamp ) <= 300 && preg_match( '/^[a-f0-9]{64}$/', $signature ) ) {
+		$expected = hash_hmac( 'sha256', $timestamp . '.' . $request->get_body(), $secret );
+		if ( hash_equals( $expected, $signature ) ) return true;
 	}
-	$expected = hash_hmac( 'sha256', $timestamp . '.' . $request->get_body(), $secret );
-	return hash_equals( $expected, $signature ) ? true : new WP_Error( 'dds_store_signature_invalid', 'Firma della richiesta non valida.', array( 'status' => 401 ) );
+
+	// Zero-configuration fallback: the Store issues a single-use token for a
+	// paid DDS order and confirms it over HTTPS before this portal accepts it.
+	$payload   = $request->get_json_params();
+	$payload   = is_array( $payload ) ? $payload : array();
+	$reference = sanitize_text_field( (string) ( $payload['reference'] ?? '' ) );
+	$email     = sanitize_email( (string) ( $payload['email'] ?? '' ) );
+	$token     = sanitize_text_field( (string) ( $payload['activation_token'] ?? '' ) );
+	if ( '' === $reference || ! is_email( $email ) || strlen( $token ) < 48 ) {
+		return new WP_Error( 'dds_store_verification_missing', 'Verifica dell’ordine DDS mancante.', array( 'status' => 401 ) );
+	}
+	$verification = wp_remote_post(
+		'https://store.trbrec.com/wp-json/trb/v1/dds-order-verify',
+		array(
+			'timeout' => 20,
+			'headers' => array( 'Content-Type' => 'application/json' ),
+			'body'    => wp_json_encode( array( 'reference' => $reference, 'activation_token' => $token ), JSON_UNESCAPED_SLASHES ),
+		)
+	);
+	if ( is_wp_error( $verification ) || 200 !== wp_remote_retrieve_response_code( $verification ) ) {
+		return new WP_Error( 'dds_store_verification_failed', 'Impossibile verificare l’ordine DDS.', array( 'status' => 401 ) );
+	}
+	$verified = json_decode( wp_remote_retrieve_body( $verification ), true );
+	return ! empty( $verified['success'] )
+		&& hash_equals( $reference, (string) ( $verified['reference'] ?? '' ) )
+		&& hash_equals( strtolower( $email ), strtolower( (string) ( $verified['email'] ?? '' ) ) )
+		? true
+		: new WP_Error( 'dds_store_verification_failed', 'Ordine DDS non verificato.', array( 'status' => 401 ) );
 }
 
 function trb_portal_handle_dds_store_activation( $request ) {
