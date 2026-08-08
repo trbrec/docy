@@ -140,7 +140,7 @@ function trb_release_bridge_render_preliminary_contract_field( $user ) {
         <td><input type="text" class="regular-text" id="trb_artist_preliminary_contract" name="trb_artist_preliminary_contract" value="<?php echo esc_attr( $value ); ?>" maxlength="120"><p class="description">Campo amministrativo riservato e invisibile all’artista. Identifica il contratto preliminare di riferimento.</p></td>
     </tr><tr>
         <th><label for="trb_artist_contract_term">Data di attuazione/scadenza</label></th>
-        <td><input type="text" class="regular-text" id="trb_artist_contract_term" name="trb_artist_contract_term" value="<?php echo esc_attr( $term ); ?>" maxlength="50" placeholder="08/08/26 - 08/08/27"><p class="description">Formato: GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO. Campo riservato e invisibile all’artista.</p></td>
+        <td><input type="text" class="regular-text" id="trb_artist_contract_term" name="trb_artist_contract_term" value="<?php echo esc_attr( $term ); ?>" maxlength="50" placeholder="08/08/26 - 08/08/27"><p class="description">Formato: GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO. Campo riservato e invisibile all’artista. Per i soli profili DDB-TRB, dal giorno successivo alla scadenza il gruppo passa automaticamente a TRB.</p></td>
     </tr></tbody></table>
     <?php
 }
@@ -153,29 +153,127 @@ function trb_release_bridge_normalize_contract_term( $value ) {
     return preg_replace( '/\s+/', ' ', $value );
 }
 
+/** Parse the administrative contract term using the legal Europe/Rome day. */
+function trb_release_bridge_contract_term_dates( $value ) {
+    $value = trb_release_bridge_normalize_contract_term( $value );
+    if ( '' === $value ) return new WP_Error( 'contract_term_missing', 'Data di attuazione/scadenza non assegnata.' );
+    if ( ! preg_match( '/^(\d{2})\/(\d{2})\/(\d{2}|\d{4}) - (?:(\d{2})\/(\d{2})\/(\d{2}|\d{4})|INFINITO)$/', $value, $parts ) ) {
+        return new WP_Error( 'invalid_contract_term', 'Data di attuazione/scadenza non valida. Usa GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO.' );
+    }
+
+    $start_year = 2 === strlen( $parts[3] ) ? 2000 + absint( $parts[3] ) : absint( $parts[3] );
+    if ( ! checkdate( absint( $parts[2] ), absint( $parts[1] ), $start_year ) ) {
+        return new WP_Error( 'invalid_contract_start', 'La data di attuazione indicata non esiste.' );
+    }
+
+    $timezone = new DateTimeZone( 'Europe/Rome' );
+    $start = new DateTimeImmutable( sprintf( '%04d-%02d-%02d 00:00:00', $start_year, absint( $parts[2] ), absint( $parts[1] ) ), $timezone );
+    if ( false !== strpos( $value, 'INFINITO' ) ) return array( 'value' => $value, 'start' => $start, 'end' => null );
+
+    $end_year = 2 === strlen( $parts[6] ) ? 2000 + absint( $parts[6] ) : absint( $parts[6] );
+    if ( ! checkdate( absint( $parts[5] ), absint( $parts[4] ), $end_year ) ) {
+        return new WP_Error( 'invalid_contract_end', 'La data di scadenza indicata non esiste.' );
+    }
+    $end = new DateTimeImmutable( sprintf( '%04d-%02d-%02d 00:00:00', $end_year, absint( $parts[5] ), absint( $parts[4] ) ), $timezone );
+    if ( $end < $start ) return new WP_Error( 'invalid_contract_order', 'La scadenza non può precedere la data di attuazione.' );
+
+    return array( 'value' => $value, 'start' => $start, 'end' => $end );
+}
+
 function trb_release_bridge_validate_contract_term( $errors, $update, $user ) {
     if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['trb_artist_contract_term'] ) ) return;
     $value = trb_release_bridge_normalize_contract_term( $_POST['trb_artist_contract_term'] );
     if ( '' === $value ) return;
-    if ( ! preg_match( '/^(\d{2})\/(\d{2})\/(\d{2}|\d{4}) - (?:(\d{2})\/(\d{2})\/(\d{2}|\d{4})|INFINITO)$/', $value, $parts ) ) {
-        $errors->add( 'invalid_contract_term', 'Data di attuazione/scadenza non valida. Usa GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO.' );
-        return;
-    }
-    $year = strlen( $parts[3] ) === 2 ? 2000 + absint( $parts[3] ) : absint( $parts[3] );
-    if ( ! checkdate( absint( $parts[2] ), absint( $parts[1] ), $year ) ) {
-        $errors->add( 'invalid_contract_start', 'La data di attuazione indicata non esiste.' );
-        return;
-    }
-    if ( ! empty( $parts[4] ) ) {
-        $end_year = strlen( $parts[6] ) === 2 ? 2000 + absint( $parts[6] ) : absint( $parts[6] );
-        if ( ! checkdate( absint( $parts[5] ), absint( $parts[4] ), $end_year ) ) {
-            $errors->add( 'invalid_contract_end', 'La data di scadenza indicata non esiste.' );
-        } elseif ( gmmktime( 0, 0, 0, absint( $parts[5] ), absint( $parts[4] ), $end_year ) < gmmktime( 0, 0, 0, absint( $parts[2] ), absint( $parts[1] ), $year ) ) {
-            $errors->add( 'invalid_contract_order', 'La scadenza non può precedere la data di attuazione.' );
-        }
-    }
+    $dates = trb_release_bridge_contract_term_dates( $value );
+    if ( is_wp_error( $dates ) ) $errors->add( $dates->get_error_code(), $dates->get_error_message() );
 }
 add_action( 'user_profile_update_errors', 'trb_release_bridge_validate_contract_term', 10, 3 );
+
+/** Canonical and legacy role slugs involved in the one-way DDB-TRB to TRB transition. */
+function trb_release_bridge_transition_roles() {
+    $roles = array(
+        'source' => array( 'artista_c', 'artista_ddb-trb' ),
+        'target' => 'artista_d',
+    );
+    if ( function_exists( 'trb_portal_profiles' ) ) {
+        $profiles = trb_portal_profiles();
+        if ( ! empty( $profiles['ddb_trb']['role'] ) ) {
+            $roles['source'] = array_merge( array( $profiles['ddb_trb']['role'] ), (array) ( $profiles['ddb_trb']['aliases'] ?? array() ) );
+        }
+        if ( ! empty( $profiles['trb']['role'] ) ) $roles['target'] = $profiles['trb']['role'];
+    }
+    $roles['source'] = array_values( array_unique( array_filter( array_map( 'sanitize_key', $roles['source'] ) ) ) );
+    $roles['target'] = sanitize_key( $roles['target'] );
+    return $roles;
+}
+
+/**
+ * Move one expired DDB-TRB artist to TRB. The change is one-way and idempotent;
+ * unrelated WordPress roles are preserved.
+ */
+function trb_release_bridge_maybe_transition_ddb_trb_user( $user_id, $now = null, $source = 'automatic' ) {
+    $user_id = absint( $user_id );
+    $user = $user_id ? get_userdata( $user_id ) : false;
+    if ( ! $user instanceof WP_User ) return false;
+
+    $roles = trb_release_bridge_transition_roles();
+    if ( ! array_intersect( $roles['source'], (array) $user->roles ) ) return false;
+    if ( ! get_role( $roles['target'] ) ) return false;
+
+    $dates = trb_release_bridge_contract_term_dates( get_user_meta( $user_id, '_trb_artist_contract_term', true ) );
+    if ( is_wp_error( $dates ) || ! $dates['end'] instanceof DateTimeImmutable ) return false;
+
+    $timezone = new DateTimeZone( 'Europe/Rome' );
+    if ( $now instanceof DateTimeInterface ) {
+        $today = new DateTimeImmutable( $now->format( 'Y-m-d' ) . ' 00:00:00', $timezone );
+    } elseif ( is_string( $now ) && '' !== trim( $now ) ) {
+        $today = new DateTimeImmutable( $now, $timezone );
+        $today = $today->setTime( 0, 0, 0 );
+    } else {
+        $today = new DateTimeImmutable( 'today', $timezone );
+    }
+    if ( $today <= $dates['end'] ) return false;
+
+    // Re-read immediately before mutation so a concurrent manual group change
+    // cannot be overwritten by a stale scheduled check.
+    clean_user_cache( $user_id );
+    $user = get_userdata( $user_id );
+    if ( ! $user instanceof WP_User || ! array_intersect( $roles['source'], (array) $user->roles ) ) return false;
+
+    foreach ( $roles['source'] as $source_role ) {
+        if ( in_array( $source_role, (array) $user->roles, true ) ) $user->remove_role( $source_role );
+    }
+    if ( ! in_array( $roles['target'], (array) $user->roles, true ) ) $user->add_role( $roles['target'] );
+
+    $transitioned_at = ( new DateTimeImmutable( 'now', $timezone ) )->format( DATE_ATOM );
+    update_user_meta( $user_id, '_trb_artist_group_transitioned_at', $transitioned_at );
+    update_user_meta( $user_id, '_trb_artist_group_transition_source', sanitize_key( $source ) );
+    update_user_meta( $user_id, '_trb_artist_group_transition_contract_term', $dates['value'] );
+    do_action( 'trb_artist_group_transitioned', $user_id, 'ddb_trb', 'trb', $dates['value'], $transitioned_at );
+    return true;
+}
+
+/** Check every current DDB-TRB account; the small role-scoped query is safe to repeat. */
+function trb_release_bridge_transition_expired_ddb_trb_users() {
+    $roles = trb_release_bridge_transition_roles();
+    $user_ids = get_users( array( 'fields' => 'ids', 'role__in' => $roles['source'], 'number' => -1 ) );
+    foreach ( $user_ids as $user_id ) trb_release_bridge_maybe_transition_ddb_trb_user( $user_id, null, 'hourly' );
+}
+add_action( 'trb_release_bridge_transition_expired_ddb_trb', 'trb_release_bridge_transition_expired_ddb_trb_users' );
+
+/** Keep the hourly safety check registered after theme updates or cron cleanup. */
+function trb_release_bridge_schedule_group_transitions() {
+    if ( ! wp_next_scheduled( 'trb_release_bridge_transition_expired_ddb_trb' ) ) {
+        wp_schedule_event( time() + MINUTE_IN_SECONDS, 'hourly', 'trb_release_bridge_transition_expired_ddb_trb' );
+    }
+}
+add_action( 'init', 'trb_release_bridge_schedule_group_transitions', 20 );
+
+/** If an expired artist logs in before cron runs, update the role immediately. */
+function trb_release_bridge_transition_current_artist() {
+    if ( is_user_logged_in() ) trb_release_bridge_maybe_transition_ddb_trb_user( get_current_user_id(), null, 'access' );
+}
+add_action( 'init', 'trb_release_bridge_transition_current_artist', 21 );
 
 function trb_release_bridge_save_preliminary_contract_field( $user_id ) {
     if ( ! current_user_can( 'manage_options' ) || ! current_user_can( 'edit_user', $user_id ) ) return;
@@ -187,6 +285,7 @@ function trb_release_bridge_save_preliminary_contract_field( $user_id ) {
     $term = trb_release_bridge_normalize_contract_term( $_POST['trb_artist_contract_term'] ?? '' );
     if ( '' === $term ) delete_user_meta( $user_id, '_trb_artist_contract_term' );
     else update_user_meta( $user_id, '_trb_artist_contract_term', $term );
+    trb_release_bridge_maybe_transition_ddb_trb_user( $user_id, null, 'admin_save' );
 }
 add_action( 'personal_options_update', 'trb_release_bridge_save_preliminary_contract_field' );
 add_action( 'edit_user_profile_update', 'trb_release_bridge_save_preliminary_contract_field' );
