@@ -350,6 +350,29 @@ function trb_portal_activate_pending_dds_registration( $user_id ) {
 }
 add_action( 'user_register', 'trb_portal_activate_pending_dds_registration', 1000 );
 
+/** Prefill the purchased e-mail carried by the Store onboarding link. */
+function trb_portal_prefill_dds_registration_email() {
+	if ( ! is_page( 'registrati' ) ) return;
+	$email = sanitize_email( isset( $_GET['dds_email'] ) ? wp_unslash( $_GET['dds_email'] ) : '' );
+	if ( ! is_email( $email ) ) return;
+	?>
+	<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		var field = document.querySelector('form input[type="email"], form input[name="email"]');
+		if (!field) return;
+		field.value = <?php echo wp_json_encode( $email ); ?>;
+		field.readOnly = true;
+		field.setAttribute('aria-describedby', 'trb-dds-email-note');
+		var note = document.createElement('small');
+		note.id = 'trb-dds-email-note';
+		note.textContent = 'E-mail abilitata dal tuo acquisto DDS.';
+		field.insertAdjacentElement('afterend', note);
+	});
+	</script>
+	<?php
+}
+add_action( 'wp_footer', 'trb_portal_prefill_dds_registration_email', 30 );
+
 function trb_portal_register_dds_store_route() {
 	register_rest_route( 'trb/v1', '/dds-activation', array(
 		'methods'             => WP_REST_Server::CREATABLE,
