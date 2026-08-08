@@ -176,6 +176,9 @@ function trb_release_bridge_render_meta_box( $post ) {
 	if ( ! empty( $decision['state'] ) ) $decision_summary .= ' · ' . (string) $decision['state'];
 	$limitations = array();
 	foreach ( (array) ( $decision['limitations'] ?? array() ) as $track => $codes ) foreach ( (array) $codes as $code ) $limitations[] = 'brano ' . ( absint( $track ) + 1 ) . ': ' . sanitize_text_field( $code );
+    $sheet_error = (string) get_post_meta( $post->ID, '_trb_contract_spreadsheet_error', true );
+    $sheet_synced_at = (string) get_post_meta( $post->ID, '_trb_contract_spreadsheet_synced_at', true );
+    $sheet_status = $sheet_error ?: ( $sheet_synced_at ? 'Completata il ' . $sheet_synced_at : ( 'signed' === get_post_meta( $post->ID, '_trb_contract_state', true ) ? 'Da sincronizzare' : '—' ) );
     $rows = array(
         'Pipeline release'  => get_post_meta( $post->ID, '_trb_release_pipeline_status', true ),
 		'Analisi tecnica'   => $technical_summary,
@@ -187,6 +190,7 @@ function trb_release_bridge_render_meta_box( $post ) {
         'Dossier OTP'       => get_post_meta( $post->ID, '_trb_otp_dossier_id', true ),
         'Contratto inviato' => get_post_meta( $post->ID, '_trb_contract_sent_at', true ),
         'Contratto firmato' => get_post_meta( $post->ID, '_trb_contract_signed_at', true ),
+        'Sincronizzazione foglio' => $sheet_status,
     );
     echo '<table class="widefat striped"><tbody>';
     foreach ( $rows as $label => $value ) echo '<tr><th style="width:190px">' . esc_html( $label ) . '</th><td>' . esc_html( '' !== (string) $value ? $value : '—' ) . '</td></tr>';
@@ -209,6 +213,9 @@ function trb_release_bridge_render_meta_box( $post ) {
     }
     if ( current_user_can( 'manage_options' ) && 'contract_sent' === get_post_meta( $post->ID, '_trb_contract_state', true ) && get_post_meta( $post->ID, '_trb_otp_dossier_id', true ) ) {
         echo '<p><a class="button" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_release_bridge_confirm_signed&release_id=' . absint( $post->ID ) ), 'trb_release_bridge_confirm_signed_' . absint( $post->ID ) ) ) . '" onclick="return confirm(\'Usa questo recupero soltanto dopo aver verificato su OTPService che il dossier risulta completato e che il PDF firmato e stato archiviato. Confermi?\');">Firma verificata: sincronizza la pratica</a></p>';
+    }
+    if ( current_user_can( 'manage_options' ) && 'signed' === get_post_meta( $post->ID, '_trb_contract_state', true ) ) {
+        echo '<p><a class="button" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_release_bridge_sync_spreadsheet&release_id=' . absint( $post->ID ) ), 'trb_release_bridge_sync_spreadsheet_' . absint( $post->ID ) ) ) . '">Sincronizza riga verde nel foglio</a></p>';
     }
 }
 
@@ -257,9 +264,26 @@ function trb_release_bridge_confirm_signed_dispatch() {
 }
 add_action( 'admin_post_trb_release_bridge_confirm_signed', 'trb_release_bridge_confirm_signed_dispatch' );
 
+/** Retry only the signed-row formatting without touching contract state. */
+function trb_release_bridge_sync_spreadsheet_dispatch() {
+    if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Non autorizzato.' );
+    $release_id = isset( $_GET['release_id'] ) ? absint( $_GET['release_id'] ) : 0;
+    check_admin_referer( 'trb_release_bridge_sync_spreadsheet_' . $release_id );
+    if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) || 'signed' !== get_post_meta( $release_id, '_trb_contract_state', true ) ) wp_die( 'Pratica firmata non valida.' );
+    $result = trb_release_bridge_notify_spreadsheet_signed( $release_id );
+    $status = is_wp_error( $result ) ? 'error' : '1';
+    wp_safe_redirect( add_query_arg( 'trb_contract_sheet_synced', $status, get_edit_post_link( $release_id, 'url' ) ) );
+    exit;
+}
+add_action( 'admin_post_trb_release_bridge_sync_spreadsheet', 'trb_release_bridge_sync_spreadsheet_dispatch' );
+
 function trb_release_bridge_reconciled_notice() {
-    if ( ! current_user_can( 'manage_options' ) || empty( $_GET['trb_contract_reconciled'] ) ) return;
-    echo '<div class="notice notice-success is-dismissible"><p>Firma sincronizzata: la pratica risulta ora contrattualmente completata.</p></div>';
+    if ( ! current_user_can( 'manage_options' ) ) return;
+    if ( ! empty( $_GET['trb_contract_reconciled'] ) ) echo '<div class="notice notice-success is-dismissible"><p>Firma sincronizzata: la pratica risulta ora contrattualmente completata.</p></div>';
+    if ( ! empty( $_GET['trb_contract_sheet_synced'] ) ) {
+        $ok = '1' === sanitize_key( wp_unslash( $_GET['trb_contract_sheet_synced'] ) );
+        echo '<div class="notice ' . ( $ok ? 'notice-success' : 'notice-error' ) . ' is-dismissible"><p>' . esc_html( $ok ? 'Riga del contratto sincronizzata in verde.' : 'Sincronizzazione del foglio non riuscita: consulta la diagnostica della pratica.' ) . '</p></div>';
+    }
 }
 add_action( 'admin_notices', 'trb_release_bridge_reconciled_notice' );
 
@@ -459,6 +483,51 @@ function trb_release_bridge_post_webapp( $url, $payload, $secret ) {
     return $response;
 }
 
+/** Mark the matching contract row as signed in the correct DDB/TRB spreadsheet. */
+function trb_release_bridge_notify_spreadsheet_signed( $release_id ) {
+    $release = get_post( $release_id );
+    if ( ! $release || 'trb_release' !== $release->post_type ) return new WP_Error( 'release_missing', 'Release non trovata.' );
+    $user = get_userdata( $release->post_author );
+    $profile = $user && function_exists( 'trb_portal_user_profile' ) ? sanitize_key( trb_portal_user_profile( $user ) ) : '';
+    if ( ! in_array( $profile, array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ), true ) ) {
+        $error = new WP_Error( 'profile_invalid', 'Profilo contrattuale non riconosciuto per la sincronizzazione del foglio.' );
+        update_post_meta( $release_id, '_trb_contract_spreadsheet_error', $error->get_error_message() );
+        return $error;
+    }
+
+    $settings = trb_release_bridge_settings();
+    $url = 'trb' === $profile ? $settings['trb_webapp_url'] : $settings['ddb_webapp_url'];
+    if ( ! $url || ! $settings['shared_secret'] ) {
+        $error = new WP_Error( 'spreadsheet_configuration_required', 'Collegamento al foglio non configurato.' );
+        update_post_meta( $release_id, '_trb_contract_spreadsheet_error', $error->get_error_message() );
+        return $error;
+    }
+
+    $payload = array(
+        'action'          => 'portal_contract_signed',
+        'release_id'      => absint( $release_id ),
+        'profile'         => $profile,
+        'contract_number' => sanitize_text_field( (string) get_post_meta( $release_id, '_trb_contract_number', true ) ),
+        'dossier_id'      => sanitize_text_field( (string) get_post_meta( $release_id, '_trb_otp_dossier_id', true ) ),
+        'secret'          => $settings['shared_secret'],
+    );
+    $response = trb_release_bridge_post_webapp( $url, $payload, $settings['shared_secret'] );
+    if ( is_wp_error( $response ) ) {
+        update_post_meta( $release_id, '_trb_contract_spreadsheet_error', $response->get_error_message() );
+        return $response;
+    }
+    $body = json_decode( wp_remote_retrieve_body( $response ), true );
+    if ( wp_remote_retrieve_response_code( $response ) >= 300 || empty( $body['success'] ) ) {
+        $message = sanitize_text_field( (string) ( $body['error'] ?? wp_remote_retrieve_body( $response ) ) );
+        $error = new WP_Error( 'spreadsheet_sync_failed', $message ?: 'Il foglio non ha confermato la sincronizzazione.' );
+        update_post_meta( $release_id, '_trb_contract_spreadsheet_error', $error->get_error_message() );
+        return $error;
+    }
+    delete_post_meta( $release_id, '_trb_contract_spreadsheet_error' );
+    update_post_meta( $release_id, '_trb_contract_spreadsheet_synced_at', current_time( 'mysql', true ) );
+    return true;
+}
+
 function trb_release_bridge_dispatch( $release_id ) {
     $current = get_post_meta( $release_id, '_trb_contract_state', true );
     if ( in_array( $current, array( 'contract_sent', 'signed' ), true ) ) return;
@@ -513,10 +582,12 @@ function trb_release_bridge_apply_callback( $payload ) {
         update_post_meta( $release_id, '_trb_contract_signed_at', $signed_at ?: gmdate( DATE_ATOM ) );
         delete_post_meta( $release_id, '_trb_contract_error' );
     }
+    $spreadsheet_result = trb_release_bridge_notify_spreadsheet_signed( $release_id );
     return array(
         'success'      => true,
         'state'        => 'signed',
         'idempotent'   => $already_signed,
+        'spreadsheet_synced' => ! is_wp_error( $spreadsheet_result ),
         'release_date' => (string) get_post_meta( $release_id, '_trb_release_date', true ),
     );
 }
