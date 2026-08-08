@@ -247,9 +247,27 @@ function trb_portal_handle_dds_store_activation( $request ) {
 	$reference = sanitize_text_field( (string) ( $payload['reference'] ?? '' ) );
 	if ( '' === $reference ) return new WP_Error( 'dds_reference_missing', 'Riferimento ordine mancante.', array( 'status' => 422 ) );
 
-	$user = ! empty( $payload['user_id'] ) ? get_userdata( absint( $payload['user_id'] ) ) : false;
-	if ( ! $user && ! empty( $payload['email'] ) ) $user = get_user_by( 'email', sanitize_email( $payload['email'] ) );
-	if ( ! $user instanceof WP_User ) return new WP_Error( 'dds_user_missing', 'Account artista non trovato.', array( 'status' => 404 ) );
+	$email = sanitize_email( (string) ( $payload['email'] ?? '' ) );
+	$user  = ! empty( $payload['user_id'] ) ? get_userdata( absint( $payload['user_id'] ) ) : false;
+	if ( ! $user && $email ) $user = get_user_by( 'email', $email );
+	if ( ! $user instanceof WP_User ) {
+		if ( ! is_email( $email ) ) return new WP_Error( 'dds_email_missing', 'Indirizzo e-mail dell’acquirente mancante o non valido.', array( 'status' => 422 ) );
+		$pending = get_option( 'trb_dds_pending_activations', array() );
+		$pending = is_array( $pending ) ? $pending : array();
+		$key = hash( 'sha256', strtolower( $email ) );
+		if ( isset( $pending[ $key ] ) && hash_equals( (string) ( $pending[ $key ]['reference'] ?? '' ), $reference ) ) {
+			return rest_ensure_response( array( 'success' => true, 'idempotent' => true, 'pending_registration' => true ) );
+		}
+		$pending[ $key ] = array(
+			'email'        => strtolower( $email ),
+			'starts_at'    => sanitize_text_field( (string) ( $payload['starts_at'] ?? '' ) ),
+			'billing_mode' => 'annual',
+			'reference'    => $reference,
+			'created_at'   => time(),
+		);
+		update_option( 'trb_dds_pending_activations', $pending, false );
+		return rest_ensure_response( array( 'success' => true, 'pending_registration' => true, 'email' => $email ) );
+	}
 	if ( hash_equals( (string) get_user_meta( $user->ID, '_trb_dds_store_reference', true ), $reference ) ) {
 		return rest_ensure_response( array( 'success' => true, 'idempotent' => true, 'user_id' => $user->ID ) );
 	}
@@ -266,6 +284,45 @@ function trb_portal_handle_dds_store_activation( $request ) {
 	}
 	return rest_ensure_response( array( 'success' => true, 'entitlement' => $result ) );
 }
+
+/** Activate a paid DDS entitlement as soon as its checkout e-mail registers. */
+function trb_portal_activate_pending_dds_registration( $user_id ) {
+	$user = get_userdata( absint( $user_id ) );
+	if ( ! $user instanceof WP_User || ! is_email( $user->user_email ) ) return;
+
+	$pending = get_option( 'trb_dds_pending_activations', array() );
+	$pending = is_array( $pending ) ? $pending : array();
+	$key     = hash( 'sha256', strtolower( $user->user_email ) );
+	if ( empty( $pending[ $key ] ) || ! is_array( $pending[ $key ] ) ) return;
+
+	$activation = $pending[ $key ];
+	$result = trb_portal_activate_dds_service(
+		$user->ID,
+		(string) ( $activation['starts_at'] ?? '' ),
+		'annual',
+		(string) ( $activation['reference'] ?? '' )
+	);
+	if ( is_wp_error( $result ) ) return;
+
+	unset( $pending[ $key ] );
+	update_option( 'trb_dds_pending_activations', $pending, false );
+	update_user_meta( $user->ID, '_trb_dds_purchased_email', strtolower( $user->user_email ) );
+
+	// Paid DDS customers bypass the manual approval queue; all other public
+	// registrations continue to follow the existing moderation policy.
+	if ( function_exists( 'pw_new_user_approve' ) && 'pending' === pw_new_user_approve()->get_user_status( $user->ID ) ) {
+		pw_new_user_approve()->update_user_status( $user->ID, 'approve' );
+	}
+
+	$dashboard = home_url( '/area-artisti/' );
+	wp_mail(
+		$user->user_email,
+		'DDS attivo: puoi iniziare a pubblicare',
+		"Ciao {$user->display_name},\n\nla tua e-mail è stata riconosciuta e il profilo DDS è attivo. Accedi al Portale Artisti, completa il profilo e avvia la tua prima release.\n\nAccedi: {$dashboard}\n\nPuoi presentare fino a 12 release in 12 mesi, con il limite di una nuova release al mese.\n\nTRB Rec - Music Publishing",
+		array( 'From: TRB Rec - Music Publishing <info@trbrec.com>' )
+	);
+}
+add_action( 'user_register', 'trb_portal_activate_pending_dds_registration', 1000 );
 
 function trb_portal_register_dds_store_route() {
 	register_rest_route( 'trb/v1', '/dds-activation', array(
