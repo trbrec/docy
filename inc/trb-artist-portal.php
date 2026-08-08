@@ -171,19 +171,19 @@ function trb_portal_dds_service_config() {
 		array(
 			'releases_per_year'        => 12,
 			'releases_per_month'       => 1,
-			'current_monthly_price_eur'=> 49,
-			'billing_modes'            => array( 'monthly', 'annual' ),
-			'default_billing_mode'     => 'monthly',
+			'current_annual_price_eur' => 49,
+			'billing_modes'            => array( 'annual' ),
+			'default_billing_mode'     => 'annual',
 			'store_url'                => 'https://store.trbrec.com/',
 		)
 	);
 }
 
 /**
- * Integration point for the future Store product. Repeated monthly payments
- * extend access but never reset the twelve-release service year.
+ * Integration point for the Store product. Each approved annual payment opens
+ * one twelve-release service year; the legal term remains assigned manually.
  */
-function trb_portal_activate_dds_service( $user_id, $starts_at = '', $billing_mode = 'monthly', $external_reference = '' ) {
+function trb_portal_activate_dds_service( $user_id, $starts_at = '', $billing_mode = 'annual', $external_reference = '' ) {
 	$user = get_userdata( absint( $user_id ) );
 	if ( ! $user instanceof WP_User ) return new WP_Error( 'dds_user_missing', 'Account artista non trovato.' );
 	$config = trb_portal_dds_service_config();
@@ -200,7 +200,7 @@ function trb_portal_activate_dds_service( $user_id, $starts_at = '', $billing_mo
 		update_user_meta( $user->ID, '_trb_dds_service_cycle_start', $cycle_start->format( 'Y-m-d' ) );
 	}
 
-	$paid_until = 'annual' === $billing_mode ? $start->modify( '+1 year -1 day' ) : $start->modify( '+1 month -1 day' );
+	$paid_until = $start->modify( '+1 year -1 day' );
 	$current_paid_until_value = (string) get_user_meta( $user->ID, '_trb_dds_paid_until', true );
 	$current_paid_until = $current_paid_until_value ? DateTimeImmutable::createFromFormat( '!Y-m-d', $current_paid_until_value, $timezone ) : false;
 	if ( $current_paid_until && $current_paid_until > $paid_until ) $paid_until = $current_paid_until;
@@ -257,7 +257,7 @@ function trb_portal_handle_dds_store_activation( $request ) {
 	$result = trb_portal_activate_dds_service(
 		$user->ID,
 		sanitize_text_field( (string) ( $payload['starts_at'] ?? '' ) ),
-		sanitize_key( (string) ( $payload['billing_mode'] ?? 'monthly' ) ),
+		sanitize_key( (string) ( $payload['billing_mode'] ?? 'annual' ) ),
 		$reference
 	);
 	if ( is_wp_error( $result ) ) {
@@ -2646,14 +2646,18 @@ function trb_portal_profile_services_guide( $profile ) {
 	$store_50 = array();
 	foreach ( trb_portal_service_catalogue() as $service ) {
 		$status = isset( $service['profiles'][ $profile ] ) ? $service['profiles'][ $profile ] : 'unavailable';
-		if ( 'included' === $status ) $included[] = $service['label'];
+		$label = $service['label'];
+		if ( 'dds' === $profile && 'Inserimento nelle playlist proprietarie' === $label ) {
+			$label = 'Eventuale valutazione per le playlist gestite da TRB Rec';
+		}
+		if ( 'included' === $status ) $included[] = $label;
 		if ( 'store_50' === $status ) $store_50[] = $service['label'];
 	}
 	$list = static function( $items ) {
 		return '<ul><li>' . implode( '</li><li>', array_map( 'esc_html', $items ) ) . '</li></ul>';
 	};
 	$rules = array(
-		'dds'     => '<p><strong>Regola di pubblicazione:</strong> il percorso è mensile e consente una release per mese. La quota non utilizzata non si accumula.</p>',
+		'dds'     => '<p><strong>Regola di pubblicazione:</strong> il servizio costa €49 per 12 mesi e consente fino a 12 release, con il limite di una nuova release per mese. La quota mensile non utilizzata non si accumula.</p>',
 		'ddb12'   => '<p><strong>Regola di pubblicazione:</strong> una release per mese solare, fino a 12 release nei dodici mesi contrattuali. La quota non utilizzata non si accumula.</p>',
 		'ddb'     => '<p><strong>Durata e pubblicazioni:</strong> il gruppo DDB utilizza i modelli CCAD 600, CCAD 800 e CCAD 1200 e prevede pubblicazioni illimitate durante i 12 mesi contrattuali, sempre subordinate ai requisiti tecnici, alle tempistiche e alla programmazione concordata. Il modello CSAE 600 appartiene invece al gruppo DDB12.</p>',
 		'ddb_trb' => '<p><strong>Durata e passaggio al roster:</strong> il percorso iniziale dura 24 mesi e consente pubblicazioni illimitate. Alla scadenza prevista, il profilo passa a TRB mantenendo dati, catalogo e servizi continuativi.</p>',
@@ -2665,7 +2669,10 @@ function trb_portal_profile_services_guide( $profile ) {
 	if ( $store_50 ) {
 		$content .= '<h4>Servizi non inclusi, acquistabili con lo sconto riservato del 50%</h4>' . $list( $store_50 );
 	}
-	$content .= '<h4>Condizioni da ricordare</h4><ul><li>L’inserimento nelle playlist proprietarie TRB rec è incluso e garantito; posizione, durata, ascolti e inserimento nelle playlist editoriali di terzi non sono garantiti.</li><li>Pitching, campagne, booking, radio e stampa dipendono da idoneità, disponibilità e valutazione della release e non costituiscono una promessa di risultato oltre quanto espressamente previsto dal contratto.</li><li>Monetizzazione UGC e Content ID sono attivabili soltanto quando registrazione, beat, sample e licenze rispettano i requisiti dei servizi.</li><li>I collegamenti allo Store vengono mostrati solo per i servizi effettivamente disponibili per il profilo.</li></ul>';
+	$playlist_condition = 'dds' === $profile
+		? 'Le release possono essere valutate per le playlist gestite da TRB Rec. La valutazione non garantisce l’inserimento, che dipende dalla selezione artistica, dalla compatibilità della pubblicazione e dalla disponibilità editoriale.'
+		: 'L’inserimento nelle playlist proprietarie TRB rec è incluso e garantito; posizione, durata, ascolti e inserimento nelle playlist editoriali di terzi non sono garantiti.';
+	$content .= '<h4>Condizioni da ricordare</h4><ul><li>' . esc_html( $playlist_condition ) . '</li><li>Pitching, campagne, booking, radio e stampa dipendono da idoneità, disponibilità e valutazione della release e non costituiscono una promessa di risultato oltre quanto espressamente previsto dal contratto.</li><li>Monetizzazione UGC e Content ID sono attivabili soltanto quando registrazione, beat, sample e licenze rispettano i requisiti dei servizi.</li><li>I collegamenti allo Store vengono mostrati solo per i servizi effettivamente disponibili per il profilo.</li></ul>';
 	return $content;
 }
 
@@ -2676,7 +2683,7 @@ function trb_portal_seed_guides() {
 			'training' => '<p>DDS comprende l’accesso alla formazione di base e ai materiali del Knowledge Hub utili a preparare profilo e release.</p><ul><li>Il percorso non comprende mentoring prioritario.</li><li>Non è previsto un certificato o attestato finale.</li><li>I contenuti formativi aiutano l’artista, ma non sostituiscono le istruzioni vincolanti mostrate nella pratica.</li></ul>',
 			'audio' => '<p>Per la distribuzione devi consegnare il <strong>master definitivo in WAV stereo</strong>. Il portale accetta almeno <strong>44.100 Hz / 16 bit</strong>; lo standard consigliato, quando disponibile dalla sessione originale, è <strong>48.000 Hz / 24 bit</strong>.</p><ul><li>Non convertire un file di qualità inferiore soltanto per mostrare valori più alti.</li><li>Non inviare MP3, M4A, audio WhatsApp o file estratti da piattaforme streaming.</li><li>Non normalizzare o riconvertire il master dopo l’approvazione.</li><li>Controlla che intro, dissolvenze e code non siano tagliate e usa lo stesso standard per tutte le tracce.</li></ul>',
 			'cover' => '<p>Devi caricare la <strong>copertina definitiva già realizzata</strong>, collegandola alla pratica della release.</p><ul><li>Formato quadrato RGB, 3.000 × 3.000 px, 300 DPI.</li><li>Niente immagini sfocate, bordi involontari, URL, loghi di store o contenuti non autorizzati.</li><li>Nome d’arte e titolo devono coincidere esattamente con i metadati inseriti.</li></ul><p>Controlla attentamente il file prima dell’invio: una copertina non conforme blocca la programmazione.</p>',
-			'platforms' => '<p>Il percorso DDS comprende distribuzione digitale mondiale, codici ISRC/UPC, pitching editoriale, Smartlink, Promo Cards e inserimento nelle playlist proprietarie TRB rec.</p><ul><li>Inserisci i link corretti ai profili artista esistenti per evitare pagine duplicate.</li><li>Il pitching è una candidatura e non garantisce playlist editoriali.</li><li>L’inserimento nelle playlist proprietarie riguarda i canali gestiti da TRB rec e non equivale a una garanzia di ascolti.</li></ul>',
+			'platforms' => '<p>Il percorso DDS comprende distribuzione digitale mondiale, codici ISRC/UPC, pitching editoriale, Smartlink, Promo Cards ed eventuale valutazione per le playlist gestite da TRB Rec.</p><ul><li>Inserisci i link corretti ai profili artista esistenti per evitare pagine duplicate.</li><li>Il pitching è una candidatura e non garantisce playlist editoriali.</li><li>La valutazione per le playlist TRB Rec non garantisce l’inserimento, che dipende dalla selezione artistica, dalla compatibilità della pubblicazione e dalla disponibilità editoriale.</li></ul>',
 			'promo' => '<p>Per ogni release prepara biografia aggiornata, fotografie ad alta qualità, storia del brano e link social corretti. Smartlink e Promo Cards sono inclusi nel percorso DDS.</p><p>Mastering, ottimizzazione dei profili Spotify/Apple Music, campagne verso curatori, blogger e influencer, copertina grafica, comunicato stampa con diffusione e Radio Date non sono inclusi: quando disponibili possono essere richiesti nello Store con lo sconto riservato del 50%.</p><p>Landing page, Digital Press Kit e booking non fanno parte del profilo DDS.</p>',
 		),
 		'ddb' => array(
