@@ -818,6 +818,8 @@ function trb_release_bridge_payload( $release_id ) {
     $state   = (string) get_post_meta( $release_id, '_trb_release_state', true );
     if ( ! in_array( $profile, array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'profile_invalid', 'Profilo contrattuale non riconosciuto.' );
     if ( '' === $preliminary_contract ) return new WP_Error( 'preliminary_contract_missing', 'Contratto preliminare non assegnato nell’anagrafica amministrativa dell’artista.' );
+    $contract_valid = trb_release_bridge_validate_preliminary_contract( $user, $preliminary_contract );
+    if ( is_wp_error( $contract_valid ) ) return $contract_valid;
     if ( '' === $contract_term ) return new WP_Error( 'contract_term_missing', 'Data di attuazione/scadenza non assegnata nell’anagrafica amministrativa dell’artista.' );
     if ( 'unreleased' === $state ) {
         $missing_indexes = array();
