@@ -3762,7 +3762,7 @@ function trb_portal_render_release_section() {
 	$monthly_profile       = in_array( $profile, array( 'dds', 'ddb12' ), true ) ? $profile : false;
 	$monthly_profile_label = 'ddb12' === $monthly_profile ? 'DDB12' : 'DDS';
 	$monthly_limit_reached = $monthly_profile ? trb_portal_monthly_limit_reached() : false;
-	$monthly_release_count = $monthly_profile ? trb_portal_monthly_release_count() : 0;
+	$monthly_release_count = $monthly_profile ? min( 1, trb_portal_monthly_release_count() ) : 0;
 	$monthly_reset_label   = trb_portal_monthly_next_reset_label();
 	$monthly_guide_url     = add_query_arg( 'trb_search', 'limite mensile ' . $monthly_profile_label, get_permalink() ) . '#risposte';
 	$server_draft        = get_user_meta( get_current_user_id(), '_trb_release_form_draft', true );
