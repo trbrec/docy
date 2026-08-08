@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.0.6' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.1.0' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -13,7 +13,10 @@ function trb_analysis_settings() {
 		'true_peak_warning' => -0.30,
 		'master_lufs_max' => -7.0,
 		'master_lufs_min' => -18.0,
-		'premaster_peak_max' => -3.0,
+		'master_lufs_extreme_max' => -4.0,
+		'master_lufs_extreme_min' => -35.0,
+		'master_silence_peak_max' => -30.0,
+		'premaster_peak_max' => -6.0,
 		'silence_warning_seconds' => 8.0,
 		'benchmark_required' => 15,
 		'fingerprint_red_score' => 80.0,
@@ -22,6 +25,36 @@ function trb_analysis_settings() {
 		'auto_approval' => 0,
 		'clamav_binary' => '',
 	) );
+}
+
+/** Migrate only untouched legacy defaults; never overwrite administrator choices. */
+function trb_analysis_migrate_settings() {
+	$schema = (string) get_option( 'trb_release_analysis_settings_schema', '' );
+	if ( version_compare( $schema ?: '1.0.0', TRB_RELEASE_ANALYSIS_VERSION, '>=' ) ) return;
+	$stored = (array) get_option( 'trb_release_analysis_settings', array() );
+	if ( isset( $stored['premaster_peak_max'] ) && -3.0 === (float) $stored['premaster_peak_max'] ) $stored['premaster_peak_max'] = -6.0;
+	update_option( 'trb_release_analysis_settings', $stored, false );
+	update_option( 'trb_release_analysis_settings_schema', TRB_RELEASE_ANALYSIS_VERSION, false );
+}
+add_action( 'init', 'trb_analysis_migrate_settings', 1 );
+
+/**
+ * Loudness is a musical descriptor, not a universal delivery requirement.
+ * These broad families only decide when TRB should listen to a master; they
+ * never reject an otherwise valid file by themselves.
+ */
+function trb_analysis_genre_profile( $track ) {
+	$genre = strtolower( remove_accents( (string) ( $track['primary_genre'] ?? '' ) ) );
+	$profile = array( 'family' => 'balanced', 'lufs_min' => -24.0, 'lufs_max' => -6.0, 'lra_floor' => 1.5, 'plr_floor' => 5.5, 'crest_floor' => 5.5 );
+	if ( preg_match( '/classical|orchestral|opera|chamber|baroque|piano|ambient|new age|meditation|jazz|blues|easy listening|folk|soundtrack|spoken word|singer.songwriter/', $genre ) ) {
+		$profile = array( 'family' => 'dynamic', 'lufs_min' => -30.0, 'lufs_max' => -8.0, 'lra_floor' => null, 'plr_floor' => null, 'crest_floor' => null );
+	} elseif ( preg_match( '/electronic|dance|house|techno|trance|dubstep|drum.*bass|hardcore|hardstyle|breakbeat|bass|fitness|reggaeton|hip.hop|rap/', $genre ) ) {
+		$profile = array( 'family' => 'high_energy', 'lufs_min' => -18.0, 'lufs_max' => -5.0, 'lra_floor' => 1.0, 'plr_floor' => 5.0, 'crest_floor' => 5.0 );
+	} elseif ( preg_match( '/pop|rock|punk|metal|r&b|funk|soul|reggae|ska|latin|country/', $genre ) ) {
+		$profile = array( 'family' => 'dense', 'lufs_min' => -20.0, 'lufs_max' => -6.0, 'lra_floor' => 1.5, 'plr_floor' => 5.5, 'crest_floor' => 5.5 );
+	}
+	$profile['genre'] = (string) ( $track['primary_genre'] ?? '' );
+	return $profile;
 }
 
 function trb_analysis_binary( $name, $configured = '' ) {
@@ -89,7 +122,9 @@ function trb_analysis_inspect_wav( $path ) {
 	$lra = trb_analysis_float( '/\bLRA:\s*([0-9.]+)\s*LU/', $text );
 	$true_peak = trb_analysis_float( '/\bPeak:\s*(-?[0-9.]+)\s*dBFS/', $text );
 	$peak_level = trb_analysis_float( '/Peak level dB:\s*(-?[0-9.]+)/', $text );
-	$clipped = trb_analysis_float( '/Number of NaNs:\s*([0-9.]+)/', $text );
+	$rms_level = trb_analysis_float( '/RMS level dB:\s*(-?[0-9.]+)/', $text );
+	$nans = trb_analysis_float( '/Number of NaNs:\s*([0-9.]+)/', $text );
+	$infs = trb_analysis_float( '/Number of Infs:\s*([0-9.]+)/', $text );
 	preg_match_all( '/silence_start:\s*([0-9.]+)/', $text, $silence_starts );
 	preg_match_all( '/silence_end:\s*([0-9.]+)\s*\|\s*silence_duration:\s*([0-9.]+)/', $text, $silence_ends );
 	$silences = array();
@@ -106,6 +141,11 @@ function trb_analysis_inspect_wav( $path ) {
 		'loudness_range_lu' => $lra,
 		'true_peak_dbtp' => null !== $true_peak ? $true_peak : $peak_level,
 		'peak_level_dbfs' => $peak_level,
+		'rms_level_dbfs' => $rms_level,
+		'crest_factor_db' => null !== $peak_level && null !== $rms_level ? round( $peak_level - $rms_level, 3 ) : null,
+		'peak_to_loudness_ratio_db' => null !== $true_peak && null !== $integrated ? round( $true_peak - $integrated, 3 ) : null,
+		'number_of_nans' => null === $nans ? 0 : absint( $nans ),
+		'number_of_infs' => null === $infs ? 0 : absint( $infs ),
 		'boundary_start_rms_dbfs' => trb_analysis_float( '/RMS level dB:\s*(-?[0-9.]+)/', $head['output'] ),
 		'boundary_end_rms_dbfs' => trb_analysis_float( '/RMS level dB:\s*(-?[0-9.]+)/', $tail['output'] ),
 		'clipping_suspected' => null !== $peak_level && $peak_level >= -0.01,
@@ -118,20 +158,27 @@ function trb_analysis_inspect_wav( $path ) {
 function trb_analysis_track_findings( $spec, $track, $declared_seconds ) {
 	$s = trb_analysis_settings(); $errors = array(); $warnings = array();
 	if ( 2 !== (int) $spec['channels'] ) $errors[] = 'AUDIO_NOT_STEREO';
-	if ( $spec['sample_rate'] < 44100 || $spec['sample_rate'] > 96000 ) $errors[] = 'SAMPLE_RATE_INVALID';
-	if ( $spec['bit_depth'] < 16 || $spec['bit_depth'] > 24 ) $errors[] = 'BIT_DEPTH_INVALID';
+	if ( ! in_array( (int) $spec['sample_rate'], array( 44100, 48000, 88200, 96000 ), true ) ) $errors[] = 'SAMPLE_RATE_INVALID';
+	if ( ! in_array( (int) $spec['bit_depth'], array( 16, 24 ), true ) ) $errors[] = 'BIT_DEPTH_INVALID';
 	if ( $declared_seconds <= 0 || abs( $spec['duration_seconds'] - $declared_seconds ) > 1.0 ) $errors[] = 'DURATION_MISMATCH';
+	if ( ! empty( $spec['number_of_nans'] ) || ! empty( $spec['number_of_infs'] ) ) $errors[] = 'INVALID_AUDIO_SAMPLES';
+	if ( null !== $spec['integrated_lufs'] && null !== $spec['true_peak_dbtp'] && $spec['integrated_lufs'] < (float) $s['master_lufs_extreme_min'] && $spec['true_peak_dbtp'] < (float) $s['master_silence_peak_max'] ) $errors[] = 'AUDIO_LEVEL_EFFECTIVELY_SILENT';
 	if ( $spec['duration_seconds'] < 15.0 ) $warnings[] = 'AUDIO_TOO_SHORT_FOR_RELIABLE_RECOGNITION';
 	if ( null !== $spec['true_peak_dbtp'] && $spec['true_peak_dbtp'] > (float) $s['true_peak_warning'] ) $warnings[] = 'TRUE_PEAK_HIGH';
 	if ( ! empty( $spec['clipping_suspected'] ) ) $warnings[] = 'CLIPPING_SUSPECTED';
-	if ( null !== $spec['loudness_range_lu'] && $spec['loudness_range_lu'] < 2.0 ) $warnings[] = 'EXCESSIVE_LIMITING_REVIEW';
 	if ( null !== $spec['boundary_end_rms_dbfs'] && $spec['boundary_end_rms_dbfs'] > -25.0 ) $warnings[] = 'ABRUPT_END_REVIEW';
 	if ( null !== $spec['boundary_start_rms_dbfs'] && $spec['boundary_start_rms_dbfs'] > -3.0 ) $warnings[] = 'ABRUPT_START_REVIEW';
 	foreach ( $spec['silences'] as $silence ) if ( $silence['duration'] >= (float) $s['silence_warning_seconds'] ) { $warnings[] = 'LONG_SILENCE'; break; }
 	$status = sanitize_key( $track['audio_status'] ?? '' );
 	if ( 'mastering' === $status && null !== $spec['true_peak_dbtp'] && $spec['true_peak_dbtp'] > (float) $s['premaster_peak_max'] ) $warnings[] = 'PREMASTER_HEADROOM_LOW';
-	if ( 'mastered' === $status && null !== $spec['integrated_lufs'] && ( $spec['integrated_lufs'] > (float) $s['master_lufs_max'] || $spec['integrated_lufs'] < (float) $s['master_lufs_min'] ) ) $warnings[] = 'MASTER_LOUDNESS_REVIEW';
-	return array( 'errors' => array_values( array_unique( $errors ) ), 'warnings' => array_values( array_unique( $warnings ) ) );
+	$genre_profile = trb_analysis_genre_profile( $track );
+	if ( 'mastered' === $status && null !== $spec['integrated_lufs'] ) {
+		if ( $spec['integrated_lufs'] > (float) $s['master_lufs_extreme_max'] ) $warnings[] = 'MASTER_LEVEL_EXTREME';
+		elseif ( $spec['integrated_lufs'] > $genre_profile['lufs_max'] || $spec['integrated_lufs'] < $genre_profile['lufs_min'] ) $warnings[] = 'MASTER_LOUDNESS_GENRE_REVIEW';
+		$lra = $spec['loudness_range_lu']; $plr = $spec['peak_to_loudness_ratio_db']; $crest = $spec['crest_factor_db'];
+		if ( $spec['duration_seconds'] >= 30.0 && $spec['integrated_lufs'] > -16.0 && null !== $genre_profile['lra_floor'] && null !== $lra && null !== $plr && null !== $crest && $lra < $genre_profile['lra_floor'] && $plr < $genre_profile['plr_floor'] && $crest < $genre_profile['crest_floor'] ) $warnings[] = 'EXCESSIVE_LIMITING_REVIEW';
+	}
+	return array( 'errors' => array_values( array_unique( $errors ) ), 'warnings' => array_values( array_unique( $warnings ) ), 'genre_profile' => $genre_profile );
 }
 
 
@@ -143,6 +190,9 @@ function trb_analysis_finding_email_label( $code ) {
 		'sample_rate_invalid'                      => 'Frequenza di campionamento non valida',
 		'bit_depth_invalid'                        => 'Profondità in bit non valida',
 		'duration_mismatch'                        => 'Durata dichiarata e durata del WAV non corrispondono',
+		'invalid_audio_samples'                    => 'Il WAV contiene campioni audio non validi',
+		'audio_level_effectively_silent'           => 'Il livello del file è incompatibile con un master utilizzabile',
+		'master_level_extreme'                     => 'Il livello del master supera un limite tecnico estremo',
 		'audio_too_short_for_reliable_recognition' => 'Audio troppo breve per un riconoscimento affidabile',
 		'true_peak_high'                           => 'True peak troppo elevato',
 		'clipping_suspected'                       => 'Possibile clipping',
@@ -151,7 +201,8 @@ function trb_analysis_finding_email_label( $code ) {
 		'abrupt_start_review'                      => 'Inizio del brano da controllare',
 		'long_silence'                             => 'Silenzio prolungato nel brano',
 		'premaster_headroom_low'                   => 'Headroom insufficiente nel pre-master',
-		'master_loudness_review'                   => 'Loudness del master fuori dall’intervallo previsto',
+		'master_loudness_review'                   => 'Loudness del master da verificare',
+		'master_loudness_genre_review'             => 'Loudness da verificare rispetto al genere dichiarato',
 		'release_audio_inconsistent'               => 'Specifiche audio non uniformi fra i brani',
 		'local_archive_missing'                    => 'File locale non disponibile per l’analisi',
 		'wav_decode_failed'                        => 'Il WAV non può essere decodificato',
@@ -173,6 +224,23 @@ function trb_analysis_admin_technical_email_rows( $payload ) {
 		if ( $track_codes ) $rows[] = '<strong>Brano ' . ( absint( $index ) + 1 ) . ':</strong> ' . esc_html( implode( '; ', array_map( 'trb_analysis_finding_email_label', $track_codes ) ) );
 	}
 	return $rows;
+}
+
+/** Notify the artist only when a new WAV hash has an objective blocking error. */
+function trb_analysis_queue_artist_correction_email( $release_id, $payload ) {
+	if ( ! function_exists( 'trb_resource_queue_recipient_email' ) ) return;
+	$release = get_post( $release_id );
+	$user = $release ? get_userdata( $release->post_author ) : false;
+	if ( ! $release || ! $user || ! is_email( $user->user_email ) ) return;
+	$hashes = array_values( array_filter( array_map( static function( $track ) { return sanitize_text_field( $track['sha256'] ?? '' ); }, (array) ( $payload['tracks'] ?? array() ) ) ) );
+	$errors = array_values( array_unique( (array) ( $payload['errors'] ?? array() ) ) );
+	if ( ! $errors ) return;
+	$link = add_query_arg( 'trb_release', 'technical_correction', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . absint( $release_id );
+	$body = '<p>La release <strong>' . esc_html( $release->post_title ) . '</strong> è stata acquisita, ma il WAV deve essere sostituito prima di poter proseguire.</p>';
+	$body .= '<p><strong>Motivo:</strong> ' . esc_html( implode( '; ', array_map( 'trb_analysis_finding_email_label', $errors ) ) ) . '</p>';
+	$body .= '<p>La pratica rimane aperta e gli altri dati non devono essere reinseriti.</p><p><a href="' . esc_url( $link ) . '">Apri la release e sostituisci il WAV</a></p>';
+	$key = 'artist-technical-' . absint( $release_id ) . '-' . substr( hash( 'sha256', wp_json_encode( array( $hashes, $errors ) ) ), 0, 20 );
+	trb_resource_queue_recipient_email( $key, $user->user_email, 'Correzione richiesta per la release ' . $release->post_title, $body );
 }
 
 /** Queue one consolidated, idempotent administrator email for a release requiring attention. */
@@ -209,7 +277,7 @@ function trb_analysis_queue_admin_review_email( $release_id, $stage, $payload ) 
 		$user = get_userdata( $release->post_author );
 		$artist = $user ? $user->display_name : 'Non indicato';
 	}
-	$edit_url = admin_url( 'post.php?post=' . absint( $release_id ) . '&action=edit' );
+	$edit_url = admin_url( 'tools.php?page=trb-resource-monitor#trb-release-' . absint( $release_id ) );
 	$rows = array(
 		'<strong>Pratica:</strong> #' . absint( $release_id ),
 		'<strong>Artista:</strong> ' . esc_html( $artist ),
@@ -229,7 +297,7 @@ function trb_analysis_queue_admin_review_email( $release_id, $stage, $payload ) 
 		$subject = 'Nuova release da verificare: pratica #' . absint( $release_id ) . ' - ' . $release->post_title;
 	}
 
-	$rows[] = '<a href="' . esc_url( $edit_url ) . '">Apri direttamente la pratica in WordPress</a>';
+	$rows[] = '<a href="' . esc_url( $edit_url ) . '">Apri la coda e gestisci direttamente la pratica</a>';
 	$body = '<p>' . implode( '</p><p>', $rows ) . '</p>';
 	trb_resource_queue_email( 'release-analysis-' . absint( $release_id ) . '-' . $notification_signature, $subject, $body, true );
 }
@@ -278,7 +346,10 @@ function trb_analysis_run_technical( $release_id ) {
 	else update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_queued' );
 	// Warnings continue through copyright analysis and are included in its single final email.
 	// Only a terminal technical failure needs an immediate administrator notification.
-	if ( 'failed' === $status ) trb_analysis_queue_admin_review_email( $release_id, 'technical', $payload );
+	if ( 'failed' === $status ) {
+		trb_analysis_queue_admin_review_email( $release_id, 'technical', $payload );
+		trb_analysis_queue_artist_correction_email( $release_id, $payload );
+	}
 	return $payload;
 }
 
@@ -369,29 +440,88 @@ function trb_analysis_decide_release( $release_id ) {
 
 function trb_analysis_benchmark_count() { return count( (array) get_option( 'trb_analysis_benchmark_cases', array() ) ); }
 
-/** Verify the paid File Scanning container before spending budget. */
-function trb_analysis_verify_acr_container() {
+/** Normalize both object and one-element-list responses from the Console API. */
+function trb_analysis_acr_container_item( $body, $container_id ) {
+	if ( ! is_array( $body ) ) return array();
+	$payload = isset( $body['data'] ) && is_array( $body['data'] ) ? $body['data'] : $body;
+	if ( isset( $payload['id'] ) ) return $payload;
+	foreach ( $payload as $item ) if ( is_array( $item ) && isset( $item['id'] ) && (string) $container_id === (string) $item['id'] ) return $item;
+	return array();
+}
+
+/** Read the live File Scanning container without exposing its bearer token. */
+function trb_analysis_fetch_acr_container() {
 	if ( ! function_exists( 'trb_resource_settings' ) || ! function_exists( 'trb_resource_acr_endpoint' ) ) return new WP_Error( 'ACR_CONFIGURATION_UNAVAILABLE' );
 	$s = trb_resource_settings();
+	if ( empty( $s['acr_token'] ) || empty( $s['acr_container_id'] ) ) return new WP_Error( 'ACR_CONFIGURATION_INCOMPLETE' );
 	$url = 'https://api-v2.acrcloud.com/api/fs-containers/' . rawurlencode( $s['acr_container_id'] );
 	$response = wp_remote_get( $url, array( 'timeout' => 60, 'headers' => array( 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $s['acr_token'] ) ) );
 	if ( is_wp_error( $response ) ) return new WP_Error( 'ACR_CONTAINER_UNREACHABLE', $response->get_error_message() );
 	$code = wp_remote_retrieve_response_code( $response ); $body = json_decode( wp_remote_retrieve_body( $response ), true );
 	if ( $code < 200 || $code >= 300 || ! is_array( $body ) ) return new WP_Error( 'ACR_CONTAINER_UNVERIFIED', 'HTTP ' . $code );
-	$container = isset( $body['data'] ) && is_array( $body['data'] ) ? $body['data'] : $body;
-	$engine = isset( $container['engine'] ) ? (int) $container['engine'] : ( isset( $container['recognize_engine'] ) ? (int) $container['recognize_engine'] : null );
-	$deepright = isset( $container['deepright'] ) ? (bool) $container['deepright'] : ( isset( $container['deepright_enabled'] ) ? (bool) $container['deepright_enabled'] : null );
+	$container = trb_analysis_acr_container_item( $body, $s['acr_container_id'] );
+	if ( ! $container ) return new WP_Error( 'ACR_CONTAINER_RESPONSE_INVALID', 'Il provider non ha restituito la configurazione del container richiesto.' );
+	return $container;
+}
+
+/** Verify the paid File Scanning container before spending budget. */
+function trb_analysis_verify_acr_container() {
+	$container = trb_analysis_fetch_acr_container();
+	if ( is_wp_error( $container ) ) return $container;
+	$policy = isset( $container['policy'] ) && is_array( $container['policy'] ) ? $container['policy'] : array();
+	$engine = isset( $container['engine'] ) ? (int) $container['engine'] : null;
+	$deepright = isset( $container['deepright'] ) ? (bool) $container['deepright'] : ( isset( $policy['deepright'] ) ? (bool) $policy['deepright'] : null );
+	$music_detection = isset( $container['music_detection'] ) ? (bool) $container['music_detection'] : ( isset( $policy['music_detection'] ) ? (bool) $policy['music_detection'] : false );
+	$ai_detection = isset( $container['ai_detection'] ) ? (bool) $container['ai_detection'] : ( isset( $policy['ai_detection'] ) ? (bool) $policy['ai_detection'] : false );
 	$errors = array();
-	if ( null !== $engine && 3 !== $engine ) $errors[] = 'ACR_ENGINE_MUST_INCLUDE_FINGERPRINT_AND_COVER';
-	if ( null !== $deepright && ! $deepright ) $errors[] = 'ACR_DEEPRIGHT_DISABLED';
-	if ( isset( $container['region'] ) && 'eu-west-1' !== $container['region'] ) $errors[] = 'ACR_REGION_MUST_BE_EU_WEST_1';
-	if ( isset( $container['audio_type'] ) && 'linein' !== $container['audio_type'] ) $errors[] = 'ACR_AUDIO_TYPE_MUST_BE_LINEIN';
-	if ( isset( $container['buckets'] ) && false === stripos( wp_json_encode( $container['buckets'] ), 'ACRCloud Music' ) ) $errors[] = 'ACR_MUSIC_BUCKET_MISSING';
-	if ( ! empty( $container['music_detection'] ) ) $errors[] = 'ACR_MUSIC_DETECTION_MUST_BE_OFF';
-	if ( ! empty( $container['ai_detection'] ) ) $errors[] = 'ACR_AI_DETECTION_MUST_BE_OFF';
+	if ( 3 !== $engine ) $errors[] = 'ACR_ENGINE_MUST_INCLUDE_FINGERPRINT_AND_COVER';
+	if ( true !== $deepright ) $errors[] = 'ACR_DEEPRIGHT_DISABLED_OR_UNVERIFIED';
+	if ( ! isset( $container['region'] ) || 'eu-west-1' !== $container['region'] ) $errors[] = 'ACR_REGION_MUST_BE_EU_WEST_1';
+	if ( ! isset( $container['audio_type'] ) || 'linein' !== $container['audio_type'] ) $errors[] = 'ACR_AUDIO_TYPE_MUST_BE_LINEIN';
+	if ( empty( $container['buckets'] ) || false === stripos( wp_json_encode( $container['buckets'] ), 'ACRCloud Music' ) ) $errors[] = 'ACR_MUSIC_BUCKET_MISSING';
+	if ( $music_detection ) $errors[] = 'ACR_MUSIC_DETECTION_MUST_BE_OFF';
+	if ( $ai_detection ) $errors[] = 'ACR_AI_DETECTION_MUST_BE_OFF';
 	$snapshot = array( 'verified_at' => time(), 'container' => $container, 'errors' => $errors );
 	update_option( 'trb_acr_container_snapshot', $snapshot, false );
 	return $errors ? new WP_Error( 'ACR_CONTAINER_MISCONFIGURED', implode( ', ', $errors ) ) : $snapshot;
+}
+
+/** Safely preserve the live container while enabling the complete rights check. */
+function trb_analysis_configure_acr_container() {
+	if ( ! current_user_can( 'manage_options' ) ) return new WP_Error( 'ACR_CONFIGURATION_FORBIDDEN' );
+	if ( ! function_exists( 'trb_resource_settings' ) ) return new WP_Error( 'ACR_CONFIGURATION_UNAVAILABLE' );
+	$s = trb_resource_settings();
+	$container = trb_analysis_fetch_acr_container();
+	if ( is_wp_error( $container ) ) return $container;
+	$buckets = array();
+	foreach ( (array) ( $container['buckets'] ?? array() ) as $bucket ) {
+		if ( is_array( $bucket ) && isset( $bucket['id'] ) ) $buckets[] = absint( $bucket['id'] );
+		elseif ( is_array( $bucket ) && ! empty( $bucket['name'] ) ) $buckets[] = sanitize_text_field( $bucket['name'] );
+		elseif ( is_scalar( $bucket ) ) $buckets[] = $bucket;
+	}
+	if ( ! $buckets ) return new WP_Error( 'ACR_MUSIC_BUCKET_MISSING', 'Il container non contiene alcun bucket da preservare.' );
+	$policy = isset( $container['policy'] ) && is_array( $container['policy'] ) ? $container['policy'] : array( 'type' => 'traverse', 'interval' => 0, 'rec_length' => 10 );
+	$policy['deepright'] = true;
+	$policy['music_detection'] = 0;
+	$policy['ai_detection'] = 0;
+	$payload = array(
+		'name'            => sanitize_text_field( $container['name'] ?? 'TRB rights analysis' ),
+		'audio_type'      => 'linein',
+		'buckets'         => $buckets,
+		'engine'          => 3,
+		'policy'          => $policy,
+		'callback_url'    => esc_url_raw( $container['callback_url'] ?? '' ),
+		'deepright'       => 1,
+		'music_detection' => 0,
+		'ai_detection'    => 0,
+	);
+	$url = 'https://api-v2.acrcloud.com/api/fs-containers/' . rawurlencode( $s['acr_container_id'] );
+	$response = wp_remote_request( $url, array( 'method' => 'PUT', 'timeout' => 60, 'headers' => array( 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $s['acr_token'], 'Content-Type' => 'application/json' ), 'body' => wp_json_encode( $payload ) ) );
+	if ( is_wp_error( $response ) ) return new WP_Error( 'ACR_CONTAINER_UPDATE_FAILED', $response->get_error_message() );
+	$code = (int) wp_remote_retrieve_response_code( $response );
+	if ( $code < 200 || $code >= 300 ) return new WP_Error( 'ACR_CONTAINER_UPDATE_FAILED', 'HTTP ' . $code );
+	delete_option( 'trb_acr_container_snapshot' );
+	return trb_analysis_verify_acr_container();
 }
 
 /** Small dependency-free PDF writer for the audit report. */
@@ -501,10 +631,16 @@ add_action( 'admin_menu', 'trb_analysis_admin_menu', 31 );
 
 function trb_analysis_admin_page() {
 	if ( ! current_user_can( 'manage_options' ) ) return;
-	$s = trb_analysis_settings(); $message = '';
+	$s = trb_analysis_settings(); $message = ''; $message_error = false;
+	if ( isset( $_POST['trb_analysis_configure_acr'] ) ) {
+		check_admin_referer( 'trb_analysis_configure_acr' );
+		$configured = trb_analysis_configure_acr_container();
+		$message_error = is_wp_error( $configured );
+		$message = $message_error ? 'Configurazione ACRCloud non completata: ' . $configured->get_error_message() : 'ACRCloud configurato e verificato: fingerprinting + Cover Song, DeepRight attivo, regione UE.';
+	}
 	if ( isset( $_POST['trb_analysis_save'] ) ) {
 		check_admin_referer( 'trb_analysis_save' );
-		foreach ( array( 'true_peak_warning','master_lufs_max','master_lufs_min','premaster_peak_max','silence_warning_seconds','fingerprint_red_score','match_review_score' ) as $key ) if ( isset( $_POST[ $key ] ) ) $s[ $key ] = (float) wp_unslash( $_POST[ $key ] );
+		foreach ( array( 'true_peak_warning','master_lufs_extreme_max','master_lufs_extreme_min','master_silence_peak_max','premaster_peak_max','silence_warning_seconds','fingerprint_red_score','match_review_score' ) as $key ) if ( isset( $_POST[ $key ] ) ) $s[ $key ] = (float) wp_unslash( $_POST[ $key ] );
 		$s['benchmark_required'] = max( 15, absint( $_POST['benchmark_required'] ?? 15 ) );
 		$s['benchmark_complete'] = isset( $_POST['benchmark_complete'] ) ? 1 : 0;
 		$s['auto_approval'] = isset( $_POST['auto_approval'] ) ? 1 : 0;
@@ -518,9 +654,10 @@ function trb_analysis_admin_page() {
 	}
 	$cases = (array) get_option( 'trb_analysis_benchmark_cases', array() ); $count = count( $cases ); $ready = ! empty( $s['benchmark_complete'] ) && $count >= absint( $s['benchmark_required'] );
 	?>
-	<div class="wrap"><h1>Analisi release TRB</h1><?php if ( $message ) : ?><div class="notice notice-success"><p><?php echo esc_html( $message ); ?></p></div><?php endif; ?>
+	<div class="wrap"><h1>Analisi release TRB</h1><?php if ( $message ) : ?><div class="notice notice-<?php echo $message_error ? 'error' : 'success'; ?>"><p><?php echo esc_html( $message ); ?></p></div><?php endif; ?>
 	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili · WAV PCM verificati e decodificati integralmente' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Sicurezza caricamenti</th><td><?php echo esc_html( 'Controlli rigorosi sul formato' . ( trb_analysis_wordfence_active() ? ' · Wordfence attivo' : '' ) . ( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? ' · ClamAV aggiuntivo disponibile' : '' ) ); ?></td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · pronto' : ' · approvazione automatica bloccata' ) ); ?></td></tr></tbody></table>
-	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"></td></tr><tr><th>Master LUFS max / min</th><td><input name="master_lufs_max" value="<?php echo esc_attr( $s['master_lufs_max'] ); ?>"> <input name="master_lufs_min" value="<?php echo esc_attr( $s['master_lufs_min'] ); ?>"></td></tr><tr><th>Pre-master peak massimo</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label> <label><input type="checkbox" name="auto_approval" <?php checked( $s['auto_approval'] ); ?>> Consenti auto-approvazione verde solo dopo benchmark</label></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
+	<h2>Configurazione copyright ACRCloud</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_configure_acr' ); ?><p>Conserva nome, bucket, callback e politica del container; imposta il motore combinato 3, DeepRight, audio line-in e disattiva i servizi non necessari.</p><button class="button" name="trb_analysis_configure_acr" value="1">Configura e verifica il container</button></form>
+	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak: soglia di avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"><p class="description">Genera un avviso da ascoltare; da solo non rifiuta il master.</p></td></tr><tr><th>Livelli master estremi</th><td>Avviso master molto alto: <input name="master_lufs_extreme_max" value="<?php echo esc_attr( $s['master_lufs_extreme_max'] ); ?>"> LUFS · audio sostanzialmente muto sotto <input name="master_lufs_extreme_min" value="<?php echo esc_attr( $s['master_lufs_extreme_min'] ); ?>"> LUFS con true peak sotto <input name="master_silence_peak_max" value="<?php echo esc_attr( $s['master_silence_peak_max'] ); ?>"> dBTP<p class="description">Il master molto alto e le fasce LUFS/LRA legate al genere richiedono ascolto manuale. Solo un file sostanzialmente muto viene bloccato automaticamente per il livello.</p></td></tr><tr><th>Pre-master: picco consigliato</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"><p class="description">Un superamento genera un avviso, non un rifiuto automatico.</p></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label> <label><input type="checkbox" name="auto_approval" <?php checked( $s['auto_approval'] ); ?>> Consenti auto-approvazione verde solo dopo benchmark</label></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
 	<h2>Registra caso benchmark</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_benchmark_add' ); ?><input required name="label" placeholder="Caso / hash"> <select name="expected"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <select name="actual"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <input type="number" name="duration_ms" placeholder="ms"> <input type="number" step="0.000001" name="cost" placeholder="USD"> <button class="button" name="trb_analysis_benchmark_add" value="1">Registra</button></form>
 	<?php if ( $cases ) : ?><table class="widefat striped" style="margin-top:12px"><thead><tr><th>Caso</th><th>Atteso</th><th>Risultato</th><th>Tempo</th><th>Costo</th></tr></thead><tbody><?php foreach ( array_reverse( $cases ) as $case ) : ?><tr><td><?php echo esc_html( $case['label'] ); ?></td><td><?php echo esc_html( $case['expected'] ); ?></td><td><?php echo esc_html( $case['actual'] ); ?></td><td><?php echo esc_html( $case['duration_ms'] . ' ms' ); ?></td><td><?php echo esc_html( $case['cost'] . ' USD' ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?></div><?php
 }

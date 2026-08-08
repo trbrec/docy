@@ -3399,11 +3399,22 @@ add_action( 'wp_ajax_trb_portal_submit_demo', 'trb_portal_submit_demo' );
 function trb_portal_render_release_files( $release_id ) {
 	$files       = get_post_meta( $release_id, '_trb_release_files', true );
 	$tracks      = get_post_meta( $release_id, '_trb_release_tracks', true );
+	$pipeline_status = (string) get_post_meta( $release_id, '_trb_release_pipeline_status', true );
+	$technical  = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
 	$files_locked = trb_portal_release_files_are_locked( $release_id ) && ! current_user_can( 'manage_options' );
 	if ( ! is_array( $files ) || empty( $files ) ) return;
 	?>
 	<div class="trb-release-files" id="release-files-<?php echo esc_attr( $release_id ); ?>">
 		<h4>Materiali caricati</h4>
+		<?php if ( 'technical_error' === $pipeline_status ) :
+			$technical_errors = array_values( array_unique( (array) ( $technical['errors'] ?? array() ) ) );
+			?>
+			<div class="trb-portal__message trb-portal__message--error trb-release-files__correction">
+				<strong>Il WAV deve essere sostituito prima di proseguire</strong>
+				<p>La pratica e tutti gli altri dati restano salvati. Carica soltanto una versione corretta del file audio.</p>
+				<?php if ( $technical_errors ) : ?><ul><?php foreach ( $technical_errors as $technical_error ) : ?><li><?php echo esc_html( function_exists( 'trb_analysis_finding_email_label' ) ? trb_analysis_finding_email_label( $technical_error ) : $technical_error ); ?></li><?php endforeach; ?></ul><?php endif; ?>
+			</div>
+		<?php endif; ?>
 		<?php if ( $files_locked ) : ?>
 			<div class="trb-portal__message trb-release-files__locked">
 				<strong>Materiali approvati e definitivi</strong>
@@ -3479,7 +3490,7 @@ function trb_portal_release_pipeline_label( $release_id ) {
 		'pcloud_transfer_waiting'     => 'Il trasferimento è temporaneamente in attesa. Non è necessario caricare nuovamente i file.',
 		'archived_pending_analysis'   => 'File archiviati correttamente. Controllo del brano in attesa',
 		'technical_analysis_running' => 'Analisi tecnica completa del WAV in corso',
-		'technical_error'            => 'Il file richiede una correzione tecnica. Il WAV resta archiviato in sicurezza.',
+		'technical_error'            => 'Correzione richiesta: sostituisci il WAV nella release',
 		'technical_review'           => 'Analisi tecnica completata: verifica TRB necessaria',
 		'copyright_queued'           => 'Controllo dei diritti in coda',
 		'security_scan_waiting'      => 'I materiali sono conservati in sicurezza e attendono il controllo antivirus. Non caricarli nuovamente.',
@@ -3627,6 +3638,7 @@ function trb_portal_render_release_section() {
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Inserisci metadati, crediti e file audio della pubblicazione, quindi ricevi il contratto da sottoscrivere per avviare l’iter di distribuzione.</p></div>
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
 		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Nuovo file acquisito. Il precedente verrà rimosso automaticamente soltanto dopo il trasferimento verificato su pCloud.</div><?php endif; ?>
+		<?php if ( 'technical_correction' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Correzione del WAV richiesta.</strong><p>Apri la release interessata: troverai il motivo preciso e il comando per sostituire soltanto il file audio.</p></div><?php endif; ?>
 		<?php if ( 'rights_uploaded' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Documento acquisito e archiviato con il brano. La verifica prosegue automaticamente.</div><?php endif; ?>
 		<?php if ( 'rights_waiting' === $status ) : ?><div class="trb-portal__message"><strong>Documento acquisito.</strong><p>Il trasferimento è temporaneamente in attesa. Non è necessario caricarlo nuovamente.</p></div><?php endif; ?>
 		<?php if ( 'rights_invalid' === $status || 'rights_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Il documento non è stato acquisito. Sono ammessi PDF, JPG, PNG o DOCX fino a 20 MB.</div><?php endif; ?>
