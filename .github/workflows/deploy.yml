@@ -57,6 +57,11 @@ jobs:
             exit 0
           fi
           content_type=$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{gsub("\r",""); print $2; exit}' "${headers_file}")
+          if grep -qi '^sg-captcha:[[:space:]]*challenge' "${headers_file}"; then
+            echo "::notice::SiteGround challenged the GitHub runner before WordPress. Deployment remains queued through the five-minute internal WordPress safety net."
+            rm -f "${response_file}" "${headers_file}"
+            exit 0
+          fi
           echo "Direct deploy returned HTTP ${http_code}, content-type ${content_type:-unknown}; activating the WordPress cron fallback."
           rm -f "${response_file}" "${headers_file}"
 
