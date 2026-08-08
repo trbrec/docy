@@ -1176,6 +1176,11 @@ function trb_portal_ddb12_monthly_release_count( $user_id = 0 ) {
 	if ( ! $user_id ) {
 		return 0;
 	}
+	static $counts = array();
+	$cache_key = $user_id . ':' . wp_date( 'Y_m' );
+	if ( isset( $counts[ $cache_key ] ) ) {
+		return $counts[ $cache_key ];
+	}
 
 	$query = new WP_Query(
 		array(
@@ -1193,7 +1198,8 @@ function trb_portal_ddb12_monthly_release_count( $user_id = 0 ) {
 		)
 	);
 
-	return (int) $query->found_posts;
+	$counts[ $cache_key ] = (int) $query->found_posts;
+	return $counts[ $cache_key ];
 }
 
 function trb_portal_ddb12_limit_reached( $user_id = 0 ) {
@@ -2089,6 +2095,7 @@ function trb_portal_start_release() {
 	$existing_submit_lock = absint( get_user_meta( $user_id, $submit_lock_key, true ) );
 	if ( $existing_submit_lock && time() - $existing_submit_lock > 30 * MINUTE_IN_SECONDS ) delete_user_meta( $user_id, $submit_lock_key );
 	if ( ! add_user_meta( $user_id, $submit_lock_key, time(), true ) ) {
+		if ( $ddb12_reservation_key ) delete_user_meta( $user_id, $ddb12_reservation_key, $ddb12_reservation_value );
 		trb_portal_release_submission_response( 'upload_in_progress', 'Una richiesta precedente è ancora in elaborazione. Attendi senza inviare nuovamente i file.', 409 );
 	}
 	$submission_token = isset( $_POST['trb_release_submission_token'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ) ) : '';
@@ -2103,6 +2110,7 @@ function trb_portal_start_release() {
 			'meta_value'     => $submission_token,
 		) );
 		if ( $existing_release ) {
+			if ( $ddb12_reservation_key ) delete_user_meta( $user_id, $ddb12_reservation_key, $ddb12_reservation_value );
 			delete_user_meta( $user_id, $submit_lock_key );
 			trb_portal_cleanup_release_staging_session( $submission_token );
 			trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: non è stato creato alcun duplicato.', 200, $existing_release[0] );
@@ -2434,6 +2442,12 @@ function trb_portal_seed_guides() {
 			'content' => '<p>Non aprire una seconda pratica per correggere quella esistente.</p><ul><li>Finché la release non è approvata, puoi sostituire nella pratica i materiali che devono essere corretti.</li><li>Dopo l’approvazione, tutti i file diventano definitivi: apri una segnalazione indicando titolo della release, file interessato e modifica richiesta.</li><li>Dopo la consegna alle piattaforme, una variazione può richiedere nuovi tempi tecnici o lo spostamento della data.</li><li>Dopo la pubblicazione, modifiche sostanziali e rimozioni seguono procedure specifiche e non sono immediate.</li></ul><p>Non inviare autonomamente versioni alternative senza aver ricevuto indicazioni.</p>',
 		);
 	}
+	$guides['ddb12-limite-release'] = array(
+		'title'    => 'DDB12: come funziona la release mensile',
+		'profiles' => array( 'ddb12' ),
+		'excerpt'  => 'Quota, rinnovo mensile e casi che consumano la release disponibile.',
+		'content'  => '<p>Il percorso <strong>DDB12 consente di aprire una pratica release per ciascun mese solare</strong>, fino a 12 release durante i dodici mesi contrattuali. La quota non dipende dalla data di uscita scelta: conta il mese in cui la pratica viene creata correttamente nel Portale Artisti.</p><h4>Cosa conta come una release</h4><ul><li>Singolo, EP, album, doppio album, compilation, collection e catalogo consumano tutti una sola quota mensile.</li><li>Una bozza salvata o un caricamento non completato non consuma la quota.</li><li>Una pratica creata correttamente consuma la quota anche se in seguito richiede una correzione tecnica, documentale o contrattuale.</li></ul><h4>Rinnovo e programmazione</h4><ul><li>La disponibilità si rinnova automaticamente alle 00:00 del primo giorno di ogni mese, secondo il fuso Europe/Rome.</li><li>Le quote non utilizzate non si accumulano e non possono essere trasferite al mese successivo.</li><li>La data di pubblicazione può essere successiva: resta comunque necessario rispettare l’anticipo minimo indicato nel modulo.</li></ul><h4>Se devi correggere una pratica</h4><p>Non creare una seconda release: aggiorna la pratica esistente quando il portale lo consente oppure apri una segnalazione. Un annullamento eccezionale viene valutato dalla Direzione e non ripristina automaticamente una nuova quota.</p><p><strong>Esempio:</strong> se crei una pratica il 18 agosto, potrai aprirne una nuova dal 1° settembre, indipendentemente dalla data di uscita programmata per la release di agosto.</p>',
+	);
 	return $guides;
 }
 
@@ -2480,7 +2494,7 @@ add_action( 'init', 'trb_portal_index_canonical_guides', 37 );
  * their key and refreshed in place.
  */
 function trb_portal_sync_canonical_guides() {
-	if ( get_option( 'trb_portal_guides_synced_v8' ) ) {
+	if ( get_option( 'trb_portal_guides_synced_v9' ) ) {
 		return;
 	}
 
@@ -2523,6 +2537,7 @@ function trb_portal_sync_canonical_guides() {
 				'piattaforme' => 'spotify apple music profilo artista pitching editoriale playlist distribuzione store',
 				'promozione' => 'promozione biografia foto comunicazione radio ufficio stampa materiali supporto',
 				'correzioni' => 'correzione modifica sostituzione variazione errore rimozione takedown data file metadati',
+				'limite-release' => 'ddb12 una release al mese quota mensile limite rinnovo primo giorno dodici 12 anno bozza caricamento fallito',
 			);
 			update_post_meta( $guide_id, '_trb_portal_search_terms', isset( $terms[ $topic ] ) ? $terms[ $topic ] : '' );
 		}
@@ -2536,7 +2551,7 @@ function trb_portal_sync_canonical_guides() {
 		}
 	}
 
-	update_option( 'trb_portal_guides_synced_v8', time(), false );
+	update_option( 'trb_portal_guides_synced_v9', time(), false );
 }
 add_action( 'init', 'trb_portal_sync_canonical_guides', 38 );
 
@@ -3006,7 +3021,7 @@ function trb_portal_dashboard_shortcode() {
 				<h1>Ciao <?php echo esc_html( $first_name ); ?>.</h1>
 				<p>Knowledge Hub: Linee guida, procedure, formazione e supporto per il percorso artistico.</p>
 			</div>
-			<div class="trb-portal__profile"><span>Sei un artista:</span><strong><?php echo esc_html( $affiliation ); ?></strong></div>
+			<div class="trb-portal__profile"><span>Sei un artista:</span><strong><?php echo esc_html( $affiliation ); ?></strong><?php if ( 'ddb12' === $profile ) : ?><small>Profilo DDB12 &middot; 1 release al mese</small><?php endif; ?></div>
 		</header>
 
 		<nav class="trb-portal__nav" aria-label="Sezioni Area Artisti">
@@ -3655,12 +3670,15 @@ function trb_portal_render_release_section() {
 	$today     = wp_date( 'Y-m-d' );
 	$minimum_release_date = ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+30 days' )->format( 'Y-m-d' );
 	$ddb12_limit_reached = trb_portal_ddb12_limit_reached();
+	$ddb12_monthly_count = 'ddb12' === $profile ? trb_portal_ddb12_monthly_release_count() : 0;
 	$ddb12_reset_label   = trb_portal_ddb12_next_reset_label();
+	$ddb12_guide_url     = add_query_arg( 'trb_search', 'limite mensile DDB12', get_permalink() ) . '#risposte';
 	$server_draft        = get_user_meta( get_current_user_id(), '_trb_release_form_draft', true );
 	$server_draft        = is_array( $server_draft ) ? $server_draft : array();
 	?>
 	<section id="release" class="trb-portal__section trb-portal__section--releases">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Inserisci metadati, crediti e file audio della pubblicazione, quindi ricevi il contratto da sottoscrivere per avviare l’iter di distribuzione.</p></div>
+		<?php if ( 'ddb12' === $profile ) : ?><div class="trb-portal__profile-progress"><div class="trb-portal__profile-progress-heading"><span><b>Il tuo piano DDB12</b><small><?php echo $ddb12_limit_reached ? 'Quota mensile utilizzata' : 'Quota mensile disponibile'; ?> &middot; si rinnova il primo giorno del mese</small></span><strong><?php echo esc_html( $ddb12_monthly_count ); ?>/1</strong></div><p>Puoi creare una release per mese solare. Le bozze e i caricamenti non completati non consumano la quota.</p><a class="trb-portal__link" href="<?php echo esc_url( $ddb12_guide_url ); ?>">Leggi come funziona la release mensile <span aria-hidden="true">&rarr;</span></a></div><?php endif; ?>
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
 		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Nuovo file acquisito. Il precedente verrà rimosso automaticamente soltanto dopo il trasferimento verificato su pCloud.</div><?php endif; ?>
 		<?php if ( 'technical_correction' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Correzione del WAV richiesta.</strong><p>Apri la release interessata: troverai il motivo preciso e il comando per sostituire soltanto il file audio.</p></div><?php endif; ?>
@@ -3838,7 +3856,10 @@ function trb_portal_get_resources( $profile ) {
 	$resources = array();
 	$search    = trb_portal_current_search();
 	foreach ( trb_portal_supported_resource_types() as $post_type ) {
-		$visible_profiles = 'ddb12' === $profile ? array( 'ddb12', 'ddb' ) : array( $profile );
+		// DDB12 has its own canonical FAQ copies. Reusing the DDB audience for
+		// downloads remains useful, but doing so for guides rendered every answer
+		// twice in the same dashboard.
+		$visible_profiles = 'ddb12' === $profile && 'trb_guide' !== $post_type ? array( 'ddb12', 'ddb' ) : array( $profile );
 		$profile_query    = array( 'relation' => 'OR' );
 		foreach ( $visible_profiles as $visible_profile ) {
 			$profile_query[] = array(
@@ -3875,12 +3896,12 @@ function trb_portal_get_resources( $profile ) {
 /** Search the entire authorised Knowledge Hub, not only the short FAQ cards. */
 function trb_portal_get_search_results( $profile, $search ) {
 	$results = array();
-	$visible_profiles = 'ddb12' === $profile ? array( 'ddb12', 'ddb' ) : array( $profile );
-	$profile_query    = array( 'relation' => 'OR' );
-	foreach ( $visible_profiles as $visible_profile ) {
-		$profile_query[] = array( 'key' => '_trb_portal_profiles', 'value' => '"' . $visible_profile . '"', 'compare' => 'LIKE' );
-	}
 	foreach ( array( 'trb_guide', 'wpdmpro' ) as $post_type ) {
+		$visible_profiles = 'ddb12' === $profile && 'trb_guide' !== $post_type ? array( 'ddb12', 'ddb' ) : array( $profile );
+		$profile_query    = array( 'relation' => 'OR' );
+		foreach ( $visible_profiles as $visible_profile ) {
+			$profile_query[] = array( 'key' => '_trb_portal_profiles', 'value' => '"' . $visible_profile . '"', 'compare' => 'LIKE' );
+		}
 		$query = new WP_Query( array(
 			'post_type'      => $post_type,
 			'post_status'    => 'publish',
