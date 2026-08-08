@@ -4640,7 +4640,8 @@ function trb_portal_handle_login() {
 	);
 	$user = wp_signon( $credentials, is_ssl() );
 	if ( is_wp_error( $user ) ) {
-		wp_safe_redirect( add_query_arg( 'trb_login', 'failed', home_url( '/accedi/' ) ), 302 );
+		$login_reason = in_array( 'trb_contract_expired', $user->get_error_codes(), true ) ? 'contract_expired' : 'failed';
+		wp_safe_redirect( add_query_arg( 'trb_login', $login_reason, home_url( '/accedi/' ) ), 302 );
 		exit;
 	}
 

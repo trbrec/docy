@@ -140,7 +140,7 @@ function trb_release_bridge_render_preliminary_contract_field( $user ) {
         <td><input type="text" class="regular-text" id="trb_artist_preliminary_contract" name="trb_artist_preliminary_contract" value="<?php echo esc_attr( $value ); ?>" maxlength="120"><p class="description">Campo amministrativo riservato e invisibile all’artista. Identifica il contratto preliminare di riferimento.</p></td>
     </tr><tr>
         <th><label for="trb_artist_contract_term">Data di attuazione/scadenza</label></th>
-        <td><input type="text" class="regular-text" id="trb_artist_contract_term" name="trb_artist_contract_term" value="<?php echo esc_attr( $term ); ?>" maxlength="50" placeholder="08/08/26 - 08/08/27"><p class="description">Formato: GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO. Campo riservato e invisibile all’artista. Per i soli profili DDB-TRB, dal giorno successivo alla scadenza il gruppo passa automaticamente a TRB.</p></td>
+        <td><input type="text" class="regular-text" id="trb_artist_contract_term" name="trb_artist_contract_term" value="<?php echo esc_attr( $term ); ?>" maxlength="50" placeholder="08/08/26 - 08/08/27"><p class="description">Formato: GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO. Campo riservato e invisibile all’artista. Dal giorno successivo alla scadenza i profili DDB-TRB passano automaticamente a TRB; i profili DDS, DDB12 e DDB vengono sospesi fino a un rinnovo approvato dalla Direzione.</p></td>
     </tr></tbody></table>
     <?php
 }
@@ -207,6 +207,127 @@ function trb_release_bridge_transition_roles() {
     return $roles;
 }
 
+/** Roles whose portal access ends on the day after a finite contract term. */
+function trb_release_bridge_expiring_access_roles() {
+    $roles = array( 'artista_a', 'artista_dds', 'artista_ddb12', 'artista_e', 'artista_b', 'artista_ddb' );
+    if ( function_exists( 'trb_portal_profiles' ) ) {
+        $profiles = trb_portal_profiles();
+        $roles = array();
+        foreach ( array( 'dds', 'ddb12', 'ddb' ) as $profile ) {
+            if ( empty( $profiles[ $profile ] ) || ! is_array( $profiles[ $profile ] ) ) continue;
+            if ( ! empty( $profiles[ $profile ]['role'] ) ) $roles[] = $profiles[ $profile ]['role'];
+            $roles = array_merge( $roles, (array) ( $profiles[ $profile ]['aliases'] ?? array() ) );
+        }
+    }
+    return array_values( array_unique( array_filter( array_map( 'sanitize_key', $roles ) ) ) );
+}
+
+/** True only for DDS, DDB12 or DDB after the complete legal expiry day. */
+function trb_release_bridge_is_contract_access_expired( $user_id, $now = null ) {
+    $user_id = absint( $user_id );
+    $user = $user_id ? get_userdata( $user_id ) : false;
+    if ( ! $user instanceof WP_User || $user->has_cap( 'manage_options' ) ) return false;
+    if ( ! array_intersect( trb_release_bridge_expiring_access_roles(), (array) $user->roles ) ) return false;
+
+    $dates = trb_release_bridge_contract_term_dates( get_user_meta( $user_id, '_trb_artist_contract_term', true ) );
+    if ( is_wp_error( $dates ) || ! $dates['end'] instanceof DateTimeImmutable ) return false;
+
+    $timezone = new DateTimeZone( 'Europe/Rome' );
+    if ( $now instanceof DateTimeInterface ) {
+        $today = new DateTimeImmutable( $now->format( 'Y-m-d' ) . ' 00:00:00', $timezone );
+    } elseif ( is_string( $now ) && '' !== trim( $now ) ) {
+        $today = ( new DateTimeImmutable( $now, $timezone ) )->setTime( 0, 0, 0 );
+    } else {
+        $today = new DateTimeImmutable( 'today', $timezone );
+    }
+    return $today > $dates['end'];
+}
+
+/** Read New User Approve's canonical status without requiring the plugin. */
+function trb_release_bridge_access_status( $user_id ) {
+    $status = '';
+    if ( function_exists( 'pw_new_user_approve' ) ) {
+        $approval = pw_new_user_approve();
+        if ( is_object( $approval ) && is_callable( array( $approval, 'get_user_status' ) ) ) {
+            $status = sanitize_key( (string) $approval->get_user_status( $user_id ) );
+        }
+    }
+    if ( '' === $status ) $status = sanitize_key( (string) get_user_meta( $user_id, 'pw_user_status', true ) );
+    if ( 'approve' === $status ) return 'approved';
+    if ( 'deny' === $status ) return 'denied';
+    return $status;
+}
+
+/**
+ * Deny an expired contractual account without sending the registration-denial
+ * email. The dedicated audit marker distinguishes expiry from manual refusal.
+ */
+function trb_release_bridge_maybe_expire_contract_access( $user_id, $now = null, $source = 'automatic' ) {
+    $user_id = absint( $user_id );
+    if ( ! $user_id || ! trb_release_bridge_is_contract_access_expired( $user_id, $now ) ) return false;
+
+    $status = trb_release_bridge_access_status( $user_id );
+    if ( ! in_array( $status, array( '', 'approved', 'denied' ), true ) ) return false;
+
+    if ( 'denied' !== $status ) update_user_meta( $user_id, 'pw_user_status', 'denied' );
+    if ( ! get_user_meta( $user_id, '_trb_artist_contract_access_expired_at', true ) ) {
+        $timezone = new DateTimeZone( 'Europe/Rome' );
+        update_user_meta( $user_id, '_trb_artist_contract_access_expired_at', ( new DateTimeImmutable( 'now', $timezone ) )->format( DATE_ATOM ) );
+        update_user_meta( $user_id, '_trb_artist_contract_access_expired_source', sanitize_key( $source ) );
+        update_user_meta( $user_id, '_trb_artist_contract_access_expired_term', trb_release_bridge_normalize_contract_term( get_user_meta( $user_id, '_trb_artist_contract_term', true ) ) );
+    }
+    clean_user_cache( $user_id );
+    return true;
+}
+
+/** Apply expiry to every relevant contractual artist; all other groups are excluded. */
+function trb_release_bridge_expire_contract_access_users() {
+    $user_ids = get_users( array( 'fields' => 'ids', 'role__in' => trb_release_bridge_expiring_access_roles(), 'number' => -1 ) );
+    foreach ( $user_ids as $user_id ) trb_release_bridge_maybe_expire_contract_access( $user_id, null, 'hourly' );
+}
+
+/** A consistent, branded destination for password and Google authentication. */
+function trb_release_bridge_expired_login_url() {
+    return add_query_arg( 'trb_login', 'contract_expired', home_url( '/accedi/' ) );
+}
+
+/** Override generic approval errors with the contractual expiry reason. */
+function trb_release_bridge_block_expired_authentication( $authenticated, $username = '', $password = '' ) {
+    $user = $authenticated instanceof WP_User ? $authenticated : false;
+    if ( ! $user && '' !== trim( (string) $username ) ) {
+        $identifier = trim( (string) $username );
+        $user = is_email( $identifier ) ? get_user_by( 'email', $identifier ) : get_user_by( 'login', $identifier );
+    }
+    if ( $user instanceof WP_User && trb_release_bridge_is_contract_access_expired( $user->ID ) ) {
+        trb_release_bridge_maybe_expire_contract_access( $user->ID, null, 'login' );
+        return new WP_Error( 'trb_contract_expired', 'Il contratto artistico associato a questo profilo è terminato.' );
+    }
+    return $authenticated;
+}
+add_filter( 'authenticate', 'trb_release_bridge_block_expired_authentication', 9999, 3 );
+
+/** Social-login plugins can set a cookie without using the normal authenticate filter. */
+function trb_release_bridge_block_expired_social_login( $user_login, $user ) {
+    if ( ! $user instanceof WP_User || ! trb_release_bridge_is_contract_access_expired( $user->ID ) ) return;
+    trb_release_bridge_maybe_expire_contract_access( $user->ID, null, 'social_login' );
+    wp_logout();
+    wp_safe_redirect( trb_release_bridge_expired_login_url(), 302 );
+    exit;
+}
+add_action( 'wp_login', 'trb_release_bridge_block_expired_social_login', -1000, 2 );
+
+/** Last-resort guard for existing cookies and authentication-provider callbacks. */
+function trb_release_bridge_guard_expired_portal_session() {
+    if ( is_admin() || wp_doing_ajax() || ! is_user_logged_in() ) return;
+    $user_id = get_current_user_id();
+    if ( ! trb_release_bridge_is_contract_access_expired( $user_id ) ) return;
+    trb_release_bridge_maybe_expire_contract_access( $user_id, null, 'session' );
+    wp_logout();
+    wp_safe_redirect( trb_release_bridge_expired_login_url(), 302 );
+    exit;
+}
+add_action( 'template_redirect', 'trb_release_bridge_guard_expired_portal_session', -2000 );
+
 /**
  * Move one expired DDB-TRB artist to TRB. The change is one-way and idempotent;
  * unrelated WordPress roles are preserved.
@@ -258,6 +379,7 @@ function trb_release_bridge_transition_expired_ddb_trb_users() {
     $roles = trb_release_bridge_transition_roles();
     $user_ids = get_users( array( 'fields' => 'ids', 'role__in' => $roles['source'], 'number' => -1 ) );
     foreach ( $user_ids as $user_id ) trb_release_bridge_maybe_transition_ddb_trb_user( $user_id, null, 'hourly' );
+    trb_release_bridge_expire_contract_access_users();
 }
 add_action( 'trb_release_bridge_transition_expired_ddb_trb', 'trb_release_bridge_transition_expired_ddb_trb_users' );
 
@@ -271,7 +393,9 @@ add_action( 'init', 'trb_release_bridge_schedule_group_transitions', 20 );
 
 /** If an expired artist logs in before cron runs, update the role immediately. */
 function trb_release_bridge_transition_current_artist() {
-    if ( is_user_logged_in() ) trb_release_bridge_maybe_transition_ddb_trb_user( get_current_user_id(), null, 'access' );
+    if ( ! is_user_logged_in() ) return;
+    trb_release_bridge_maybe_transition_ddb_trb_user( get_current_user_id(), null, 'access' );
+    trb_release_bridge_maybe_expire_contract_access( get_current_user_id(), null, 'access' );
 }
 add_action( 'init', 'trb_release_bridge_transition_current_artist', 21 );
 
@@ -298,6 +422,16 @@ function trb_release_bridge_save_preliminary_contract_field( $user_id ) {
     if ( '' === $term ) delete_user_meta( $user_id, '_trb_artist_contract_term' );
     else update_user_meta( $user_id, '_trb_artist_contract_term', $term );
     trb_release_bridge_maybe_transition_ddb_trb_user( $user_id, null, 'admin_save' );
+    if ( trb_release_bridge_is_contract_access_expired( $user_id ) ) {
+        trb_release_bridge_maybe_expire_contract_access( $user_id, null, 'admin_save' );
+    } else {
+        // Extending the term removes the expiry reason, but deliberately does
+        // not approve the account: renewal and Access Status remain two
+        // explicit administrative decisions.
+        delete_user_meta( $user_id, '_trb_artist_contract_access_expired_at' );
+        delete_user_meta( $user_id, '_trb_artist_contract_access_expired_source' );
+        delete_user_meta( $user_id, '_trb_artist_contract_access_expired_term' );
+    }
 }
 add_action( 'personal_options_update', 'trb_release_bridge_save_preliminary_contract_field' );
 add_action( 'edit_user_profile_update', 'trb_release_bridge_save_preliminary_contract_field' );

@@ -19,7 +19,16 @@
 	<section class="trb-login">
 		<div class="trb-login__intro"><p>PORTALE ARTISTI &middot; ACCESSO</p><h1>Accedi al tuo spazio riservato.</h1><p>Procedure, Knowledge Hub e pratiche di release sono disponibili esclusivamente per gli artisti abilitati dalla Direzione TRB rec.</p><a href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Non hai ancora un account? Registrati solo se autorizzato.</a></div>
 		<div class="trb-login__form"><h2>Accedi</h2><p>Usa le credenziali ricevute o create durante la registrazione.</p>
-			<?php if ( isset( $_GET['trb_login'] ) && 'failed' === sanitize_key( wp_unslash( $_GET['trb_login'] ) ) ) : ?><div class="trb-portal__message trb-portal__message--error">Accesso non riuscito. Controlla e-mail e password oppure verifica che l’account sia stato approvato.</div><?php endif; ?>
+			<?php $trb_login_reason = isset( $_GET['trb_login'] ) ? sanitize_key( wp_unslash( $_GET['trb_login'] ) ) : ''; ?>
+			<?php if ( 'contract_expired' === $trb_login_reason ) : ?>
+				<div class="trb-portal__message trb-portal__message--error trb-login__contract-expired" role="alert">
+					<strong>Il tuo contratto artistico è giunto alla scadenza.</strong>
+					<p>Il periodo contrattuale associato al profilo si è concluso e l’accesso alle funzioni riservate del Portale Artisti è stato temporaneamente sospeso.</p>
+					<p>Il percorso condiviso ha rappresentato una fase importante del tuo progetto. Siamo felici del lavoro costruito insieme e ci farebbe piacere confrontarci su come proseguire la tua crescita artistica, programmare le prossime pubblicazioni e dare continuità a quanto realizzato.</p>
+					<p>Contattaci per valutare insieme l’eventuale rinnovo, le condizioni aggiornate e il percorso più adatto alla nuova fase del progetto. Il catalogo e lo storico già presenti nel portale restano conservati: torneranno disponibili dopo il rinnovo e la riattivazione da parte della Direzione.</p>
+					<p><a class="trb-button trb-button--compact" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Contattaci per il rinnovo</a></p>
+				</div>
+			<?php elseif ( 'failed' === $trb_login_reason ) : ?><div class="trb-portal__message trb-portal__message--error">Accesso non riuscito. Controlla e-mail e password oppure verifica che l’account sia stato approvato.</div><?php endif; ?>
 			<form name="loginform" id="loginform" action="<?php echo esc_url( home_url( '/accedi/' ) ); ?>" method="post">
 				<input type="hidden" name="trb_portal_action" value="login" />
 				<?php wp_nonce_field( 'trb_portal_login', 'trb_portal_login_nonce' ); ?>
