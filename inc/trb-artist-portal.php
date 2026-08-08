@@ -721,9 +721,10 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 	);
 	foreach ( $contract_fields as $field => $label ) {
 		$value    = trb_portal_artist_profile_value( $field, $user_id );
-		// Do not alter untouched legacy profiles or their completion percentage.
-		// Every new submission still requires the expiry at form/server level.
-		if ( 'document_expiry' === $field && '' === trim( $value ) ) continue;
+		// The form already displays Italia when no country was stored. Use the
+		// same effective value in the completion engine so the UI cannot report
+		// a field as missing while showing it as filled.
+		if ( 'country' === $field && '' === trim( $value ) ) $value = 'Italia';
 		$complete = 'document_number' === $field ? (bool) trb_portal_validate_identity_document_number( $value ) : ( 'document_expiry' === $field ? (bool) trb_portal_validate_identity_document_expiry( $value ) : '' !== trim( $value ) );
 		$add( $field, $label, 'contract', $complete );
 	}
@@ -752,6 +753,24 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 		$add( 'live_fee', 'Cachet per esibizioni live o DJ set', 'identity', '' !== trim( trb_portal_artist_profile_value( 'live_fee', $user_id ) ) );
 	}
 	$add( 'artist_photo', 'Almeno una foto artista', 'identity', $has_photo );
+
+	// Grandfather only profiles that were already complete before the expiry
+	// field existed. New and incomplete profiles must see and complete it; an
+	// otherwise complete legacy profile remains active until its next update.
+	if ( '' === trim( trb_portal_artist_profile_value( 'document_expiry', $user_id ) ) ) {
+		$other_missing = array_filter( $requirements, static function( $requirement ) {
+			return 'document_expiry' !== $requirement['key'] && empty( $requirement['complete'] );
+		} );
+		if ( empty( $other_missing ) ) {
+			foreach ( $requirements as &$requirement ) {
+				if ( 'document_expiry' === $requirement['key'] ) {
+					$requirement['complete'] = true;
+					break;
+				}
+			}
+			unset( $requirement );
+		}
+	}
 	return $requirements;
 }
 
@@ -2336,28 +2355,28 @@ function trb_portal_seed_guides() {
 	$profiles = array(
 		'dds' => array(
 			'label' => 'DDS',
-			'audio' => '<p>Per la distribuzione devi consegnare il <strong>master definitivo</strong> in WAV o AIFF stereo a <strong>48.000 Hz / 24 bit</strong>. Il file deve essere già approvato e pronto per la pubblicazione.</p><ul><li>Non inviare MP3, M4A, audio WhatsApp o file estratti da piattaforme streaming.</li><li>Non normalizzare o convertire nuovamente il master dopo l’approvazione.</li><li>Esporta dall’inizio corretto e controlla che intro, dissolvenze e code non siano tagliate.</li><li>Per pubblicazioni con più brani usa lo stesso standard tecnico per ogni traccia.</li></ul>',
+			'audio' => '<p>Per la distribuzione devi consegnare il <strong>master definitivo</strong> in formato WAV stereo a <strong>48.000 Hz / 24 bit</strong>. Il file deve essere già approvato e pronto per la pubblicazione.</p><ul><li>Non inviare MP3, M4A, audio WhatsApp o file estratti da piattaforme streaming.</li><li>Non normalizzare o convertire nuovamente il master dopo l’approvazione.</li><li>Esporta dall’inizio corretto e controlla che intro, dissolvenze e code non siano tagliate.</li><li>Per pubblicazioni con più brani usa lo stesso standard tecnico per ogni traccia.</li></ul>',
 			'cover' => '<p>Devi caricare la <strong>copertina definitiva già realizzata</strong>, collegandola alla pratica della release.</p><ul><li>Formato quadrato RGB, 3.000 × 3.000 px, 300 DPI.</li><li>Niente immagini sfocate, bordi involontari, URL, loghi di store o contenuti non autorizzati.</li><li>Nome d’arte e titolo devono coincidere esattamente con i metadati inseriti.</li></ul><p>Controlla attentamente il file prima dell’invio: una copertina non conforme blocca la programmazione.</p>',
 			'platforms' => '<p>Il tuo percorso comprende la distribuzione e il <strong>pitching editoriale</strong> sulle piattaforme digitali previste. Inserisci link corretti ai profili artista già esistenti per evitare pagine duplicate e consegna i materiali entro la finestra utile.</p><p>Il pitching costituisce una candidatura: non garantisce l’inserimento nelle playlist editoriali delle piattaforme.</p>',
 			'promo' => '<p>Prepara una biografia aggiornata, fotografie ad alta qualità e link social corretti. Il percorso comprende Smartlink, Promo Cards e inserimento nelle playlist proprietarie TRB rec.</p><p>Mastering, ottimizzazione dei profili, campagne verso curatori, comunicato stampa e Radio Date possono essere richiesti separatamente nello Store con lo sconto riservato del 50%.</p>',
 		),
 		'ddb' => array(
 			'label' => 'DDB',
-			'audio' => '<p>Quando richiedi la lavorazione inclusa, consegna il <strong>pre-master WAV o AIFF stereo a 48.000 Hz / 24 bit</strong>, privo di limiter aggressivi e con margine dinamico sufficiente.</p><ul><li>Non inviare MP3, conversioni o audio provenienti da applicazioni di messaggistica.</li><li>Evita clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Dopo l’approvazione utilizza esclusivamente il master definitivo ricevuto.</li></ul>',
+			'audio' => '<p>Quando richiedi la lavorazione inclusa, consegna il <strong>pre-master WAV stereo a 48.000 Hz / 24 bit</strong>, privo di limiter aggressivi e con margine dinamico sufficiente.</p><ul><li>Non inviare MP3, conversioni o audio provenienti da applicazioni di messaggistica.</li><li>Evita clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Dopo l’approvazione utilizza esclusivamente il master definitivo ricevuto.</li></ul>',
 			'cover' => '<p>La copertina grafica non è compresa nel tuo percorso: devi caricare l’asset definitivo nella pratica della release.</p><ul><li>RGB, 3.000 × 3.000 px, 300 DPI.</li><li>Titolo e nome d’arte identici ai metadati.</li><li>Nessun URL, logo di piattaforma, bordo involontario o immagine non autorizzata.</li></ul><p>Se acquisti separatamente una realizzazione grafica, le indicazioni verranno gestite nella relativa richiesta.</p>',
 			'platforms' => '<p>Il tuo percorso comprende l’ottimizzazione del profilo e la strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci i link esatti ai profili artista e segnala eventuali omonimie.</li><li>Descrivi storia, contesto, pubblico ed elementi distintivi del brano.</li><li>Consegna tutto con sufficiente anticipo rispetto alla data programmata.</li></ul><p>Il pitching è una candidatura editoriale: non garantisce playlist, copertura o risultati specifici.</p>',
 			'promo' => '<p>Collega alla release biografia, fotografie, storia del brano, testi, link e materiali richiesti per le attività editoriali e promozionali comprese.</p><p>Campagne, opportunità di booking e ulteriori attività dipendono dalle condizioni previste e dalla valutazione del progetto o della singola pubblicazione.</p>',
 		),
 		'ddb_trb' => array(
 			'label' => 'DDB-TRB',
-			'audio' => '<p>Consegna il <strong>pre-master WAV o AIFF stereo a 48.000 Hz / 24 bit</strong> per la lavorazione prevista dal tuo percorso.</p><ul><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Non inviare MP3, conversioni o file provenienti da applicazioni di messaggistica.</li><li>Dopo l’approvazione non modificare né riconvertire il master definitivo.</li></ul>',
+			'audio' => '<p>Consegna il <strong>pre-master WAV stereo a 48.000 Hz / 24 bit</strong> per la lavorazione prevista dal tuo percorso.</p><ul><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Non inviare MP3, conversioni o file provenienti da applicazioni di messaggistica.</li><li>Dopo l’approvazione non modificare né riconvertire il master definitivo.</li></ul>',
 			'cover' => '<p>La realizzazione della copertina è compresa: nella pratica della release devi compilare il <strong>brief grafico</strong>, non caricare una richiesta scollegata.</p><ul><li>Spiega concept, atmosfera e messaggio del progetto.</li><li>Allega riferimenti visivi pertinenti e indica gli elementi da evitare.</li><li>Verifica titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>Le proposte vengono preparate sulla base delle informazioni definitive fornite.</p>',
 			'platforms' => '<p>Il tuo percorso comprende ottimizzazione del profilo e strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci link esatti e segnala eventuali profili duplicati.</li><li>Descrivi storia, contesto, pubblico e punti distintivi della release.</li><li>Consegna i materiali prima della finestra utile al pitching.</li></ul><p>La candidatura non costituisce garanzia di playlist o risultati specifici.</p>',
 			'promo' => '<p>Prepara biografia, fotografie, storia del brano, testi e materiali editoriali completi. Le attività avanzate di comunicazione, radio e ufficio stampa vengono organizzate secondo idoneità e condizioni della singola release.</p><p>Il percorso accompagna lo sviluppo fino all’inserimento previsto nel roster; ogni pubblicazione deve comunque rispettare la procedura e le verifiche indicate.</p>',
 		),
 		'trb' => array(
 			'label' => 'TRB',
-			'audio' => '<p>Per la lavorazione prevista dal tuo percorso consegna il <strong>pre-master WAV o AIFF stereo a 48.000 Hz / 24 bit</strong>.</p><ul><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Non inviare MP3, conversioni o file provenienti da applicazioni di messaggistica.</li><li>Utilizza esclusivamente il master definitivo approvato per la distribuzione.</li></ul>',
+			'audio' => '<p>Per la lavorazione prevista dal tuo percorso consegna il <strong>pre-master WAV stereo a 48.000 Hz / 24 bit</strong>.</p><ul><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Non inviare MP3, conversioni o file provenienti da applicazioni di messaggistica.</li><li>Utilizza esclusivamente il master definitivo approvato per la distribuzione.</li></ul>',
 			'cover' => '<p>La realizzazione della copertina è compresa nel tuo percorso. Compila il <strong>brief grafico dentro la pratica della release</strong>.</p><ul><li>Descrivi concept, atmosfera, riferimenti e messaggio artistico.</li><li>Indica chiaramente gli elementi obbligatori e quelli da evitare.</li><li>Conferma titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>La grafica deve rappresentare coerentemente l’identità del progetto nel roster.</p>',
 			'platforms' => '<p>Il tuo percorso comprende ottimizzazione del profilo e strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci link esatti ai profili e segnala omonimie o duplicazioni.</li><li>Descrivi in modo concreto storia, contesto e posizionamento della release.</li><li>Completa i materiali prima della finestra utile alla candidatura.</li></ul><p>Il pitching non garantisce inserimenti editoriali o risultati specifici.</p>',
 			'promo' => '<p>Come artista del roster, collega alla pratica biografia, fotografie, storia del brano, testi, crediti e materiali completi. Promozione avanzata, comunicazione, radio e ufficio stampa vengono pianificati in relazione alla singola release.</p><p>Le opportunità restano soggette a valutazione artistica, editoriale e strategica: non inviare richieste promozionali scollegate dalla pubblicazione.</p>',
@@ -2461,7 +2480,7 @@ add_action( 'init', 'trb_portal_index_canonical_guides', 37 );
  * their key and refreshed in place.
  */
 function trb_portal_sync_canonical_guides() {
-	if ( get_option( 'trb_portal_guides_synced_v7' ) ) {
+	if ( get_option( 'trb_portal_guides_synced_v8' ) ) {
 		return;
 	}
 
@@ -2517,7 +2536,7 @@ function trb_portal_sync_canonical_guides() {
 		}
 	}
 
-	update_option( 'trb_portal_guides_synced_v7', time(), false );
+	update_option( 'trb_portal_guides_synced_v8', time(), false );
 }
 add_action( 'init', 'trb_portal_sync_canonical_guides', 38 );
 
@@ -2532,7 +2551,7 @@ function trb_portal_eazydocs_manuals() {
 			'title' => 'Manuale tecnico: preparazione e consegna dei file audio',
 			'profiles' => array( 'dds', 'ddb', 'ddb_trb', 'trb' ),
 			'excerpt' => 'Specifiche aggiornate per consegnare master o pre-master senza errori di formato.',
-			'content' => '<h2>Formato richiesto</h2><p>Per ogni brano consegna un file stereo <strong>WAV o AIFF a 48.000 Hz / 24 bit</strong>. Questo è il riferimento per le attuali piattaforme ad alta qualità, incluse le modalità lossless.</p><h2>Prima dell’invio</h2><ul><li>Esporta dall’inizio esatto del brano, senza silenzi accidentali o finali tagliati.</li><li>Non inviare MP3, file estratti da streaming, conversioni, audio ricevuti da WhatsApp o screen recording.</li><li>Non cambiare frequenza di campionamento o profondità bit dopo l’approvazione del master.</li><li>Per EP, album e compilation usa lo stesso standard tecnico per tutte le tracce.</li></ul><h2>Quando è previsto il mastering</h2><p>Consegna il pre-master nello stesso formato, evitando limiter aggressivi sul master bus. Se devi inviare stem, usa la stessa durata e lo stesso punto di partenza per ogni file.</p>',
+			'content' => '<h2>Formato richiesto</h2><p>Per ogni brano consegna un file stereo <strong>WAV a 48.000 Hz / 24 bit</strong>. Questo è il riferimento per le attuali piattaforme ad alta qualità, incluse le modalità lossless.</p><h2>Prima dell’invio</h2><ul><li>Esporta dall’inizio esatto del brano, senza silenzi accidentali o finali tagliati.</li><li>Non inviare MP3, file estratti da streaming, conversioni, audio ricevuti da WhatsApp o screen recording.</li><li>Non cambiare frequenza di campionamento o profondità bit dopo l’approvazione del master.</li><li>Per EP, album e compilation usa lo stesso standard tecnico per tutte le tracce.</li></ul><h2>Quando è previsto il mastering</h2><p>Consegna il pre-master nello stesso formato, evitando limiter aggressivi sul master bus. Se devi inviare stem, usa la stessa durata e lo stesso punto di partenza per ogni file.</p>',
 		),
 		'biografia-artista' => array(
 			'title' => 'Manuale: biografia artistica e materiali stampa',
@@ -2556,7 +2575,7 @@ function trb_portal_eazydocs_manuals() {
 }
 
 function trb_portal_sync_eazydocs_manuals() {
-	if ( ! post_type_exists( 'docs' ) || get_option( 'trb_portal_eazydocs_manuals_v2' ) ) {
+	if ( ! post_type_exists( 'docs' ) || get_option( 'trb_portal_eazydocs_manuals_v3' ) ) {
 		return;
 	}
 	foreach ( trb_portal_eazydocs_manuals() as $key => $manual ) {
@@ -2575,7 +2594,7 @@ function trb_portal_sync_eazydocs_manuals() {
 			update_post_meta( $doc_id, '_trb_portal_profiles', $manual['profiles'] );
 		}
 	}
-	update_option( 'trb_portal_eazydocs_manuals_v2', time(), false );
+	update_option( 'trb_portal_eazydocs_manuals_v3', time(), false );
 }
 add_action( 'init', 'trb_portal_sync_eazydocs_manuals', 39 );
 
@@ -3025,7 +3044,7 @@ function trb_portal_dashboard_shortcode() {
 		<?php trb_portal_render_release_section(); ?>
 
 		<?php if ( ! trb_portal_current_search() ) : ?><?php trb_portal_render_resource_section( 'risposte', 'Risposte rapide', 'Le guide essenziali per preparare una release senza passaggi inutili.', $resources['trb_guide'] ); ?><?php endif; ?>
-		<?php trb_portal_render_resource_section( 'download', 'Guide ed e-book', 'Manuali e approfondimenti scaricabili selezionati per il tuo percorso.', $resources['wpdmpro'] ); ?>
+		<?php trb_portal_render_resource_section( 'download', 'Guide ed e-book', 'Manuali e approfondimenti disponibili per il tuo percorso.', $resources['wpdmpro'] ); ?>
 		<?php trb_portal_render_video_library( $profile ); ?>
 
 	</div>
@@ -3068,11 +3087,11 @@ function trb_portal_render_artist_profile_section() {
 		<div class="trb-portal__profile-progress" role="status" aria-label="Completamento profilo: <?php echo esc_attr( $completion['percentage'] ); ?>%">
 			<div class="trb-portal__profile-progress-heading"><span><b>Completamento profilo</b><small><?php echo $complete ? 'Profilo completo: puoi procedere con la richiesta di distribuzione.' : esc_html( 'Mancano ancora ' . $completion['remaining'] . ' elementi prima di poter richiedere la distribuzione.' ); ?></small></span><strong><?php echo esc_html( $completion['percentage'] ); ?>%</strong></div>
 			<div class="trb-portal__profile-progress-track" aria-hidden="true"><span style="width:<?php echo esc_attr( $completion['percentage'] ); ?>%"></span></div>
-			<?php if ( ! $complete ) : ?><div class="trb-portal__missing-requirements"><strong>Completa questi elementi:</strong><ul><?php foreach ( $completion['missing'] as $item ) : ?><li><a href="#trb-profile-<?php echo esc_attr( $item['group'] ); ?>"><?php echo esc_html( $item['label'] ); ?></a> <small>· <?php echo 'contract' === $item['group'] ? 'Dati anagrafici e documenti' : 'Identità artistica'; ?></small></li><?php endforeach; ?></ul></div><?php endif; ?>
+			<?php if ( ! $complete ) : ?><div class="trb-portal__missing-requirements"><strong>Completa prima questi due passaggi:</strong><ul><?php if ( $missing_contract ) : ?><li><a href="#trb-profile-contract">Dati anagrafici e documenti</a> <small>· <?php echo esc_html( count( $missing_contract ) . ' elementi mancanti' ); ?></small></li><?php endif; ?><?php if ( $missing_identity ) : ?><li><a href="#trb-profile-identity">Identità artistica</a> <small>· <?php echo esc_html( count( $missing_identity ) . ' elementi mancanti' ); ?></small></li><?php endif; ?></ul><details><summary>Mostra il dettaglio degli elementi mancanti</summary><ul><?php foreach ( $completion['missing'] as $item ) : ?><li><a href="#trb-profile-<?php echo esc_attr( $item['group'] ); ?>"><?php echo esc_html( $item['label'] ); ?></a></li><?php endforeach; ?></ul></details></div><?php endif; ?>
 		</div>
 		<div class="trb-portal__profile-accordions">
 			<details id="trb-profile-contract" class="trb-portal__profile-module" <?php echo $missing_contract ? 'open' : ''; ?>>
-				<summary><span><b>Dati anagrafici e documenti</b><small><?php echo $missing_contract ? esc_html( 'Mancano: ' . implode( ', ', wp_list_pluck( $missing_contract, 'label' ) ) ) : 'Completo · dati necessari ai fini contrattuali'; ?></small></span><em><span class="trb-module-open">Apri il modulo</span><span class="trb-module-close">Chiudi il modulo</span></em></summary>
+				<summary><span><b>Dati anagrafici e documenti</b><small><?php echo $missing_contract ? esc_html( 'Mancano ' . count( $missing_contract ) . ' elementi' ) : 'Completo · dati necessari ai fini contrattuali'; ?></small></span><em><span class="trb-module-open">Apri il modulo</span><span class="trb-module-close">Chiudi il modulo</span></em></summary>
 				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="trb_portal_save_artist_profile" /><input type="hidden" name="trb_artist_company_section" value="1" />
 					<input type="hidden" id="trb_portal_profile_nonce_anagraphic" name="trb_portal_profile_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_save_artist_profile' ) ); ?>" />
@@ -3093,14 +3112,14 @@ function trb_portal_render_artist_profile_section() {
 						<label>Città <span>*</span><select name="trb_artist_city" autocomplete="address-level2" data-trb-city required><option value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>"><?php echo esc_html( trb_portal_artist_profile_value( 'city' ) ? trb_portal_artist_profile_value( 'city' ) : 'Inserisci prima il CAP' ); ?></option></select></label>
 						<label>Provincia <span>*</span><input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" data-trb-province readonly required /></label>
 						<label>Nazione <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ? trb_portal_artist_profile_value( 'country' ) : 'Italia' ); ?>" data-trb-country readonly required /></label>
-					</div><p id="trb-account-data-note" class="trb-portal__field-help">Nome, cognome ed e-mail sono ripresi dall’anagrafica del tuo account. Per modificarli, usa il pulsante “Apri una segnalazione” in alto.</p>
+					</div><p id="trb-account-data-note" class="trb-portal__field-help">Se nome o cognome sono vuoti puoi inserirli ora. Dopo il primo salvataggio, per correggere nome, cognome o e-mail, usa il pulsante “Apri una segnalazione” in alto.</p>
 					<?php if ( 'trb' !== $profile ) : ?><details class="trb-portal__company-details" <?php echo $company_requested ? 'open' : ''; ?>><summary>Hai una partita IVA o devi ricevere una fattura intestata a un’azienda?</summary><div><label class="trb-portal__invoice-toggle"><input type="checkbox" name="trb_artist_invoice_requested" value="1" <?php checked( $company_requested ); ?> /> Inserisci dati aziendali per fattura specifica</label><div class="trb-portal__field-grid"><label>Ragione sociale <input type="text" name="trb_artist_company_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_name' ) ); ?>" /></label><label>Partita IVA <input type="text" name="trb_artist_company_vat" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_vat' ) ); ?>" /></label><label>Codice SDI <input type="text" name="trb_artist_company_sdi" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_sdi' ) ); ?>" /></label><label>Indirizzo della sede aziendale <input type="text" name="trb_artist_company_address" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_address' ) ); ?>" /></label></div></div></details><?php endif; ?>
 					<div class="trb-portal__private-documents"><strong>Documenti riservati</strong><p><?php echo $identity_refresh_required ? 'La CIE precedente è scaduta: devi allegare obbligatoriamente il fronte e il retro del nuovo documento.' : 'Carica i quattro documenti richiesti. Restano esclusivamente nella tua pratica e non vengono pubblicati.'; ?></p><div class="trb-portal__field-grid"><label>Carta d’identità — fronte<?php if ( $identity_refresh_required ) : ?> <span>*</span><?php endif; ?> <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" <?php echo $identity_refresh_required ? 'required' : ''; ?> /></label><label>Carta d’identità — retro<?php if ( $identity_refresh_required ) : ?> <span>*</span><?php endif; ?> <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_back" accept="application/pdf,image/jpeg,image/png" <?php echo $identity_refresh_required ? 'required' : ''; ?> /></label><label>Codice fiscale o tessera sanitaria — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label><label>Codice fiscale o tessera sanitaria — retro <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_back" accept="application/pdf,image/jpeg,image/png" /></label></div><?php trb_portal_render_private_files( 'documents' ); ?></div>
 					<button class="trb-button" type="submit">Salva i dati contrattuali</button>
 				</form>
 			</details>
-			<details id="trb-profile-identity" class="trb-portal__profile-module" <?php echo $missing_identity ? 'open' : ''; ?>>
-				<summary><span><b>Identità artistica</b><small><?php echo $missing_identity ? esc_html( 'Mancano: ' . implode( ', ', wp_list_pluck( $missing_identity, 'label' ) ) ) : 'Completo · nome d’arte, biografia e immagini ufficiali'; ?></small></span><em><span class="trb-module-open">Apri il modulo</span><span class="trb-module-close">Chiudi il modulo</span></em></summary>
+			<details id="trb-profile-identity" class="trb-portal__profile-module" <?php echo empty( $missing_contract ) && $missing_identity ? 'open' : ''; ?>>
+				<summary><span><b>Identità artistica</b><small><?php echo $missing_identity ? esc_html( 'Mancano ' . count( $missing_identity ) . ' elementi' ) : 'Completo · nome d’arte, biografia e immagini ufficiali'; ?></small></span><em><span class="trb-module-open">Apri il modulo</span><span class="trb-module-close">Chiudi il modulo</span></em></summary>
 				<form class="trb-portal__request-form trb-portal__profile-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="trb_portal_save_artist_profile" /><input type="hidden" name="trb_artist_identity_section" value="1" /><input type="hidden" id="trb_portal_profile_nonce_identity" name="trb_portal_profile_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_save_artist_profile' ) ); ?>" />
 					<label>Nome d’arte <span>*</span><input type="text" name="trb_artist_artist_name" value="<?php echo esc_attr( $artist_name ); ?>" <?php echo $artist_name ? 'readonly' : ''; ?> required /><small>Deve corrispondere esattamente al nome indicato nell’accordo contrattuale. Dopo il primo salvataggio potrà essere modificato soltanto previa autorizzazione della Direzione, tramite una segnalazione.</small></label>
@@ -3534,6 +3553,12 @@ function trb_portal_release_status_summary( $release_id ) {
 		'distribution_label'  => 'Valutazione della release in corso',
 		'distribution_detail' => 'Non devi caricare nuovamente i file mentre sono in elaborazione.',
 	);
+	if ( '' === $pipeline ) {
+		$summary['headline']            = 'Release incompleta';
+		$summary['contract_detail']     = 'Completa prima i dati e i materiali richiesti della release.';
+		$summary['distribution_label']  = 'Release non ancora inviata';
+		$summary['distribution_detail'] = 'La valutazione inizierà dopo il completamento e l’invio della pratica.';
+	}
 
 	$blocked = array(
 		'copyright_documents_needed' => array( 'Release non approvata: documentazione necessaria', 'Carica i documenti richiesti per consentire la verifica dei diritti.' ),
@@ -3903,7 +3928,7 @@ function trb_portal_render_resource_section( $id, $title, $description, $posts )
 					<?php if ( 'trb_guide' === $post->post_type ) : ?>
 						<details class="trb-portal__card"><summary><p class="trb-portal__type">Guida Area Artisti</p><h3><?php echo esc_html( get_the_title( $post ) ); ?></h3><p><?php echo esc_html( $post->post_excerpt ); ?></p><span class="trb-portal__link">Leggi la risposta <span aria-hidden="true">↓</span></span></summary><div class="trb-portal__answer"><?php echo apply_filters( 'the_content', $post->post_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div></details>
 					<?php else : ?>
-						<article class="trb-portal__card"><p class="trb-portal__type"><?php echo esc_html( get_post_type_object( $post->post_type )->labels->singular_name ); ?></p><h3><a href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title( $post ) ); ?></a></h3><p><?php echo esc_html( wp_trim_words( wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : $post->post_content ), 22 ) ); ?></p><a class="trb-portal__link" href="<?php echo esc_url( get_permalink( $post ) ); ?>" target="_blank" rel="noopener">Apri contenuto <span aria-hidden="true">↗</span></a></article>
+						<article class="trb-portal__card"><p class="trb-portal__type"><?php echo esc_html( get_post_type_object( $post->post_type )->labels->singular_name ); ?></p><h3><a href="<?php echo esc_url( get_permalink( $post ) ); ?>"><?php echo esc_html( get_the_title( $post ) ); ?></a></h3><p><?php echo esc_html( wp_trim_words( wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : $post->post_content ), 22 ) ); ?></p><a class="trb-portal__link" href="<?php echo esc_url( get_permalink( $post ) ); ?>">Vai al download <span aria-hidden="true">↓</span></a></article>
 					<?php endif; ?>
 				<?php endforeach; ?>
 			</div>
