@@ -153,8 +153,9 @@ function trb_portal_contract_rules() {
 	return array(
 		'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'base', 'indefinite_trb_roster' => false ),
 		'ddb12' => array( 'duration_months' => 12, 'release_limit' => 'one_per_month_max_12_year', 'training_level' => 'complete', 'indefinite_trb_roster' => false ),
-		// The current DDB template contains conflicting quantity clauses. Never
-		// automate a numeric limit until the signed template is made unambiguous.
+		// DDB quantity is contract-specific: CSAE 600 allows up to 12 releases,
+		// while the current CCAD 600/800/1200 templates allow unlimited releases.
+		// The profile group alone is therefore not sufficient for a numeric gate.
 		'ddb' => array( 'duration_months' => 12, 'release_limit' => 'contract_defined', 'training_level' => 'complete', 'indefinite_trb_roster' => false ),
 		'ddb_trb' => array( 'duration_months' => 24, 'release_limit' => 'unlimited', 'training_level' => 'complete', 'indefinite_trb_roster' => true, 'trb_roster_after_months' => 24, 'services_continue_indefinitely' => true ),
 		'trb' => array( 'duration_months' => null, 'release_limit' => 'unlimited', 'training_level' => 'not_applicable', 'indefinite_trb_roster' => true, 'services_continue_indefinitely' => true ),
@@ -2430,7 +2431,7 @@ function trb_portal_profile_services_guide( $profile ) {
 	$rules = array(
 		'dds'     => '<p><strong>Regola di pubblicazione:</strong> il percorso è mensile e consente una release per mese. La quota non utilizzata non si accumula.</p>',
 		'ddb12'   => '<p><strong>Regola di pubblicazione:</strong> una release per mese solare, fino a 12 release nei dodici mesi contrattuali. La quota non utilizzata non si accumula.</p>',
-		'ddb'     => '<p><strong>Durata e pubblicazioni:</strong> il percorso dura 12 mesi. Fa fede la quantità indicata nel contratto sottoscritto e visibile nella pratica; in caso di dubbio apri una segnalazione prima di creare una nuova release.</p>',
+		'ddb'     => '<p><strong>Durata e pubblicazioni:</strong> il percorso dura 12 mesi, ma la quantità dipende dal modello contrattuale assegnato: il DDB CSAE 600 prevede fino a 12 release nell’arco contrattuale, mentre i DDB CCAD 600, 800 e 1200 prevedono pubblicazioni illimitate, sempre subordinate ai requisiti tecnici, alle tempistiche e alla programmazione concordata. Fa fede il contratto sottoscritto e visibile nella pratica.</p>',
 		'ddb_trb' => '<p><strong>Durata e passaggio al roster:</strong> il percorso iniziale dura 24 mesi e consente pubblicazioni illimitate. Alla scadenza prevista, il profilo passa a TRB mantenendo dati, catalogo e servizi continuativi.</p>',
 		'trb'     => '<p><strong>Durata e pubblicazioni:</strong> permanenza nel roster a tempo indeterminato e pubblicazioni illimitate, sempre soggette alla verifica tecnica, documentale ed editoriale di ogni pratica.</p>',
 	);
@@ -2560,6 +2561,12 @@ function trb_portal_seed_guides() {
 		'profiles' => array( 'dds' ),
 		'excerpt'  => 'Una pratica per mese, rinnovo della quota e correzioni.',
 		'content'  => '<p>Il percorso <strong>DDS consente una release per mese solare</strong>. Conta il mese in cui la pratica viene creata correttamente, non la data di uscita scelta.</p><ul><li>Ogni pratica completata consuma la quota mensile, indipendentemente dalla tipologia.</li><li>Bozze e caricamenti non completati non consumano la quota.</li><li>La quota si rinnova il primo giorno del mese secondo il fuso Europe/Rome e non si accumula.</li><li>Per correggere una release usa la stessa pratica; non crearne una seconda.</li></ul><p>Se una pratica deve essere annullata, apri una segnalazione: l’annullamento non ripristina automaticamente la quota.</p>',
+	);
+	$guides['ddb-limite-release'] = array(
+		'title'    => 'DDB: quante release prevede il tuo contratto',
+		'profiles' => array( 'ddb' ),
+		'excerpt'  => 'La quantità varia tra DDB CSAE e DDB CCAD: verifica il modello assegnato.',
+		'content'  => '<p>Il gruppo <strong>DDB comprende modelli contrattuali con regole quantitative diverse</strong>. Per questo il portale non applica un unico contatore a tutti gli artisti DDB.</p><ul><li><strong>DDB CSAE 600:</strong> fino a 12 release durante l’intero arco contrattuale, compreso il recupero e la migrazione del catalogo attivo.</li><li><strong>DDB CCAD 600, CCAD 800 e CCAD 1200:</strong> quantità illimitata di release nell’arco contrattuale.</li></ul><p>In entrambi i casi ogni pratica resta subordinata ai requisiti tecnici delle piattaforme, alle tempistiche minime di consegna e alla programmazione operativa concordata. “Illimitate” non significa che più uscite possano essere consegnate senza anticipo o approvate automaticamente.</p><h4>Come verificare la tua regola</h4><p>Apri il contratto associato alla pratica e controlla la voce <strong>Quantità di Pubblicazioni</strong>. Se il nome del modello o la clausola non coincidono con quanto mostrato nel profilo, non creare pratiche aggiuntive: apri una segnalazione allegando il riferimento del contratto.</p>',
 	);
 	$guides['ddb_trb-passaggio-roster'] = array(
 		'title'    => 'DDB-TRB: passaggio automatico al roster TRB',
