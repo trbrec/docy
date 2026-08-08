@@ -127,6 +127,33 @@ function trb_release_bridge_settings_page() {
     <?php
 }
 
+/** Administrative-only artist field used by both contract spreadsheets. */
+function trb_release_bridge_render_preliminary_contract_field( $user ) {
+    if ( ! current_user_can( 'manage_options' ) || ! $user instanceof WP_User ) return;
+    $value = (string) get_user_meta( $user->ID, '_trb_artist_preliminary_contract', true );
+    wp_nonce_field( 'trb_release_bridge_save_preliminary_contract_' . $user->ID, 'trb_release_bridge_preliminary_contract_nonce' );
+    ?>
+    <h2>Contratto preliminare</h2>
+    <table class="form-table" role="presentation"><tbody><tr>
+        <th><label for="trb_artist_preliminary_contract">Contratto preliminare</label></th>
+        <td><input type="text" class="regular-text" id="trb_artist_preliminary_contract" name="trb_artist_preliminary_contract" value="<?php echo esc_attr( $value ); ?>" maxlength="200"><p class="description">Campo amministrativo riservato. Non è mostrato all’artista e viene trasferito nella colonna contrattuale DDB/TRB.</p></td>
+    </tr></tbody></table>
+    <?php
+}
+add_action( 'show_user_profile', 'trb_release_bridge_render_preliminary_contract_field' );
+add_action( 'edit_user_profile', 'trb_release_bridge_render_preliminary_contract_field' );
+
+function trb_release_bridge_save_preliminary_contract_field( $user_id ) {
+    if ( ! current_user_can( 'manage_options' ) || ! current_user_can( 'edit_user', $user_id ) ) return;
+    $nonce = sanitize_text_field( wp_unslash( $_POST['trb_release_bridge_preliminary_contract_nonce'] ?? '' ) );
+    if ( ! $nonce || ! wp_verify_nonce( $nonce, 'trb_release_bridge_save_preliminary_contract_' . $user_id ) ) return;
+    $value = sanitize_text_field( wp_unslash( $_POST['trb_artist_preliminary_contract'] ?? '' ) );
+    if ( '' === $value ) delete_user_meta( $user_id, '_trb_artist_preliminary_contract' );
+    else update_user_meta( $user_id, '_trb_artist_preliminary_contract', $value );
+}
+add_action( 'personal_options_update', 'trb_release_bridge_save_preliminary_contract_field' );
+add_action( 'edit_user_profile_update', 'trb_release_bridge_save_preliminary_contract_field' );
+
 function trb_release_bridge_capture_isrc() {
     if ( ! is_user_logged_in() ) return;
     if ( empty( $_POST['trb_portal_release_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['trb_portal_release_nonce'] ) ), 'trb_portal_start_release' ) ) return;
@@ -302,9 +329,11 @@ function trb_release_bridge_payload( $release_id ) {
     $user = get_userdata( $post->post_author );
     if ( ! $user ) return new WP_Error( 'artist_missing' );
     $profile = trb_portal_user_profile( $user );
+    $preliminary_contract = sanitize_text_field( (string) get_user_meta( $post->post_author, '_trb_artist_preliminary_contract', true ) );
     $tracks  = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
     $state   = (string) get_post_meta( $release_id, '_trb_release_state', true );
     if ( ! in_array( $profile, array( 'dds', 'ddb12', 'ddb', 'ddb_trb', 'trb' ), true ) ) return new WP_Error( 'profile_invalid', 'Profilo contrattuale non riconosciuto.' );
+    if ( '' === $preliminary_contract ) return new WP_Error( 'preliminary_contract_missing', 'Contratto preliminare non assegnato nell’anagrafica amministrativa dell’artista.' );
     if ( 'unreleased' === $state ) {
         $missing_indexes = array();
         foreach ( $tracks as $index => $track ) {
@@ -375,7 +404,7 @@ function trb_release_bridge_payload( $release_id ) {
         if ( '' === trim( (string) $artist[ $required ] ) ) return new WP_Error( 'artist_data_missing', 'Dato contrattuale mancante: ' . $required . '.' );
     }
     if ( empty( $tracks ) ) return new WP_Error( 'tracks_missing', 'Nessun brano disponibile per il contratto.' );
-    return array('action'=>'portal_release','release_id'=>(int)$release_id,'profile'=>$profile,'title'=>$post->post_title,
+    return array('action'=>'portal_release','release_id'=>(int)$release_id,'profile'=>$profile,'preliminary_contract'=>$preliminary_contract,'title'=>$post->post_title,
         'release_type'=>(string)get_post_meta($release_id,'_trb_release_type',true),'release_state'=>$state,
         'release_date'=>(string)get_post_meta($release_id,'_trb_release_date',true),
         'original_date'=>(string)get_post_meta($release_id,'_trb_release_original_date',true),'confirmed_at'=>get_post_time(DATE_ATOM,true,$post),
