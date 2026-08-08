@@ -360,6 +360,17 @@ function trb_portal_register_dds_store_route() {
 add_action( 'rest_api_init', 'trb_portal_register_dds_store_route' );
 
 /**
+ * Let the Store reach only the DDS callback before site-wide REST login
+ * guards run. The route itself still requires HMAC or paid-order verification.
+ */
+function trb_portal_allow_dds_store_rest_callback( $result ) {
+	$path = wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '', PHP_URL_PATH );
+	if ( '/wp-json/trb/v1/dds-activation' === untrailingslashit( (string) $path ) ) return null;
+	return $result;
+}
+add_filter( 'rest_authentication_errors', 'trb_portal_allow_dds_store_rest_callback', PHP_INT_MAX );
+
+/**
  * Read the one contractual profile assigned to a user.
  * Legacy TRB Basic remains readable until the controlled migration is run.
  */
