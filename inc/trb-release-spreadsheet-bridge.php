@@ -436,6 +436,157 @@ function trb_release_bridge_save_preliminary_contract_field( $user_id ) {
 add_action( 'personal_options_update', 'trb_release_bridge_save_preliminary_contract_field' );
 add_action( 'edit_user_profile_update', 'trb_release_bridge_save_preliminary_contract_field' );
 
+/** True for every contractual artist role shown in the WordPress user list. */
+function trb_release_bridge_is_managed_artist( $user ) {
+    if ( ! $user instanceof WP_User ) return false;
+    $roles = array( 'artista_a', 'artista_dds', 'artista_ddb12', 'artista_e', 'artista_b', 'artista_ddb', 'artista_c', 'artista_ddb-trb', 'artista_d', 'artista_trb' );
+    if ( function_exists( 'trb_portal_profiles' ) ) {
+        $roles = array();
+        foreach ( trb_portal_profiles() as $profile ) {
+            if ( ! is_array( $profile ) ) continue;
+            if ( ! empty( $profile['role'] ) ) $roles[] = $profile['role'];
+            $roles = array_merge( $roles, (array) ( $profile['aliases'] ?? array() ) );
+        }
+    }
+    $roles = array_values( array_unique( array_filter( array_map( 'sanitize_key', $roles ) ) ) );
+    return (bool) array_intersect( $roles, (array) $user->roles );
+}
+
+/** Compact status used by the administrative contract preview. */
+function trb_release_bridge_contract_term_status( $user_id, $term = '' ) {
+    $term = '' !== (string) $term ? $term : get_user_meta( $user_id, '_trb_artist_contract_term', true );
+    $dates = trb_release_bridge_contract_term_dates( $term );
+    if ( is_wp_error( $dates ) ) return array( 'class' => 'missing', 'label' => 'Periodo non impostato' );
+    if ( ! $dates['end'] instanceof DateTimeImmutable ) return array( 'class' => 'infinite', 'label' => 'Senza scadenza' );
+
+    $today = new DateTimeImmutable( 'today', new DateTimeZone( 'Europe/Rome' ) );
+    if ( $today > $dates['end'] ) {
+        $user = get_userdata( $user_id );
+        $transition_roles = trb_release_bridge_transition_roles();
+        if ( $user instanceof WP_User && in_array( $transition_roles['target'], (array) $user->roles, true ) && get_user_meta( $user_id, '_trb_artist_group_transitioned_at', true ) ) {
+            return array( 'class' => 'transitioned', 'label' => 'Passato a TRB' );
+        }
+        return array( 'class' => 'expired', 'label' => 'Scaduto' );
+    }
+    return array( 'class' => 'active', 'label' => 'Attivo' );
+}
+
+/** Add one compact column instead of widening the user table with two fields. */
+function trb_release_bridge_add_user_contract_column( $columns ) {
+    if ( ! current_user_can( 'manage_options' ) ) return $columns;
+    $columns['trb_artist_contract'] = 'Contratto artista';
+    return $columns;
+}
+add_filter( 'manage_users_columns', 'trb_release_bridge_add_user_contract_column', 50 );
+
+function trb_release_bridge_render_user_contract_column( $output, $column_name, $user_id ) {
+    if ( 'trb_artist_contract' !== $column_name || ! current_user_can( 'manage_options' ) ) return $output;
+    $user = get_userdata( $user_id );
+    if ( ! trb_release_bridge_is_managed_artist( $user ) ) return '<span aria-hidden="true">—</span>';
+
+    $preliminary = (string) get_user_meta( $user_id, '_trb_artist_preliminary_contract', true );
+    $term = (string) get_user_meta( $user_id, '_trb_artist_contract_term', true );
+    $status = trb_release_bridge_contract_term_status( $user_id, $term );
+    ob_start();
+    ?>
+    <div class="trb-contract-cell" data-trb-contract-cell data-user-id="<?php echo esc_attr( $user_id ); ?>">
+        <div class="trb-contract-cell__preview" data-trb-contract-preview>
+            <span><b>Preliminare:</b> <em data-trb-preliminary-preview><?php echo esc_html( $preliminary ?: 'Non impostato' ); ?></em></span>
+            <span><b>Periodo:</b> <em data-trb-term-preview><?php echo esc_html( $term ?: 'Non impostato' ); ?></em></span>
+            <span class="trb-contract-badge trb-contract-badge--<?php echo esc_attr( $status['class'] ); ?>" data-trb-contract-status><?php echo esc_html( $status['label'] ); ?></span>
+            <button type="button" class="button-link" data-trb-contract-edit>Modifica rapida</button>
+        </div>
+        <div class="trb-contract-cell__editor" data-trb-contract-editor hidden>
+            <label><span>Contratto preliminare</span><input type="text" maxlength="120" value="<?php echo esc_attr( $preliminary ); ?>" data-trb-preliminary-input></label>
+            <label><span>Data di attuazione/scadenza</span><input type="text" maxlength="50" placeholder="08/08/26 - 08/08/27" value="<?php echo esc_attr( $term ); ?>" data-trb-term-input></label>
+            <small>GG/MM/AA - GG/MM/AA oppure GG/MM/AA - INFINITO</small>
+            <div class="trb-contract-cell__actions"><button type="button" class="button button-primary" data-trb-contract-save>Salva</button><button type="button" class="button" data-trb-contract-cancel>Annulla</button></div>
+            <p class="trb-contract-cell__message" data-trb-contract-message aria-live="polite"></p>
+        </div>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+add_filter( 'manage_users_custom_column', 'trb_release_bridge_render_user_contract_column', 10, 3 );
+
+/** Validate and persist the two administrative fields from the Users screen. */
+function trb_release_bridge_quick_update_contract() {
+    if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( array( 'message' => 'Non autorizzato.' ), 403 );
+    check_ajax_referer( 'trb_release_bridge_quick_contract', 'nonce' );
+
+    $user_id = absint( $_POST['user_id'] ?? 0 );
+    $user = $user_id ? get_userdata( $user_id ) : false;
+    if ( ! $user instanceof WP_User || ! current_user_can( 'edit_user', $user_id ) || ! trb_release_bridge_is_managed_artist( $user ) ) {
+        wp_send_json_error( array( 'message' => 'Profilo artista non valido.' ), 400 );
+    }
+
+    $preliminary = sanitize_text_field( wp_unslash( $_POST['preliminary'] ?? '' ) );
+    $term = trb_release_bridge_normalize_contract_term( $_POST['term'] ?? '' );
+    if ( function_exists( 'mb_substr' ) ) $preliminary = mb_substr( $preliminary, 0, 120 );
+    else $preliminary = substr( $preliminary, 0, 120 );
+    if ( '' !== $term ) {
+        $dates = trb_release_bridge_contract_term_dates( $term );
+        if ( is_wp_error( $dates ) ) wp_send_json_error( array( 'message' => $dates->get_error_message() ), 422 );
+    }
+
+    if ( '' === $preliminary ) delete_user_meta( $user_id, '_trb_artist_preliminary_contract' );
+    else update_user_meta( $user_id, '_trb_artist_preliminary_contract', $preliminary );
+    if ( '' === $term ) delete_user_meta( $user_id, '_trb_artist_contract_term' );
+    else update_user_meta( $user_id, '_trb_artist_contract_term', $term );
+
+    $transitioned = trb_release_bridge_maybe_transition_ddb_trb_user( $user_id, null, 'quick_edit' );
+    $access_expired = trb_release_bridge_is_contract_access_expired( $user_id );
+    if ( $access_expired ) {
+        trb_release_bridge_maybe_expire_contract_access( $user_id, null, 'quick_edit' );
+    } else {
+        delete_user_meta( $user_id, '_trb_artist_contract_access_expired_at' );
+        delete_user_meta( $user_id, '_trb_artist_contract_access_expired_source' );
+        delete_user_meta( $user_id, '_trb_artist_contract_access_expired_term' );
+    }
+
+    $status = trb_release_bridge_contract_term_status( $user_id, $term );
+    wp_send_json_success( array(
+        'preliminary' => $preliminary ?: 'Non impostato',
+        'term'        => $term ?: 'Non impostato',
+        'status'      => $status,
+        'reload'      => (bool) ( $transitioned || $access_expired ),
+        'message'     => 'Dati contrattuali aggiornati.',
+    ) );
+}
+add_action( 'wp_ajax_trb_release_bridge_quick_update_contract', 'trb_release_bridge_quick_update_contract' );
+
+/** Styles and behavior are loaded only on Users > All Users. */
+function trb_release_bridge_user_contract_column_assets( $hook ) {
+    if ( 'users.php' !== $hook || ! current_user_can( 'manage_options' ) ) return;
+    $nonce = wp_create_nonce( 'trb_release_bridge_quick_contract' );
+    ?>
+    <style>
+        .column-trb_artist_contract{width:290px}.trb-contract-cell__preview{display:grid;gap:3px}.trb-contract-cell__preview>span:not(.trb-contract-badge){overflow-wrap:anywhere}.trb-contract-cell em{font-style:normal}.trb-contract-badge{display:inline-flex;width:max-content;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700}.trb-contract-badge--active{background:#dff3e4;color:#176b2c}.trb-contract-badge--infinite,.trb-contract-badge--transitioned{background:#e3eefb;color:#135b98}.trb-contract-badge--expired{background:#fde2e2;color:#a42626}.trb-contract-badge--missing{background:#f0f0f1;color:#50575e}.trb-contract-cell__editor{display:grid;gap:7px;padding:10px;border:1px solid #c3c4c7;border-radius:6px;background:#fff}.trb-contract-cell__editor label{display:grid;gap:3px;font-weight:600}.trb-contract-cell__editor input{width:100%}.trb-contract-cell__editor small{color:#646970}.trb-contract-cell__actions{display:flex;gap:6px}.trb-contract-cell__message{margin:0;font-weight:600}.trb-contract-cell__message.is-error{color:#b32d2e}.trb-contract-cell__message.is-success{color:#008a20}@media(max-width:782px){.column-trb_artist_contract{width:auto}.trb-contract-cell{max-width:420px}}
+    </style>
+    <script>
+    document.addEventListener('DOMContentLoaded',function(){
+        var nonce=<?php echo wp_json_encode( $nonce ); ?>;
+        document.addEventListener('click',function(event){
+            var cell=event.target.closest('[data-trb-contract-cell]'); if(!cell)return;
+            var editor=cell.querySelector('[data-trb-contract-editor]'),preview=cell.querySelector('[data-trb-contract-preview]'),message=cell.querySelector('[data-trb-contract-message]');
+            if(event.target.matches('[data-trb-contract-edit]')){editor.hidden=false;preview.hidden=true;message.textContent='';return;}
+            if(event.target.matches('[data-trb-contract-cancel]')){editor.hidden=true;preview.hidden=false;message.textContent='';return;}
+            if(!event.target.matches('[data-trb-contract-save]'))return;
+            var save=event.target; save.disabled=true; message.className='trb-contract-cell__message'; message.textContent='Salvataggio…';
+            var body=new URLSearchParams({action:'trb_release_bridge_quick_update_contract',nonce:nonce,user_id:cell.dataset.userId,preliminary:cell.querySelector('[data-trb-preliminary-input]').value,term:cell.querySelector('[data-trb-term-input]').value});
+            fetch(ajaxurl,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:body.toString()}).then(function(response){return response.json();}).then(function(result){
+                if(!result.success)throw new Error(result.data&&result.data.message?result.data.message:'Salvataggio non riuscito.');
+                cell.querySelector('[data-trb-preliminary-preview]').textContent=result.data.preliminary;cell.querySelector('[data-trb-term-preview]').textContent=result.data.term;
+                var badge=cell.querySelector('[data-trb-contract-status]');badge.textContent=result.data.status.label;badge.className='trb-contract-badge trb-contract-badge--'+result.data.status.class;
+                message.classList.add('is-success');message.textContent=result.data.message;setTimeout(function(){if(result.data.reload){window.location.reload();return;}editor.hidden=true;preview.hidden=false;message.textContent='';},650);
+            }).catch(function(error){message.classList.add('is-error');message.textContent=error.message;}).finally(function(){save.disabled=false;});
+        });
+    });
+    </script>
+    <?php
+}
+add_action( 'admin_enqueue_scripts', 'trb_release_bridge_user_contract_column_assets' );
+
 function trb_release_bridge_capture_isrc() {
     if ( ! is_user_logged_in() ) return;
     if ( empty( $_POST['trb_portal_release_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['trb_portal_release_nonce'] ) ), 'trb_portal_start_release' ) ) return;
