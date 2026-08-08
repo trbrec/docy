@@ -208,7 +208,8 @@ function trb_portal_activate_dds_service( $user_id, $starts_at = '', $billing_mo
 	update_user_meta( $user->ID, '_trb_dds_billing_mode', $billing_mode );
 	update_user_meta( $user->ID, '_trb_dds_paid_until', $paid_until->format( 'Y-m-d' ) );
 	if ( $external_reference ) update_user_meta( $user->ID, '_trb_dds_store_reference', sanitize_text_field( $external_reference ) );
-	update_user_meta( $user->ID, '_trb_artist_contract_term', $cycle_start->format( 'd/m/y' ) . ' - ' . $paid_until->format( 'd/m/y' ) );
+	// The commercial activation never decides the legal duration. The
+	// administrative contract term remains a separate, manually assigned field.
 
 	$profiles = trb_portal_profiles();
 	$role = $profiles['dds']['role'];
@@ -1357,11 +1358,10 @@ function trb_portal_annual_release_period( $user_id = 0 ) {
 
 	$timezone = wp_timezone();
 	$start    = null;
-	$stored   = 'dds' === $profile ? (string) get_user_meta( $user_id, '_trb_dds_service_cycle_start', true ) : '';
-	if ( $stored && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $stored ) ) {
-		$start = DateTimeImmutable::createFromFormat( '!Y-m-d', $stored, $timezone );
-	}
-	if ( ! $start && function_exists( 'trb_release_bridge_contract_term_dates' ) ) {
+	// For both DDS and DDB12 the allowance is anchored exclusively to the
+	// contract period entered by the administrator. Store billing must not
+	// create, extend or replace that legal period automatically.
+	if ( function_exists( 'trb_release_bridge_contract_term_dates' ) ) {
 		$dates = trb_release_bridge_contract_term_dates( get_user_meta( $user_id, '_trb_artist_contract_term', true ) );
 		if ( ! is_wp_error( $dates ) && ! empty( $dates['start'] ) && $dates['start'] instanceof DateTimeImmutable ) $start = $dates['start'];
 	}
@@ -2215,6 +2215,13 @@ function trb_portal_start_release() {
 	}
 	$user_id = get_current_user_id();
 	$profile = trb_portal_user_profile();
+	if ( ! current_user_can( 'manage_options' ) ) {
+		$preliminary_contract = (string) get_user_meta( $user_id, '_trb_artist_preliminary_contract', true );
+		$contract_valid = function_exists( 'trb_release_bridge_validate_preliminary_contract' ) ? trb_release_bridge_validate_preliminary_contract( wp_get_current_user(), $preliminary_contract ) : true;
+		if ( '' === trim( $preliminary_contract ) || is_wp_error( $contract_valid ) ) {
+			trb_portal_release_submission_response( 'contract_configuration', 'Il contratto preliminare non è assegnato oppure non corrisponde al gruppo artista. Apri una segnalazione senza inviare i file.', 422 );
+		}
+	}
 	if ( ! current_user_can( 'manage_options' ) && in_array( $profile, array( 'dds', 'ddb12' ), true ) && ! trb_portal_annual_release_period( $user_id ) ) {
 		trb_portal_release_submission_response( 'annual_period_missing', 'Il periodo annuale delle 12 release non è stato ancora assegnato. Apri una segnalazione senza creare una pratica duplicata.', 422 );
 	}
@@ -2874,7 +2881,7 @@ function trb_portal_sync_canonical_guides() {
 				'correzioni' => 'correzione correggere modifica modificare cambio cambiare sostituzione sostituire variazione errore rimozione takedown data file audio cover copertina presentazione metadati',
 				'royalty-diritti' => 'royalty ricavi netti 50 percento master proprieta diritti autore editoriale licenza ugc content id youtube monetizzazione isrc upc sample beat',
 				'stati-release' => 'stato release contratto inviato firma firmato approvata distribuzione non approvata sospesa controllo verifica manuale correzione documentazione',
-				'limite-release' => 'dds ddb12 una release al mese quota mensile limite rinnovo primo giorno dodici 12 anno quante pubblicare pubblicazioni bozza caricamento fallito',
+				'limite-release' => 'dds ddb12 ddb csae 600 ccad 600 800 1200 una release al mese quota mensile limite rinnovo primo giorno dodici 12 anno contratto quante pubblicare pubblicazioni illimitate bozza caricamento fallito',
 				'passaggio-roster' => 'ddb trb biennio 24 mesi due anni dopo scadenza passaggio automatico roster profilo catalogo release conservati invariati',
 			);
 			update_post_meta( $guide_id, '_trb_portal_search_terms', isset( $terms[ $topic ] ) ? $terms[ $topic ] : '' );
@@ -4027,6 +4034,9 @@ function trb_portal_render_release_section() {
 	$annual_release_count = $annual_period ? min( 12, trb_portal_annual_release_count() ) : 0;
 	$annual_limit_reached = $annual_period ? trb_portal_annual_release_limit_reached() : false;
 	$annual_period_label  = $annual_period ? wp_date( 'j F Y', $annual_period['start']->getTimestamp() ) . ' – ' . wp_date( 'j F Y', $annual_period['end']->getTimestamp() ) : 'Periodo annuale non assegnato';
+	$preliminary_contract = (string) get_user_meta( get_current_user_id(), '_trb_artist_preliminary_contract', true );
+	$contract_model_valid = function_exists( 'trb_release_bridge_validate_preliminary_contract' ) ? trb_release_bridge_validate_preliminary_contract( wp_get_current_user(), $preliminary_contract ) : true;
+	$contract_ready       = current_user_can( 'manage_options' ) || ( '' !== trim( $preliminary_contract ) && ! is_wp_error( $contract_model_valid ) );
 	$monthly_reset_label   = trb_portal_monthly_next_reset_label();
 	$monthly_guide_url     = add_query_arg( 'trb_search', 'limite mensile ' . $monthly_profile_label, get_permalink() ) . '#risposte';
 	$server_draft        = get_user_meta( get_current_user_id(), '_trb_release_form_draft', true );
@@ -4049,6 +4059,7 @@ function trb_portal_render_release_section() {
 		<?php if ( 'monthly_limit' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Il profilo <?php echo esc_html( $monthly_profile_label ); ?> consente di avviare una sola pratica per ogni mese solare, indipendentemente dal tipo di pubblicazione. Il limite si rinnova automaticamente il primo giorno del mese; potrai creare una nuova release dal <?php echo esc_html( $monthly_reset_label ); ?>.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p></div><?php endif; ?>
 		<?php if ( 'annual_limit' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto il limite annuale di 12 release</strong><p>Hai utilizzato tutte le release comprese nel periodo <?php echo esc_html( $annual_period_label ); ?>. Non è possibile creare un’altra pratica fino all’avvio di un nuovo periodo approvato.</p></div><?php endif; ?>
 		<?php if ( 'annual_period_missing' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Periodo annuale non assegnato</strong><p>Il profilo prevede 12 release annue, ma manca la data di inizio necessaria al conteggio. Apri una segnalazione: non creare un nuovo account o una pratica alternativa.</p></div><?php endif; ?>
+		<?php if ( 'contract_configuration' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Contratto preliminare da verificare</strong><p>Il modello non è assegnato oppure non corrisponde al gruppo artista. Apri una segnalazione senza caricare nuovamente i file.</p></div><?php endif; ?>
 		<?php if ( 'upload_in_progress' === $status ) : ?><div class="trb-portal__message"><strong>Caricamento già in elaborazione</strong><p>La richiesta precedente è ancora in corso. Non inviare nuovamente i file: la pagina si aggiornerà al completamento.</p></div><?php endif; ?>
 		<?php if ( 'single_title_mismatch' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I titoli non coincidono.</strong><p>Per una pubblicazione di tipo Singolo, il titolo della release deve essere identico al titolo del brano, comprese maiuscole, accenti e punteggiatura.</p></div><?php endif; ?>
 		<?php if ( 'upload_failed' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Caricamento incompleto.</strong><p>I dati della pratica sono stati conservati, ma uno o più file devono essere verificati o sostituiti.</p></div><?php endif; ?>
@@ -4067,6 +4078,8 @@ function trb_portal_render_release_section() {
 			</li><?php endforeach; ?></ul></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
 			<div class="trb-portal__release-gate"><strong>Completa il profilo per iniziare.</strong><p>Quando il profilo raggiunge il 100% potrai creare la prima release.</p><a class="trb-button" href="#profilo">Completa il profilo</a></div>
+		<?php elseif ( ! $contract_ready ) : ?>
+			<div class="trb-portal__release-gate"><strong>Contratto preliminare da verificare</strong><p>Il modello non è assegnato oppure non corrisponde al gruppo artista. Apri una segnalazione: non è necessario caricare alcun file.</p></div>
 		<?php elseif ( $monthly_profile && ! $annual_period ) : ?>
 			<div class="trb-portal__release-gate"><strong>Periodo annuale non assegnato</strong><p>Prima di creare una release deve essere registrata la data di inizio del periodo che comprende le 12 pubblicazioni.</p></div>
 		<?php elseif ( $annual_limit_reached ) : ?>
