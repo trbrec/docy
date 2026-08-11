@@ -196,25 +196,22 @@ function trb_release_bridge_contract_profile( $user ) {
 }
 
 function trb_release_bridge_expected_contract_label( $user ) {
-    $profile = trb_release_bridge_contract_profile( $user );
-    if ( 'ddb12' === $profile ) return 'Per DDB12 è ammesso esclusivamente il modello DDB CSAE 600.';
-    if ( 'ddb' === $profile ) return 'Per DDB sono ammessi esclusivamente i modelli DDB CCAD 600, CCAD 800 e CCAD 1200.';
-    return 'Identifica il contratto preliminare di riferimento.';
+	return 'Inserisci il numero del contratto preliminare, che deve iniziare con TRB- (esempio: TRB-20260327).';
 }
 
-/** Enforce the canonical group-to-contract matrix without changing free text used by Apps Script. */
+/**
+ * Validate only the preliminary contract identifier.
+ *
+ * The contractual model is determined by the artist profile and must never be
+ * inferred from this field: every preliminary identifier starts with TRB-.
+ */
 function trb_release_bridge_validate_preliminary_contract( $user, $value ) {
     if ( ! $user instanceof WP_User ) return new WP_Error( 'contract_user_invalid', 'Profilo artista non valido.' );
-    $value = strtoupper( sanitize_text_field( (string) $value ) );
+	$value = strtoupper( trim( sanitize_text_field( (string) $value ) ) );
     if ( '' === trim( $value ) ) return true;
-    $profile  = trb_release_bridge_contract_profile( $user );
-    $is_csae  = (bool) preg_match( '/\bCSAE\s*600\b/', $value );
-    $is_ccad  = (bool) preg_match( '/\bCCAD\s*(600|800|1200)\b/', $value );
-    $known_ddb_model = $is_csae || $is_ccad;
-
-    if ( 'ddb12' === $profile && ! $is_csae ) return new WP_Error( 'ddb12_contract_mismatch', 'Il gruppo DDB12 deve utilizzare esclusivamente il contratto DDB CSAE 600.' );
-    if ( 'ddb' === $profile && ! $is_ccad ) return new WP_Error( 'ddb_contract_mismatch', 'Il gruppo DDB deve utilizzare esclusivamente un contratto DDB CCAD 600, CCAD 800 o CCAD 1200.' );
-    if ( ! in_array( $profile, array( 'ddb12', 'ddb' ), true ) && $known_ddb_model ) return new WP_Error( 'contract_group_mismatch', 'Il modello CSAE 600 appartiene a DDB12; i modelli CCAD 600/800/1200 appartengono a DDB.' );
+	if ( 0 !== strpos( $value, 'TRB-' ) ) {
+		return new WP_Error( 'preliminary_contract_invalid', 'Il numero del contratto preliminare deve iniziare con TRB-.' );
+	}
     return true;
 }
 
