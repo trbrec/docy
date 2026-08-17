@@ -1,3 +1,5 @@
+[main 13621f0] Intercept legacy password reset links early
+ 1 file changed, 23 insertions(+)
 <?php
 /**
  * Area Artisti TRB rec.
@@ -5297,6 +5299,29 @@ function trb_portal_handle_password_recovery() {
 	exit;
 }
 add_action( 'init', 'trb_portal_handle_password_recovery', 1 );
+
+/**
+ * Rescue reset links before legacy login plugins can redirect wp-login.php.
+ * Limit this early interception to the WordPress login script so the branded
+ * /recupera-password/ URL can safely use the same action query parameter.
+ */
+function trb_portal_intercept_legacy_password_reset_url() {
+	$request_path = (string) wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '', PHP_URL_PATH );
+	if ( 'wp-login.php' !== basename( $request_path ) ) {
+		return;
+	}
+
+	$action = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : '';
+	if ( ! in_array( $action, array( 'rp', 'resetpass' ), true ) ) {
+		return;
+	}
+
+	$key   = isset( $_GET['key'] ) ? sanitize_text_field( wp_unslash( $_GET['key'] ) ) : '';
+	$login = isset( $_GET['login'] ) ? sanitize_user( wp_unslash( $_GET['login'] ), true ) : '';
+	wp_safe_redirect( trb_portal_password_reset_url( $key, $login ), 302 );
+	exit;
+}
+add_action( 'init', 'trb_portal_intercept_legacy_password_reset_url', -1000 );
 
 /** Preserve the branded recovery journey when someone opens the legacy URL. */
 function trb_portal_redirect_default_password_request() {
