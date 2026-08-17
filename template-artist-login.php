@@ -20,6 +20,8 @@
 		<div class="trb-login__intro"><p>PORTALE ARTISTI &middot; ACCESSO</p><h1>Accedi al tuo spazio riservato.</h1><p>Procedure, Knowledge Hub e pratiche di release sono disponibili esclusivamente per gli artisti abilitati dalla Direzione TRB rec.</p><a href="<?php echo esc_url( home_url( '/registrati/' ) ); ?>">Non hai ancora un account? Registrati solo se autorizzato.</a></div>
 		<div class="trb-login__form"><h2>Accedi</h2><p>Usa le credenziali ricevute o create durante la registrazione.</p>
 			<?php $trb_login_reason = isset( $_GET['trb_login'] ) ? sanitize_key( wp_unslash( $_GET['trb_login'] ) ) : ''; ?>
+			<?php $trb_password_reset = isset( $_GET['password_reset'] ) ? sanitize_key( wp_unslash( $_GET['password_reset'] ) ) : ''; ?>
+			<?php if ( 'success' === $trb_password_reset ) : ?><div class="trb-portal__message" role="status"><strong>Password aggiornata</strong><p>La nuova password è stata salvata. Ora puoi accedere al Portale Artisti.</p></div><?php endif; ?>
 			<?php if ( 'contract_expired' === $trb_login_reason ) : ?>
 				<div class="trb-portal__message trb-portal__message--error trb-login__contract-expired" role="alert">
 					<strong>Il tuo contratto artistico è giunto alla scadenza.</strong>
