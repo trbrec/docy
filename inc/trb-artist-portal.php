@@ -1,5 +1,3 @@
-[main 13621f0] Intercept legacy password reset links early
- 1 file changed, 23 insertions(+)
 <?php
 /**
  * Area Artisti TRB rec.
@@ -5254,6 +5252,36 @@ function trb_portal_use_branded_password_reset_link( $message, $key, $user_login
 }
 add_filter( 'retrieve_password_message', 'trb_portal_use_branded_password_reset_link', 20, 3 );
 
+/** Send a reset email without allowing legacy lost-password plugins to redirect. */
+function trb_portal_send_password_reset_email( $identifier ) {
+	$identifier = trim( (string) $identifier );
+	if ( '' === $identifier ) {
+		return new WP_Error( 'empty_username', 'Inserisci l’e-mail o il nome utente.' );
+	}
+
+	$user = is_email( $identifier ) ? get_user_by( 'email', $identifier ) : get_user_by( 'login', $identifier );
+	if ( ! ( $user instanceof WP_User ) ) {
+		return true;
+	}
+
+	$key = get_password_reset_key( $user );
+	if ( is_wp_error( $key ) ) {
+		return $key;
+	}
+
+	$url     = trb_portal_password_reset_url( $key, $user->user_login );
+	$subject = 'Reimpostazione password per [Portale Artisti TRB rec]';
+	$message = "Qualcuno ha richiesto la reimpostazione della password per il seguente account:\n\n"
+		. "Nome del sito: Portale Artisti TRB rec\n"
+		. "Nome utente: {$user->user_login}\n\n"
+		. "Se si è trattato di un errore, ignora questa email e non accadrà nulla.\n\n"
+		. "Per scegliere una nuova password visita il seguente indirizzo:\n{$url}\n";
+
+	return wp_mail( $user->user_email, $subject, $message )
+		? true
+		: new WP_Error( 'retrieve_password_email_failure', 'Invio dell’e-mail non riuscito.' );
+}
+
 /** Process both recovery requests and the final password change. */
 function trb_portal_handle_password_recovery() {
 	if ( 'POST' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) ) {
@@ -5271,8 +5299,8 @@ function trb_portal_handle_password_recovery() {
 	}
 
 	if ( 'request_password' === $action ) {
-		$_POST['user_login'] = isset( $_POST['user_login'] ) ? sanitize_text_field( wp_unslash( $_POST['user_login'] ) ) : '';
-		$result = retrieve_password();
+		$identifier = isset( $_POST['user_login'] ) ? sanitize_text_field( wp_unslash( $_POST['user_login'] ) ) : '';
+		$result     = trb_portal_send_password_reset_email( $identifier );
 		// Do not reveal whether an email address or username exists.
 		$status = is_wp_error( $result ) && in_array( 'empty_username', $result->get_error_codes(), true ) ? 'missing' : 'sent';
 		wp_safe_redirect( add_query_arg( 'password_status', $status, home_url( '/recupera-password/' ) ), 302 );
