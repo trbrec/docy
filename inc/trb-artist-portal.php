@@ -5152,7 +5152,7 @@ add_action( 'trb_portal_cleanup_pending_accounts', 'trb_portal_cleanup_pending_a
 
 /** Each registration challenge is single-use, so the page must never be cached. */
 function trb_portal_no_cache_registration() {
-	if ( is_page( array( 'registrati', 'accedi' ) ) ) {
+	if ( is_page( array( 'registrati', 'accedi', 'recupera-password' ) ) ) {
 		nocache_headers();
 	}
 }
@@ -5224,6 +5224,80 @@ function trb_portal_maybe_create_password_page() {
 }
 add_action( 'init', 'trb_portal_maybe_create_password_page', 33 );
 
+/** Return the branded URL used to choose a new password. */
+function trb_portal_password_reset_url( $key, $login ) {
+	return add_query_arg(
+		array(
+			'action' => 'rp',
+			'key'    => $key,
+			'login'  => $login,
+		),
+		home_url( '/recupera-password/' )
+	);
+}
+
+/**
+ * Keep password-reset links inside the public portal, including reset emails
+ * sent manually from Users in wp-admin.
+ */
+function trb_portal_use_branded_password_reset_link( $message, $key, $user_login ) {
+	$branded_url = trb_portal_password_reset_url( $key, $user_login );
+	$pattern     = '~https?://[^\s<>]+wp-login\.php\?[^\s<>]*(?:action=(?:rp|resetpass))[^\s<>]*~i';
+
+	if ( preg_match( $pattern, $message ) ) {
+		return preg_replace( $pattern, $branded_url, $message, 1 );
+	}
+
+	return $message . "\n\n" . $branded_url;
+}
+add_filter( 'retrieve_password_message', 'trb_portal_use_branded_password_reset_link', 20, 3 );
+
+/** Process both recovery requests and the final password change. */
+function trb_portal_handle_password_recovery() {
+	if ( 'POST' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) ) {
+		return;
+	}
+
+	$action = isset( $_POST['trb_portal_action'] ) ? sanitize_key( wp_unslash( $_POST['trb_portal_action'] ) ) : '';
+	if ( ! in_array( $action, array( 'request_password', 'reset_password' ), true ) ) {
+		return;
+	}
+
+	if ( ! isset( $_POST['trb_password_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['trb_password_nonce'] ) ), 'trb_portal_password_recovery' ) ) {
+		wp_safe_redirect( add_query_arg( 'password_error', 'session', home_url( '/recupera-password/' ) ), 302 );
+		exit;
+	}
+
+	if ( 'request_password' === $action ) {
+		$_POST['user_login'] = isset( $_POST['user_login'] ) ? sanitize_text_field( wp_unslash( $_POST['user_login'] ) ) : '';
+		$result = retrieve_password();
+		// Do not reveal whether an email address or username exists.
+		$status = is_wp_error( $result ) && in_array( 'empty_username', $result->get_error_codes(), true ) ? 'missing' : 'sent';
+		wp_safe_redirect( add_query_arg( 'password_status', $status, home_url( '/recupera-password/' ) ), 302 );
+		exit;
+	}
+
+	$login = isset( $_POST['login'] ) ? sanitize_user( wp_unslash( $_POST['login'] ), true ) : '';
+	$key   = isset( $_POST['key'] ) ? sanitize_text_field( wp_unslash( $_POST['key'] ) ) : '';
+	$user  = check_password_reset_key( $key, $login );
+	if ( is_wp_error( $user ) ) {
+		wp_safe_redirect( add_query_arg( 'password_error', 'invalid_key', home_url( '/recupera-password/' ) ), 302 );
+		exit;
+	}
+
+	$pass1 = isset( $_POST['pass1'] ) ? (string) wp_unslash( $_POST['pass1'] ) : '';
+	$pass2 = isset( $_POST['pass2'] ) ? (string) wp_unslash( $_POST['pass2'] ) : '';
+	if ( '' === $pass1 || $pass1 !== $pass2 ) {
+		wp_safe_redirect( add_query_arg( array( 'action' => 'rp', 'key' => $key, 'login' => $login, 'password_error' => 'mismatch' ), home_url( '/recupera-password/' ) ), 302 );
+		exit;
+	}
+
+	reset_password( $user, $pass1 );
+	wp_safe_redirect( add_query_arg( 'password_reset', 'success', home_url( '/accedi/' ) ), 302 );
+	exit;
+}
+add_action( 'init', 'trb_portal_handle_password_recovery', 1 );
+
 /** Preserve the branded recovery journey when someone opens the legacy URL. */
 function trb_portal_redirect_default_password_request() {
 	if ( 'GET' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) ) {
@@ -5235,8 +5309,15 @@ function trb_portal_redirect_default_password_request() {
 		wp_safe_redirect( home_url( '/recupera-password/' ), 302 );
 		exit;
 	}
+
+	if ( in_array( $action, array( 'rp', 'resetpass' ), true ) ) {
+		$key   = isset( $_REQUEST['key'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['key'] ) ) : '';
+		$login = isset( $_REQUEST['login'] ) ? sanitize_user( wp_unslash( $_REQUEST['login'] ), true ) : '';
+		wp_safe_redirect( trb_portal_password_reset_url( $key, $login ), 302 );
+		exit;
+	}
 }
-add_action( 'login_init', 'trb_portal_redirect_default_password_request' );
+add_action( 'login_init', 'trb_portal_redirect_default_password_request', 0 );
 
 function trb_portal_is_private_screen() {
 	$post = get_post();
