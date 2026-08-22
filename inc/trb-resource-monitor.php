@@ -597,6 +597,16 @@ function trb_resource_upload_rights_document() {
 	$name = ! empty( $file['name'] ) ? sanitize_file_name( $file['name'] ) : '';
 	$extension = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
 	$valid = $name && UPLOAD_ERR_OK === (int) $file['error'] && is_uploaded_file( $file['tmp_name'] ) && (int) $file['size'] <= 20 * MB_IN_BYTES && in_array( $extension, array( 'pdf','jpg','jpeg','png','docx' ), true );
+	if ( $valid && in_array( $extension, array( 'jpg', 'jpeg', 'png' ), true ) ) {
+		$image = wp_getimagesize( $file['tmp_name'] );
+		$valid = is_array( $image ) && in_array( $image['mime'] ?? '', array( 'image/jpeg', 'image/png' ), true );
+	} elseif ( $valid && 'pdf' === $extension ) {
+		$handle = fopen( $file['tmp_name'], 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		$valid = $handle && '%PDF-' === fread( $handle, 5 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+		if ( $handle ) fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+	} elseif ( $valid && 'docx' === $extension ) {
+		$valid = function_exists( 'trb_portal_validate_release_document' ) && trb_portal_validate_release_document( $file['tmp_name'], 'docx' );
+	}
 	if ( $valid ) { $guard = trb_resource_temp_storage_guard( (int) $file['size'] ); $valid = ! is_wp_error( $guard ); }
 	$dashboard = get_permalink( get_option( 'trb_portal_dashboard_created' ) ); $anchor = '#release-files-' . $release_id;
 	if ( ! $valid ) { wp_safe_redirect( add_query_arg( 'trb_release', 'rights_invalid', $dashboard ) . $anchor ); exit; }
