@@ -1641,6 +1641,7 @@ function trb_portal_route_frontend_admin_post() {
 		'trb_portal_save_artist_profile',
 		'trb_portal_save_release_draft',
 		'trb_portal_stage_release_chunk',
+		'trb_portal_release_waveform',
 		'trb_portal_release_file',
 		'trb_portal_replace_release_file',
 		'trb_portal_start_release',
@@ -1682,8 +1683,13 @@ foreach ( array(
 	'trb_portal_save_artist_profile',
 	'trb_portal_save_release_draft',
 	'trb_portal_stage_release_chunk',
+	'trb_portal_release_waveform',
+	'trb_portal_release_file',
 	'trb_portal_replace_release_file',
 	'trb_portal_start_release',
+	'trb_portal_private_file',
+	'trb_resource_upload_rights',
+	'trb_analysis_download_report',
 ) as $trb_protected_action ) {
 	add_action( 'admin_post_nopriv_' . $trb_protected_action, 'trb_portal_protected_action_unauthenticated' );
 }
@@ -5364,6 +5370,11 @@ function trb_portal_handle_password_recovery() {
 	$pass2 = isset( $_POST['pass2'] ) ? (string) wp_unslash( $_POST['pass2'] ) : '';
 	if ( '' === $pass1 || $pass1 !== $pass2 ) {
 		wp_safe_redirect( add_query_arg( array( 'action' => 'rp', 'key' => $key, 'login' => $login, 'password_error' => 'mismatch' ), home_url( '/recupera-password/' ) ), 302 );
+		exit;
+	}
+
+	if ( strlen( $pass1 ) < 10 ) {
+		wp_safe_redirect( add_query_arg( array( 'action' => 'rp', 'key' => $key, 'login' => $login, 'password_error' => 'too_short' ), home_url( '/recupera-password/' ) ), 302 );
 		exit;
 	}
 
