@@ -1639,6 +1639,7 @@ function trb_portal_route_frontend_admin_post() {
 	$action = is_string( $raw_action ) ? sanitize_key( $raw_action ) : '';
 	$allowed = array(
 		'trb_portal_save_artist_profile',
+		'trb_portal_save_release_draft',
 		'trb_portal_stage_release_chunk',
 		'trb_portal_release_file',
 		'trb_portal_replace_release_file',
@@ -1657,6 +1658,35 @@ function trb_portal_route_frontend_admin_post() {
 	wp_die( 'La richiesta non ha restituito una risposta.', 'Portale Artisti TRB rec', array( 'response' => 500 ) );
 }
 add_action( 'init', 'trb_portal_route_frontend_admin_post', 0 );
+
+/**
+ * Protected portal actions must never fall through to WordPress' generic
+ * HTTP 400 page when an artist session expires during an upload.
+ */
+function trb_portal_protected_action_unauthenticated() {
+	$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : '';
+	$json_actions = array(
+		'trb_portal_save_release_draft',
+		'trb_portal_stage_release_chunk',
+		'trb_portal_start_release',
+	);
+	if ( in_array( $action, $json_actions, true ) || ( isset( $_SERVER['HTTP_X_TRB_UPLOAD'] ) && '1' === sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRB_UPLOAD'] ) ) ) ) {
+		while ( ob_get_level() ) ob_end_clean();
+		nocache_headers();
+		wp_send_json_error( array( 'message' => 'La sessione è scaduta. I dati compilati restano nella bozza: accedi nuovamente, riapri la release e riprova.' ), 401 );
+	}
+	wp_safe_redirect( add_query_arg( 'trb_login', 'session_expired', home_url( '/accedi/' ) ) );
+	exit;
+}
+foreach ( array(
+	'trb_portal_save_artist_profile',
+	'trb_portal_save_release_draft',
+	'trb_portal_stage_release_chunk',
+	'trb_portal_replace_release_file',
+	'trb_portal_start_release',
+) as $trb_protected_action ) {
+	add_action( 'admin_post_nopriv_' . $trb_protected_action, 'trb_portal_protected_action_unauthenticated' );
+}
 
 function trb_portal_release_staging_root( $user_id = 0 ) {
 	$uploads = wp_upload_dir();
@@ -2291,6 +2321,7 @@ function trb_portal_save_release_draft() {
 	wp_send_json_success( array( 'saved_at' => time() ) );
 }
 add_action( 'wp_ajax_trb_portal_save_release_draft', 'trb_portal_save_release_draft' );
+add_action( 'admin_post_trb_portal_save_release_draft', 'trb_portal_save_release_draft' );
 
 function trb_portal_release_upload_error_message( $code ) {
 	$messages = array(
@@ -4228,7 +4259,7 @@ function trb_portal_render_release_section() {
 		<details class="trb-release-create" <?php echo empty( $releases ) || in_array( $status, array( 'invalid', 'error', 'duration_mismatch', 'file_invalid', 'file_error', 'single_title_mismatch', 'upload_failed' ), true ) ? 'open' : ''; ?>>
 			<summary>+ Crea una nuova release</summary>
 		<div class="trb-portal__release-workspace">
-			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-stage-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-submit-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-draft-url="<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>" data-draft-nonce="<?php echo esc_attr( wp_create_nonce( 'trb_portal_release_draft' ) ); ?>" data-draft-key="trb-release-draft-<?php echo esc_attr( get_current_user_id() ); ?>" data-qa-mode="<?php echo current_user_can( 'manage_options' ) ? '1' : '0'; ?>" data-release-form>
+			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-stage-url="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-submit-url="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-draft-url="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-draft-nonce="<?php echo esc_attr( wp_create_nonce( 'trb_portal_release_draft' ) ); ?>" data-draft-key="trb-release-draft-<?php echo esc_attr( get_current_user_id() ); ?>" data-qa-mode="<?php echo current_user_can( 'manage_options' ) ? '1' : '0'; ?>" data-release-form>
 				<input type="hidden" name="action" value="trb_portal_start_release" />
 				<input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" />
 				<input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" />
