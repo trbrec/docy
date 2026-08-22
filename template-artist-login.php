@@ -22,6 +22,7 @@
 			<?php $trb_login_reason = isset( $_GET['trb_login'] ) ? sanitize_key( wp_unslash( $_GET['trb_login'] ) ) : ''; ?>
 			<?php $trb_password_reset = isset( $_GET['password_reset'] ) ? sanitize_key( wp_unslash( $_GET['password_reset'] ) ) : ''; ?>
 			<?php if ( 'success' === $trb_password_reset ) : ?><div class="trb-portal__message" role="status"><strong>Password aggiornata</strong><p>La nuova password è stata salvata. Ora puoi accedere al Portale Artisti.</p></div><?php endif; ?>
+			<?php if ( 'session_expired' === $trb_login_reason ) : ?><div class="trb-portal__message trb-portal__message--error" role="alert"><strong>Sessione scaduta</strong><p>Accedi nuovamente per continuare. I dati testuali salvati nella bozza della release restano disponibili.</p></div><?php endif; ?>
 			<?php if ( 'contract_expired' === $trb_login_reason ) : ?>
 				<div class="trb-portal__message trb-portal__message--error trb-login__contract-expired" role="alert">
 					<strong>Il tuo contratto artistico è giunto alla scadenza.</strong>
