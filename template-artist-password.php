@@ -22,6 +22,10 @@ $login     = isset( $_GET['login'] ) ? sanitize_user( wp_unslash( $_GET['login']
 $is_reset  = 'rp' === $action && '' !== $key && '' !== $login;
 $status    = isset( $_GET['password_status'] ) ? sanitize_key( wp_unslash( $_GET['password_status'] ) ) : '';
 $error     = isset( $_GET['password_error'] ) ? sanitize_key( wp_unslash( $_GET['password_error'] ) ) : '';
+if ( $is_reset && is_wp_error( check_password_reset_key( $key, $login ) ) ) {
+	$is_reset = false;
+	$error = 'invalid_key';
+}
 ?>
 <main class="trb-login-page trb-password-page">
 	<header class="trb-landing__topbar">
@@ -35,6 +39,8 @@ $error     = isset( $_GET['password_error'] ) ? sanitize_key( wp_unslash( $_GET[
 			<?php if ( 'missing' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Dato mancante</strong><p>Inserisci l’e-mail o il nome utente associato al tuo account.</p></div><?php endif; ?>
 			<?php if ( 'invalid_key' === $error ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Collegamento non valido o scaduto</strong><p>Richiedi un nuovo collegamento di reimpostazione. Per sicurezza ogni collegamento può essere utilizzato una sola volta.</p></div><?php endif; ?>
 			<?php if ( 'mismatch' === $error ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Le password non coincidono</strong><p>Inserisci la stessa nuova password in entrambi i campi.</p></div><?php endif; ?>
+			<?php if ( 'too_short' === $error ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Password troppo corta</strong><p>La nuova password deve contenere almeno 10 caratteri.</p></div><?php endif; ?>
+			<?php if ( 'session' === $error ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Pagina scaduta</strong><p>Aggiorna la pagina e ripeti l’operazione.</p></div><?php endif; ?>
 			<?php if ( $is_reset ) : ?>
 				<h2>Imposta la nuova password</h2><p>Il collegamento è personale e può essere utilizzato una sola volta.</p>
 				<form action="<?php echo esc_url( home_url( '/recupera-password/' ) ); ?>" method="post">
