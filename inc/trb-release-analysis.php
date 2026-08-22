@@ -355,7 +355,7 @@ function trb_analysis_run_technical( $release_id ) {
 
 function trb_analysis_after_pcloud( $release_id ) {
 	$result = trb_analysis_run_technical( absint( $release_id ) );
-	if ( 'passed' !== $result['status'] ) return;
+	if ( ! in_array( $result['status'], array( 'passed', 'warning' ), true ) ) return;
 	/** ACRCloud starts at priority 10 after this priority-5 gate. */
 }
 add_action( 'trb_release_audio_ready_for_analysis', 'trb_analysis_after_pcloud', 5, 1 );
