@@ -312,33 +312,34 @@ function trb_demo_cleanup_request( $request_id ) {
 add_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' );
 
 /** Non-sensitive readiness endpoint used by deployment monitoring. */
+function trb_demo_health_payload() {
+	$settings = trb_demo_settings();
+	$payload = array(
+		'ready' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ) && ! empty( $settings['openai_key'] ),
+	);
+	if ( current_user_can( 'manage_options' ) ) {
+		$payload['pcloud_configured'] = ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] );
+		$payload['openai_configured'] = ! empty( $settings['openai_key'] );
+		$payload['spreadsheet_configured'] = ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] );
+		$payload['processor_registered'] = has_action( 'trb_portal_process_demo', 'trb_demo_process_request' ) > 0;
+		$payload['cleanup_registered'] = has_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' ) > 0;
+	}
+	return $payload;
+}
+
 function trb_demo_register_health_route() {
 	register_rest_route( 'trb/v1', '/demo-health', array(
 		'methods' => 'GET',
 		'permission_callback' => '__return_true',
 		'callback' => function() {
-			$settings = trb_demo_settings();
-			return rest_ensure_response( array(
-				'ready' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ) && ! empty( $settings['openai_key'] ),
-				'pcloud_configured' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ),
-				'openai_configured' => ! empty( $settings['openai_key'] ),
-				'spreadsheet_configured' => ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] ),
-				'processor_registered' => has_action( 'trb_portal_process_demo', 'trb_demo_process_request' ) > 0,
-				'cleanup_registered' => has_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' ) > 0,
-			) );
+			return rest_ensure_response( trb_demo_health_payload() );
 		},
 	) );
 }
 add_action( 'rest_api_init', 'trb_demo_register_health_route' );
 
 function trb_demo_ajax_health() {
-	$settings = trb_demo_settings();
-	wp_send_json( array(
-		'ready' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ) && ! empty( $settings['openai_key'] ),
-		'pcloud_configured' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ),
-		'openai_configured' => ! empty( $settings['openai_key'] ),
-		'spreadsheet_configured' => ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] ),
-	) );
+	wp_send_json( trb_demo_health_payload() );
 }
 add_action( 'wp_ajax_nopriv_trb_demo_health', 'trb_demo_ajax_health' );
 add_action( 'wp_ajax_trb_demo_health', 'trb_demo_ajax_health' );
