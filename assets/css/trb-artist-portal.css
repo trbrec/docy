@@ -336,6 +336,7 @@ body.trb-artist-download-shell .mobile_menu { display: none; }
 .trb-release-status__item > span { color: var(--trb-ink-soft); font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
 .trb-release-status__item > strong { color: var(--trb-ink); font-size: 14px; line-height: 1.35; }
 .trb-release-status__item > p { color: var(--trb-ink-soft); font-size: 12px; line-height: 1.45; margin: 0; }
+.trb-release-status__recovery { background: #edf7ff; border: 1px solid #b8d7ee; border-radius: 9px; color: #23445c; font-size: 12px; line-height: 1.5; margin: 10px 0 0; padding: 10px 12px; }
 .trb-contract-modal { align-items: center; background: rgba(10,18,32,.72); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 100001; }
 .trb-contract-modal__box { background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,.35); padding: 28px; width: min(620px,100%); }
 .trb-contract-modal__box h2 { margin: 0 0 12px; }
