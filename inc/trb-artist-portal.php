@@ -207,6 +207,7 @@ function trb_portal_activate_dds_service( $user_id, $starts_at = '', $billing_mo
 
 	update_user_meta( $user->ID, '_trb_dds_billing_mode', $billing_mode );
 	update_user_meta( $user->ID, '_trb_dds_paid_until', $paid_until->format( 'Y-m-d' ) );
+	update_user_meta( $user->ID, '_trb_artist_contract_profile', 'dds' );
 	if ( $external_reference ) update_user_meta( $user->ID, '_trb_dds_store_reference', sanitize_text_field( $external_reference ) );
 	// The commercial activation never decides the legal duration. The
 	// administrative contract term remains a separate, manually assigned field.
@@ -412,12 +413,19 @@ function trb_portal_user_profile( $user = null ) {
 		return 'trb';
 	}
 
-	foreach ( trb_portal_profiles() as $key => $profile ) {
-		$roles = array_merge( array( $profile['role'] ), isset( $profile['aliases'] ) ? (array) $profile['aliases'] : array() );
-		if ( array_intersect( $roles, (array) $user->roles ) ) {
-			return $key;
-		}
-	}
+	$candidates = trb_portal_user_profile_candidates( $user );
+	$canonical  = array_keys( $candidates['canonical'] );
+	$legacy     = array_keys( $candidates['legacy'] );
+	$preferred  = sanitize_key( (string) get_user_meta( $user->ID, '_trb_artist_contract_profile', true ) );
+
+	// A current canonical role always wins over a stale legacy alias. This
+	// prevents an obsolete secondary role from silently applying a more
+	// restrictive release policy after an administrator changes the group.
+	if ( $preferred && in_array( $preferred, $canonical, true ) ) return $preferred;
+	if ( 1 === count( $canonical ) ) return reset( $canonical );
+	if ( $canonical ) return reset( $canonical );
+	if ( $preferred && in_array( $preferred, $legacy, true ) ) return $preferred;
+	if ( $legacy ) return reset( $legacy );
 
 	if ( in_array( 'artisti_trb_basic', (array) $user->roles, true ) ) {
 		return 'trb';
@@ -425,6 +433,53 @@ function trb_portal_user_profile( $user = null ) {
 
 	return false;
 }
+
+/** Return canonical and legacy contractual roles attached to one account. */
+function trb_portal_user_profile_candidates( $user ) {
+	$result = array( 'canonical' => array(), 'legacy' => array() );
+	if ( ! $user instanceof WP_User ) return $result;
+	$user_roles = array_map( 'sanitize_key', (array) $user->roles );
+	foreach ( trb_portal_profiles() as $key => $profile ) {
+		$canonical = sanitize_key( (string) ( $profile['role'] ?? '' ) );
+		if ( $canonical && in_array( $canonical, $user_roles, true ) ) $result['canonical'][ $key ] = $canonical;
+		foreach ( (array) ( $profile['aliases'] ?? array() ) as $alias ) {
+			$alias = sanitize_key( $alias );
+			if ( $alias && in_array( $alias, $user_roles, true ) ) $result['legacy'][ $key ] = $alias;
+		}
+	}
+	return $result;
+}
+
+/**
+ * Persist the administrator-selected contractual group and remove only stale
+ * artist roles. Unrelated WordPress roles are deliberately preserved.
+ */
+function trb_portal_normalize_artist_role_after_admin_save( $user_id ) {
+	if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['role'] ) ) return;
+	$user = get_userdata( absint( $user_id ) );
+	if ( ! $user instanceof WP_User ) return;
+	$selected_role = sanitize_key( wp_unslash( $_POST['role'] ) );
+	$selected_profile = '';
+	foreach ( trb_portal_profiles() as $key => $profile ) {
+		$known = array_merge( array( $profile['role'] ?? '' ), (array) ( $profile['aliases'] ?? array() ) );
+		if ( in_array( $selected_role, array_map( 'sanitize_key', $known ), true ) ) {
+			$selected_profile = $key;
+			break;
+		}
+	}
+	if ( ! $selected_profile ) return;
+	$profiles = trb_portal_profiles();
+	$canonical_role = sanitize_key( $profiles[ $selected_profile ]['role'] );
+	foreach ( $profiles as $profile ) {
+		foreach ( array_merge( array( $profile['role'] ?? '' ), (array) ( $profile['aliases'] ?? array() ) ) as $artist_role ) {
+			$artist_role = sanitize_key( $artist_role );
+			if ( $artist_role && $artist_role !== $canonical_role && in_array( $artist_role, (array) $user->roles, true ) ) $user->remove_role( $artist_role );
+		}
+	}
+	if ( $canonical_role && ! in_array( $canonical_role, (array) $user->roles, true ) ) $user->add_role( $canonical_role );
+	update_user_meta( $user->ID, '_trb_artist_contract_profile', $selected_profile );
+}
+add_action( 'profile_update', 'trb_portal_normalize_artist_role_after_admin_save', 100 );
 
 function trb_portal_profile_label( $profile = null ) {
 	$profile = $profile ? $profile : trb_portal_user_profile();
@@ -4108,7 +4163,6 @@ function trb_portal_release_status_summary( $release_id ) {
 		$summary['distribution_label']  = 'Release non ancora inviata';
 		$summary['distribution_detail'] = 'La valutazione inizierà dopo il completamento e l’invio della pratica.';
 	}
-
 	$blocked = array(
 		'copyright_documents_needed' => array( 'Release non approvata: documentazione necessaria', 'Carica i documenti richiesti per consentire la verifica dei diritti.' ),
 		'published_audio_conflict'    => array( 'Release non approvata: brano già pubblicato rilevato', 'Apri una segnalazione se ritieni che il controllo non sia corretto.' ),
@@ -4178,6 +4232,7 @@ function trb_portal_release_status_summary( $release_id ) {
 
 function trb_portal_render_release_status( $release_id ) {
 	$status = trb_portal_release_status_summary( $release_id );
+	$recovery_at = absint( get_post_meta( $release_id, '_trb_pipeline_recovery_notice_at', true ) );
 	?>
 	<section class="trb-release-status trb-release-status--<?php echo esc_attr( $status['tone'] ); ?>" data-release-status-panel aria-label="Stato della release">
 		<h4>Stato della release</h4>
@@ -4189,6 +4244,9 @@ function trb_portal_render_release_status( $release_id ) {
 				<span>Distribuzione</span><strong data-release-distribution-label><?php echo esc_html( $status['distribution_label'] ); ?></strong><p data-release-distribution-detail><?php echo esc_html( $status['distribution_detail'] ); ?></p>
 			</div>
 		</div>
+		<?php if ( $recovery_at && $recovery_at >= time() - 2 * DAY_IN_SECONDS ) : ?>
+			<p class="trb-release-status__recovery"><strong>Elaborazione ripresa automaticamente.</strong> Il sistema ha riattivato i controlli il <?php echo esc_html( wp_date( 'j F Y \a\l\l\e H:i', $recovery_at ) ); ?>. Non caricare nuovamente i file.</p>
+		<?php endif; ?>
 	</section>
 	<?php
 }
@@ -5374,7 +5432,6 @@ function trb_portal_handle_password_recovery() {
 		wp_safe_redirect( add_query_arg( array( 'action' => 'rp', 'key' => $key, 'login' => $login, 'password_error' => 'mismatch' ), home_url( '/recupera-password/' ) ), 302 );
 		exit;
 	}
-
 	if ( strlen( $pass1 ) < 10 ) {
 		wp_safe_redirect( add_query_arg( array( 'action' => 'rp', 'key' => $key, 'login' => $login, 'password_error' => 'too_short' ), home_url( '/recupera-password/' ) ), 302 );
 		exit;
