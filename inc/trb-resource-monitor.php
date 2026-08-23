@@ -547,6 +547,56 @@ function trb_resource_poll_acr_job( $ledger_id ) {
 }
 add_action( 'trb_resource_poll_acr_job', 'trb_resource_poll_acr_job' );
 
+/**
+ * Resume release jobs whose one-shot cron event was lost or whose status was
+ * written by an older pipeline revision. Provider calls remain idempotent by
+ * release audio hash, so recovery never purchases the same analysis twice.
+ */
+function trb_resource_recover_release_pipeline() {
+	$release_ids = get_posts( array(
+		'post_type'      => 'trb_release',
+		'post_status'    => array( 'publish', 'private', 'pending' ),
+		'posts_per_page' => 30,
+		'fields'         => 'ids',
+		'orderby'        => 'modified',
+		'order'          => 'ASC',
+		'date_query'     => array( array( 'before' => '2 minutes ago' ) ),
+		'meta_query'     => array(
+			'relation' => 'OR',
+			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'pending_pcloud_transfer', 'pcloud_transfer_waiting' ), 'compare' => 'IN' ),
+			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'archived_pending_analysis', 'technical_review', 'copyright_queued', 'analysis_in_progress', 'copyright_review' ), 'compare' => 'IN' ),
+		),
+	) );
+
+	foreach ( $release_ids as $release_id ) {
+		$status  = sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
+		$archive = (array) get_post_meta( $release_id, '_trb_release_pcloud_archive', true );
+		if ( in_array( $status, array( 'pending_pcloud_transfer', 'pcloud_transfer_waiting' ), true ) && empty( $archive['verified'] ) ) {
+			if ( ! wp_next_scheduled( 'trb_release_pcloud_sync', array( $release_id ) ) && ! wp_next_scheduled( 'trb_release_pcloud_retry', array( $release_id ) ) ) {
+				wp_schedule_single_event( time() + 5, 'trb_release_pcloud_retry', array( $release_id ) );
+			}
+			continue;
+		}
+
+		if ( empty( $archive['verified'] ) ) continue;
+		if ( in_array( $status, array( 'archived_pending_analysis', 'technical_review', 'copyright_queued' ), true ) ) {
+			do_action( 'trb_release_audio_ready_for_analysis', $release_id, (array) ( $archive['files'] ?? array() ) );
+			continue;
+		}
+		if ( in_array( $status, array( 'analysis_in_progress', 'copyright_review' ), true ) && function_exists( 'trb_resource_start_release_analysis' ) ) {
+			trb_resource_start_release_analysis( $release_id );
+		}
+	}
+}
+add_action( 'trb_resource_recover_release_pipeline', 'trb_resource_recover_release_pipeline' );
+add_action( 'init', function() {
+	if ( ! wp_next_scheduled( 'trb_resource_recover_release_pipeline' ) ) wp_schedule_event( time() + MINUTE_IN_SECONDS, 'hourly', 'trb_resource_recover_release_pipeline' );
+	if ( '20260824.1' !== get_option( 'trb_resource_pipeline_recovery_version' ) ) {
+		update_option( 'trb_resource_pipeline_recovery_version', '20260824.1', false );
+		wp_schedule_single_event( time() + 5, 'trb_resource_recover_release_pipeline' );
+	}
+}, 25 );
+
 function trb_resource_release_rights_folder( $release_id, $track_index ) {
 	$archive = (array) get_post_meta( $release_id, '_trb_release_pcloud_archive', true );
 	return isset( $archive['folders'][ absint( $track_index ) ] ) ? $archive['folders'][ absint( $track_index ) ] : new WP_Error( 'PCLOUD_RELEASE_FOLDER_MISSING' );
