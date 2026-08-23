@@ -404,6 +404,14 @@ function trb_portal_user_profile( $user = null ) {
 		return false;
 	}
 
+	// QA accounts must always exercise the unrestricted TRB workflow, even if
+	// an obsolete contractual role is still attached to the WordPress user.
+	$qa_identity = strtolower( (string) $user->user_email );
+	$qa_login    = strtolower( (string) $user->user_login );
+	if ( in_array( $qa_identity, array( 'spotify2@trbrec.com', 'spotify3@trbrec.com', 'spotify4@trbrec.com' ), true ) || in_array( $qa_login, array( 'spotify2', 'spotify3', 'spotify4' ), true ) ) {
+		return 'trb';
+	}
+
 	foreach ( trb_portal_profiles() as $key => $profile ) {
 		$roles = array_merge( array( $profile['role'] ), isset( $profile['aliases'] ) ? (array) $profile['aliases'] : array() );
 		if ( array_intersect( $roles, (array) $user->roles ) ) {
@@ -412,12 +420,6 @@ function trb_portal_user_profile( $user = null ) {
 	}
 
 	if ( in_array( 'artisti_trb_basic', (array) $user->roles, true ) ) {
-		return 'trb';
-	}
-
-	// These long-standing QA accounts predate the contractual role migration.
-	// They must exercise the complete portal exactly like an approved TRB artist.
-	if ( in_array( strtolower( (string) $user->user_email ), array( 'spotify2@trbrec.com', 'spotify3@trbrec.com', 'spotify4@trbrec.com' ), true ) ) {
 		return 'trb';
 	}
 
