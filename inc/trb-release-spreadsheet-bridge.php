@@ -412,6 +412,7 @@ function trb_release_bridge_maybe_transition_ddb_trb_user( $user_id, $now = null
     update_user_meta( $user_id, '_trb_artist_group_transitioned_at', $transitioned_at );
     update_user_meta( $user_id, '_trb_artist_group_transition_source', sanitize_key( $source ) );
     update_user_meta( $user_id, '_trb_artist_group_transition_contract_term', $dates['value'] );
+    update_user_meta( $user_id, '_trb_artist_contract_profile', 'trb' );
     do_action( 'trb_artist_group_transitioned', $user_id, 'ddb_trb', 'trb', $dates['value'], $transitioned_at );
     return true;
 }
