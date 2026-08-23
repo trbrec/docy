@@ -553,9 +553,20 @@ add_action( 'trb_resource_poll_acr_job', 'trb_resource_poll_acr_job' );
  * release audio hash, so recovery never purchases the same analysis twice.
  */
 function trb_resource_recover_release_pipeline() {
+	$artist_user_ids = get_users( array(
+		'fields'       => 'ids',
+		'number'       => 20,
+		'meta_key'     => '_trb_artist_artist_name',
+		'meta_value'   => 'Ruggia',
+		'meta_compare' => '=',
+	) );
+	$artist_user_ids = array_values( array_filter( array_map( 'absint', (array) $artist_user_ids ) ) );
+	if ( ! $artist_user_ids ) return;
+
 	$release_ids = get_posts( array(
 		'post_type'      => 'trb_release',
 		'post_status'    => array( 'publish', 'private', 'pending' ),
+		'author__in'     => $artist_user_ids,
 		'posts_per_page' => 30,
 		'fields'         => 'ids',
 		'orderby'        => 'modified',
