@@ -62,12 +62,12 @@ check("trasferimento pCloud verificato prima dell'analisi", "archived_pending_an
 check("retry pCloud schedulato", "trb_release_pcloud_retry" in PCLOUD)
 recovery_function = RESOURCE.split("function trb_resource_recover_release_pipeline()", 1)[1].split("add_action( 'trb_resource_recover_release_pipeline'", 1)[0]
 check("recupero pipeline esteso a tutti gli artisti", "author__in" not in recovery_function and "meta_value'   => 'Ruggia'" not in recovery_function)
-check("recupero pipeline limitato e temporizzato", "'posts_per_page' => 20" in RESOURCE and "15 * MINUTE_IN_SECONDS" in RESOURCE)
+check("recupero pipeline limitato e temporizzato", "'posts_per_page' => 20" in RESOURCE and "15 * MINUTE_IN_SECONDS" in RESOURCE and "2 * MINUTE_IN_SECONDS" in RESOURCE)
 check("recupero riattiva release ferme dopo il ripristino ACR", "analysis_waiting_configuration" in recovery_function and "trb_resource_start_release_analysis( $release_id )" in recovery_function)
 check("recupero visibile nel portale", "_trb_pipeline_recovery_notice_at" in PORTAL and "Elaborazione ripresa automaticamente" in PORTAL)
 check("email artista quando una pratica viene sbloccata", "trb_resource_notify_artist_pipeline_recovery" in RESOURCE and "La problematica dipendeva dal portale" in RESOURCE)
 check("copia amministratore per ogni email di sblocco", "[Copia artista]" in RESOURCE and "-admin-copy" in RESOURCE)
-check("email di sblocco una tantum per la pratica Ruggia", "trb_resource_notify_ruggia_recovery_backfill" in RESOURCE and "manual-resend-20260824-2" in RESOURCE and "20260824.7" in RESOURCE)
+check("email di sblocco una tantum per la pratica Ruggia", "trb_resource_notify_ruggia_recovery_backfill" in RESOURCE and "manual-resend-20260824-2" in RESOURCE and "20260824.8" in RESOURCE)
 check("ricerca Ruggia robusta e senza finestra temporale", "u.user_login LIKE" in RESOURCE and "um.meta_value LIKE" in RESOURCE and "pm.meta_value LIKE" in RESOURCE and "45 days ago" not in RESOURCE)
 check("notifica Ruggia anche se il caricamento non ha creato la pratica", "trb_resource_notify_artist_recovery_without_release" in RESOURCE and "artist_found_without_release" in RESOURCE)
 check("ricevuta tecnica degli invii di sblocco", "trb_resource_recovery_mail_receipts" in RESOURCE)
@@ -121,7 +121,7 @@ check("watchdog recupera valutazioni demo ferme", "trb_demo_recover_stalled_requ
 check("cleanup demo elimina copie locali e remote", "trb_demo_cleanup_request" in DEMO and "trb_demo_webdav_request( 'DELETE'" in DEMO)
 check("health check demo accessibile al monitor", "'/trb/v1/demo-health'" in DEPLOY)
 check("release caricate a blocchi e finalizzate con sessione idempotente", "trb_portal_stage_release_chunk" in PORTAL and "trb_release_submission_token" in RELEASE_JS and "trb_staged_uploads_json" in RELEASE_JS)
-check("audit produzione include demo pagine e permessi", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "20260824.6" in RESOURCE)
+check("audit produzione include demo pagine e permessi", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "20260824.7" in RESOURCE)
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 
 failed = [name for name, ok in checks if not ok]
