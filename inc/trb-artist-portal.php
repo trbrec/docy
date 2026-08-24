@@ -3874,7 +3874,9 @@ function trb_portal_release_group_health_payload() {
 		else $gate_state = 'available';
 		$rule = isset( $entitlements[ $profile ]['release_limit'] ) ? sanitize_key( $entitlements[ $profile ]['release_limit'] ) : '';
 		$expected_rule = in_array( $expected_profile, array( 'dds', 'ddb12' ), true ) ? ( 'dds' === $expected_profile ? 'one_per_month' : 'one_per_month_max_12_year' ) : 'unlimited';
-		$policy_consistent = $expected_profile === $profile && $expected_rule === $rule && ( ! $monthly || in_array( $gate_state, array( 'available', 'monthly_limit', 'annual_limit' ), true ) );
+		$limit_notice_expected = $monthly && ( $annual_limit || $monthly_limit );
+		$limit_notice_visible = in_array( $gate_state, array( 'monthly_limit', 'annual_limit' ), true );
+		$policy_consistent = $expected_profile === $profile && $expected_rule === $rule && ( ! $limit_notice_expected || $limit_notice_visible || in_array( $gate_state, array( 'profile_required', 'contract_configuration', 'annual_period_missing' ), true ) );
 		$groups[ $expected_profile ] = array(
 			'account_found'       => true,
 			'expected_profile'    => $expected_profile,
@@ -3883,7 +3885,10 @@ function trb_portal_release_group_health_payload() {
 			'contract_ready'      => (bool) $contract_ready,
 			'release_rule'        => $rule,
 			'gate_state'          => $gate_state,
-			'limit_notice_visible'=> in_array( $gate_state, array( 'monthly_limit', 'annual_limit' ), true ),
+			'form_available'      => 'available' === $gate_state,
+			'fixture_ready'       => (bool) ( $profile_complete && $contract_ready && ( ! $monthly || $annual_period ) ),
+			'limit_notice_expected'=> (bool) $limit_notice_expected,
+			'limit_notice_visible'=> (bool) $limit_notice_visible,
 			'monthly_count'       => $monthly ? min( 1, trb_portal_monthly_release_count( $user->ID ) ) : null,
 			'annual_count'        => $monthly && $annual_period ? min( 12, trb_portal_annual_release_count( $user->ID ) ) : null,
 			'policy_consistent'   => (bool) $policy_consistent,
