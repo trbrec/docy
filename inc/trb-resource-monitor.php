@@ -985,13 +985,13 @@ function trb_resource_run_portal_audit() {
 	foreach ( $demo_counts as $status => $count ) $demo_summary[] = esc_html( $status ) . ': ' . absint( $count );
 	$body = '<p><strong>Gruppi:</strong> ' . esc_html( implode( ' · ', $profile_rows ) ) . '</p><p><strong>Pipeline release:</strong> ' . ( $pipeline_summary ? implode( ' · ', $pipeline_summary ) : 'nessuna pratica attiva' ) . '</p><p><strong>Valutazioni demo:</strong> ' . esc_html( implode( ' · ', $demo_summary ) ) . '</p>';
 	$body .= $issues ? '<p><strong>Interventi richiesti:</strong></p><ul><li>' . implode( '</li><li>', array_map( 'esc_html', $issues ) ) . '</li></ul>' : '<p><strong>Esito:</strong> nessuna anomalia rilevata in pagine, gruppi, permessi, valutazioni demo, release, eventi automatici, coda email e configurazione copyright.</p>';
-	trb_resource_queue_email( 'portal-audit-20260824.4', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
+	trb_resource_queue_email( 'portal-audit-20260824.5', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_run_portal_audit', 'trb_resource_run_portal_audit' );
 add_action( 'init', function() {
-	if ( '20260824.4' === get_option( 'trb_resource_portal_audit_version' ) ) return;
-	update_option( 'trb_resource_portal_audit_version', '20260824.4', false );
+	if ( '20260824.5' === get_option( 'trb_resource_portal_audit_version' ) ) return;
+	update_option( 'trb_resource_portal_audit_version', '20260824.5', false );
 	if ( ! wp_next_scheduled( 'trb_resource_run_portal_audit' ) ) wp_schedule_single_event( time() + 30, 'trb_resource_run_portal_audit' );
 }, 30 );
 
