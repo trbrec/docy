@@ -50,11 +50,14 @@ check("DDS e DDB12 limitati esclusivamente dal profilo mensile", "array( 'dds', 
 check("DDS escluso da pitching e playlist incluse", "'editorial_pitching'    => $service( 'Pitching editoriale', $development )" in PORTAL and "'owned_playlists'       => $service( 'Inserimento nelle playlist proprietarie', $development )" in PORTAL)
 check("DDS escluso da formazione mentoring e attestato", "'training'              => $service( 'Formazione e Knowledge Hub', array( 'ddb12', 'ddb', 'ddb_trb' ) )" in PORTAL and "'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'not_applicable'" in PORTAL)
 check("account QA spotify4 forzato sul profilo TRB", "'spotify4'" in PORTAL and "return 'trb';" in PORTAL)
+check("spotify4 ha fixture contrattuale e modulo release verificabile", "trb_release_bridge_seed_spotify4_qa_contract" in BRIDGE and "TRB-QA-SPOTIFY4" in BRIDGE and "trb_portal_release_qa_health_payload" in PORTAL)
+check("spotify4 usa conferma collaudo senza perdere il flusso TRB", "trb_portal_is_release_qa_account" in PORTAL and "current_user_can( 'manage_options' ) || trb_portal_is_release_qa_account()" in PORTAL)
 check("ruolo canonico prioritario rispetto agli alias", "A current canonical role always wins" in PORTAL)
 check("normalizzazione dei ruoli al salvataggio amministrativo", "trb_portal_normalize_artist_role_after_admin_save" in PORTAL)
 check("DDB-TRB aggiorna il profilo canonico al passaggio TRB", "'_trb_artist_contract_profile', 'trb'" in BRIDGE)
 check("creazione release protetta da nonce", "wp_verify_nonce( $release_nonce" in PORTAL)
 check("creazione release protetta da idempotency token", "_trb_release_submission_token" in PORTAL)
+check("numero e periodo contrattuale bloccano coerentemente interfaccia e server", PORTAL.count("trb_release_bridge_contract_term_dates") >= 3 and "Dati contrattuali da verificare" in PORTAL)
 check("limite mensile applicato solo a DDS/DDB12", "function trb_portal_monthly_release_profile" in PORTAL)
 check("upload WAV validato lato server", "trb_portal_validate_release_upload( $audio, 'audio' )" in PORTAL)
 check("durata WAV verificata con tolleranza di un secondo", "audio_duration_mismatch" in PORTAL and "> 1.0" in PORTAL)
@@ -126,7 +129,7 @@ check("invii e retry demo restano sempre nella finestra consentita", "trb_portal
 check("cleanup demo elimina copie locali e remote", "trb_demo_cleanup_request" in DEMO and "trb_demo_webdav_request( 'DELETE'" in DEMO)
 check("health check demo accessibile al monitor", "'/trb/v1/demo-health'" in DEPLOY)
 check("release caricate a blocchi e finalizzate con sessione idempotente", "trb_portal_stage_release_chunk" in PORTAL and "trb_release_submission_token" in RELEASE_JS and "trb_staged_uploads_json" in RELEASE_JS)
-check("audit produzione include demo pagine e permessi", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "20260824.8" in RESOURCE)
+check("audit produzione include demo pagine permessi e gate release QA", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "release_qa" in RESOURCE and "20260824.9" in RESOURCE)
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 
 failed = [name for name, ok in checks if not ok]
