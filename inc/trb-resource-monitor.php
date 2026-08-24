@@ -138,6 +138,18 @@ function trb_resource_process_notifications() {
 		$wpdb->update( $table, array( 'status' => 'sending', 'attempts' => (int) $row->attempts + 1, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
 		$sent = wp_mail( $row->recipient, $row->subject, $row->body, array( 'Content-Type: text/html; charset=UTF-8' ) );
 		$wpdb->update( $table, array( 'status' => $sent ? 'sent' : 'retry', 'last_error' => $sent ? '' : 'wp_mail_failed', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
+		if ( 0 === strpos( (string) $row->event_key, 'artist-pipeline-recovered-' ) ) {
+			$receipts = get_option( 'trb_resource_recovery_mail_receipts', array() );
+			$receipts = is_array( $receipts ) ? $receipts : array();
+			$receipts[ md5( (string) $row->event_key ) ] = array(
+				'role'       => false !== strpos( (string) $row->event_key, '-admin-copy-' ) ? 'admin_copy' : 'artist',
+				'status'     => $sent ? 'sent' : 'retry',
+				'attempts'   => (int) $row->attempts + 1,
+				'updated_at' => time(),
+			);
+			uasort( $receipts, static function( $a, $b ) { return (int) ( $b['updated_at'] ?? 0 ) <=> (int) ( $a['updated_at'] ?? 0 ); } );
+			update_option( 'trb_resource_recovery_mail_receipts', array_slice( $receipts, 0, 12, true ), false );
+		}
 		if ( $sent ) { $sent_today++; update_option( 'trb_resource_email_sent_' . wp_date( 'Ymd' ), $sent_today, false ); }
 	}
 	$remaining = (int) $wpdb->get_var( "SELECT COUNT(*) FROM $table WHERE status IN ('pending','retry') AND attempts<5" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -565,7 +577,13 @@ add_action( 'trb_resource_poll_acr_job', 'trb_resource_poll_acr_job' );
  * written by an older pipeline revision. Provider calls remain idempotent by
  * release audio hash, so recovery never purchases the same analysis twice.
  */
-function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_status ) {
+function trb_resource_recovery_admin_recipients() {
+	$settings = trb_resource_settings();
+	$recipients = array( $settings['admin_email'] ?? '' );
+	return array_values( array_unique( array_filter( array_map( 'sanitize_email', $recipients ), 'is_email' ) ) );
+}
+
+function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_status, $event_suffix = '' ) {
 	if ( ! function_exists( 'trb_resource_queue_recipient_email' ) ) return;
 	$release = get_post( absint( $release_id ) );
 	$user = $release ? get_userdata( $release->post_author ) : false;
@@ -578,11 +596,12 @@ function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_st
 	$body .= '<p>La problematica dipendeva dal portale e non dai materiali inviati. La pratica è stata sbloccata e i controlli sono ripartiti automaticamente: <strong>non caricare nuovamente i file e non creare una pratica duplicata</strong>.</p>';
 	$body .= '<p>Puoi seguire lo stato aggiornato direttamente nella tua area riservata. Se sarà necessaria una correzione specifica del WAV riceverai una comunicazione separata con tutte le indicazioni.</p><p><a href="' . esc_url( $link ) . '">Apri la release nel Portale Artisti</a></p><p>TRB rec - Music Publishing</p>';
 	$key = 'artist-pipeline-recovered-' . absint( $release_id ) . '-' . sanitize_key( $previous_status ) . '-' . wp_date( 'Ymd' );
+	if ( $event_suffix ) $key .= '-' . sanitize_key( $event_suffix );
 	trb_resource_queue_recipient_email( $key, $user->user_email, $subject, $body );
-	$settings = trb_resource_settings();
-	if ( ! empty( $settings['admin_email'] ) && is_email( $settings['admin_email'] ) && strtolower( $settings['admin_email'] ) !== strtolower( $user->user_email ) ) {
+	foreach ( trb_resource_recovery_admin_recipients() as $admin_recipient ) {
+		if ( strtolower( $admin_recipient ) === strtolower( $user->user_email ) ) continue;
 		$copy_body = '<p><strong>Copia della comunicazione automatica inviata a ' . esc_html( $user->user_email ) . '.</strong></p>' . $body;
-		trb_resource_queue_recipient_email( $key . '-admin-copy', $settings['admin_email'], '[Copia artista] ' . $subject, $copy_body );
+		trb_resource_queue_recipient_email( $key . '-admin-copy-' . substr( md5( strtolower( $admin_recipient ) ), 0, 10 ), $admin_recipient, '[Copia artista] ' . $subject, $copy_body );
 	}
 }
 
@@ -641,47 +660,43 @@ add_action( 'trb_resource_recover_release_pipeline', 'trb_resource_recover_relea
 
 /**
  * The first Ruggia recovery ran before artist-facing recovery notifications
- * existed. Backfill that single communication without touching the release or
- * repeating future messages (the queue event key remains idempotent).
+ * existed. Locate the account defensively across the artist metadata and core
+ * user fields, then issue a uniquely traceable one-time communication.
  */
 function trb_resource_notify_ruggia_recovery_backfill() {
-	$artist_user_ids = get_users( array(
-		'fields'       => 'ids',
-		'number'       => 20,
-		'meta_key'     => '_trb_artist_artist_name',
-		'meta_value'   => 'Ruggia',
-		'meta_compare' => '=',
-	) );
-	$artist_user_ids = array_values( array_filter( array_map( 'absint', (array) $artist_user_ids ) ) );
-	if ( ! $artist_user_ids ) return;
+	global $wpdb;
+	$like = '%' . $wpdb->esc_like( 'Ruggia' ) . '%';
+	$release_id = (int) $wpdb->get_var( $wpdb->prepare(
+		"SELECT DISTINCT p.ID
+		FROM {$wpdb->posts} p
+		INNER JOIN {$wpdb->users} u ON u.ID=p.post_author
+		LEFT JOIN {$wpdb->usermeta} um ON um.user_id=p.post_author
+		WHERE p.post_type='trb_release'
+		AND p.post_status NOT IN ('trash','auto-draft')
+		AND (u.user_login LIKE %s OR u.display_name LIKE %s OR u.user_email LIKE %s OR um.meta_value LIKE %s OR p.post_title LIKE %s)
+		ORDER BY p.post_modified_gmt DESC,p.ID DESC
+		LIMIT 1",
+		$like, $like, $like, $like, $like
+	) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	if ( ! $release_id ) {
+		update_option( 'trb_resource_recovery_mail_discovery', array( 'status' => 'ruggia_release_not_found', 'updated_at' => time() ), false );
+		return;
+	}
 
-	$release_ids = get_posts( array(
-		'post_type'      => 'trb_release',
-		'post_status'    => array( 'publish', 'private', 'pending' ),
-		'author__in'     => $artist_user_ids,
-		'posts_per_page' => 1,
-		'fields'         => 'ids',
-		'orderby'        => 'modified',
-		'order'          => 'DESC',
-		'date_query'     => array( array( 'after' => '45 days ago' ) ),
-		'meta_query'     => array( array( 'key' => '_trb_release_pipeline_status', 'compare' => 'EXISTS' ) ),
-	) );
-	if ( ! $release_ids ) return;
-
-	$release_id = absint( $release_ids[0] );
+	update_option( 'trb_resource_recovery_mail_discovery', array( 'status' => 'release_found', 'updated_at' => time() ), false );
 	$status = sanitize_key( get_post_meta( $release_id, '_trb_pipeline_last_recovery_status', true ) );
 	if ( ! $status ) $status = sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
-	trb_resource_notify_artist_pipeline_recovery( $release_id, $status ?: 'pipeline' );
+	trb_resource_notify_artist_pipeline_recovery( $release_id, $status ?: 'pipeline', 'manual-resend-20260824-1' );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_notify_ruggia_recovery_backfill', 'trb_resource_notify_ruggia_recovery_backfill' );
 
 add_action( 'init', function() {
 	if ( ! wp_next_scheduled( 'trb_resource_recover_release_pipeline' ) ) wp_schedule_event( time() + MINUTE_IN_SECONDS, 'hourly', 'trb_resource_recover_release_pipeline' );
-	if ( '20260824.3' !== get_option( 'trb_resource_pipeline_recovery_version' ) ) {
-		update_option( 'trb_resource_pipeline_recovery_version', '20260824.3', false );
+	if ( '20260824.4' !== get_option( 'trb_resource_pipeline_recovery_version' ) ) {
+		update_option( 'trb_resource_pipeline_recovery_version', '20260824.4', false );
 		wp_schedule_single_event( time() + 5, 'trb_resource_recover_release_pipeline' );
-		wp_schedule_single_event( time() + 20, 'trb_resource_notify_ruggia_recovery_backfill' );
+		wp_schedule_single_event( time() + 10, 'trb_resource_notify_ruggia_recovery_backfill' );
 	}
 }, 25 );
 
