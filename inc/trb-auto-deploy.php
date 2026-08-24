@@ -212,6 +212,15 @@ function trb_docy_register_push_deploy_route() {
 						'updated_at' => absint( $receipt['updated_at'] ?? 0 ),
 					);
 				}
+				$audit = get_option( 'trb_resource_last_portal_audit', array() );
+				$audit = is_array( $audit ) ? $audit : array();
+				$audit_maps = array();
+				foreach ( array( 'profiles', 'pipelines', 'demos', 'demo_problems' ) as $audit_key ) {
+					$audit_maps[ $audit_key ] = array();
+					foreach ( is_array( $audit[ $audit_key ] ?? null ) ? $audit[ $audit_key ] : array() as $key => $value ) $audit_maps[ $audit_key ][ sanitize_key( (string) $key ) ] = absint( $value );
+				}
+				$audit_pages = array();
+				foreach ( is_array( $audit['pages'] ?? null ) ? $audit['pages'] : array() as $key => $value ) $audit_pages[ sanitize_key( (string) $key ) ] = (bool) $value;
 				return rest_ensure_response(
 					array(
 						'sha'        => sanitize_text_field( (string) get_option( TRB_DOCY_DEPLOYED_SHA_OPTION, '' ) ),
@@ -221,6 +230,15 @@ function trb_docy_register_push_deploy_route() {
 							'discovery' => sanitize_key( (string) ( $discovery['status'] ?? '' ) ),
 							'checked_at' => absint( $discovery['updated_at'] ?? 0 ),
 							'receipts' => array_slice( $receipt_status, 0, 6 ),
+						),
+						'portal_audit' => array(
+							'checked_at'    => absint( $audit['checked_at'] ?? 0 ),
+							'issue_count'   => is_array( $audit['issues'] ?? null ) ? count( $audit['issues'] ) : 0,
+							'profiles'      => $audit_maps['profiles'],
+							'pipelines'     => $audit_maps['pipelines'],
+							'demos'         => $audit_maps['demos'],
+							'demo_problems' => $audit_maps['demo_problems'],
+							'pages'         => $audit_pages,
 						),
 					)
 				);
@@ -331,11 +349,11 @@ function trb_docy_verify_github_oidc_request( WP_REST_Request $request ) {
 	return $valid ? true : new WP_Error( 'trb_oidc_claims', 'Autorizzazione GitHub non valida.', array( 'status' => 403 ) );
 }
 
-/** Exempt the verified deploy endpoint and its non-sensitive status probe. */
+/** Exempt verified machine callbacks and non-sensitive health probes. */
 function trb_docy_allow_push_deploy_authentication( $result ) {
 	$route  = isset( $GLOBALS['wp']->query_vars['rest_route'] ) ? untrailingslashit( (string) $GLOBALS['wp']->query_vars['rest_route'] ) : '';
 	$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
-	if ( ( '/trb/v1/deploy' === $route && 'POST' === $method ) || ( '/trb/v1/deploy-status' === $route && 'GET' === $method ) ) {
+	if ( ( '/trb/v1/deploy' === $route && 'POST' === $method ) || ( in_array( $route, array( '/trb/v1/deploy-status', '/trb/v1/demo-health' ), true ) && 'GET' === $method ) ) {
 		return null;
 	}
 	return $result;
