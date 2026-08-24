@@ -4,6 +4,7 @@
  *
  * It keeps the Deployer for Git secret inside WordPress and asks the installed
  * plugin to update the active theme whenever GitHub main changes.
+ * Production revision: spotify4-release-gate.
  *
  * @package docy
  */
