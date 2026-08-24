@@ -249,6 +249,37 @@ function trb_demo_is_test_payload( $payload ) {
 	return in_array( $email, array( 'spotify2@trbrec.com', 'spotify3@trbrec.com', 'spotify4@trbrec.com' ), true );
 }
 
+/** Apply the current delivery window to evaluations that have not been sent. */
+function trb_demo_migrate_delivery_window() {
+	if ( '20260824.1' === get_option( 'trb_demo_delivery_window_version' ) ) return;
+	$request_ids = get_posts( array(
+		'post_type'      => 'trb_request',
+		'post_status'    => array( 'publish', 'private', 'draft', 'pending' ),
+		'posts_per_page' => -1,
+		'fields'         => 'ids',
+		'meta_query'     => array( array( 'key' => '_trb_demo_payload', 'compare' => 'EXISTS' ) ),
+	) );
+	foreach ( $request_ids as $request_id ) {
+		$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
+		$status  = is_array( $payload ) ? sanitize_key( (string) ( $payload['status'] ?? '' ) ) : '';
+		if ( ! in_array( $status, array( 'queued', 'retry', 'ready' ), true ) || empty( $payload['submitted_at'] ) ) continue;
+		$submitted_at = strtotime( (string) $payload['submitted_at'] );
+		if ( ! $submitted_at ) continue;
+		$earliest = trb_demo_is_test_payload( $payload ) ? $submitted_at + MINUTE_IN_SECONDS : trb_portal_add_demo_working_hours( $submitted_at );
+		$payload['earliest_delivery_at'] = gmdate( 'c', $earliest );
+		update_post_meta( $request_id, '_trb_demo_payload', $payload );
+		update_post_meta( $request_id, '_trb_demo_earliest_delivery', $earliest );
+		if ( 'ready' === $status ) {
+			$send_at = max( time() + 5, $earliest );
+			if ( ! trb_demo_is_test_payload( $payload ) ) $send_at = trb_portal_demo_next_delivery_time( $send_at );
+			wp_clear_scheduled_hook( 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
+			wp_schedule_single_event( $send_at, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
+		}
+	}
+	update_option( 'trb_demo_delivery_window_version', '20260824.1', false );
+}
+add_action( 'init', 'trb_demo_migrate_delivery_window', 25 );
+
 function trb_demo_process_request( $request_id ) {
 	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
 	if ( ! is_array( $payload ) || ! in_array( $payload['status'], array( 'queued', 'retry' ), true ) ) return;
@@ -276,6 +307,7 @@ function trb_demo_process_request( $request_id ) {
 	$payload['status'] = 'ready';
 	update_post_meta( $request_id, '_trb_demo_payload', $payload );
 	$send_at = max( time() + 30, (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true ) );
+	if ( ! trb_demo_is_test_payload( $payload ) ) $send_at = trb_portal_demo_next_delivery_time( $send_at );
 	wp_schedule_single_event( $send_at, 'trb_portal_send_demo_review', array( $request_id ) );
 }
 add_action( 'trb_portal_process_demo', 'trb_demo_process_request' );
@@ -325,7 +357,9 @@ function trb_demo_send_review( $request_id ) {
 		update_post_meta( $request_id, '_trb_demo_payload', $payload );
 		delete_post_meta( $request_id, '_trb_demo_email_attempts' );
 	} elseif ( $attempts < 5 ) {
-		if ( ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? 5 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
+		$retry_at = time() + ( trb_demo_is_test_payload( $payload ) ? 5 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS );
+		if ( ! trb_demo_is_test_payload( $payload ) ) $retry_at = trb_portal_demo_next_delivery_time( $retry_at );
+		if ( ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) wp_schedule_single_event( $retry_at, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
 	} else {
 		$payload['status'] = 'email_failed';
 		update_post_meta( $request_id, '_trb_demo_payload', $payload );
@@ -356,7 +390,8 @@ function trb_demo_recover_stalled_requests() {
 		}
 		$earliest = (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true );
 		if ( 'ready' === $status && ( ! $earliest || $earliest <= time() ) && ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) {
-			wp_schedule_single_event( time() + 5, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
+			$send_at = trb_demo_is_test_payload( $payload ) ? time() + 5 : trb_portal_demo_next_delivery_time( time() + 5 );
+			wp_schedule_single_event( $send_at, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
 		}
 		$remote = get_post_meta( $request_id, '_trb_demo_remote', true );
 		if ( ! empty( $remote['folder'] ) && ! get_post_meta( $request_id, '_trb_demo_sheet_synced', true ) && ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) {
@@ -383,8 +418,16 @@ add_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' );
 /** Non-sensitive readiness endpoint used by deployment monitoring. */
 function trb_demo_health_payload() {
 	$settings = trb_demo_settings();
+	$window = function_exists( 'trb_portal_demo_delivery_window' ) ? trb_portal_demo_delivery_window() : array();
 	$payload = array(
 		'ready' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ) && ! empty( $settings['openai_key'] ),
+		'delivery_window' => array(
+			'working_hours' => (int) ( $window['hours'] ?? 0 ),
+			'days'          => 'monday-saturday',
+			'opens_at'      => '08:30',
+			'closes_at'     => '18:30',
+			'timezone'      => wp_timezone_string(),
+		),
 	);
 	if ( current_user_can( 'manage_options' ) ) {
 		$payload['pcloud_configured'] = ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] );
