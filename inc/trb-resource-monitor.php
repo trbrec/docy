@@ -635,7 +635,7 @@ function trb_resource_recover_release_pipeline() {
 		'meta_query'     => array(
 			'relation' => 'OR',
 			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'pending_pcloud_transfer', 'pcloud_transfer_waiting' ), 'compare' => 'IN' ),
-			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'archived_pending_analysis', 'technical_review', 'copyright_queued', 'analysis_in_progress', 'copyright_review' ), 'compare' => 'IN' ),
+			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'archived_pending_analysis', 'technical_review', 'copyright_queued', 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review' ), 'compare' => 'IN' ),
 		),
 	) );
 
@@ -658,7 +658,7 @@ function trb_resource_recover_release_pipeline() {
 		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'archived_pending_analysis', 'technical_review', 'copyright_queued' ), true ) ) {
 			do_action( 'trb_release_audio_ready_for_analysis', $release_id, (array) ( $archive['files'] ?? array() ) );
 			$recovered = true;
-		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'analysis_in_progress', 'copyright_review' ), true ) && function_exists( 'trb_resource_start_release_analysis' ) ) {
+		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review' ), true ) && function_exists( 'trb_resource_start_release_analysis' ) ) {
 			trb_resource_start_release_analysis( $release_id );
 			$recovered = true;
 		}
@@ -985,13 +985,13 @@ function trb_resource_run_portal_audit() {
 	foreach ( $demo_counts as $status => $count ) $demo_summary[] = esc_html( $status ) . ': ' . absint( $count );
 	$body = '<p><strong>Gruppi:</strong> ' . esc_html( implode( ' · ', $profile_rows ) ) . '</p><p><strong>Pipeline release:</strong> ' . ( $pipeline_summary ? implode( ' · ', $pipeline_summary ) : 'nessuna pratica attiva' ) . '</p><p><strong>Valutazioni demo:</strong> ' . esc_html( implode( ' · ', $demo_summary ) ) . '</p>';
 	$body .= $issues ? '<p><strong>Interventi richiesti:</strong></p><ul><li>' . implode( '</li><li>', array_map( 'esc_html', $issues ) ) . '</li></ul>' : '<p><strong>Esito:</strong> nessuna anomalia rilevata in pagine, gruppi, permessi, valutazioni demo, release, eventi automatici, coda email e configurazione copyright.</p>';
-	trb_resource_queue_email( 'portal-audit-20260824.2', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
+	trb_resource_queue_email( 'portal-audit-20260824.3', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_run_portal_audit', 'trb_resource_run_portal_audit' );
 add_action( 'init', function() {
-	if ( '20260824.2' === get_option( 'trb_resource_portal_audit_version' ) ) return;
-	update_option( 'trb_resource_portal_audit_version', '20260824.2', false );
+	if ( '20260824.3' === get_option( 'trb_resource_portal_audit_version' ) ) return;
+	update_option( 'trb_resource_portal_audit_version', '20260824.3', false );
 	if ( ! wp_next_scheduled( 'trb_resource_run_portal_audit' ) ) wp_schedule_single_event( time() + 30, 'trb_resource_run_portal_audit' );
 }, 30 );
 
