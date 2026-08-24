@@ -877,7 +877,7 @@ function trb_resource_run_portal_audit() {
 		foreach ( trb_portal_profiles() as $key => $profile ) {
 			$canonical = sanitize_key( (string) ( $profile['role'] ?? '' ) );
 			if ( ! $canonical || ! get_role( $canonical ) ) $issues[] = 'Ruolo canonico mancante: ' . $key;
-			elseif ( ! get_role( $canonical )->has_cap( 'trb_portal_access' ) ) $issues[] = 'Permesso portale mancante sul ruolo: ' . $key;
+			elseif ( ! get_role( $canonical )->has_cap( 'trb_portal_access' ) || empty( $profile['capability'] ) || ! get_role( $canonical )->has_cap( $profile['capability'] ) ) $issues[] = 'Permesso portale o profilo mancante sul ruolo: ' . $key;
 			$artist_roles = array_merge( $artist_roles, array( $canonical ), (array) ( $profile['aliases'] ?? array() ) );
 		}
 		$artist_roles = array_values( array_unique( array_filter( array_map( 'sanitize_key', $artist_roles ) ) ) );
@@ -891,16 +891,81 @@ function trb_resource_run_portal_audit() {
 		}
 	}
 	if ( $ambiguous ) $issues[] = $ambiguous . ' account con più gruppi contrattuali';
+	if ( function_exists( 'trb_portal_service_status' ) ) {
+		$entitlement_expectations = array(
+			'editorial_pitching' => array( 'dds' => 'unavailable', 'ddb12' => 'included', 'ddb' => 'included', 'ddb_trb' => 'included', 'trb' => 'included' ),
+			'owned_playlists'    => array( 'dds' => 'unavailable', 'ddb12' => 'included', 'ddb' => 'included', 'ddb_trb' => 'included', 'trb' => 'included' ),
+			'training'           => array( 'dds' => 'unavailable', 'ddb12' => 'included', 'ddb' => 'included', 'ddb_trb' => 'included', 'trb' => 'unavailable' ),
+			'certificate'        => array( 'dds' => 'unavailable', 'ddb12' => 'included', 'ddb' => 'included', 'ddb_trb' => 'included', 'trb' => 'unavailable' ),
+			'press_release'      => array( 'dds' => 'store_50', 'ddb12' => 'store_50', 'ddb' => 'store_50', 'ddb_trb' => 'included', 'trb' => 'included' ),
+			'radio_date'         => array( 'dds' => 'store_50', 'ddb12' => 'store_50', 'ddb' => 'store_50', 'ddb_trb' => 'included', 'trb' => 'included' ),
+		);
+		foreach ( $entitlement_expectations as $service => $profiles ) foreach ( $profiles as $profile => $expected ) {
+			if ( $expected !== trb_portal_service_status( $service, $profile ) ) $issues[] = 'Permesso servizio incoerente: ' . $service . '/' . $profile;
+		}
+	}
 
 	$pipeline_rows = $wpdb->get_results( "SELECT pm.meta_value AS pipeline_status,COUNT(*) AS total FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID=pm.post_id WHERE pm.meta_key='_trb_release_pipeline_status' AND p.post_type='trb_release' AND p.post_status IN ('publish','private','pending') GROUP BY pm.meta_value ORDER BY total DESC", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$pipeline_counts = array();
-	foreach ( (array) $pipeline_rows as $row ) $pipeline_counts[ sanitize_key( $row['pipeline_status'] ) ] = absint( $row['total'] );
-	foreach ( array( 'technical_error','security_rejected','upload_failed','isrc_assignment_failed','analysis_waiting_configuration','ACR_BUDGET_LIMIT_REACHED','PCLOUD_QUOTA_LIMIT_REACHED' ) as $blocked_status ) {
+	foreach ( (array) $pipeline_rows as $row ) {
+		$pipeline_key = sanitize_key( $row['pipeline_status'] );
+		$pipeline_counts[ $pipeline_key ] = ( $pipeline_counts[ $pipeline_key ] ?? 0 ) + absint( $row['total'] );
+	}
+	foreach ( array( 'technical_error','security_rejected','upload_failed','isrc_assignment_failed','analysis_waiting_configuration','acr_budget_limit_reached','pcloud_quota_limit_reached' ) as $blocked_status ) {
 		if ( ! empty( $pipeline_counts[ $blocked_status ] ) ) $issues[] = $pipeline_counts[ $blocked_status ] . ' pratiche in ' . $blocked_status;
 	}
 
-	$required_events = array( 'trb_resource_recover_release_pipeline', 'trb_resource_daily_health', 'trb_analysis_security_retry', 'trb_release_pcloud_import_masters' );
+	$required_events = array( 'trb_resource_recover_release_pipeline', 'trb_resource_daily_health', 'trb_analysis_security_retry', 'trb_release_pcloud_import_masters', 'trb_demo_recover_stalled_requests', 'trb_portal_cleanup_pending_accounts', 'trb_portal_check_identity_expirations', 'trb_release_bridge_transition_expired_ddb_trb' );
 	foreach ( $required_events as $event ) if ( ! wp_next_scheduled( $event ) ) $issues[] = 'Evento automatico non pianificato: ' . $event;
+	$page_status = array();
+	foreach ( array( 'accedi', 'registrati', 'recupera-password', 'segnalazione' ) as $page_slug ) {
+		$page = get_page_by_path( $page_slug );
+		$page_status[ $page_slug ] = $page && 'publish' === $page->post_status;
+		if ( ! $page_status[ $page_slug ] ) $issues[] = 'Pagina pubblica mancante o non pubblicata: ' . $page_slug;
+	}
+	$dashboard_id = absint( get_option( 'trb_portal_dashboard_created' ) );
+	$page_status['area-artisti'] = $dashboard_id && 'publish' === get_post_status( $dashboard_id );
+	if ( ! $page_status['area-artisti'] ) $issues[] = 'Dashboard artisti mancante o non pubblicata';
+
+	$demo_counts = array_fill_keys( array( 'queued', 'retry', 'ready', 'sent', 'manual_review', 'email_failed' ), 0 );
+	$demo_problems = array_fill_keys( array( 'stalled', 'missing_files', 'missing_remote', 'sheet_unsynced' ), 0 );
+	$demo_request_ids = get_posts( array(
+		'post_type'      => 'trb_request',
+		'post_status'    => array( 'publish', 'private', 'draft', 'pending' ),
+		'posts_per_page' => -1,
+		'fields'         => 'ids',
+		'meta_query'     => array( array( 'key' => '_trb_demo_payload', 'compare' => 'EXISTS' ) ),
+	) );
+	foreach ( $demo_request_ids as $demo_request_id ) {
+		$demo_payload = get_post_meta( $demo_request_id, '_trb_demo_payload', true );
+		if ( ! is_array( $demo_payload ) ) continue;
+		$demo_status = sanitize_key( (string) ( $demo_payload['status'] ?? '' ) );
+		if ( isset( $demo_counts[ $demo_status ] ) ) $demo_counts[ $demo_status ]++;
+		$submitted_at = ! empty( $demo_payload['submitted_at'] ) ? strtotime( $demo_payload['submitted_at'] ) : 0;
+		if ( in_array( $demo_status, array( 'queued', 'retry' ), true ) && $submitted_at && $submitted_at < time() - 2 * HOUR_IN_SECONDS ) $demo_problems['stalled']++;
+		if ( in_array( $demo_status, array( 'queued', 'retry' ), true ) && function_exists( 'trb_demo_local_path' ) ) {
+			$has_expected_file = false;
+			foreach ( array( 'text_file', 'audio_file' ) as $file_key ) {
+				if ( empty( $demo_payload[ $file_key ] ) ) continue;
+				$has_expected_file = true;
+				if ( ! trb_demo_local_path( $demo_payload[ $file_key ] ) ) $demo_problems['missing_files']++;
+			}
+			if ( ! $has_expected_file ) $demo_problems['missing_files']++;
+		}
+		$demo_remote = get_post_meta( $demo_request_id, '_trb_demo_remote', true );
+		if ( in_array( $demo_status, array( 'ready', 'sent' ), true ) && empty( $demo_remote['folder'] ) ) $demo_problems['missing_remote']++;
+		if ( in_array( $demo_status, array( 'ready', 'sent' ), true ) && ! get_post_meta( $demo_request_id, '_trb_demo_sheet_synced', true ) ) $demo_problems['sheet_unsynced']++;
+	}
+	$demo_settings = function_exists( 'trb_demo_settings' ) ? trb_demo_settings() : array();
+	foreach ( array( 'webdav_endpoint', 'pcloud_user', 'pcloud_pass', 'openai_key', 'sheet_webhook_url', 'sheet_webhook_secret' ) as $demo_setting ) {
+		if ( empty( $demo_settings[ $demo_setting ] ) ) $issues[] = 'Configurazione demo mancante: ' . $demo_setting;
+	}
+	foreach ( array( 'trb_portal_process_demo' => 'trb_demo_process_request', 'trb_portal_send_demo_review' => 'trb_demo_send_review', 'trb_portal_sync_demo_sheet' => 'trb_demo_sync_sheet_retry', 'trb_demo_recover_stalled_requests' => 'trb_demo_recover_stalled_requests' ) as $hook => $callback ) {
+		if ( ! has_action( $hook, $callback ) ) $issues[] = 'Handler demo non registrato: ' . $hook;
+	}
+	foreach ( $demo_problems as $problem => $count ) if ( $count ) $issues[] = $count . ' valutazioni demo con anomalia ' . $problem;
+	if ( $demo_counts['manual_review'] ) $issues[] = $demo_counts['manual_review'] . ' valutazioni demo in verifica manuale';
+	if ( $demo_counts['email_failed'] ) $issues[] = $demo_counts['email_failed'] . ' valutazioni demo con consegna email non riuscita';
 	$settings = trb_resource_settings();
 	if ( empty( $settings['acr_enabled'] ) || empty( $settings['acr_paid_confirmed'] ) || empty( $settings['acr_token'] ) || empty( $settings['acr_container_id'] ) ) $issues[] = 'Configurazione ACRCloud incompleta o disattivata';
 	if ( function_exists( 'trb_analysis_verify_acr_container' ) ) {
@@ -910,21 +975,23 @@ function trb_resource_run_portal_audit() {
 	$failed_mail = (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . trb_resource_tables()['notifications'] . " WHERE status='retry' AND attempts>0" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 	if ( $failed_mail ) $issues[] = $failed_mail . ' notifiche email in retry';
 
-	$snapshot = array( 'checked_at' => time(), 'profiles' => $profile_counts, 'pipelines' => $pipeline_counts, 'issues' => $issues );
+	$snapshot = array( 'checked_at' => time(), 'profiles' => $profile_counts, 'pipelines' => $pipeline_counts, 'demos' => $demo_counts, 'demo_problems' => $demo_problems, 'pages' => $page_status, 'issues' => $issues );
 	update_option( 'trb_resource_last_portal_audit', $snapshot, false );
 	$profile_rows = array();
 	foreach ( $profile_counts as $profile => $count ) $profile_rows[] = strtoupper( str_replace( '_', '-', $profile ) ) . ': ' . absint( $count );
 	$pipeline_summary = array();
 	foreach ( $pipeline_counts as $status => $count ) $pipeline_summary[] = esc_html( $status ) . ': ' . absint( $count );
-	$body = '<p><strong>Gruppi:</strong> ' . esc_html( implode( ' · ', $profile_rows ) ) . '</p><p><strong>Pipeline:</strong> ' . ( $pipeline_summary ? implode( ' · ', $pipeline_summary ) : 'nessuna pratica attiva' ) . '</p>';
-	$body .= $issues ? '<p><strong>Interventi richiesti:</strong></p><ul><li>' . implode( '</li><li>', array_map( 'esc_html', $issues ) ) . '</li></ul>' : '<p><strong>Esito:</strong> nessuna anomalia rilevata nei gruppi, nei permessi, negli eventi automatici, nella coda email e nella configurazione copyright.</p>';
-	trb_resource_queue_email( 'portal-audit-20260824.1', 'Audit operativo Portale Artisti completato', $body, (bool) $issues );
+	$demo_summary = array();
+	foreach ( $demo_counts as $status => $count ) $demo_summary[] = esc_html( $status ) . ': ' . absint( $count );
+	$body = '<p><strong>Gruppi:</strong> ' . esc_html( implode( ' · ', $profile_rows ) ) . '</p><p><strong>Pipeline release:</strong> ' . ( $pipeline_summary ? implode( ' · ', $pipeline_summary ) : 'nessuna pratica attiva' ) . '</p><p><strong>Valutazioni demo:</strong> ' . esc_html( implode( ' · ', $demo_summary ) ) . '</p>';
+	$body .= $issues ? '<p><strong>Interventi richiesti:</strong></p><ul><li>' . implode( '</li><li>', array_map( 'esc_html', $issues ) ) . '</li></ul>' : '<p><strong>Esito:</strong> nessuna anomalia rilevata in pagine, gruppi, permessi, valutazioni demo, release, eventi automatici, coda email e configurazione copyright.</p>';
+	trb_resource_queue_email( 'portal-audit-20260824.2', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_run_portal_audit', 'trb_resource_run_portal_audit' );
 add_action( 'init', function() {
-	if ( '20260824.1' === get_option( 'trb_resource_portal_audit_version' ) ) return;
-	update_option( 'trb_resource_portal_audit_version', '20260824.1', false );
+	if ( '20260824.2' === get_option( 'trb_resource_portal_audit_version' ) ) return;
+	update_option( 'trb_resource_portal_audit_version', '20260824.2', false );
 	if ( ! wp_next_scheduled( 'trb_resource_run_portal_audit' ) ) wp_schedule_single_event( time() + 30, 'trb_resource_run_portal_audit' );
 }, 30 );
 
