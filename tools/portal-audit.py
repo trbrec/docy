@@ -61,7 +61,11 @@ check("creazione release protetta da nonce", "wp_verify_nonce( $release_nonce" i
 check("creazione release protetta da idempotency token", "_trb_release_submission_token" in PORTAL)
 check("numero e periodo contrattuale bloccano coerentemente interfaccia e server", PORTAL.count("trb_release_bridge_contract_term_dates") >= 3 and "Dati contrattuali da verificare" in PORTAL)
 check("limite mensile applicato solo a DDS/DDB12", "function trb_portal_monthly_release_profile" in PORTAL)
-check("avviso mensile mostra motivo e data di riapertura", PORTAL.count("Raggiunto limite mensile di release distribuibili") >= 2 and "Potrai avviare una nuova pratica dal" in PORTAL and "trb_portal_monthly_next_reset_label" in PORTAL)
+check("contatori mensile e annuale includono solo contratti firmati", "trb_portal_signed_release_ids" in PORTAL and "_trb_contract_state', 'value' => 'signed'" in PORTAL and PORTAL.count("trb_portal_release_contract_signed_timestamp") >= 3)
+check("quota attribuita alla data effettiva di firma", "_trb_contract_signed_at" in PORTAL and "first day of this month 00:00:00" in PORTAL)
+check("richieste non firmate non bloccano nuove release", "signed_contracts_only" in PORTAL and "non impediscono di inviare una nuova release" in PORTAL)
+check("marcatore mensile usato solo come lock temporaneo", "update_user_meta( $user_id, $monthly_reservation_key, (string) $release_id )" not in PORTAL and "trb_portal_migrate_signed_contract_release_limits" in PORTAL)
+check("avviso mensile mostra firma conteggiata e data di riapertura", PORTAL.count("Raggiunto limite mensile di release contrattualizzate") >= 2 and "Potrai contrattualizzare una nuova release dal" in PORTAL and "trb_portal_monthly_next_reset_label" in PORTAL)
 check("avviso annuale distingue le dodici release", PORTAL.count("Raggiunto il limite annuale di 12 release") >= 2 and "annual_limit_reached" in PORTAL)
 check("copertina inclusa esclusivamente per DDB-TRB e TRB", "'cover_artwork'         => $service( 'Copertina grafica professionale', $press_roster" in PORTAL)
 check("release con copertina inclusa offre caricamento o richiesta", "trb_portal_render_release_cover_input" in PORTAL and "trb_release_cover_mode" in PORTAL and "Richiedo la realizzazione della copertina inclusa" in PORTAL)
@@ -140,7 +144,8 @@ check("invii e retry demo restano sempre nella finestra consentita", "trb_portal
 check("cleanup demo elimina copie locali e remote", "trb_demo_cleanup_request" in DEMO and "trb_demo_webdav_request( 'DELETE'" in DEMO)
 check("health check demo accessibile al monitor", "'/trb/v1/demo-health'" in DEPLOY)
 check("release caricate a blocchi e finalizzate con sessione idempotente", "trb_portal_stage_release_chunk" in PORTAL and "trb_release_submission_token" in RELEASE_JS and "trb_staged_uploads_json" in RELEASE_JS)
-check("audit produzione include demo pagine permessi matrice release e copertine", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "release_qa" in RESOURCE and "release_matrix" in RESOURCE and "cover_workflow" in RESOURCE and "20260824.11" in RESOURCE)
+check("audit produzione include demo pagine permessi matrice release e copertine", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "release_qa" in RESOURCE and "release_matrix" in RESOURCE and "cover_workflow" in RESOURCE and "20260824.12" in RESOURCE)
+check("audit produzione verifica contatori contratti firmati", "Contatore release non limitato ai contratti firmati" in RESOURCE)
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 
 failed = [name for name, ok in checks if not ok]
