@@ -120,7 +120,7 @@ check("watchdog recupera valutazioni demo ferme", "trb_demo_recover_stalled_requ
 check("cleanup demo elimina copie locali e remote", "trb_demo_cleanup_request" in DEMO and "trb_demo_webdav_request( 'DELETE'" in DEMO)
 check("health check demo accessibile al monitor", "'/trb/v1/demo-health'" in DEPLOY)
 check("release caricate a blocchi e finalizzate con sessione idempotente", "trb_portal_stage_release_chunk" in PORTAL and "trb_release_submission_token" in RELEASE_JS and "trb_staged_uploads_json" in RELEASE_JS)
-check("audit produzione include demo pagine e permessi", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "20260824.4" in RESOURCE)
+check("audit produzione include demo pagine e permessi", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "20260824.5" in RESOURCE)
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 
 failed = [name for name, ok in checks if not ok]
