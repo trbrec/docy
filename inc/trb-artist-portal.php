@@ -113,15 +113,15 @@ function trb_portal_service_catalogue() {
 		'profile_optimization'  => $service( 'Ottimizzazione profilo Spotify/Apple Music', $development, array( 'dds' ), 'ottimizzazione-profilo-spotify-apple' ),
 		'smartlink'             => $service( 'Smartlink', $all ),
 		'promo_cards'           => $service( 'Promo Cards', $all ),
-		'editorial_pitching'    => $service( 'Pitching editoriale', $all ),
-		'owned_playlists'       => $service( 'Inserimento nelle playlist proprietarie', $all ),
+		'editorial_pitching'    => $service( 'Pitching editoriale', $development ),
+		'owned_playlists'       => $service( 'Inserimento nelle playlist proprietarie', $development ),
 		'landing_page'          => $service( 'Landing page artista e release', $development ),
 		'digital_press_kit'     => $service( 'Digital Press Kit ed E-card', $development ),
 		'curator_campaigns'     => $service( 'Campagne verso curatori, blogger e influencer', $development, array( 'dds' ), 'campagne-curatori-blogger-influencer' ),
 		'press_release'         => $service( 'Comunicato stampa con diffusione', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'comunicato-stampa' ),
 		'radio_date'            => $service( 'Radio Date', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'radio-date' ),
 		'booking'               => $service( 'Booking e scouting live', $development ),
-		'training'              => $service( 'Formazione e Knowledge Hub', array( 'dds', 'ddb12', 'ddb', 'ddb_trb' ) ),
+		'training'              => $service( 'Formazione e Knowledge Hub', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
 		'priority_mentoring'    => $service( 'Assistenza prioritaria e mentoring', array( 'ddb12', 'ddb', 'ddb_trb', 'trb' ) ),
 		'certificate'           => $service( 'Certificato o attestato finale', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
 		'reporting'             => $service( 'Report e rendicontazione royalty', $all ),
@@ -151,7 +151,7 @@ function trb_portal_service_store_url( $service, $profile = null ) {
 /** Contract rules which are not individual services. */
 function trb_portal_contract_rules() {
 	return array(
-		'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'base', 'indefinite_trb_roster' => false ),
+		'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'not_applicable', 'indefinite_trb_roster' => false ),
 		'ddb12' => array( 'duration_months' => 12, 'release_limit' => 'one_per_month_max_12_year', 'training_level' => 'complete', 'indefinite_trb_roster' => false ),
 		// The DDB group uses the CCAD 600/800/1200 templates, all of which allow
 		// unlimited releases. CSAE 600 belongs exclusively to the DDB12 group.
@@ -2891,7 +2891,7 @@ function trb_portal_seed_guides() {
 	$profiles = array(
 		'dds' => array(
 			'label' => 'DDS',
-			'training' => '<p>DDS comprende l’accesso alla formazione di base e ai materiali del Knowledge Hub utili a preparare profilo e release.</p><ul><li>Il percorso non comprende mentoring prioritario.</li><li>Non è previsto un certificato o attestato finale.</li><li>I contenuti formativi aiutano l’artista, ma non sostituiscono le istruzioni vincolanti mostrate nella pratica.</li></ul>',
+			'training' => '<p>DDS non comprende un percorso di formazione, mentoring prioritario o attestato finale.</p><ul><li>Restano disponibili le istruzioni operative necessarie per compilare correttamente profilo e release.</li><li>Le guide tecniche del portale spiegano i requisiti di consegna, ma non costituiscono un corso o un servizio formativo incluso.</li><li>Per richieste operative specifiche utilizza la pagina di segnalazione.</li></ul>',
 			'audio' => '<p>Per la distribuzione devi consegnare il <strong>master definitivo in WAV stereo</strong>. Il portale accetta almeno <strong>44.100 Hz / 16 bit</strong>; lo standard consigliato, quando disponibile dalla sessione originale, è <strong>48.000 Hz / 24 bit</strong>.</p><ul><li>Non convertire un file di qualità inferiore soltanto per mostrare valori più alti.</li><li>Non inviare MP3, M4A, audio WhatsApp o file estratti da piattaforme streaming.</li><li>Non normalizzare o riconvertire il master dopo l’approvazione.</li><li>Controlla che intro, dissolvenze e code non siano tagliate e usa lo stesso standard per tutte le tracce.</li></ul>',
 			'cover' => '<p>Devi caricare la <strong>copertina definitiva già realizzata</strong>, collegandola alla pratica della release.</p><ul><li>Formato quadrato RGB, 3.000 × 3.000 px, 300 DPI.</li><li>Niente immagini sfocate, bordi involontari, URL, loghi di store o contenuti non autorizzati.</li><li>Nome d’arte e titolo devono coincidere esattamente con i metadati inseriti.</li></ul><p>Controlla attentamente il file prima dell’invio: una copertina non conforme blocca la programmazione.</p>',
 			'platforms' => '<p>Il percorso DDS comprende distribuzione digitale mondiale, codici ISRC/UPC, pitching editoriale, Smartlink, Promo Cards ed eventuale valutazione per le playlist gestite da TRB Rec.</p><ul><li>Inserisci i link corretti ai profili artista esistenti per evitare pagine duplicate.</li><li>Il pitching è una candidatura e non garantisce playlist editoriali.</li><li>La valutazione per le playlist TRB Rec non garantisce l’inserimento, che dipende dalla selezione artistica, dalla compatibilità della pubblicazione e dalla disponibilità editoriale.</li></ul>',
@@ -3802,16 +3802,52 @@ function trb_portal_is_demo_test_account( $user = null ) {
 	return in_array( strtolower( (string) $user->user_email ), $allowed, true );
 }
 
+function trb_portal_recent_demo_requests( $user_id = 0 ) {
+	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+	if ( ! $user_id ) return array();
+	$labels = array(
+		'queued'        => 'Analisi in coda',
+		'retry'         => 'Analisi in corso con recupero automatico',
+		'ready'         => 'Valutazione completata: invio e-mail programmato',
+		'sent'          => 'Valutazione inviata via e-mail',
+		'manual_review' => 'Verifica manuale TRB in corso',
+		'email_failed'  => 'Consegna e-mail in verifica da parte di TRB',
+	);
+	$requests = get_posts( array(
+		'post_type'      => 'trb_request',
+		'post_status'    => array( 'publish', 'private', 'draft', 'pending' ),
+		'author'         => $user_id,
+		'posts_per_page' => 5,
+		'orderby'        => 'date',
+		'order'          => 'DESC',
+		'meta_query'     => array( array( 'key' => '_trb_demo_payload', 'compare' => 'EXISTS' ) ),
+	) );
+	$rows = array();
+	foreach ( $requests as $request ) {
+		$payload = get_post_meta( $request->ID, '_trb_demo_payload', true );
+		if ( ! is_array( $payload ) ) continue;
+		$status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
+		$rows[] = array(
+			'title'  => ! empty( $payload['title'] ) ? sanitize_text_field( $payload['title'] ) : preg_replace( '/^\[Demo\]\s*/', '', get_the_title( $request ) ),
+			'status' => $labels[ $status ] ?? 'Stato in aggiornamento',
+			'date'   => get_post_time( 'd/m/Y H:i', false, $request ),
+		);
+	}
+	return $rows;
+}
+
 function trb_portal_render_demo_section() {
 	if ( 'dds' === trb_portal_user_profile() ) return;
 	$status = isset( $_GET['trb_demo'] ) ? sanitize_key( wp_unslash( $_GET['trb_demo'] ) ) : '';
 	$is_test_account = trb_portal_is_demo_test_account();
+	$recent_requests = trb_portal_recent_demo_requests();
 	?>
 	<section id="demo" class="trb-portal__section">
 		<div class="trb-portal__demo">
 			<p class="trb-portal__eyebrow">PRIMA DELLA RELEASE</p>
 			<h2>Vuoi una valutazione del demo?</h2>
 			<p class="trb-portal__demo-lead"><?php if ( $is_test_account ) : ?>Account di collaudo: gli invii sono temporaneamente illimitati e le valutazioni vengono elaborate appena possibile.<?php else : ?>È un percorso facoltativo e resta sempre separato dalla pratica di pubblicazione: puoi richiedere la valutazione di <strong>un brano a settimana</strong>, in qualunque momento.<?php endif; ?></p>
+			<?php if ( $recent_requests ) : ?><div class="trb-portal__message"><strong>Stato delle valutazioni demo</strong><ul><?php foreach ( $recent_requests as $request ) : ?><li><strong><?php echo esc_html( $request['title'] ); ?></strong> · <?php echo esc_html( $request['status'] ); ?> <small>(<?php echo esc_html( $request['date'] ); ?>)</small></li><?php endforeach; ?></ul></div><?php endif; ?>
 			<?php if ( 'sent' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Provino ricevuto correttamente. La valutazione verrà inviata all’indirizzo e-mail associato al tuo account.</div><?php endif; ?>
 			<?php if ( 'weekly_limit' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Hai già inviato un provino negli ultimi sette giorni. Potrai richiedere una nuova valutazione alla scadenza del limite settimanale.</div><?php endif; ?>
 			<?php if ( 'processing' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Il provino è già in caricamento. Attendi il completamento senza inviarlo nuovamente.</div><?php endif; ?>
