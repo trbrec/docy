@@ -224,6 +224,26 @@ function trb_demo_sheet_row( $request_id, $payload, $remote ) {
 	return $ok;
 }
 
+function trb_demo_sync_sheet_retry( $request_id ) {
+	$payload = get_post_meta( absint( $request_id ), '_trb_demo_payload', true );
+	$remote  = get_post_meta( absint( $request_id ), '_trb_demo_remote', true );
+	if ( ! is_array( $payload ) || empty( $remote['folder'] ) || get_post_meta( $request_id, '_trb_demo_sheet_synced', true ) ) return;
+	if ( trb_demo_sheet_row( $request_id, $payload, $remote ) ) {
+		delete_post_meta( $request_id, '_trb_demo_sheet_attempts' );
+		return;
+	}
+	$attempts = (int) get_post_meta( $request_id, '_trb_demo_sheet_attempts', true ) + 1;
+	update_post_meta( $request_id, '_trb_demo_sheet_attempts', $attempts );
+	if ( $attempts < 5 ) {
+		if ( ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) wp_schedule_single_event( time() + 15 * MINUTE_IN_SECONDS, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
+		return;
+	}
+	$body = '<p>La valutazione demo #' . absint( $request_id ) . ' è stata elaborata, ma la riga non è stata registrata nel foglio Google dopo cinque tentativi.</p>';
+	if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'demo-sheet-failed-' . absint( $request_id ), 'Sincronizzazione demo con Google Sheet non riuscita', $body, true );
+	else wp_mail( 'info@trbrec.com', 'Sincronizzazione demo con Google Sheet non riuscita', wp_strip_all_tags( $body ) );
+}
+add_action( 'trb_portal_sync_demo_sheet', 'trb_demo_sync_sheet_retry' );
+
 function trb_demo_is_test_payload( $payload ) {
 	$email = is_array( $payload ) && ! empty( $payload['email'] ) ? strtolower( (string) $payload['email'] ) : '';
 	return in_array( $email, array( 'spotify2@trbrec.com', 'spotify3@trbrec.com', 'spotify4@trbrec.com' ), true );
@@ -250,7 +270,9 @@ function trb_demo_process_request( $request_id ) {
 	update_post_meta( $request_id, '_trb_demo_review', $review );
 	update_post_meta( $request_id, '_trb_demo_openai_usage', $usage );
 	update_post_meta( $request_id, '_trb_demo_cost_usd', (float) $usage['estimated_cost_usd'] );
-	trb_demo_sheet_row( $request_id, $payload, $remote );
+	if ( ! trb_demo_sheet_row( $request_id, $payload, $remote ) && ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) {
+		wp_schedule_single_event( time() + 15 * MINUTE_IN_SECONDS, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
+	}
 	$payload['status'] = 'ready';
 	update_post_meta( $request_id, '_trb_demo_payload', $payload );
 	$send_at = max( time() + 30, (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true ) );
@@ -294,11 +316,58 @@ function trb_demo_send_review( $request_id ) {
 		'From: TRB rec - Music Publishing <info@trbrec.com>',
 		'Reply-To: TRB rec - Music Publishing <info@trbrec.com>',
 	);
+	$attempts = (int) get_post_meta( $request_id, '_trb_demo_email_attempts', true ) + 1;
+	update_post_meta( $request_id, '_trb_demo_email_attempts', $attempts );
 	$sent = wp_mail( $payload['email'], $subject, $body, $headers );
-	if ( $sent ) { $payload['status'] = 'sent'; $payload['sent_at'] = gmdate( 'c' ); update_post_meta( $request_id, '_trb_demo_payload', $payload ); }
-	else wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? 5 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_send_demo_review', array( $request_id ) );
+	if ( $sent ) {
+		$payload['status'] = 'sent';
+		$payload['sent_at'] = gmdate( 'c' );
+		update_post_meta( $request_id, '_trb_demo_payload', $payload );
+		delete_post_meta( $request_id, '_trb_demo_email_attempts' );
+	} elseif ( $attempts < 5 ) {
+		if ( ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? 5 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
+	} else {
+		$payload['status'] = 'email_failed';
+		update_post_meta( $request_id, '_trb_demo_payload', $payload );
+		$failure_body = '<p>La valutazione demo #' . absint( $request_id ) . ' (' . esc_html( $payload['title'] ) . ') non è stata consegnata all’artista dopo cinque tentativi.</p>';
+		if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'demo-email-failed-' . absint( $request_id ), 'Consegna valutazione demo non riuscita', $failure_body, true );
+		else wp_mail( 'info@trbrec.com', 'Consegna valutazione demo non riuscita', wp_strip_all_tags( $failure_body ) );
+	}
 }
 add_action( 'trb_portal_send_demo_review', 'trb_demo_send_review' );
+
+/** Recover demo jobs when a one-shot WP-Cron event is lost or interrupted. */
+function trb_demo_recover_stalled_requests() {
+	$request_ids = get_posts( array(
+		'post_type'      => 'trb_request',
+		'post_status'    => array( 'publish', 'private', 'draft', 'pending' ),
+		'posts_per_page' => 100,
+		'fields'         => 'ids',
+		'orderby'        => 'modified',
+		'order'          => 'ASC',
+		'meta_query'     => array( array( 'key' => '_trb_demo_payload', 'compare' => 'EXISTS' ) ),
+	) );
+	foreach ( $request_ids as $request_id ) {
+		$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
+		if ( ! is_array( $payload ) ) continue;
+		$status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
+		if ( in_array( $status, array( 'queued', 'retry' ), true ) && ! wp_next_scheduled( 'trb_portal_process_demo', array( absint( $request_id ) ) ) ) {
+			wp_schedule_single_event( time() + 5, 'trb_portal_process_demo', array( absint( $request_id ) ) );
+		}
+		$earliest = (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true );
+		if ( 'ready' === $status && ( ! $earliest || $earliest <= time() ) && ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) {
+			wp_schedule_single_event( time() + 5, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
+		}
+		$remote = get_post_meta( $request_id, '_trb_demo_remote', true );
+		if ( ! empty( $remote['folder'] ) && ! get_post_meta( $request_id, '_trb_demo_sheet_synced', true ) && ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) {
+			wp_schedule_single_event( time() + 10, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
+		}
+	}
+}
+add_action( 'trb_demo_recover_stalled_requests', 'trb_demo_recover_stalled_requests' );
+add_action( 'init', function() {
+	if ( ! wp_next_scheduled( 'trb_demo_recover_stalled_requests' ) ) wp_schedule_event( time() + 2 * MINUTE_IN_SECONDS, 'hourly', 'trb_demo_recover_stalled_requests' );
+} );
 
 function trb_demo_cleanup_request( $request_id ) {
 	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
