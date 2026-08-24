@@ -53,6 +53,7 @@ check("solo account QA spotify4 forzato sul profilo TRB", "'spotify4@trbrec.com'
 check("spotify4 ha fixture contrattuale e modulo release verificabile", "trb_release_bridge_seed_spotify4_qa_contract" in BRIDGE and "TRB-QA-SPOTIFY4" in BRIDGE and "trb_portal_release_qa_health_payload" in PORTAL)
 check("spotify4 usa conferma collaudo senza perdere il flusso TRB", "trb_portal_is_release_qa_account" in PORTAL and "current_user_can( 'manage_options' ) || trb_portal_is_release_qa_account()" in PORTAL)
 check("matrice QA copre tutti i cinque gruppi release", "trb_portal_release_group_health_payload" in PORTAL and all(f"'{login}' => '{profile}'" in PORTAL for login, profile in (("spotify1", "dds"), ("spotify6", "ddb12"), ("spotify2", "ddb"), ("spotify3", "ddb_trb"), ("spotify4", "trb"))))
+check("fixture contrattuali QA coprono tutti i cinque gruppi", "trb_release_bridge_seed_release_group_qa_contracts" in BRIDGE and all(f"'{login}' => array( 'profile' => '{profile}'" in BRIDGE for login, profile in (("spotify1", "dds"), ("spotify6", "ddb12"), ("spotify2", "ddb"), ("spotify3", "ddb_trb"), ("spotify4", "trb"))))
 check("ruolo canonico prioritario rispetto agli alias", "A current canonical role always wins" in PORTAL)
 check("normalizzazione dei ruoli al salvataggio amministrativo", "trb_portal_normalize_artist_role_after_admin_save" in PORTAL)
 check("DDB-TRB aggiorna il profilo canonico al passaggio TRB", "'_trb_artist_contract_profile', 'trb'" in BRIDGE)
