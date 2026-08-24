@@ -605,6 +605,25 @@ function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_st
 	}
 }
 
+function trb_resource_notify_artist_recovery_without_release( $user_id, $event_suffix ) {
+	$user = get_userdata( absint( $user_id ) );
+	if ( ! $user || ! is_email( $user->user_email ) ) return;
+	$artist = function_exists( 'trb_portal_artist_profile_value' ) ? trb_portal_artist_profile_value( 'artist_name', $user->ID ) : '';
+	$name = $artist ?: $user->display_name;
+	$link = get_permalink( get_option( 'trb_portal_dashboard_created' ) );
+	$subject = 'Aggiornamento sul caricamento della tua release';
+	$body = '<p>Ciao ' . esc_html( $name ) . ',</p><p>abbiamo rilevato e risolto un problema tecnico del Portale Artisti che può avere interrotto il recente caricamento della tua release.</p>';
+	$body .= '<p>La problematica dipendeva dal portale e non dai materiali inviati. Accedi alla tua area riservata per verificare lo stato: se la pratica è visibile, <strong>non caricare nuovamente i file e non creare un duplicato</strong>; se invece non compare alcuna pratica, puoi ripetere ora l’invio.</p>';
+	$body .= '<p>Se sarà necessaria una correzione specifica del WAV riceverai una comunicazione separata.</p><p><a href="' . esc_url( $link ) . '">Apri il Portale Artisti</a></p><p>TRB rec - Music Publishing</p>';
+	$key = 'artist-pipeline-recovered-user-' . absint( $user->ID ) . '-' . sanitize_key( $event_suffix );
+	trb_resource_queue_recipient_email( $key, $user->user_email, $subject, $body );
+	foreach ( trb_resource_recovery_admin_recipients() as $admin_recipient ) {
+		if ( strtolower( $admin_recipient ) === strtolower( $user->user_email ) ) continue;
+		$copy_body = '<p><strong>Copia della comunicazione automatica inviata a ' . esc_html( $user->user_email ) . '.</strong></p>' . $body;
+		trb_resource_queue_recipient_email( $key . '-admin-copy-' . substr( md5( strtolower( $admin_recipient ) ), 0, 10 ), $admin_recipient, '[Copia artista] ' . $subject, $copy_body );
+	}
+}
+
 function trb_resource_recover_release_pipeline() {
 	$release_ids = get_posts( array(
 		'post_type'      => 'trb_release',
@@ -666,35 +685,48 @@ add_action( 'trb_resource_recover_release_pipeline', 'trb_resource_recover_relea
 function trb_resource_notify_ruggia_recovery_backfill() {
 	global $wpdb;
 	$like = '%' . $wpdb->esc_like( 'Ruggia' ) . '%';
+	$artist_user_id = (int) $wpdb->get_var( $wpdb->prepare(
+		"SELECT u.ID
+		FROM {$wpdb->users} u
+		LEFT JOIN {$wpdb->usermeta} um ON um.user_id=u.ID
+		WHERE u.user_login LIKE %s OR u.display_name LIKE %s OR u.user_email LIKE %s OR um.meta_value LIKE %s
+		ORDER BY CASE WHEN LOWER(TRIM(u.user_login))='ruggia' OR LOWER(TRIM(u.display_name))='ruggia' OR LOWER(TRIM(um.meta_value))='ruggia' THEN 0 ELSE 1 END,u.ID DESC
+		LIMIT 1",
+		$like, $like, $like, $like
+	) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$release_id = (int) $wpdb->get_var( $wpdb->prepare(
-		"SELECT DISTINCT p.ID
+		"SELECT p.ID
 		FROM {$wpdb->posts} p
-		INNER JOIN {$wpdb->users} u ON u.ID=p.post_author
-		LEFT JOIN {$wpdb->usermeta} um ON um.user_id=p.post_author
 		WHERE p.post_type='trb_release'
 		AND p.post_status NOT IN ('trash','auto-draft')
-		AND (u.user_login LIKE %s OR u.display_name LIKE %s OR u.user_email LIKE %s OR um.meta_value LIKE %s OR p.post_title LIKE %s)
+		AND (p.post_author=%d OR p.post_title LIKE %s OR p.post_content LIKE %s OR p.post_excerpt LIKE %s OR EXISTS (SELECT 1 FROM {$wpdb->postmeta} pm WHERE pm.post_id=p.ID AND pm.meta_value LIKE %s))
 		ORDER BY p.post_modified_gmt DESC,p.ID DESC
 		LIMIT 1",
-		$like, $like, $like, $like, $like
+		$artist_user_id, $like, $like, $like, $like
 	) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	if ( ! $release_id ) {
-		update_option( 'trb_resource_recovery_mail_discovery', array( 'status' => 'ruggia_release_not_found', 'updated_at' => time() ), false );
+		if ( $artist_user_id ) {
+			update_option( 'trb_resource_recovery_mail_discovery', array( 'status' => 'artist_found_without_release', 'updated_at' => time() ), false );
+			trb_resource_notify_artist_recovery_without_release( $artist_user_id, 'manual-resend-20260824-2' );
+			trb_resource_process_notifications();
+			return;
+		}
+		update_option( 'trb_resource_recovery_mail_discovery', array( 'status' => 'ruggia_account_not_found', 'updated_at' => time() ), false );
 		return;
 	}
 
 	update_option( 'trb_resource_recovery_mail_discovery', array( 'status' => 'release_found', 'updated_at' => time() ), false );
 	$status = sanitize_key( get_post_meta( $release_id, '_trb_pipeline_last_recovery_status', true ) );
 	if ( ! $status ) $status = sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
-	trb_resource_notify_artist_pipeline_recovery( $release_id, $status ?: 'pipeline', 'manual-resend-20260824-1' );
+	trb_resource_notify_artist_pipeline_recovery( $release_id, $status ?: 'pipeline', 'manual-resend-20260824-2' );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_notify_ruggia_recovery_backfill', 'trb_resource_notify_ruggia_recovery_backfill' );
 
 add_action( 'init', function() {
 	if ( ! wp_next_scheduled( 'trb_resource_recover_release_pipeline' ) ) wp_schedule_event( time() + MINUTE_IN_SECONDS, 'hourly', 'trb_resource_recover_release_pipeline' );
-	if ( '20260824.4' !== get_option( 'trb_resource_pipeline_recovery_version' ) ) {
-		update_option( 'trb_resource_pipeline_recovery_version', '20260824.4', false );
+	if ( '20260824.5' !== get_option( 'trb_resource_pipeline_recovery_version' ) ) {
+		update_option( 'trb_resource_pipeline_recovery_version', '20260824.5', false );
 		wp_schedule_single_event( time() + 5, 'trb_resource_recover_release_pipeline' );
 		wp_schedule_single_event( time() + 10, 'trb_resource_notify_ruggia_recovery_backfill' );
 	}
