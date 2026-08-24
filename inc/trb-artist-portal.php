@@ -1488,7 +1488,35 @@ function trb_portal_user_releases() {
 	);
 }
 
-/** Number of completed monthly-plan practices created in the current month. */
+/** Return signed releases and resolve the moment the contract became effective. */
+function trb_portal_signed_release_ids( $user_id ) {
+	$user_id = absint( $user_id );
+	if ( ! $user_id ) return array();
+	static $ids = array();
+	if ( isset( $ids[ $user_id ] ) ) return $ids[ $user_id ];
+	$ids[ $user_id ] = get_posts( array(
+		'post_type'      => 'trb_release',
+		'post_status'    => 'publish',
+		'author'         => $user_id,
+		'fields'         => 'ids',
+		'posts_per_page' => -1,
+		'meta_query'     => array( array( 'key' => '_trb_contract_state', 'value' => 'signed', 'compare' => '=' ) ),
+	) );
+	return $ids[ $user_id ];
+}
+
+function trb_portal_release_contract_signed_timestamp( $release_id ) {
+	$value = trim( (string) get_post_meta( absint( $release_id ), '_trb_contract_signed_at', true ) );
+	if ( '' !== $value ) {
+		$timestamp = ctype_digit( $value ) ? absint( $value ) : strtotime( $value );
+		if ( $timestamp ) return $timestamp;
+	}
+	// Legacy signed rows without a recorded callback time fall back to the
+	// practice creation date so that an existing entitlement is never lost.
+	return absint( get_post_time( 'U', true, absint( $release_id ) ) );
+}
+
+/** Number of monthly-plan contracts effectively signed this month. */
 function trb_portal_monthly_release_count( $user_id = 0 ) {
 	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
 	if ( ! $user_id ) {
@@ -1500,23 +1528,15 @@ function trb_portal_monthly_release_count( $user_id = 0 ) {
 		return $counts[ $cache_key ];
 	}
 
-	$query = new WP_Query(
-		array(
-			'post_type'      => 'trb_release',
-			'post_status'    => 'publish',
-			'author'         => $user_id,
-			'fields'         => 'ids',
-			'posts_per_page' => 1,
-			'date_query'     => array(
-				array(
-					'year'     => (int) wp_date( 'Y' ),
-					'monthnum' => (int) wp_date( 'n' ),
-				),
-			),
-		)
-	);
-
-	$counts[ $cache_key ] = (int) $query->found_posts;
+	$timezone = wp_timezone();
+	$start = new DateTimeImmutable( 'first day of this month 00:00:00', $timezone );
+	$end = $start->modify( '+1 month' );
+	$count = 0;
+	foreach ( trb_portal_signed_release_ids( $user_id ) as $release_id ) {
+		$signed_at = trb_portal_release_contract_signed_timestamp( $release_id );
+		if ( $signed_at >= $start->getTimestamp() && $signed_at < $end->getTimestamp() ) $count++;
+	}
+	$counts[ $cache_key ] = $count;
 	return $counts[ $cache_key ];
 }
 
@@ -1554,7 +1574,7 @@ function trb_portal_annual_release_period( $user_id = 0 ) {
 	);
 }
 
-/** Number of completed practices in the active twelve-month allowance. */
+/** Number of effectively contracted releases in the active allowance. */
 function trb_portal_annual_release_count( $user_id = 0 ) {
 	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
 	$period  = trb_portal_annual_release_period( $user_id );
@@ -1564,23 +1584,14 @@ function trb_portal_annual_release_count( $user_id = 0 ) {
 	$cache_key = $user_id . ':' . $period['key'];
 	if ( isset( $counts[ $cache_key ] ) ) return $counts[ $cache_key ];
 
-	$query = new WP_Query(
-		array(
-			'post_type'      => 'trb_release',
-			'post_status'    => 'publish',
-			'author'         => $user_id,
-			'fields'         => 'ids',
-			'posts_per_page' => 1,
-			'date_query'     => array(
-				array(
-					'after'     => $period['start']->format( 'Y-m-d' ),
-					'before'    => $period['end']->format( 'Y-m-d' ),
-					'inclusive' => true,
-				),
-			),
-		)
-	);
-	$counts[ $cache_key ] = (int) $query->found_posts;
+	$start = $period['start']->setTime( 0, 0, 0 )->getTimestamp();
+	$end = $period['end']->setTime( 23, 59, 59 )->getTimestamp();
+	$count = 0;
+	foreach ( trb_portal_signed_release_ids( $user_id ) as $release_id ) {
+		$signed_at = trb_portal_release_contract_signed_timestamp( $release_id );
+		if ( $signed_at >= $start && $signed_at <= $end ) $count++;
+	}
+	$counts[ $cache_key ] = $count;
 	return $counts[ $cache_key ];
 }
 
@@ -1625,6 +1636,25 @@ function trb_portal_monthly_next_reset_label() {
 function trb_portal_ddb12_next_reset_label() {
 	return trb_portal_monthly_next_reset_label();
 }
+
+/**
+ * Remove the permanent monthly markers written by the previous gate revision.
+ * Current timestamp markers remain untouched while an upload is in progress;
+ * the signed-contract query is now the only durable quota source of truth.
+ */
+function trb_portal_migrate_signed_contract_release_limits() {
+	if ( '20260824.1' === get_option( 'trb_portal_signed_contract_limit_version' ) ) return;
+	global $wpdb;
+	$rows = $wpdb->get_results( "SELECT user_id,meta_key,meta_value FROM {$wpdb->usermeta} WHERE meta_key REGEXP '^_trb_(dds|ddb12)_release_[0-9]{4}_[0-9]{2}$'", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	foreach ( (array) $rows as $row ) {
+		$value = (string) $row['meta_value'];
+		if ( ctype_digit( $value ) && 'trb_release' === get_post_type( absint( $value ) ) ) {
+			delete_user_meta( absint( $row['user_id'] ), (string) $row['meta_key'], $value );
+		}
+	}
+	update_option( 'trb_portal_signed_contract_limit_version', '20260824.1', false );
+}
+add_action( 'init', 'trb_portal_migrate_signed_contract_release_limits', 35 );
 
 function trb_portal_monthly_limit_redirect() {
 	wp_safe_redirect( add_query_arg( 'trb_release', 'monthly_limit', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release' );
@@ -2570,9 +2600,9 @@ function trb_portal_start_release() {
 		$title = 'Catalogo / repertorio edito';
 	}
 
-	// The unique monthly marker closes the short race window caused by two tabs
-	// submitting at the same time. The post query also covers practices created
-	// before this feature was introduced.
+	// Unique markers close only the short race window caused by two tabs
+	// submitting at the same time. They are always released after persistence;
+	// only a signed contract consumes the monthly or annual allowance.
 	$annual_reservation_key    = '';
 	$annual_reservation_value  = '';
 	$monthly_reservation_key   = '';
@@ -2707,9 +2737,6 @@ function trb_portal_start_release() {
 			foreach ( $tracks as $track_index => &$track ) $track['isrc'] = $assigned_isrcs[ $track_index ];
 			unset( $track );
 			update_post_meta( $release_id, '_trb_release_isrc_allocation', array( 'pool' => 'trb' === $profile ? 'trb' : 'distribution', 'year' => wp_date( 'y' ), 'codes' => $assigned_isrcs, 'assigned_at' => time() ) );
-		}
-		if ( $monthly_reservation_key ) {
-			update_user_meta( $user_id, $monthly_reservation_key, (string) $release_id );
 		}
 		update_post_meta( $release_id, '_trb_release_cover_mode', $cover_mode );
 		if ( 'request' === $cover_mode ) {
@@ -3926,9 +3953,10 @@ function trb_portal_release_group_health_payload() {
 		else $gate_state = 'available';
 		$rule = isset( $entitlements[ $profile ]['release_limit'] ) ? sanitize_key( $entitlements[ $profile ]['release_limit'] ) : '';
 		$expected_rule = in_array( $expected_profile, array( 'dds', 'ddb12' ), true ) ? ( 'dds' === $expected_profile ? 'one_per_month' : 'one_per_month_max_12_year' ) : 'unlimited';
+		$counter_policy = $monthly ? 'signed_contracts_only' : 'unlimited';
 		$limit_notice_expected = $monthly && ( $annual_limit || $monthly_limit );
 		$limit_notice_visible = in_array( $gate_state, array( 'monthly_limit', 'annual_limit' ), true );
-		$policy_consistent = $expected_profile === $profile && $expected_rule === $rule && ( ! $limit_notice_expected || $limit_notice_visible || in_array( $gate_state, array( 'profile_required', 'contract_configuration', 'annual_period_missing' ), true ) );
+		$policy_consistent = $expected_profile === $profile && $expected_rule === $rule && ( ! $monthly || 'signed_contracts_only' === $counter_policy ) && ( ! $limit_notice_expected || $limit_notice_visible || in_array( $gate_state, array( 'profile_required', 'contract_configuration', 'annual_period_missing' ), true ) );
 		$groups[ $expected_profile ] = array(
 			'account_found'       => true,
 			'expected_profile'    => $expected_profile,
@@ -3936,6 +3964,7 @@ function trb_portal_release_group_health_payload() {
 			'profile_complete'    => (bool) $profile_complete,
 			'contract_ready'      => (bool) $contract_ready,
 			'release_rule'        => $rule,
+			'counter_policy'      => $counter_policy,
 			'gate_state'          => $gate_state,
 			'form_available'      => 'available' === $gate_state,
 			'fixture_ready'       => (bool) ( $profile_complete && $contract_ready && ( ! $monthly || $annual_period ) ),
@@ -4642,7 +4671,7 @@ function trb_portal_render_release_section() {
 	?>
 	<section id="release" class="trb-portal__section trb-portal__section--releases">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Inserisci metadati, crediti e file audio della pubblicazione, quindi ricevi il contratto da sottoscrivere per avviare l’iter di distribuzione.</p></div>
-		<?php if ( $monthly_profile ) : ?><div class="trb-portal__profile-progress"><div class="trb-portal__profile-progress-heading"><span><b>Il tuo piano <?php echo esc_html( $monthly_profile_label ); ?></b><small><?php echo $monthly_limit_reached ? 'Quota mensile utilizzata' : 'Quota mensile disponibile'; ?> &middot; si rinnova il primo giorno del mese</small></span><strong><?php echo esc_html( $monthly_release_count ); ?>/1 questo mese</strong></div><div class="trb-portal__profile-progress-heading"><span><b>Disponibilità annuale</b><small><?php echo esc_html( $annual_period_label ); ?></small></span><strong><?php echo esc_html( $annual_release_count ); ?>/12</strong></div><p>Puoi creare una release per mese solare, fino a 12 nel periodo annuale. Le bozze e i caricamenti non completati non consumano la disponibilità.</p><a class="trb-portal__link" href="<?php echo esc_url( $monthly_guide_url ); ?>">Leggi come funzionano le 12 release <span aria-hidden="true">&rarr;</span></a></div><?php endif; ?>
+		<?php if ( $monthly_profile ) : ?><div class="trb-portal__profile-progress"><div class="trb-portal__profile-progress-heading"><span><b>Il tuo piano <?php echo esc_html( $monthly_profile_label ); ?></b><small><?php echo $monthly_limit_reached ? 'Quota mensile utilizzata' : 'Quota mensile disponibile'; ?> &middot; si rinnova il primo giorno del mese</small></span><strong><?php echo esc_html( $monthly_release_count ); ?>/1 contratto firmato questo mese</strong></div><div class="trb-portal__profile-progress-heading"><span><b>Disponibilità annuale</b><small><?php echo esc_html( $annual_period_label ); ?></small></span><strong><?php echo esc_html( $annual_release_count ); ?>/12 contratti firmati</strong></div><p>Puoi contrattualizzare una release per mese solare, fino a 12 nel periodo annuale. Le richieste non ancora firmate, le bozze, le pratiche respinte e i caricamenti incompleti non consumano la disponibilità e non impediscono di inviare una nuova release.</p><a class="trb-portal__link" href="<?php echo esc_url( $monthly_guide_url ); ?>">Leggi come funzionano le 12 release <span aria-hidden="true">&rarr;</span></a></div><?php endif; ?>
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
 		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Nuovo file acquisito. Il precedente verrà rimosso automaticamente soltanto dopo il trasferimento verificato su pCloud.</div><?php endif; ?>
 		<?php if ( 'cover_uploaded' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Copertina definitiva acquisita e collegata alla release. La verifica della pratica prosegue automaticamente.</div><?php endif; ?>
@@ -4655,7 +4684,7 @@ function trb_portal_render_release_section() {
 		<?php if ( 'file_invalid' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Il file sostitutivo non è stato acquisito.</strong><p>Formato, dimensioni o caratteristiche tecniche non rispettano i requisiti indicati. Il file precedente è rimasto invariato.</p></div><?php endif; ?>
 		<?php if ( 'file_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>La sostituzione non è stata completata.</strong><p>Il file precedente è rimasto invariato. Controlla la connessione e riprova una sola volta.</p></div><?php endif; ?>
 		<?php if ( 'files_locked' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>I materiali di questa release sono definitivi.</strong><p>Dopo l’approvazione non è possibile sostituirli autonomamente. Apri una segnalazione per richiedere la valutazione della modifica.</p></div><?php endif; ?>
-		<?php if ( 'monthly_limit' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Il profilo <?php echo esc_html( $monthly_profile_label ); ?> consente di avviare una sola pratica per ogni mese solare, indipendentemente dal tipo di pubblicazione. Il limite si rinnova automaticamente il primo giorno del mese; potrai creare una nuova release dal <?php echo esc_html( $monthly_reset_label ); ?>.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p></div><?php endif; ?>
+		<?php if ( 'monthly_limit' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto limite mensile di release contrattualizzate</strong><p>Hai già firmato il contratto della release compresa in questo mese con il profilo <?php echo esc_html( $monthly_profile_label ); ?>. Il limite si rinnova automaticamente il primo giorno del mese; potrai contrattualizzare una nuova release dal <?php echo esc_html( $monthly_reset_label ); ?>. Le pratiche prive di contratto firmato non vengono conteggiate.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p></div><?php endif; ?>
 		<?php if ( 'annual_limit' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Raggiunto il limite annuale di 12 release</strong><p>Hai utilizzato tutte le release comprese nel periodo <?php echo esc_html( $annual_period_label ); ?>. Non è possibile creare un’altra pratica fino all’avvio di un nuovo periodo approvato.</p></div><?php endif; ?>
 		<?php if ( 'annual_period_missing' === $status && $monthly_profile ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Periodo annuale non assegnato</strong><p>Il profilo prevede 12 release annue, ma manca la data di inizio necessaria al conteggio. Apri una segnalazione: non creare un nuovo account o una pratica alternativa.</p></div><?php endif; ?>
 		<?php if ( 'contract_configuration' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Contratto preliminare da verificare</strong><p>Il numero del contratto preliminare non è assegnato oppure non è valido. Apri una segnalazione senza caricare nuovamente i file.</p></div><?php endif; ?>
@@ -4684,7 +4713,7 @@ function trb_portal_render_release_section() {
 		<?php elseif ( $annual_limit_reached ) : ?>
 			<div class="trb-portal__release-gate"><strong>Raggiunto il limite annuale di 12 release</strong><p>Hai utilizzato tutte le release comprese nel periodo <?php echo esc_html( $annual_period_label ); ?>. Una nuova disponibilità richiede l’avvio del periodo annuale successivo.</p></div>
 		<?php elseif ( $monthly_limit_reached ) : ?>
-			<div class="trb-portal__release-gate"><strong>Raggiunto limite mensile di release distribuibili</strong><p>Hai già creato la release disponibile per questo mese con il profilo <?php echo esc_html( $monthly_profile_label ); ?>. Il conteggio comprende qualsiasi tipologia di pubblicazione e si azzera automaticamente il primo giorno del mese. Potrai avviare una nuova pratica dal <?php echo esc_html( $monthly_reset_label ); ?>.<?php echo 'ddb12' === $monthly_profile ? ' Il percorso prevede fino a 12 release nei dodici mesi contrattuali.' : ''; ?></p></div>
+			<div class="trb-portal__release-gate"><strong>Raggiunto limite mensile di release contrattualizzate</strong><p>Hai già firmato il contratto della release compresa in questo mese con il profilo <?php echo esc_html( $monthly_profile_label ); ?>. Potrai contrattualizzare una nuova release dal <?php echo esc_html( $monthly_reset_label ); ?>. Le richieste senza contratto firmato non consumano la quota.</p></div>
 		<?php else : ?>
 		<details class="trb-release-create" <?php echo empty( $releases ) || in_array( $status, array( 'invalid', 'error', 'duration_mismatch', 'file_invalid', 'file_error', 'single_title_mismatch', 'upload_failed' ), true ) ? 'open' : ''; ?>>
 			<summary>+ Crea una nuova release</summary>
