@@ -3890,27 +3890,56 @@ function trb_portal_demo_upload_dir( $dirs ) {
 	return $dirs;
 }
 
+/** Canonical delivery window for automated demo evaluations. */
+function trb_portal_demo_delivery_window() {
+	return array(
+		'hours'          => 3,
+		'last_weekday'   => 6,
+		'opening_hour'   => 8,
+		'opening_minute' => 30,
+		'closing_hour'   => 18,
+		'closing_minute' => 30,
+	);
+}
+
+/** Move an actual email attempt inside the permitted delivery window. */
+function trb_portal_demo_next_delivery_time( $timestamp ) {
+	$window  = trb_portal_demo_delivery_window();
+	$current = ( new DateTimeImmutable( '@' . (int) $timestamp ) )->setTimezone( wp_timezone() );
+	if ( (int) $current->format( 'N' ) > $window['last_weekday'] ) {
+		return $current->modify( 'next monday' )->setTime( $window['opening_hour'], $window['opening_minute'] )->getTimestamp();
+	}
+	$opening = $current->setTime( $window['opening_hour'], $window['opening_minute'] );
+	$closing = $current->setTime( $window['closing_hour'], $window['closing_minute'] );
+	if ( $current < $opening ) return $opening->getTimestamp();
+	if ( $current < $closing ) return $current->getTimestamp();
+	$next = $current->modify( '+1 day' )->setTime( $window['opening_hour'], $window['opening_minute'] );
+	if ( (int) $next->format( 'N' ) > $window['last_weekday'] ) $next = $next->modify( 'next monday' )->setTime( $window['opening_hour'], $window['opening_minute'] );
+	return $next->getTimestamp();
+}
+
 /**
- * Add working hours without making the artist receive an automated review at
- * night or during the weekend. Working time is Monday-Friday, 09:00-19:00,
- * in the WordPress timezone.
+ * Add working hours without delivering automated reviews outside the agreed
+ * window: Monday-Saturday, 08:30-18:30, in the WordPress timezone.
  */
-function trb_portal_add_demo_working_hours( $submitted_at, $hours = 4 ) {
+function trb_portal_add_demo_working_hours( $submitted_at, $hours = null ) {
+	$window   = trb_portal_demo_delivery_window();
 	$timezone = wp_timezone();
 	$current  = ( new DateTimeImmutable( '@' . (int) $submitted_at ) )->setTimezone( $timezone );
+	$hours = null === $hours ? $window['hours'] : $hours;
 	$remaining_minutes = max( 1, (int) $hours ) * 60;
 
 	while ( $remaining_minutes > 0 ) {
 		$weekday = (int) $current->format( 'N' );
-		if ( $weekday > 5 ) {
-			$current = $current->modify( 'next monday' )->setTime( 9, 0 );
+		if ( $weekday > $window['last_weekday'] ) {
+			$current = $current->modify( 'next monday' )->setTime( $window['opening_hour'], $window['opening_minute'] );
 			continue;
 		}
-		$opening = $current->setTime( 9, 0 );
-		$closing = $current->setTime( 19, 0 );
+		$opening = $current->setTime( $window['opening_hour'], $window['opening_minute'] );
+		$closing = $current->setTime( $window['closing_hour'], $window['closing_minute'] );
 		if ( $current < $opening ) $current = $opening;
 		if ( $current >= $closing ) {
-			$current = $current->modify( '+1 day' )->setTime( 9, 0 );
+			$current = $current->modify( '+1 day' )->setTime( $window['opening_hour'], $window['opening_minute'] );
 			continue;
 		}
 		$available = (int) floor( ( $closing->getTimestamp() - $current->getTimestamp() ) / 60 );
@@ -4020,7 +4049,7 @@ function trb_portal_submit_demo() {
 		trb_portal_demo_finish( 'upload_error', $dashboard );
 	}
 	$submitted_timestamp = time();
-	$earliest_delivery   = $is_test_account ? $submitted_timestamp + MINUTE_IN_SECONDS : trb_portal_add_demo_working_hours( $submitted_timestamp, 4 );
+	$earliest_delivery   = $is_test_account ? $submitted_timestamp + MINUTE_IN_SECONDS : trb_portal_add_demo_working_hours( $submitted_timestamp );
 	$payload = array(
 		'uuid' => wp_generate_uuid4(), 'submitted_at' => gmdate( 'c', $submitted_timestamp ), 'status' => 'queued',
 		'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
