@@ -200,11 +200,28 @@ function trb_docy_register_push_deploy_route() {
 			'callback'            => function() {
 				$status = get_option( TRB_DOCY_DEPLOY_STATUS_OPTION, array() );
 				$status = is_array( $status ) ? $status : array();
+				$discovery = get_option( 'trb_resource_recovery_mail_discovery', array() );
+				$discovery = is_array( $discovery ) ? $discovery : array();
+				$receipts = get_option( 'trb_resource_recovery_mail_receipts', array() );
+				$receipt_status = array();
+				foreach ( is_array( $receipts ) ? $receipts : array() as $receipt ) {
+					$receipt_status[] = array(
+						'role'       => sanitize_key( (string) ( $receipt['role'] ?? '' ) ),
+						'status'     => sanitize_key( (string) ( $receipt['status'] ?? '' ) ),
+						'attempts'   => absint( $receipt['attempts'] ?? 0 ),
+						'updated_at' => absint( $receipt['updated_at'] ?? 0 ),
+					);
+				}
 				return rest_ensure_response(
 					array(
 						'sha'        => sanitize_text_field( (string) get_option( TRB_DOCY_DEPLOYED_SHA_OPTION, '' ) ),
 						'state'      => sanitize_key( (string) ( $status['state'] ?? '' ) ),
 						'updated_at' => isset( $status['time'] ) ? absint( $status['time'] ) : 0,
+						'recovery_mail' => array(
+							'discovery' => sanitize_key( (string) ( $discovery['status'] ?? '' ) ),
+							'checked_at' => absint( $discovery['updated_at'] ?? 0 ),
+							'receipts' => array_slice( $receipt_status, 0, 6 ),
+						),
 					)
 				);
 			},
