@@ -3902,10 +3902,15 @@ function trb_portal_demo_delivery_window() {
 	);
 }
 
+/** Keep Italian business hours correct across daylight-saving transitions. */
+function trb_portal_demo_delivery_timezone() {
+	return new DateTimeZone( 'Europe/Rome' );
+}
+
 /** Move an actual email attempt inside the permitted delivery window. */
 function trb_portal_demo_next_delivery_time( $timestamp ) {
 	$window  = trb_portal_demo_delivery_window();
-	$current = ( new DateTimeImmutable( '@' . (int) $timestamp ) )->setTimezone( wp_timezone() );
+	$current = ( new DateTimeImmutable( '@' . (int) $timestamp ) )->setTimezone( trb_portal_demo_delivery_timezone() );
 	if ( (int) $current->format( 'N' ) > $window['last_weekday'] ) {
 		return $current->modify( 'next monday' )->setTime( $window['opening_hour'], $window['opening_minute'] )->getTimestamp();
 	}
@@ -3924,7 +3929,7 @@ function trb_portal_demo_next_delivery_time( $timestamp ) {
  */
 function trb_portal_add_demo_working_hours( $submitted_at, $hours = null ) {
 	$window   = trb_portal_demo_delivery_window();
-	$timezone = wp_timezone();
+	$timezone = trb_portal_demo_delivery_timezone();
 	$current  = ( new DateTimeImmutable( '@' . (int) $submitted_at ) )->setTimezone( $timezone );
 	$hours = null === $hours ? $window['hours'] : $hours;
 	$remaining_minutes = max( 1, (int) $hours ) * 60;
