@@ -935,6 +935,9 @@ function trb_resource_run_portal_audit() {
 		}
 	}
 	if ( $ambiguous ) $issues[] = $ambiguous . ' account con più gruppi contrattuali';
+	$release_qa = function_exists( 'trb_portal_release_qa_health_payload' ) ? trb_portal_release_qa_health_payload() : array( 'account_found' => false, 'form_available' => false );
+	if ( empty( $release_qa['account_found'] ) ) $issues[] = 'Account QA spotify4 non trovato';
+	elseif ( empty( $release_qa['form_available'] ) ) $issues[] = 'Modulo nuova release non disponibile per spotify4';
 	if ( function_exists( 'trb_portal_service_status' ) ) {
 		$entitlement_expectations = array(
 			'editorial_pitching' => array( 'dds' => 'unavailable', 'ddb12' => 'included', 'ddb' => 'included', 'ddb_trb' => 'included', 'trb' => 'included' ),
@@ -1019,7 +1022,7 @@ function trb_resource_run_portal_audit() {
 	$failed_mail = (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . trb_resource_tables()['notifications'] . " WHERE status='retry' AND attempts>0" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 	if ( $failed_mail ) $issues[] = $failed_mail . ' notifiche email in retry';
 
-	$snapshot = array( 'checked_at' => time(), 'profiles' => $profile_counts, 'pipelines' => $pipeline_counts, 'demos' => $demo_counts, 'demo_problems' => $demo_problems, 'pages' => $page_status, 'issues' => $issues );
+	$snapshot = array( 'checked_at' => time(), 'profiles' => $profile_counts, 'pipelines' => $pipeline_counts, 'demos' => $demo_counts, 'demo_problems' => $demo_problems, 'release_qa' => $release_qa, 'pages' => $page_status, 'issues' => $issues );
 	update_option( 'trb_resource_last_portal_audit', $snapshot, false );
 	$profile_rows = array();
 	foreach ( $profile_counts as $profile => $count ) $profile_rows[] = strtoupper( str_replace( '_', '-', $profile ) ) . ': ' . absint( $count );
@@ -1029,13 +1032,13 @@ function trb_resource_run_portal_audit() {
 	foreach ( $demo_counts as $status => $count ) $demo_summary[] = esc_html( $status ) . ': ' . absint( $count );
 	$body = '<p><strong>Gruppi:</strong> ' . esc_html( implode( ' · ', $profile_rows ) ) . '</p><p><strong>Pipeline release:</strong> ' . ( $pipeline_summary ? implode( ' · ', $pipeline_summary ) : 'nessuna pratica attiva' ) . '</p><p><strong>Valutazioni demo:</strong> ' . esc_html( implode( ' · ', $demo_summary ) ) . '</p>';
 	$body .= $issues ? '<p><strong>Interventi richiesti:</strong></p><ul><li>' . implode( '</li><li>', array_map( 'esc_html', $issues ) ) . '</li></ul>' : '<p><strong>Esito:</strong> nessuna anomalia rilevata in pagine, gruppi, permessi, valutazioni demo, release, eventi automatici, coda email e configurazione copyright.</p>';
-	trb_resource_queue_email( 'portal-audit-20260824.8', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
+	trb_resource_queue_email( 'portal-audit-20260824.9', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_run_portal_audit', 'trb_resource_run_portal_audit' );
 add_action( 'init', function() {
-	if ( '20260824.8' === get_option( 'trb_resource_portal_audit_version' ) ) return;
-	update_option( 'trb_resource_portal_audit_version', '20260824.8', false );
+	if ( '20260824.9' === get_option( 'trb_resource_portal_audit_version' ) ) return;
+	update_option( 'trb_resource_portal_audit_version', '20260824.9', false );
 	if ( ! wp_next_scheduled( 'trb_resource_run_portal_audit' ) ) wp_schedule_single_event( time() + 30, 'trb_resource_run_portal_audit' );
 }, 30 );
 
