@@ -1,10 +1,6 @@
 <?php
 /** Behavioral regression test for the production demo-delivery calculator. */
 
-function wp_timezone() {
-	return new DateTimeZone( 'Europe/Rome' );
-}
-
 $portal = file_get_contents( dirname( __DIR__ ) . '/inc/trb-artist-portal.php' );
 $start  = strpos( $portal, 'function trb_portal_demo_delivery_window()' );
 $end    = strpos( $portal, 'function trb_portal_store_demo_file', $start );
@@ -14,7 +10,7 @@ if ( false === $start || false === $end ) {
 }
 eval( substr( $portal, $start, $end - $start ) );
 
-$timezone = wp_timezone();
+$timezone = trb_portal_demo_delivery_timezone();
 $cases = array(
 	array( '2026-08-24 08:00', '2026-08-24 11:30', 'prima dell’apertura' ),
 	array( '2026-08-24 16:30', '2026-08-25 09:30', 'passaggio al giorno seguente' ),
