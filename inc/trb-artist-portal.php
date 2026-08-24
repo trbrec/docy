@@ -2429,8 +2429,10 @@ function trb_portal_start_release() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		$preliminary_contract = (string) get_user_meta( $user_id, '_trb_artist_preliminary_contract', true );
 		$contract_valid = function_exists( 'trb_release_bridge_validate_preliminary_contract' ) ? trb_release_bridge_validate_preliminary_contract( wp_get_current_user(), $preliminary_contract ) : true;
-		if ( '' === trim( $preliminary_contract ) || is_wp_error( $contract_valid ) ) {
-			trb_portal_release_submission_response( 'contract_configuration', 'Il numero del contratto preliminare non è assegnato oppure non è valido. Apri una segnalazione senza inviare i file.', 422 );
+		$contract_term = (string) get_user_meta( $user_id, '_trb_artist_contract_term', true );
+		$contract_term_valid = function_exists( 'trb_release_bridge_contract_term_dates' ) ? trb_release_bridge_contract_term_dates( $contract_term ) : true;
+		if ( '' === trim( $preliminary_contract ) || is_wp_error( $contract_valid ) || '' === trim( $contract_term ) || is_wp_error( $contract_term_valid ) ) {
+			trb_portal_release_submission_response( 'contract_configuration', 'Il numero del contratto preliminare o il relativo periodo di validità non è assegnato correttamente. Apri una segnalazione senza inviare i file.', 422 );
 		}
 	}
 	if ( ! current_user_can( 'manage_options' ) && in_array( $profile, array( 'dds', 'ddb12' ), true ) && ! trb_portal_annual_release_period( $user_id ) ) {
@@ -3802,6 +3804,36 @@ function trb_portal_is_demo_test_account( $user = null ) {
 	return in_array( strtolower( (string) $user->user_email ), $allowed, true );
 }
 
+/** Dedicated release QA identity used to exercise the unrestricted TRB flow. */
+function trb_portal_is_release_qa_account( $user = null ) {
+	$user = $user instanceof WP_User ? $user : wp_get_current_user();
+	if ( ! $user || ! $user->exists() ) return false;
+	return 'spotify4' === strtolower( (string) $user->user_login ) || 'spotify4@trbrec.com' === strtolower( (string) $user->user_email );
+}
+
+/** Non-sensitive readiness report for the production release QA fixture. */
+function trb_portal_release_qa_health_payload() {
+	$user = get_user_by( 'login', 'spotify4' );
+	if ( ! $user ) $user = get_user_by( 'email', 'spotify4@trbrec.com' );
+	if ( ! $user instanceof WP_User ) return array( 'account_found' => false, 'form_available' => false );
+	$preliminary = (string) get_user_meta( $user->ID, '_trb_artist_preliminary_contract', true );
+	$term = (string) get_user_meta( $user->ID, '_trb_artist_contract_term', true );
+	$preliminary_valid = function_exists( 'trb_release_bridge_validate_preliminary_contract' ) ? trb_release_bridge_validate_preliminary_contract( $user, $preliminary ) : true;
+	$term_valid = function_exists( 'trb_release_bridge_contract_term_dates' ) ? trb_release_bridge_contract_term_dates( $term ) : true;
+	$profile = trb_portal_user_profile( $user );
+	$profile_complete = trb_portal_artist_profile_is_complete( $user->ID );
+	$contract_ready = '' !== trim( $preliminary ) && ! is_wp_error( $preliminary_valid ) && '' !== trim( $term ) && ! is_wp_error( $term_valid );
+	$unlimited = in_array( $profile, array( 'ddb', 'ddb_trb', 'trb' ), true );
+	return array(
+		'account_found'    => true,
+		'profile'          => $profile ? sanitize_key( $profile ) : '',
+		'profile_complete' => (bool) $profile_complete,
+		'contract_ready'   => (bool) $contract_ready,
+		'unlimited'        => (bool) $unlimited,
+		'form_available'   => (bool) ( $profile_complete && $contract_ready && $unlimited ),
+	);
+}
+
 function trb_portal_recent_demo_requests( $user_id = 0 ) {
 	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
 	if ( ! $user_id ) return array();
@@ -4341,7 +4373,9 @@ function trb_portal_render_release_section() {
 	$annual_period_label  = $annual_period ? wp_date( 'j F Y', $annual_period['start']->getTimestamp() ) . ' – ' . wp_date( 'j F Y', $annual_period['end']->getTimestamp() ) : 'Periodo annuale non assegnato';
 	$preliminary_contract = (string) get_user_meta( get_current_user_id(), '_trb_artist_preliminary_contract', true );
 	$contract_number_valid = function_exists( 'trb_release_bridge_validate_preliminary_contract' ) ? trb_release_bridge_validate_preliminary_contract( wp_get_current_user(), $preliminary_contract ) : true;
-	$contract_ready        = current_user_can( 'manage_options' ) || ( '' !== trim( $preliminary_contract ) && ! is_wp_error( $contract_number_valid ) );
+	$contract_term         = (string) get_user_meta( get_current_user_id(), '_trb_artist_contract_term', true );
+	$contract_term_valid   = function_exists( 'trb_release_bridge_contract_term_dates' ) ? trb_release_bridge_contract_term_dates( $contract_term ) : true;
+	$contract_ready        = current_user_can( 'manage_options' ) || ( '' !== trim( $preliminary_contract ) && ! is_wp_error( $contract_number_valid ) && '' !== trim( $contract_term ) && ! is_wp_error( $contract_term_valid ) );
 	$monthly_reset_label   = trb_portal_monthly_next_reset_label();
 	$monthly_guide_url     = add_query_arg( 'trb_search', 'limite mensile ' . $monthly_profile_label, get_permalink() ) . '#risposte';
 	$server_draft        = get_user_meta( get_current_user_id(), '_trb_release_form_draft', true );
@@ -4384,7 +4418,7 @@ function trb_portal_render_release_section() {
 		<?php if ( ! $complete ) : ?>
 			<div class="trb-portal__release-gate"><strong>Completa il profilo per iniziare.</strong><p>Quando il profilo raggiunge il 100% potrai creare la prima release.</p><a class="trb-button" href="#profilo">Completa il profilo</a></div>
 		<?php elseif ( ! $contract_ready ) : ?>
-			<div class="trb-portal__release-gate"><strong>Contratto preliminare da verificare</strong><p>Il numero del contratto preliminare non è assegnato oppure non è valido. Apri una segnalazione: non è necessario caricare alcun file.</p></div>
+			<div class="trb-portal__release-gate"><strong>Dati contrattuali da verificare</strong><p>Il numero del contratto preliminare o il relativo periodo di validità non è assegnato correttamente. Apri una segnalazione: non è necessario caricare alcun file.</p></div>
 		<?php elseif ( $monthly_profile && ! $annual_period ) : ?>
 			<div class="trb-portal__release-gate"><strong>Periodo annuale non assegnato</strong><p>Prima di creare una release deve essere registrata la data di inizio del periodo che comprende le 12 pubblicazioni.</p></div>
 		<?php elseif ( $annual_limit_reached ) : ?>
@@ -4395,7 +4429,7 @@ function trb_portal_render_release_section() {
 		<details class="trb-release-create" <?php echo empty( $releases ) || in_array( $status, array( 'invalid', 'error', 'duration_mismatch', 'file_invalid', 'file_error', 'single_title_mismatch', 'upload_failed' ), true ) ? 'open' : ''; ?>>
 			<summary>+ Crea una nuova release</summary>
 		<div class="trb-portal__release-workspace">
-			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-stage-url="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-submit-url="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-draft-url="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-draft-nonce="<?php echo esc_attr( wp_create_nonce( 'trb_portal_release_draft' ) ); ?>" data-draft-key="trb-release-draft-<?php echo esc_attr( get_current_user_id() ); ?>" data-qa-mode="<?php echo current_user_can( 'manage_options' ) ? '1' : '0'; ?>" data-release-form>
+			<form class="trb-portal__request-form trb-portal__release-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-stage-url="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-submit-url="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-draft-url="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-draft-nonce="<?php echo esc_attr( wp_create_nonce( 'trb_portal_release_draft' ) ); ?>" data-draft-key="trb-release-draft-<?php echo esc_attr( get_current_user_id() ); ?>" data-qa-mode="<?php echo current_user_can( 'manage_options' ) || trb_portal_is_release_qa_account() ? '1' : '0'; ?>" data-release-form>
 				<input type="hidden" name="action" value="trb_portal_start_release" />
 				<input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" />
 				<input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" />
