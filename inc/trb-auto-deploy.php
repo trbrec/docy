@@ -221,11 +221,13 @@ function trb_docy_register_push_deploy_route() {
 				}
 				$audit_pages = array();
 				foreach ( is_array( $audit['pages'] ?? null ) ? $audit['pages'] : array() as $key => $value ) $audit_pages[ sanitize_key( (string) $key ) ] = (bool) $value;
+				$release_qa = function_exists( 'trb_portal_release_qa_health_payload' ) ? trb_portal_release_qa_health_payload() : array( 'account_found' => false, 'form_available' => false );
 				return rest_ensure_response(
 					array(
 						'sha'        => sanitize_text_field( (string) get_option( TRB_DOCY_DEPLOYED_SHA_OPTION, '' ) ),
 						'state'      => sanitize_key( (string) ( $status['state'] ?? '' ) ),
 						'updated_at' => isset( $status['time'] ) ? absint( $status['time'] ) : 0,
+						'release_qa' => $release_qa,
 						'recovery_mail' => array(
 							'discovery' => sanitize_key( (string) ( $discovery['status'] ?? '' ) ),
 							'checked_at' => absint( $discovery['updated_at'] ?? 0 ),
