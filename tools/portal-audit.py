@@ -120,6 +120,7 @@ check("email valutazione dispone di retry limitato e alert", "_trb_demo_email_at
 check("stati demo visibili all'artista", "trb_portal_recent_demo_requests" in PORTAL and "Stato delle valutazioni demo" in PORTAL)
 check("watchdog recupera valutazioni demo ferme", "trb_demo_recover_stalled_requests" in DEMO and "wp_schedule_event" in DEMO)
 check("consegna demo dopo tre ore lavorative lunedi-sabato 08:30-18:30", "'hours'          => 3" in PORTAL and "'last_weekday'   => 6" in PORTAL and "'opening_hour'   => 8" in PORTAL and "'opening_minute' => 30" in PORTAL and "'closing_hour'   => 18" in PORTAL and "'closing_minute' => 30" in PORTAL)
+check("finestra demo usa il fuso Europe/Rome con ora legale", "trb_portal_demo_delivery_timezone" in PORTAL and "new DateTimeZone( 'Europe/Rome' )" in PORTAL and "trb_portal_demo_delivery_timezone()->getName()" in DEMO)
 check("nuova finestra applicata anche alle demo non ancora inviate", "trb_demo_migrate_delivery_window" in DEMO and "wp_clear_scheduled_hook( 'trb_portal_send_demo_review'" in DEMO)
 check("invii e retry demo restano sempre nella finestra consentita", "trb_portal_demo_next_delivery_time" in PORTAL and DEMO.count("trb_portal_demo_next_delivery_time") >= 4)
 check("cleanup demo elimina copie locali e remote", "trb_demo_cleanup_request" in DEMO and "trb_demo_webdav_request( 'DELETE'" in DEMO)
