@@ -255,7 +255,7 @@ function trb_release_pcloud_sync( $release_id ) {
 			$local = trb_release_pcloud_local_file( $file ); if ( ! $local ) return new WP_Error( 'release_material_missing' );
 			$extension = strtolower( pathinfo( $file['name'] ?? $file['original_name'] ?? '', PATHINFO_EXTENSION ) );
 			$track_index = absint( $file['track'] ?? 0 ); $track_title = $tracks[ $track_index ]['title'] ?? ( 'Brano ' . ( $track_index + 1 ) );
-			$base = 'cover' === $file['kind'] ? '00)_Copertina' : ( 'presentation' === $file['kind'] ? '00)_Presentazione_release' : sprintf( '%02d)_Testo_-_%s', $track_index + 1, trb_portal_release_audio_name_segment( $track_title, 'Brano' ) ) );
+			$base = 'cover' === $file['kind'] ? '00)_Copertina' : ( 'cover_reference' === $file['kind'] ? '00)_Reference_copertina' : ( 'presentation' === $file['kind'] ? '00)_Presentazione_release' : sprintf( '%02d)_Testo_-_%s', $track_index + 1, trb_portal_release_audio_name_segment( $track_title, 'Brano' ) ) ) );
 			$remote = $master_folder . '/' . sanitize_file_name( $base . ( $extension ? '.' . $extension : '' ) );
 			$result = trb_release_pcloud_publish_file( $remote, $local, $file['type'] ?? 'application/octet-stream' ); if ( is_wp_error( $result ) ) return $result;
 			$uploaded[] = $remote; $materials[] = $remote; continue;
