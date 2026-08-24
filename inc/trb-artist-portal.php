@@ -2027,6 +2027,15 @@ function trb_portal_validate_release_upload( $file, $kind ) {
 		if ( ! in_array( $extension, array( 'jpg', 'jpeg', 'png' ), true ) || (int) $file['size'] > 20 * MB_IN_BYTES ) return new WP_Error( 'invalid_cover' );
 		$image = @getimagesize( $file['tmp_name'] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		if ( ! $image || $image[0] < 1500 || $image[1] < 1500 || $image[0] !== $image[1] || ! in_array( (int) $image[2], array( IMAGETYPE_JPEG, IMAGETYPE_PNG ), true ) ) return new WP_Error( 'invalid_cover' );
+	} elseif ( 'cover_reference' === $kind ) {
+		if ( ! in_array( $extension, array( 'jpg', 'jpeg', 'png', 'pdf' ), true ) || (int) $file['size'] > 20 * MB_IN_BYTES ) return new WP_Error( 'invalid_cover_reference' );
+		if ( 'pdf' === $extension ) {
+			$head = file_get_contents( $file['tmp_name'], false, null, 0, 8 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			if ( false === $head || 0 !== strpos( $head, '%PDF-' ) ) return new WP_Error( 'invalid_cover_reference' );
+		} else {
+			$image = @getimagesize( $file['tmp_name'] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			if ( ! $image || ! in_array( (int) $image[2], array( IMAGETYPE_JPEG, IMAGETYPE_PNG ), true ) ) return new WP_Error( 'invalid_cover_reference' );
+		}
 	} elseif ( 'audio' === $kind ) {
 		if ( 'wav' !== $extension || (int) $file['size'] > 1024 * MB_IN_BYTES ) return new WP_Error( 'invalid_audio' );
 		$spec = trb_portal_wav_spec( $file['tmp_name'] );
@@ -2074,7 +2083,7 @@ function trb_portal_store_release_upload( $release_id, $file, $kind, $track_inde
 	if ( ! wp_mkdir_p( $directory ) ) return new WP_Error( 'release_storage_failed' );
 	$rules = trailingslashit( $uploads['basedir'] ) . 'trb-release-private/.htaccess';
 	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-	$prefix = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : ( 'rights_document' === $kind ? 'Licenza diritti brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) ) );
+	$prefix = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Reference copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : ( 'rights_document' === $kind ? 'Licenza diritti brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) ) ) );
 	$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ), PATHINFO_EXTENSION ) );
 	if ( 'audio' === $kind ) {
 		$canonical_filename = trb_portal_release_audio_filename(
@@ -2243,7 +2252,7 @@ function trb_portal_replace_release_file() {
 	$old_file = is_array( $files ) && isset( $files[ $file_index ] ) ? $files[ $file_index ] : array();
 	$new_upload = trb_portal_release_upload_item( 'trb_release_replacement' );
 	$kind = isset( $old_file['kind'] ) ? $old_file['kind'] : '';
-	$valid = in_array( $kind, array( 'cover', 'presentation', 'lyrics', 'audio', 'rights_document' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind ) : new WP_Error( 'invalid_file' );
+	$valid = in_array( $kind, array( 'cover', 'cover_reference', 'presentation', 'lyrics', 'audio', 'rights_document' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind ) : new WP_Error( 'invalid_file' );
 	if ( 'cover' === $kind && empty( $_POST['trb_release_cover_300dpi'] ) ) $valid = new WP_Error( 'invalid_cover' );
 	if ( 'audio' === $kind && ! is_wp_error( $valid ) ) {
 		$release_tracks    = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
@@ -2391,6 +2400,9 @@ function trb_portal_release_upload_error_message( $code ) {
 	$messages = array(
 		'missing_cover'              => 'La copertina non è arrivata al server. Selezionala nuovamente e riprova.',
 		'invalid_cover'              => 'La copertina non rispetta formato, dimensioni o proporzioni richieste.',
+		'missing_cover_reference'    => 'La reference grafica non è arrivata al server.',
+		'invalid_cover_reference'    => 'La reference grafica deve essere un file JPG, PNG o PDF valido fino a 20 MB.',
+		'invalid_cover_request'      => 'Per richiedere la copertina inclusa devi compilare un brief grafico di almeno 40 caratteri.',
 		'missing_presentation'       => 'La presentazione della release non è arrivata al server.',
 		'invalid_presentation'       => 'La presentazione deve essere un file TXT, DOCX, ODT o RTF valido fino a 5 MB.',
 		'missing_audio'              => 'Il file WAV non è arrivato al server. Controlla dimensione e connessione.',
@@ -2468,11 +2480,23 @@ function trb_portal_start_release() {
 	if ( 'previously_released' === $release_state && preg_match( '/^(\\d{4})-(\\d{2})-(\\d{2})$/', $original_date, $date_parts ) ) {
 		$original_date_valid = checkdate( (int) $date_parts[2], (int) $date_parts[3], (int) $date_parts[1] ) && $original_date <= wp_date( 'Y-m-d' );
 	}
+	$cover_service_included = trb_portal_profile_has_service( 'cover_artwork', $profile );
+	$cover_mode = $cover_service_included && isset( $_POST['trb_release_cover_mode'] ) ? sanitize_key( wp_unslash( $_POST['trb_release_cover_mode'] ) ) : 'upload';
+	if ( ! in_array( $cover_mode, array( 'upload', 'request' ), true ) ) $cover_mode = 'upload';
+	$cover_brief = isset( $_POST['trb_release_cover_brief'] ) ? sanitize_textarea_field( wp_unslash( $_POST['trb_release_cover_brief'] ) ) : '';
 	$cover = trb_portal_release_upload_item( 'trb_release_cover' );
+	$cover_reference = trb_portal_release_upload_item( 'trb_release_cover_reference' );
 	$presentation = trb_portal_release_upload_item( 'trb_release_presentation' );
-	$uploads_valid = trb_portal_validate_release_upload( $cover, 'cover' );
+	$uploads_valid = true;
+	if ( 'upload' === $cover_mode ) {
+		$uploads_valid = trb_portal_validate_release_upload( $cover, 'cover' );
+		if ( ! is_wp_error( $uploads_valid ) && empty( $_POST['trb_release_cover_300dpi'] ) ) $uploads_valid = new WP_Error( 'invalid_cover' );
+	} elseif ( ! $cover_service_included || strlen( $cover_brief ) < 40 ) {
+		$uploads_valid = new WP_Error( 'invalid_cover_request' );
+	} elseif ( ! empty( $cover_reference['name'] ) ) {
+		$uploads_valid = trb_portal_validate_release_upload( $cover_reference, 'cover_reference' );
+	}
 	if ( ! is_wp_error( $uploads_valid ) ) $uploads_valid = trb_portal_validate_release_upload( $presentation, 'presentation' );
-	if ( ! is_wp_error( $uploads_valid ) && empty( $_POST['trb_release_cover_300dpi'] ) ) $uploads_valid = new WP_Error( 'invalid_cover' );
 	$release_audio_standard = null;
 	$rights_documents = array();
 	foreach ( $posted_tracks as $track_index => $posted_track ) {
@@ -2616,7 +2640,11 @@ function trb_portal_start_release() {
 	if ( $release_id && ! is_wp_error( $release_id ) ) {
 		$release_files = array();
 		$stored_rights_documents = array();
-		$release_files[] = trb_portal_store_release_upload( $release_id, $cover, 'cover' );
+		if ( 'upload' === $cover_mode ) {
+			$release_files[] = trb_portal_store_release_upload( $release_id, $cover, 'cover' );
+		} elseif ( ! empty( $cover_reference['name'] ) ) {
+			$release_files[] = trb_portal_store_release_upload( $release_id, $cover_reference, 'cover_reference' );
+		}
 		$release_files[] = trb_portal_store_release_upload( $release_id, $presentation, 'presentation' );
 		foreach ( $posted_tracks as $track_index => $posted_track ) {
 			$audio = trb_portal_release_upload_item( 'trb_track_audio', $track_index );
@@ -2682,6 +2710,30 @@ function trb_portal_start_release() {
 		}
 		if ( $monthly_reservation_key ) {
 			update_user_meta( $user_id, $monthly_reservation_key, (string) $release_id );
+		}
+		update_post_meta( $release_id, '_trb_release_cover_mode', $cover_mode );
+		if ( 'request' === $cover_mode ) {
+			update_post_meta( $release_id, '_trb_release_cover_brief', $cover_brief );
+			update_post_meta( $release_id, '_trb_release_cover_status', 'requested' );
+			$cover_request_id = wp_insert_post( array(
+				'post_type'    => 'trb_request',
+				'post_status'  => 'private',
+				'post_title'   => '[Copertina] ' . $title,
+				'post_content' => $cover_brief,
+				'post_author'  => $user_id,
+			), true );
+			if ( ! is_wp_error( $cover_request_id ) ) {
+				update_post_meta( $cover_request_id, '_trb_cover_release_id', $release_id );
+				update_post_meta( $cover_request_id, '_trb_cover_request_status', 'requested' );
+				update_post_meta( $release_id, '_trb_release_cover_request_id', $cover_request_id );
+			}
+			if ( function_exists( 'trb_resource_queue_email' ) ) {
+				$artist_name = trb_portal_artist_profile_value( 'artist_name', $user_id );
+				$body = '<p>È stata richiesta la realizzazione della copertina inclusa per la release <strong>' . esc_html( $title ) . '</strong>.</p><p>Artista: ' . esc_html( $artist_name ?: wp_get_current_user()->display_name ) . ' · pratica #' . absint( $release_id ) . '.</p><p><strong>Brief:</strong><br>' . nl2br( esc_html( $cover_brief ) ) . '</p>';
+				trb_resource_queue_email( 'cover-request-' . absint( $release_id ), 'Nuova richiesta copertina dalla release', $body, true );
+			}
+		} else {
+			update_post_meta( $release_id, '_trb_release_cover_status', 'uploaded' );
 		}
 		update_post_meta( $release_id, '_trb_release_type', $type );
 		update_post_meta( $release_id, '_trb_release_step', 'contract' );
@@ -3898,6 +3950,36 @@ function trb_portal_release_group_health_payload() {
 	return array( 'healthy' => $healthy, 'groups' => $groups );
 }
 
+/** Non-sensitive verification of the cover workflow for every contractual profile. */
+function trb_portal_cover_workflow_health_payload() {
+	$expected = array(
+		'dds'     => 'store_50',
+		'ddb12'   => 'store_50',
+		'ddb'     => 'store_50',
+		'ddb_trb' => 'included',
+		'trb'     => 'included',
+	);
+	$profiles = array();
+	$healthy = true;
+	foreach ( $expected as $profile => $expected_status ) {
+		$status = trb_portal_service_status( 'cover_artwork', $profile );
+		$profiles[ $profile ] = array(
+			'status'       => $status,
+			'request_mode' => 'included' === $status,
+			'upload_mode'  => true,
+			'consistent'   => $expected_status === $status,
+		);
+		if ( $expected_status !== $status ) $healthy = false;
+	}
+	$handlers = array(
+		'artist_attach' => (bool) has_action( 'admin_post_trb_portal_attach_release_cover', 'trb_portal_attach_release_cover' ),
+		'admin_attach'  => function_exists( 'trb_portal_store_final_release_cover' ),
+		'approval_gate' => function_exists( 'trb_portal_release_has_final_cover' ),
+	);
+	if ( in_array( false, $handlers, true ) ) $healthy = false;
+	return array( 'healthy' => $healthy, 'profiles' => $profiles, 'handlers' => $handlers );
+}
+
 function trb_portal_recent_demo_requests( $user_id = 0 ) {
 	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
 	if ( ! $user_id ) return array();
@@ -4185,9 +4267,74 @@ function trb_portal_submit_demo_unauthenticated() {
 }
 add_action( 'admin_post_nopriv_trb_portal_submit_demo', 'trb_portal_submit_demo_unauthenticated' );
 
+/** True when the release archive contains a validated definitive cover. */
+function trb_portal_release_has_final_cover( $release_id ) {
+	foreach ( (array) get_post_meta( absint( $release_id ), '_trb_release_files', true ) as $file ) {
+		if ( is_array( $file ) && 'cover' === ( $file['kind'] ?? '' ) && ! empty( $file['path'] ) ) return true;
+	}
+	return false;
+}
+
+/** Validate, scan and archive a definitive cover for an included request. */
+function trb_portal_store_final_release_cover( $release_id, $cover, $dpi_confirmed = false ) {
+	$release_id = absint( $release_id );
+	if ( 'trb_release' !== get_post_type( $release_id ) ) return new WP_Error( 'release_not_found' );
+	if ( 'request' !== get_post_meta( $release_id, '_trb_release_cover_mode', true ) || trb_portal_release_has_final_cover( $release_id ) ) return new WP_Error( 'invalid_cover_request' );
+	$valid = trb_portal_validate_release_upload( $cover, 'cover' );
+	if ( ! is_wp_error( $valid ) && ! $dpi_confirmed ) $valid = new WP_Error( 'invalid_cover' );
+	if ( is_wp_error( $valid ) ) return $valid;
+	$stored = trb_portal_store_release_upload( $release_id, $cover, 'cover' );
+	if ( is_wp_error( $stored ) ) return $stored;
+	$security_blocked = false;
+	if ( function_exists( 'trb_analysis_antivirus_scan' ) ) {
+		$local = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $stored ) : '';
+		$scan = $local ? trb_analysis_antivirus_scan( $local ) : new WP_Error( 'VIRUS_SCAN_FILE_MISSING' );
+		$stored['security_status'] = is_wp_error( $scan ) ? $scan->get_error_code() : 'clean';
+		$security_blocked = is_wp_error( $scan );
+	}
+	$files = (array) get_post_meta( $release_id, '_trb_release_files', true );
+	$files[] = $stored;
+	update_post_meta( $release_id, '_trb_release_files', array_values( $files ) );
+	update_post_meta( $release_id, '_trb_release_cover_status', $security_blocked ? 'security_scan_waiting' : 'uploaded' );
+	$request_id = absint( get_post_meta( $release_id, '_trb_release_cover_request_id', true ) );
+	if ( $request_id ) update_post_meta( $request_id, '_trb_cover_request_status', $security_blocked ? 'security_scan_waiting' : 'completed' );
+	if ( $security_blocked ) {
+		update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
+	} elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) {
+		trb_release_pcloud_schedule_sync( $release_id, true );
+	} elseif ( 'cover_creation_pending' === get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) {
+		update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' );
+	}
+	return true;
+}
+
+/** Attach the definitive artwork to a release created from an included brief. */
+function trb_portal_attach_release_cover() {
+	if ( ! is_user_logged_in() ) auth_redirect();
+	$release_id = isset( $_POST['trb_release_id'] ) ? absint( $_POST['trb_release_id'] ) : 0;
+	check_admin_referer( 'trb_portal_attach_release_cover_' . $release_id, 'trb_release_cover_nonce' );
+	if ( ! trb_portal_current_user_can_access_release( $release_id ) ) wp_die( 'Operazione non consentita.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
+	if ( 'request' !== get_post_meta( $release_id, '_trb_release_cover_mode', true ) || trb_portal_release_has_final_cover( $release_id ) ) {
+		wp_safe_redirect( add_query_arg( 'trb_release', 'invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
+		exit;
+	}
+	$cover = trb_portal_release_upload_item( 'trb_release_cover' );
+	$stored = trb_portal_store_final_release_cover( $release_id, $cover, ! empty( $_POST['trb_release_cover_300dpi'] ) );
+	if ( is_wp_error( $stored ) ) {
+		wp_safe_redirect( add_query_arg( 'trb_release', 'file_invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
+		exit;
+	}
+	wp_safe_redirect( add_query_arg( 'trb_release', 'cover_uploaded', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
+	exit;
+}
+add_action( 'admin_post_trb_portal_attach_release_cover', 'trb_portal_attach_release_cover' );
+add_action( 'wp_ajax_trb_portal_attach_release_cover', 'trb_portal_attach_release_cover' );
+
 function trb_portal_render_release_files( $release_id ) {
 	$files       = get_post_meta( $release_id, '_trb_release_files', true );
 	$tracks      = get_post_meta( $release_id, '_trb_release_tracks', true );
+	$cover_mode  = sanitize_key( (string) get_post_meta( $release_id, '_trb_release_cover_mode', true ) );
+	$cover_brief = (string) get_post_meta( $release_id, '_trb_release_cover_brief', true );
 	$pipeline_status = (string) get_post_meta( $release_id, '_trb_release_pipeline_status', true );
 	$technical  = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
 	$files_locked = trb_portal_release_files_are_locked( $release_id ) && ! current_user_can( 'manage_options' );
@@ -4195,6 +4342,23 @@ function trb_portal_render_release_files( $release_id ) {
 	?>
 	<div class="trb-release-files" id="release-files-<?php echo esc_attr( $release_id ); ?>">
 		<h4>Materiali caricati</h4>
+		<?php if ( 'request' === $cover_mode ) : ?>
+			<div class="trb-portal__message <?php echo trb_portal_release_has_final_cover( $release_id ) ? 'trb-portal__message--success' : ''; ?>">
+				<strong><?php echo trb_portal_release_has_final_cover( $release_id ) ? 'Copertina definitiva acquisita' : 'Realizzazione della copertina inclusa richiesta'; ?></strong>
+				<p><?php echo trb_portal_release_has_final_cover( $release_id ) ? 'Il file definitivo è collegato alla release e verrà incluso nella consegna.' : 'Il brief è stato registrato dentro questa pratica e la richiesta è visibile a TRB. Non creare una richiesta separata.'; ?></p>
+				<?php if ( $cover_brief ) : ?><details><summary>Rileggi il brief inviato</summary><p><?php echo nl2br( esc_html( $cover_brief ) ); ?></p></details><?php endif; ?>
+				<?php if ( ! trb_portal_release_has_final_cover( $release_id ) ) : ?>
+					<form class="trb-release-cover-final-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="trb_portal_attach_release_cover" />
+						<input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" />
+						<?php wp_nonce_field( 'trb_portal_attach_release_cover_' . $release_id, 'trb_release_cover_nonce' ); ?>
+						<label><strong>Copertina definitiva ricevuta</strong><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /></label>
+						<label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che il file è quadrato, almeno 1500×1500 px e a 300 DPI.</label>
+						<button class="trb-button trb-button--compact" type="submit">Collega la copertina definitiva</button>
+					</form>
+				<?php endif; ?>
+			</div>
+		<?php endif; ?>
 		<?php if ( 'technical_error' === $pipeline_status ) :
 			$technical_errors = array_values( array_unique( (array) ( $technical['errors'] ?? array() ) ) );
 			?>
@@ -4214,10 +4378,10 @@ function trb_portal_render_release_files( $release_id ) {
 		<div class="trb-release-files__list">
 			<?php foreach ( $files as $index => $file ) :
 				$kind = isset( $file['kind'] ) ? $file['kind'] : '';
-				$label = 'cover' === $kind ? 'Copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) );
-				$uploaded_label = in_array( $kind, array( 'cover', 'presentation', 'rights_document' ), true ) ? 'caricata correttamente' : 'caricato correttamente';
+				$label = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Reference per la copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) ) );
+				$uploaded_label = in_array( $kind, array( 'cover', 'cover_reference', 'presentation', 'rights_document' ), true ) ? 'caricata correttamente' : 'caricato correttamente';
 				if ( in_array( $kind, array( 'lyrics', 'audio', 'rights_document' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
-				$accept = 'cover' === $kind ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : ( 'audio' === $kind ? '.wav,audio/wav,audio/x-wav' : ( 'rights_document' === $kind ? '.pdf,application/pdf' : '.txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text' ) );
+				$accept = 'cover' === $kind ? 'image/jpeg,image/png,.jpg,.jpeg,.png' : ( 'cover_reference' === $kind ? 'image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf' : ( 'audio' === $kind ? '.wav,audio/wav,audio/x-wav' : ( 'rights_document' === $kind ? '.pdf,application/pdf' : '.txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text' ) ) );
 				$metadata = strtoupper( pathinfo( $file['original_name'] ?? $file['name'] ?? '', PATHINFO_EXTENSION ) );
 				if ( ! empty( $file['size'] ) ) $metadata .= ' · ' . size_format( absint( $file['size'] ), 1 );
 				?>
@@ -4293,6 +4457,7 @@ function trb_portal_release_pipeline_label( $release_id ) {
 		'published_audio_conflict'   => 'Brano già pubblicato rilevato: pratica bloccata',
 		'copyright_review'            => 'Verifica dei diritti in corso',
 		'manual_review'               => 'Verifica manuale in corso',
+		'cover_creation_pending'      => 'Copertina richiesta: realizzazione o caricamento del file definitivo in corso',
 		'approved'                    => 'Controllo completato',
 	);
 	return isset( $labels[ $status ] ) ? $labels[ $status ] : 'Dati contrattuali da completare';
@@ -4330,6 +4495,7 @@ function trb_portal_release_status_summary( $release_id ) {
 		$summary['distribution_detail'] = 'La valutazione inizierà dopo il completamento e l’invio della pratica.';
 	}
 	$blocked = array(
+		'cover_creation_pending'    => array( 'Release in attesa della copertina definitiva', 'La richiesta è stata acquisita. La pratica riprenderà quando TRB avrà collegato il file definitivo.' ),
 		'copyright_documents_needed' => array( 'Release non approvata: documentazione necessaria', 'Carica i documenti richiesti per consentire la verifica dei diritti.' ),
 		'published_audio_conflict'    => array( 'Release non approvata: brano già pubblicato rilevato', 'Apri una segnalazione se ritieni che il controllo non sia corretto.' ),
 		'technical_error'             => array( 'Release non approvata: correzione tecnica necessaria', 'Il file resta conservato; consulta le indicazioni ricevute prima di sostituirlo.' ),
@@ -4417,6 +4583,35 @@ function trb_portal_render_release_status( $release_id ) {
 	<?php
 }
 
+/** Render the correct artwork path for the artist's contractual group. */
+function trb_portal_render_release_cover_input( $profile ) {
+	$included = trb_portal_profile_has_service( 'cover_artwork', $profile );
+	if ( ! $included ) {
+		?><div class="trb-release-upload trb-release-upload--cover"><strong>Copertina della release <span>*</span></strong><p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px. Il sistema verifica formato, proporzioni e dimensioni.</p><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /><label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che la copertina è stata esportata a 300 DPI.</label></div><?php
+		return;
+	}
+	?>
+	<fieldset class="trb-release-cover-workflow" data-cover-workflow>
+		<legend>Copertina della release <span>*</span></legend>
+		<p>La realizzazione grafica è inclusa nel tuo profilo. Scegli se consegnare una copertina già definitiva oppure richiederne la realizzazione all’interno di questa pratica.</p>
+		<div class="trb-portal__radios">
+			<label><input type="radio" name="trb_release_cover_mode" value="upload" required /> Ho già la copertina definitiva</label>
+			<label><input type="radio" name="trb_release_cover_mode" value="request" required /> Richiedo la realizzazione della copertina inclusa</label>
+		</div>
+		<div class="trb-release-upload trb-release-upload--cover" data-cover-upload hidden>
+			<strong>Carica la copertina definitiva <span>*</span></strong>
+			<p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px.</p>
+			<input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" disabled />
+			<label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" disabled /> Confermo che la copertina è stata esportata a 300 DPI.</label>
+		</div>
+		<div class="trb-release-cover-brief" data-cover-request hidden>
+			<label><strong>Brief creativo <span>*</span></strong><small>Descrivi concept, atmosfera, messaggio, colori, elementi obbligatori e ciò che vuoi evitare. Minimo 40 caratteri.</small><textarea name="trb_release_cover_brief" rows="7" minlength="40" maxlength="5000" disabled></textarea></label>
+			<label><strong>Reference visiva <small>(facoltativa)</small></strong><small>Puoi allegare un’immagine o un PDF di riferimento fino a 20 MB. Non deve essere già nel formato definitivo.</small><input type="file" name="trb_release_cover_reference" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" disabled /></label>
+		</div>
+	</fieldset>
+	<?php
+}
+
 function trb_portal_render_release_section() {
 	$releases  = trb_portal_user_releases();
 	$profile   = trb_portal_user_profile();
@@ -4450,6 +4645,7 @@ function trb_portal_render_release_section() {
 		<?php if ( $monthly_profile ) : ?><div class="trb-portal__profile-progress"><div class="trb-portal__profile-progress-heading"><span><b>Il tuo piano <?php echo esc_html( $monthly_profile_label ); ?></b><small><?php echo $monthly_limit_reached ? 'Quota mensile utilizzata' : 'Quota mensile disponibile'; ?> &middot; si rinnova il primo giorno del mese</small></span><strong><?php echo esc_html( $monthly_release_count ); ?>/1 questo mese</strong></div><div class="trb-portal__profile-progress-heading"><span><b>Disponibilità annuale</b><small><?php echo esc_html( $annual_period_label ); ?></small></span><strong><?php echo esc_html( $annual_release_count ); ?>/12</strong></div><p>Puoi creare una release per mese solare, fino a 12 nel periodo annuale. Le bozze e i caricamenti non completati non consumano la disponibilità.</p><a class="trb-portal__link" href="<?php echo esc_url( $monthly_guide_url ); ?>">Leggi come funzionano le 12 release <span aria-hidden="true">&rarr;</span></a></div><?php endif; ?>
 		<?php if ( 'created' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Pratica creata correttamente.</div><?php endif; ?>
 		<?php if ( 'file_replaced' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Nuovo file acquisito. Il precedente verrà rimosso automaticamente soltanto dopo il trasferimento verificato su pCloud.</div><?php endif; ?>
+		<?php if ( 'cover_uploaded' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Copertina definitiva acquisita e collegata alla release. La verifica della pratica prosegue automaticamente.</div><?php endif; ?>
 		<?php if ( 'technical_correction' === $status ) : ?><div class="trb-portal__message trb-portal__message--error"><strong>Correzione del WAV richiesta.</strong><p>Apri la release interessata: troverai il motivo preciso e il comando per sostituire soltanto il file audio.</p></div><?php endif; ?>
 		<?php if ( 'rights_uploaded' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Documento acquisito e archiviato con il brano. La verifica prosegue automaticamente.</div><?php endif; ?>
 		<?php if ( 'rights_waiting' === $status ) : ?><div class="trb-portal__message"><strong>Documento acquisito.</strong><p>Il trasferimento è temporaneamente in attesa. Non è necessario caricarlo nuovamente.</p></div><?php endif; ?>
@@ -4500,7 +4696,14 @@ function trb_portal_render_release_section() {
 				<?php wp_nonce_field( 'trb_portal_start_release', 'trb_portal_release_nonce' ); ?>
 				<section class="trb-release-panel"><header><span>1</span><div><h3>Tipo di pubblicazione</h3><p>Scegli il formato che corrisponde al numero totale dei brani.</p></div></header><div class="trb-portal__release-types"><?php foreach ( $types as $key => $type ) : ?><label><input type="radio" name="trb_release_type" value="<?php echo esc_attr( $key ); ?>" required data-catalogue="<?php echo ! empty( $type['catalogue'] ) ? '1' : '0'; ?>" data-min="<?php echo esc_attr( $type['min'] ); ?>" data-max="<?php echo esc_attr( $type['max'] ); ?>" /><span><strong><?php echo esc_html( $type['label'] ); ?></strong><small><?php echo esc_html( $type['range'] ); ?></small></span></label><?php endforeach; ?></div></section>
 				<section class="trb-release-panel"><header><span>2</span><div><h3>Stato della pubblicazione</h3><p>Indica se la release è inedita o già pubblicata e completa la data richiesta.</p></div></header><div class="trb-portal__radios"><label><input type="radio" name="trb_release_state" value="unreleased" required /> Inedita: mai distribuita prima</label><label><input type="radio" name="trb_release_state" value="previously_released" required /> Edita: precedentemente rilasciata ed attualmente distribuita</label></div><label class="trb-portal__release-date" hidden><strong>Scegli la data di uscita della release <span aria-hidden="true">*</span></strong><small>Puoi selezionare una data di pubblicazione a partire dal trentesimo giorno successivo a oggi.</small><input type="date" name="trb_release_date" min="<?php echo esc_attr( $minimum_release_date ); ?>" /></label><label class="trb-portal__original-date" hidden>Data di pubblicazione originale <small>Puoi selezionare soltanto oggi o una data precedente.</small><input type="date" name="trb_release_original_date" max="<?php echo esc_attr( $today ); ?>" /></label></section>
-				<section class="trb-release-panel"><header><span>3</span><div><h3>Dati e materiali della release</h3><p>Inserisci il titolo, la copertina, tutti i brani e il materiale editoriale richiesto.</p></div></header><label class="trb-portal__release-title">Titolo della release <span aria-hidden="true">*</span><small data-single-title-note hidden>Quando il singolo contiene un solo brano, il titolo della release deve coincidere esattamente con quello del brano.</small><input type="text" name="trb_release_title" maxlength="160" required placeholder="Titolo del singolo, EP o album" /></label><div class="trb-release-upload trb-release-upload--cover"><strong>Copertina della release <span>*</span></strong><p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px. Il sistema verifica formato, proporzioni e dimensioni.</p><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /><label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che la copertina è stata esportata a 300 DPI.</label></div><div data-tracks></div><button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button><div class="trb-release-upload trb-release-upload--presentation"><strong>Presentazione della release <span>*</span></strong><p>Racconta la pubblicazione con informazioni che possano trasformarsi in contenuti: origine del progetto, significato, curiosità, riferimenti, collaborazioni e dettagli utili a redazioni, radio, playlist editor, ufficio stampa e comunicazione social. Una presentazione concreta e ricca di spunti ci permette di valorizzare meglio la release e riduce le successive richieste di integrazione.</p><input type="file" name="trb_release_presentation" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" required /><small>Formati elaborabili in modo efficiente: TXT, DOCX, ODT o RTF · massimo 5 MB.</small></div></section>
+				<section class="trb-release-panel">
+					<header><span>3</span><div><h3>Dati e materiali della release</h3><p>Inserisci il titolo, la copertina, tutti i brani e il materiale editoriale richiesto.</p></div></header>
+					<label class="trb-portal__release-title">Titolo della release <span aria-hidden="true">*</span><small data-single-title-note hidden>Quando il singolo contiene un solo brano, il titolo della release deve coincidere esattamente con il titolo del brano.</small><input type="text" name="trb_release_title" maxlength="160" required placeholder="Titolo del singolo, EP o album" /></label>
+					<?php trb_portal_render_release_cover_input( $profile ); ?>
+					<div data-tracks></div>
+					<button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button>
+					<div class="trb-release-upload trb-release-upload--presentation"><strong>Presentazione della release <span>*</span></strong><p>Racconta la pubblicazione con informazioni che possano trasformarsi in contenuti: origine del progetto, significato, curiosità, riferimenti, collaborazioni e dettagli utili a redazioni, radio, playlist editor, ufficio stampa e comunicazione social. Una presentazione concreta e ricca di spunti ci permette di valorizzare meglio la release e riduce le successive richieste di integrazione.</p><input type="file" name="trb_release_presentation" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" required /><small>Formati elaborabili in modo efficiente: TXT, DOCX, ODT o RTF · massimo 5 MB.</small></div>
+				</section>
 				<button class="trb-button trb-button--submit-release" type="submit">Crea la pratica release</button><div class="trb-portal__upload-progress" data-release-upload-progress hidden aria-live="polite"><div class="trb-portal__upload-progress-head"><strong>Caricamento sicuro della release</strong><span data-release-upload-value>0%</span></div><progress max="100" value="0" data-release-upload-bar>0%</progress><p data-release-upload-text>Preparazione e verifica dei file…</p></div>
 			</form>
 			<script type="application/json" data-release-server-draft><?php echo wp_json_encode( $server_draft, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></script>
