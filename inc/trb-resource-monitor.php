@@ -445,12 +445,27 @@ function trb_resource_rescan_acr_file( $provider_reference ) {
 	return in_array( $code, array( 200, 201, 202, 204 ), true ) ? true : new WP_Error( 'ACR_RESCAN_FAILED', 'HTTP ' . $code );
 }
 
+/** Retry transient container/configuration failures without leaving a release silent. */
+function trb_resource_schedule_analysis_configuration_retry( $release_id, $error_code ) {
+	$release_id = absint( $release_id );
+	$attempts = absint( get_post_meta( $release_id, '_trb_acr_configuration_retry_attempts', true ) ) + 1;
+	update_post_meta( $release_id, '_trb_acr_configuration_retry_attempts', $attempts );
+	update_post_meta( $release_id, '_trb_acr_configuration_last_error', sanitize_key( $error_code ) );
+	if ( ! wp_next_scheduled( 'trb_resource_start_release_analysis_manual', array( $release_id ) ) ) wp_schedule_single_event( time() + 2 * MINUTE_IN_SECONDS, 'trb_resource_start_release_analysis_manual', array( $release_id ) );
+	if ( $attempts >= 5 && function_exists( 'trb_resource_queue_email' ) ) {
+		$release = get_post( $release_id );
+		$body = '<p>La pratica #' . $release_id . ' (' . esc_html( $release ? $release->post_title : '' ) . ') non ha ancora superato la verifica live del container ACRCloud dopo ' . $attempts . ' tentativi.</p><p>Ultimo codice: <strong>' . esc_html( $error_code ) . '</strong>.</p>';
+		trb_resource_queue_email( 'acr-configuration-retry-' . $release_id . '-' . wp_date( 'Ymd' ), 'Verifica ACRCloud ancora in attesa', $body, true );
+	}
+}
+
 function trb_resource_start_release_analysis( $release_id ) {
 	$s = trb_resource_settings();
 	$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
 	if ( ! in_array( $technical['status'] ?? '', array( 'passed', 'warning' ), true ) ) return;
 	if ( empty( $s['acr_enabled'] ) || empty( $s['acr_paid_confirmed'] ) || empty( $s['acr_token'] ) || empty( $s['acr_container_id'] ) ) {
 		update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_waiting_configuration' );
+		trb_resource_schedule_analysis_configuration_retry( $release_id, 'ACR_CONFIGURATION_INCOMPLETE' );
 		return;
 	}
 	if ( function_exists( 'trb_analysis_verify_acr_container' ) ) {
@@ -458,9 +473,12 @@ function trb_resource_start_release_analysis( $release_id ) {
 		if ( is_wp_error( $container ) ) {
 			update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_waiting_configuration' );
 			trb_resource_event( 'container-' . trb_resource_period_key(), 'acrcloud', 'critical', 'Container ACRCloud non verificato o non conforme.', array( 'code' => $container->get_error_code(), 'message' => $container->get_error_message() ) );
+			trb_resource_schedule_analysis_configuration_retry( $release_id, $container->get_error_code() );
 			return;
 		}
 	}
+	delete_post_meta( $release_id, '_trb_acr_configuration_retry_attempts' );
+	delete_post_meta( $release_id, '_trb_acr_configuration_last_error' );
 	$files = (array) get_post_meta( $release_id, '_trb_release_files', true );
 	update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' );
 	$waiting = false;
@@ -686,7 +704,7 @@ function trb_resource_recover_release_pipeline() {
 			$recovered = true;
 		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review' ), true ) && function_exists( 'trb_resource_start_release_analysis' ) ) {
 			trb_resource_start_release_analysis( $release_id );
-			$recovered = true;
+			$recovered = 'analysis_waiting_configuration' !== sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
 		}
 		if ( $recovered ) {
 			update_post_meta( $release_id, '_trb_pipeline_recovery_notice_at', time() );
@@ -751,8 +769,8 @@ add_action( 'trb_resource_notify_ruggia_recovery_backfill', 'trb_resource_notify
 
 add_action( 'init', function() {
 	if ( ! wp_next_scheduled( 'trb_resource_recover_release_pipeline' ) ) wp_schedule_event( time() + MINUTE_IN_SECONDS, 'hourly', 'trb_resource_recover_release_pipeline' );
-	if ( '20260824.8' !== get_option( 'trb_resource_pipeline_recovery_version' ) ) {
-		update_option( 'trb_resource_pipeline_recovery_version', '20260824.8', false );
+	if ( '20260824.9' !== get_option( 'trb_resource_pipeline_recovery_version' ) ) {
+		update_option( 'trb_resource_pipeline_recovery_version', '20260824.9', false );
 		wp_schedule_single_event( time() + 5, 'trb_resource_recover_release_pipeline' );
 		wp_schedule_single_event( time() + 10, 'trb_resource_notify_ruggia_recovery_backfill' );
 	}
@@ -1011,13 +1029,13 @@ function trb_resource_run_portal_audit() {
 	foreach ( $demo_counts as $status => $count ) $demo_summary[] = esc_html( $status ) . ': ' . absint( $count );
 	$body = '<p><strong>Gruppi:</strong> ' . esc_html( implode( ' · ', $profile_rows ) ) . '</p><p><strong>Pipeline release:</strong> ' . ( $pipeline_summary ? implode( ' · ', $pipeline_summary ) : 'nessuna pratica attiva' ) . '</p><p><strong>Valutazioni demo:</strong> ' . esc_html( implode( ' · ', $demo_summary ) ) . '</p>';
 	$body .= $issues ? '<p><strong>Interventi richiesti:</strong></p><ul><li>' . implode( '</li><li>', array_map( 'esc_html', $issues ) ) . '</li></ul>' : '<p><strong>Esito:</strong> nessuna anomalia rilevata in pagine, gruppi, permessi, valutazioni demo, release, eventi automatici, coda email e configurazione copyright.</p>';
-	trb_resource_queue_email( 'portal-audit-20260824.7', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
+	trb_resource_queue_email( 'portal-audit-20260824.8', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_run_portal_audit', 'trb_resource_run_portal_audit' );
 add_action( 'init', function() {
-	if ( '20260824.7' === get_option( 'trb_resource_portal_audit_version' ) ) return;
-	update_option( 'trb_resource_portal_audit_version', '20260824.7', false );
+	if ( '20260824.8' === get_option( 'trb_resource_portal_audit_version' ) ) return;
+	update_option( 'trb_resource_portal_audit_version', '20260824.8', false );
 	if ( ! wp_next_scheduled( 'trb_resource_run_portal_audit' ) ) wp_schedule_single_event( time() + 30, 'trb_resource_run_portal_audit' );
 }, 30 );
 
