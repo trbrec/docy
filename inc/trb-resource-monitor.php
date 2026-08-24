@@ -945,6 +945,8 @@ function trb_resource_run_portal_audit() {
 		}
 		if ( empty( $release_matrix['groups'] ) ) $issues[] = 'Matrice QA dei gruppi release non disponibile';
 	}
+	$cover_workflow = function_exists( 'trb_portal_cover_workflow_health_payload' ) ? trb_portal_cover_workflow_health_payload() : array( 'healthy' => false, 'profiles' => array() );
+	if ( empty( $cover_workflow['healthy'] ) ) $issues[] = 'Flusso richiesta o caricamento copertina non coerente';
 	if ( function_exists( 'trb_portal_service_status' ) ) {
 		$entitlement_expectations = array(
 			'editorial_pitching' => array( 'dds' => 'unavailable', 'ddb12' => 'included', 'ddb' => 'included', 'ddb_trb' => 'included', 'trb' => 'included' ),
@@ -953,6 +955,7 @@ function trb_resource_run_portal_audit() {
 			'certificate'        => array( 'dds' => 'unavailable', 'ddb12' => 'included', 'ddb' => 'included', 'ddb_trb' => 'included', 'trb' => 'unavailable' ),
 			'press_release'      => array( 'dds' => 'store_50', 'ddb12' => 'store_50', 'ddb' => 'store_50', 'ddb_trb' => 'included', 'trb' => 'included' ),
 			'radio_date'         => array( 'dds' => 'store_50', 'ddb12' => 'store_50', 'ddb' => 'store_50', 'ddb_trb' => 'included', 'trb' => 'included' ),
+			'cover_artwork'      => array( 'dds' => 'store_50', 'ddb12' => 'store_50', 'ddb' => 'store_50', 'ddb_trb' => 'included', 'trb' => 'included' ),
 		);
 		foreach ( $entitlement_expectations as $service => $profiles ) foreach ( $profiles as $profile => $expected ) {
 			if ( $expected !== trb_portal_service_status( $service, $profile ) ) $issues[] = 'Permesso servizio incoerente: ' . $service . '/' . $profile;
@@ -1029,7 +1032,7 @@ function trb_resource_run_portal_audit() {
 	$failed_mail = (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . trb_resource_tables()['notifications'] . " WHERE status='retry' AND attempts>0" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 	if ( $failed_mail ) $issues[] = $failed_mail . ' notifiche email in retry';
 
-	$snapshot = array( 'checked_at' => time(), 'profiles' => $profile_counts, 'pipelines' => $pipeline_counts, 'demos' => $demo_counts, 'demo_problems' => $demo_problems, 'release_qa' => $release_qa, 'release_matrix' => $release_matrix, 'pages' => $page_status, 'issues' => $issues );
+	$snapshot = array( 'checked_at' => time(), 'profiles' => $profile_counts, 'pipelines' => $pipeline_counts, 'demos' => $demo_counts, 'demo_problems' => $demo_problems, 'release_qa' => $release_qa, 'release_matrix' => $release_matrix, 'cover_workflow' => $cover_workflow, 'pages' => $page_status, 'issues' => $issues );
 	update_option( 'trb_resource_last_portal_audit', $snapshot, false );
 	$profile_rows = array();
 	foreach ( $profile_counts as $profile => $count ) $profile_rows[] = strtoupper( str_replace( '_', '-', $profile ) ) . ': ' . absint( $count );
@@ -1039,13 +1042,13 @@ function trb_resource_run_portal_audit() {
 	foreach ( $demo_counts as $status => $count ) $demo_summary[] = esc_html( $status ) . ': ' . absint( $count );
 	$body = '<p><strong>Gruppi:</strong> ' . esc_html( implode( ' · ', $profile_rows ) ) . '</p><p><strong>Pipeline release:</strong> ' . ( $pipeline_summary ? implode( ' · ', $pipeline_summary ) : 'nessuna pratica attiva' ) . '</p><p><strong>Valutazioni demo:</strong> ' . esc_html( implode( ' · ', $demo_summary ) ) . '</p>';
 	$body .= $issues ? '<p><strong>Interventi richiesti:</strong></p><ul><li>' . implode( '</li><li>', array_map( 'esc_html', $issues ) ) . '</li></ul>' : '<p><strong>Esito:</strong> nessuna anomalia rilevata in pagine, gruppi, permessi, valutazioni demo, release, eventi automatici, coda email e configurazione copyright.</p>';
-	trb_resource_queue_email( 'portal-audit-20260824.10', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
+	trb_resource_queue_email( 'portal-audit-20260824.11', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_run_portal_audit', 'trb_resource_run_portal_audit' );
 add_action( 'init', function() {
-	if ( '20260824.10' === get_option( 'trb_resource_portal_audit_version' ) ) return;
-	update_option( 'trb_resource_portal_audit_version', '20260824.10', false );
+	if ( '20260824.11' === get_option( 'trb_resource_portal_audit_version' ) ) return;
+	update_option( 'trb_resource_portal_audit_version', '20260824.11', false );
 	if ( ! wp_next_scheduled( 'trb_resource_run_portal_audit' ) ) wp_schedule_single_event( time() + 30, 'trb_resource_run_portal_audit' );
 }, 30 );
 
@@ -1085,12 +1088,28 @@ function trb_resource_render_admin() {
 			}
 			if ( 'request_documents' === $action ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_documents_needed' );
 			if ( 'manual_review' === $action ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' );
-			if ( 'approve' === $action ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'approved' ); do_action( 'trb_release_analysis_approved', $release_id ); }
+			if ( 'upload_cover' === $action && function_exists( 'trb_portal_store_final_release_cover' ) ) {
+				$cover = isset( $_FILES['trb_release_cover'] ) && is_array( $_FILES['trb_release_cover'] ) ? $_FILES['trb_release_cover'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+				$result = trb_portal_store_final_release_cover( $release_id, $cover, ! empty( $_POST['trb_release_cover_300dpi'] ) );
+				if ( is_wp_error( $result ) ) $action = 'upload_cover_failed_' . sanitize_key( $result->get_error_code() );
+			}
+			if ( 'approve' === $action ) {
+				$cover_missing = 'request' === get_post_meta( $release_id, '_trb_release_cover_mode', true ) && function_exists( 'trb_portal_release_has_final_cover' ) && ! trb_portal_release_has_final_cover( $release_id );
+				if ( $cover_missing ) {
+					update_post_meta( $release_id, '_trb_release_pipeline_status', 'cover_creation_pending' );
+					$action = 'approve_blocked_cover';
+				} else {
+					update_post_meta( $release_id, '_trb_release_pipeline_status', 'approved' );
+					do_action( 'trb_release_analysis_approved', $release_id );
+				}
+			}
 			$history = (array) get_post_meta( $release_id, '_trb_release_decision_history', true );
 			$history[] = array( 'action' => $action, 'user_id' => get_current_user_id(), 'at' => time() );
 			update_post_meta( $release_id, '_trb_release_decision_history', array_slice( $history, -100 ) );
 			if ( function_exists( 'trb_analysis_generate_report' ) ) trb_analysis_generate_report( $release_id );
-			echo '<div class="notice notice-success"><p>Stato della pratica aggiornato.</p></div>';
+			if ( 'approve_blocked_cover' === $action ) echo '<div class="notice notice-error"><p>Pratica non approvata: manca la copertina definitiva.</p></div>';
+			elseif ( 0 === strpos( $action, 'upload_cover_failed_' ) ) echo '<div class="notice notice-error"><p>Copertina non acquisita: controlla formato, dimensioni e conferma 300 DPI.</p></div>';
+			else echo '<div class="notice notice-success"><p>Stato della pratica aggiornato.</p></div>';
 		}
 	}
 	if ( isset( $_POST['trb_resource_save'] ) ) {
@@ -1126,7 +1145,7 @@ function trb_resource_render_admin() {
 	<tr><th>Storage temporaneo</th><td><?php echo esc_html( null !== $storage['used_percent'] ? number_format_i18n( $storage['used_percent'], 1 ) . '% utilizzato' : 'Non verificabile' ); ?></td></tr>
 	</tbody></table><form method="post" style="margin:12px 0 24px"><?php wp_nonce_field( 'trb_resource_reconcile' ); ?><label><strong>Spesa effettiva ACRCloud del mese (USD)</strong> <input type="number" min="0" step="0.000001" name="acr_actual_cost" value="<?php echo esc_attr( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0 ); ?>"></label> <button class="button" name="trb_resource_reconcile" value="1">Registra riconciliazione</button></form>
 	<h2>Anomalie aperte</h2><?php if ( ! $events ) : ?><p>Nessuna anomalia registrata.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Ultimo evento</th><th>Risorsa</th><th>Gravità</th><th>Dettaglio</th><th>Occorrenze</th></tr></thead><tbody><?php foreach ( $events as $event ) : ?><tr><td><?php echo esc_html( $event->last_seen ); ?></td><td><?php echo esc_html( $event->resource ); ?></td><td><?php echo esc_html( $event->severity ); ?></td><td><?php echo esc_html( $event->message ); ?></td><td><?php echo esc_html( $event->occurrences ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
-	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $archive = (array) get_post_meta( $release->ID, '_trb_release_pcloud_archive', true ); $artist = get_userdata( $release->post_author ); ?><tr id="trb-release-<?php echo esc_attr( $release->ID ); ?>"><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state . ( ! empty( $archive['code'] ) ? ' · ' . $archive['code'] : '' ) . ( ! empty( $archive['detail'] ) ? ' · ' . $archive['detail'] : '' ) ); ?></td><td><form method="post"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="retry_acr">Rielabora risposta ACR</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
+	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $archive = (array) get_post_meta( $release->ID, '_trb_release_pcloud_archive', true ); $artist = get_userdata( $release->post_author ); $cover_requested = 'request' === get_post_meta( $release->ID, '_trb_release_cover_mode', true ); $cover_missing = $cover_requested && function_exists( 'trb_portal_release_has_final_cover' ) && ! trb_portal_release_has_final_cover( $release->ID ); ?><tr id="trb-release-<?php echo esc_attr( $release->ID ); ?>"><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state . ( $cover_missing ? ' · copertina definitiva mancante' : '' ) . ( ! empty( $archive['code'] ) ? ' · ' . $archive['code'] : '' ) . ( ! empty( $archive['detail'] ) ? ' · ' . $archive['detail'] : '' ) ); ?></td><td><form method="post" enctype="multipart/form-data"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="retry_acr">Rielabora risposta ACR</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( $cover_missing ) : ?><br><label><strong>Copertina definitiva:</strong> <input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png"></label> <label><input type="checkbox" name="trb_release_cover_300dpi" value="1"> Confermo 300 DPI</label> <button class="button" name="trb_resource_release_action" value="upload_cover">Collega copertina</button><?php endif; ?><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
 	<h2>Configurazione</h2><form method="post"><?php wp_nonce_field( 'trb_resource_save' ); ?><table class="form-table"><tbody>
 	<tr><th>Email amministrativa</th><td><input type="email" class="regular-text" name="admin_email" value="<?php echo esc_attr( $settings['admin_email'] ); ?>"></td></tr>
 	<tr><th>ACRCloud</th><td><label><input type="checkbox" name="acr_enabled" <?php checked( $settings['acr_enabled'] ); ?>> Abilita analisi reali</label><br><label><input type="checkbox" name="acr_paid_confirmed" <?php checked( $settings['acr_paid_confirmed'] ); ?>> Confermo piano Premium/pay-per-use e pagamento verificato</label><br><label><input type="checkbox" name="acr_deepright" <?php checked( $settings['acr_deepright'] ); ?>> DeepRight abilitato</label><p><input type="password" class="regular-text" name="acr_token" placeholder="Token invariato se vuoto"> <input name="acr_container_id" value="<?php echo esc_attr( $settings['acr_container_id'] ); ?>" placeholder="Container ID"> <select name="acr_region"><option value="eu-west-1" <?php selected( $settings['acr_region'], 'eu-west-1' ); ?>>EU</option><option value="us-west-2" <?php selected( $settings['acr_region'], 'us-west-2' ); ?>>US</option><option value="ap-southeast-1" <?php selected( $settings['acr_region'], 'ap-southeast-1' ); ?>>AP</option></select></p><p>Motore <select name="acr_engine"><option value="1" <?php selected( $settings['acr_engine'], 1 ); ?>>Fingerprinting</option><option value="2" <?php selected( $settings['acr_engine'], 2 ); ?>>Cover Song</option><option value="3" <?php selected( $settings['acr_engine'], 3 ); ?>>Entrambi</option></select> Estratto massimo <input name="acr_excerpt_seconds" value="<?php echo esc_attr( $settings['acr_excerpt_seconds'] ); ?>" size="4"> secondi consecutivi dopo il solo silenzio tecnico iniziale, senza ricampionamento o elaborazioni.</p></td></tr>
