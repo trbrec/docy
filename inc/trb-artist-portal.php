@@ -405,11 +405,12 @@ function trb_portal_user_profile( $user = null ) {
 		return false;
 	}
 
-	// QA accounts must always exercise the unrestricted TRB workflow, even if
-	// an obsolete contractual role is still attached to the WordPress user.
+	// spotify4 is the dedicated unrestricted TRB release fixture. The other
+	// spotify QA accounts must retain their contractual group so DDS, DDB12,
+	// DDB and DDB-TRB policies remain testable in production.
 	$qa_identity = strtolower( (string) $user->user_email );
 	$qa_login    = strtolower( (string) $user->user_login );
-	if ( in_array( $qa_identity, array( 'spotify2@trbrec.com', 'spotify3@trbrec.com', 'spotify4@trbrec.com' ), true ) || in_array( $qa_login, array( 'spotify2', 'spotify3', 'spotify4' ), true ) ) {
+	if ( 'spotify4@trbrec.com' === $qa_identity || 'spotify4' === $qa_login ) {
 		return 'trb';
 	}
 
@@ -3832,6 +3833,64 @@ function trb_portal_release_qa_health_payload() {
 		'unlimited'        => (bool) $unlimited,
 		'form_available'   => (bool) ( $profile_complete && $contract_ready && $unlimited ),
 	);
+}
+
+/** Non-sensitive release-policy report for every contractual QA group. */
+function trb_portal_release_group_health_payload() {
+	$fixtures = array(
+		'spotify1' => 'dds',
+		'spotify6' => 'ddb12',
+		'spotify2' => 'ddb',
+		'spotify3' => 'ddb_trb',
+		'spotify4' => 'trb',
+	);
+	$entitlements = trb_portal_contract_rules();
+	$groups = array();
+	$healthy = true;
+	foreach ( $fixtures as $login => $expected_profile ) {
+		$user = get_user_by( 'login', $login );
+		if ( ! $user ) $user = get_user_by( 'email', $login . '@trbrec.com' );
+		if ( ! $user instanceof WP_User ) {
+			$groups[ $expected_profile ] = array( 'account_found' => false, 'expected_profile' => $expected_profile, 'gate_state' => 'account_missing', 'policy_consistent' => false );
+			$healthy = false;
+			continue;
+		}
+		$profile = trb_portal_user_profile( $user );
+		$preliminary = (string) get_user_meta( $user->ID, '_trb_artist_preliminary_contract', true );
+		$term = (string) get_user_meta( $user->ID, '_trb_artist_contract_term', true );
+		$preliminary_valid = function_exists( 'trb_release_bridge_validate_preliminary_contract' ) ? trb_release_bridge_validate_preliminary_contract( $user, $preliminary ) : true;
+		$term_valid = function_exists( 'trb_release_bridge_contract_term_dates' ) ? trb_release_bridge_contract_term_dates( $term ) : true;
+		$profile_complete = trb_portal_artist_profile_is_complete( $user->ID );
+		$contract_ready = '' !== trim( $preliminary ) && ! is_wp_error( $preliminary_valid ) && '' !== trim( $term ) && ! is_wp_error( $term_valid );
+		$monthly = in_array( $profile, array( 'dds', 'ddb12' ), true );
+		$annual_period = $monthly ? trb_portal_annual_release_period( $user->ID ) : true;
+		$annual_limit = $monthly && $annual_period ? trb_portal_annual_release_limit_reached( $user->ID ) : false;
+		$monthly_limit = $monthly ? trb_portal_monthly_limit_reached( $user->ID ) : false;
+		if ( ! $profile_complete ) $gate_state = 'profile_required';
+		elseif ( ! $contract_ready ) $gate_state = 'contract_configuration';
+		elseif ( $monthly && ! $annual_period ) $gate_state = 'annual_period_missing';
+		elseif ( $annual_limit ) $gate_state = 'annual_limit';
+		elseif ( $monthly_limit ) $gate_state = 'monthly_limit';
+		else $gate_state = 'available';
+		$rule = isset( $entitlements[ $profile ]['release_limit'] ) ? sanitize_key( $entitlements[ $profile ]['release_limit'] ) : '';
+		$expected_rule = in_array( $expected_profile, array( 'dds', 'ddb12' ), true ) ? ( 'dds' === $expected_profile ? 'one_per_month' : 'one_per_month_max_12_year' ) : 'unlimited';
+		$policy_consistent = $expected_profile === $profile && $expected_rule === $rule && ( ! $monthly || in_array( $gate_state, array( 'available', 'monthly_limit', 'annual_limit' ), true ) );
+		$groups[ $expected_profile ] = array(
+			'account_found'       => true,
+			'expected_profile'    => $expected_profile,
+			'profile'             => $profile ? sanitize_key( $profile ) : '',
+			'profile_complete'    => (bool) $profile_complete,
+			'contract_ready'      => (bool) $contract_ready,
+			'release_rule'        => $rule,
+			'gate_state'          => $gate_state,
+			'limit_notice_visible'=> in_array( $gate_state, array( 'monthly_limit', 'annual_limit' ), true ),
+			'monthly_count'       => $monthly ? min( 1, trb_portal_monthly_release_count( $user->ID ) ) : null,
+			'annual_count'        => $monthly && $annual_period ? min( 12, trb_portal_annual_release_count( $user->ID ) ) : null,
+			'policy_consistent'   => (bool) $policy_consistent,
+		);
+		if ( ! $policy_consistent ) $healthy = false;
+	}
+	return array( 'healthy' => $healthy, 'groups' => $groups );
 }
 
 function trb_portal_recent_demo_requests( $user_id = 0 ) {
