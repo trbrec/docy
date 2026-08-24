@@ -251,7 +251,7 @@ function trb_demo_is_test_payload( $payload ) {
 
 /** Apply the current delivery window to evaluations that have not been sent. */
 function trb_demo_migrate_delivery_window() {
-	if ( '20260824.1' === get_option( 'trb_demo_delivery_window_version' ) ) return;
+	if ( '20260824.2' === get_option( 'trb_demo_delivery_window_version' ) ) return;
 	$request_ids = get_posts( array(
 		'post_type'      => 'trb_request',
 		'post_status'    => array( 'publish', 'private', 'draft', 'pending' ),
@@ -276,7 +276,7 @@ function trb_demo_migrate_delivery_window() {
 			wp_schedule_single_event( $send_at, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
 		}
 	}
-	update_option( 'trb_demo_delivery_window_version', '20260824.1', false );
+	update_option( 'trb_demo_delivery_window_version', '20260824.2', false );
 }
 add_action( 'init', 'trb_demo_migrate_delivery_window', 25 );
 
@@ -426,7 +426,7 @@ function trb_demo_health_payload() {
 			'days'          => 'monday-saturday',
 			'opens_at'      => '08:30',
 			'closes_at'     => '18:30',
-			'timezone'      => wp_timezone_string(),
+			'timezone'      => trb_portal_demo_delivery_timezone()->getName(),
 		),
 	);
 	if ( current_user_can( 'manage_options' ) ) {
