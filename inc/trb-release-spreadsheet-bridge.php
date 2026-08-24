@@ -234,6 +234,34 @@ function trb_release_bridge_seed_spotify4_qa_contract() {
 }
 add_action( 'init', 'trb_release_bridge_seed_spotify4_qa_contract', 5 );
 
+/** Keep every contractual QA account ready to exercise its own release rule. */
+function trb_release_bridge_seed_release_group_qa_contracts() {
+	if ( '20260824.2' === get_option( 'trb_release_group_qa_contract_version' ) ) return;
+	$fixtures = array(
+		'spotify1' => array( 'profile' => 'dds', 'term' => '01/01/26 - 31/12/26' ),
+		'spotify6' => array( 'profile' => 'ddb12', 'term' => '01/01/26 - 31/12/26' ),
+		'spotify2' => array( 'profile' => 'ddb', 'term' => '01/01/26 - 31/12/26' ),
+		'spotify3' => array( 'profile' => 'ddb_trb', 'term' => '01/01/26 - 31/12/27' ),
+		'spotify4' => array( 'profile' => 'trb', 'term' => '01/01/26 - INFINITO' ),
+	);
+	foreach ( $fixtures as $login => $fixture ) {
+		$user = get_user_by( 'login', $login );
+		if ( ! $user ) $user = get_user_by( 'email', $login . '@trbrec.com' );
+		if ( ! $user instanceof WP_User ) continue;
+		$preliminary = (string) get_user_meta( $user->ID, '_trb_artist_preliminary_contract', true );
+		if ( '' === trim( $preliminary ) || is_wp_error( trb_release_bridge_validate_preliminary_contract( $user, $preliminary ) ) ) {
+			update_user_meta( $user->ID, '_trb_artist_preliminary_contract', 'TRB-QA-' . strtoupper( $login ) );
+		}
+		$term = (string) get_user_meta( $user->ID, '_trb_artist_contract_term', true );
+		if ( '' === trim( $term ) || is_wp_error( trb_release_bridge_contract_term_dates( $term ) ) ) {
+			update_user_meta( $user->ID, '_trb_artist_contract_term', $fixture['term'] );
+		}
+		update_user_meta( $user->ID, '_trb_artist_contract_profile', $fixture['profile'] );
+	}
+	update_option( 'trb_release_group_qa_contract_version', '20260824.2', false );
+}
+add_action( 'init', 'trb_release_bridge_seed_release_group_qa_contracts', 6 );
+
 function trb_release_bridge_validate_contract_term( $errors, $update, $user ) {
     if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['trb_artist_contract_term'] ) ) return;
     $value = trb_release_bridge_normalize_contract_term( $_POST['trb_artist_contract_term'] );
