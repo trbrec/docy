@@ -67,7 +67,7 @@ check("recupero riattiva release ferme dopo il ripristino ACR", "analysis_waitin
 check("recupero visibile nel portale", "_trb_pipeline_recovery_notice_at" in PORTAL and "Elaborazione ripresa automaticamente" in PORTAL)
 check("email artista quando una pratica viene sbloccata", "trb_resource_notify_artist_pipeline_recovery" in RESOURCE and "La problematica dipendeva dal portale" in RESOURCE)
 check("copia amministratore per ogni email di sblocco", "[Copia artista]" in RESOURCE and "-admin-copy" in RESOURCE)
-check("email di sblocco una tantum per la pratica Ruggia", "trb_resource_notify_ruggia_recovery_backfill" in RESOURCE and "manual-resend-20260824-2" in RESOURCE and "20260824.8" in RESOURCE)
+check("email di sblocco una tantum per la pratica Ruggia", "trb_resource_notify_ruggia_recovery_backfill" in RESOURCE and "manual-resend-20260824-2" in RESOURCE and "20260824.9" in RESOURCE)
 check("ricerca Ruggia robusta e senza finestra temporale", "u.user_login LIKE" in RESOURCE and "um.meta_value LIKE" in RESOURCE and "pm.meta_value LIKE" in RESOURCE and "45 days ago" not in RESOURCE)
 check("notifica Ruggia anche se il caricamento non ha creato la pratica", "trb_resource_notify_artist_recovery_without_release" in RESOURCE and "artist_found_without_release" in RESOURCE)
 check("ricevuta tecnica degli invii di sblocco", "trb_resource_recovery_mail_receipts" in RESOURCE)
@@ -75,6 +75,7 @@ check("ACR idempotente per hash", "idempotency_key" in RESOURCE and "acrcloud|' 
 check("errore ACR identico isolato per nuova release", "retry-release:" in RESOURCE and "provider_name_suffix" in RESOURCE)
 check("fingerprint e cover detection richiesti insieme", "3 !== $reported_engine" in RESOURCE)
 check("job ACR eseguiti col vecchio motore vengono riscansionati", "trb_resource_rescan_acr_file" in RESOURCE and "ACR_ENGINE_MISMATCH_" in RESOURCE and "/rescan" in RESOURCE)
+check("verifica ACR temporaneamente indisponibile usa retry e alert", "trb_resource_schedule_analysis_configuration_retry" in RESOURCE and "_trb_acr_configuration_retry_attempts" in RESOURCE and "Verifica ACRCloud ancora in attesa" in RESOURCE)
 check("DeepRight attivo e verificato", "ACR_DEEPRIGHT_DISABLED_OR_UNVERIFIED" in ANALYSIS)
 check("email artista su errore tecnico oggettivo", "trb_analysis_queue_artist_correction_email" in ANALYSIS)
 check("email amministratore su verifica copyright", "trb_analysis_queue_admin_review_email" in ANALYSIS)
@@ -121,7 +122,7 @@ check("watchdog recupera valutazioni demo ferme", "trb_demo_recover_stalled_requ
 check("cleanup demo elimina copie locali e remote", "trb_demo_cleanup_request" in DEMO and "trb_demo_webdav_request( 'DELETE'" in DEMO)
 check("health check demo accessibile al monitor", "'/trb/v1/demo-health'" in DEPLOY)
 check("release caricate a blocchi e finalizzate con sessione idempotente", "trb_portal_stage_release_chunk" in PORTAL and "trb_release_submission_token" in RELEASE_JS and "trb_staged_uploads_json" in RELEASE_JS)
-check("audit produzione include demo pagine e permessi", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "20260824.7" in RESOURCE)
+check("audit produzione include demo pagine e permessi", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "20260824.8" in RESOURCE)
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 
 failed = [name for name, ok in checks if not ok]
