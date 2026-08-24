@@ -63,6 +63,13 @@ check("numero e periodo contrattuale bloccano coerentemente interfaccia e server
 check("limite mensile applicato solo a DDS/DDB12", "function trb_portal_monthly_release_profile" in PORTAL)
 check("avviso mensile mostra motivo e data di riapertura", PORTAL.count("Raggiunto limite mensile di release distribuibili") >= 2 and "Potrai avviare una nuova pratica dal" in PORTAL and "trb_portal_monthly_next_reset_label" in PORTAL)
 check("avviso annuale distingue le dodici release", PORTAL.count("Raggiunto il limite annuale di 12 release") >= 2 and "annual_limit_reached" in PORTAL)
+check("copertina inclusa esclusivamente per DDB-TRB e TRB", "'cover_artwork'         => $service( 'Copertina grafica professionale', $press_roster" in PORTAL)
+check("release con copertina inclusa offre caricamento o richiesta", "trb_portal_render_release_cover_input" in PORTAL and "trb_release_cover_mode" in PORTAL and "Richiedo la realizzazione della copertina inclusa" in PORTAL)
+check("richiesta copertina valida brief e reference lato server", "invalid_cover_request" in PORTAL and "strlen( $cover_brief ) < 40" in PORTAL and "cover_reference" in PORTAL)
+check("richiesta copertina crea pratica collegata e avvisa TRB", "_trb_cover_release_id" in PORTAL and "cover-request-" in PORTAL and "Nuova richiesta copertina dalla release" in PORTAL)
+check("copertina definitiva collegabile alla stessa release", "trb_portal_store_final_release_cover" in PORTAL and "trb_portal_attach_release_cover" in PORTAL and "_trb_release_cover_status" in PORTAL)
+check("approvazione bloccata finche manca la copertina definitiva", "approve_blocked_cover" in RESOURCE and "cover_creation_pending" in RESOURCE and "trb_portal_release_has_final_cover" in RESOURCE)
+check("reference copertina archiviata correttamente su pCloud", "00)_Reference_copertina" in PCLOUD)
 check("upload WAV validato lato server", "trb_portal_validate_release_upload( $audio, 'audio' )" in PORTAL)
 check("durata WAV verificata con tolleranza di un secondo", "audio_duration_mismatch" in PORTAL and "> 1.0" in PORTAL)
 check("trasferimento pCloud verificato prima dell'analisi", "archived_pending_analysis" in PCLOUD and "verified" in PCLOUD)
@@ -133,7 +140,7 @@ check("invii e retry demo restano sempre nella finestra consentita", "trb_portal
 check("cleanup demo elimina copie locali e remote", "trb_demo_cleanup_request" in DEMO and "trb_demo_webdav_request( 'DELETE'" in DEMO)
 check("health check demo accessibile al monitor", "'/trb/v1/demo-health'" in DEPLOY)
 check("release caricate a blocchi e finalizzate con sessione idempotente", "trb_portal_stage_release_chunk" in PORTAL and "trb_release_submission_token" in RELEASE_JS and "trb_staged_uploads_json" in RELEASE_JS)
-check("audit produzione include demo pagine permessi e matrice gate release", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "release_qa" in RESOURCE and "release_matrix" in RESOURCE and "20260824.10" in RESOURCE)
+check("audit produzione include demo pagine permessi matrice release e copertine", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "release_qa" in RESOURCE and "release_matrix" in RESOURCE and "cover_workflow" in RESOURCE and "20260824.11" in RESOURCE)
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 
 failed = [name for name, ok in checks if not ok]
