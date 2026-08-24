@@ -215,6 +215,25 @@ function trb_release_bridge_validate_preliminary_contract( $user, $value ) {
     return true;
 }
 
+/** Keep the spotify4 production fixture complete enough to test every TRB release gate. */
+function trb_release_bridge_seed_spotify4_qa_contract() {
+	if ( '20260824.1' === get_option( 'trb_release_spotify4_qa_contract_version' ) ) return;
+	$user = get_user_by( 'login', 'spotify4' );
+	if ( ! $user ) $user = get_user_by( 'email', 'spotify4@trbrec.com' );
+	if ( ! $user instanceof WP_User ) return;
+	$preliminary = (string) get_user_meta( $user->ID, '_trb_artist_preliminary_contract', true );
+	if ( '' === trim( $preliminary ) || is_wp_error( trb_release_bridge_validate_preliminary_contract( $user, $preliminary ) ) ) {
+		update_user_meta( $user->ID, '_trb_artist_preliminary_contract', 'TRB-QA-SPOTIFY4' );
+	}
+	$term = (string) get_user_meta( $user->ID, '_trb_artist_contract_term', true );
+	if ( '' === trim( $term ) || is_wp_error( trb_release_bridge_contract_term_dates( $term ) ) ) {
+		update_user_meta( $user->ID, '_trb_artist_contract_term', '01/01/26 - INFINITO' );
+	}
+	update_user_meta( $user->ID, '_trb_artist_contract_profile', 'trb' );
+	update_option( 'trb_release_spotify4_qa_contract_version', '20260824.1', false );
+}
+add_action( 'init', 'trb_release_bridge_seed_spotify4_qa_contract', 5 );
+
 function trb_release_bridge_validate_contract_term( $errors, $update, $user ) {
     if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['trb_artist_contract_term'] ) ) return;
     $value = trb_release_bridge_normalize_contract_term( $_POST['trb_artist_contract_term'] );
