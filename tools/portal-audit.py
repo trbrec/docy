@@ -141,6 +141,8 @@ check("cruscotto copre artisti release provini attività e comunicazioni", all(t
 check("cruscotto mostra i profili artista canonici e legacy", all(role in OWNER for role in ("artista_a", "artista_b", "artista_c", "artista_d", "artista_ddb12", "artista_dds", "artista_ddb", "artista_ddb-trb", "artista_trb")))
 check("firma contratto genera riepilogo direzione idempotente", "trb_owner_dashboard_watch_contract_state" in OWNER and "owner-contract-signed-" in OWNER and "andrea.tognassi@trbrec.com" in OWNER)
 check("pratica Ruggia firmata dispone di backfill riepilogativo", "trb_owner_dashboard_backfill_ruggia_summary" in OWNER and "$release_id = 12283" in OWNER)
+check("recupero live Greta ritenta il contratto una sola volta", "trb_owner_dashboard_retry_feel_contract" in OWNER and "12275" in OWNER and "_trb_owner_live_recovery_20260825" in OWNER and "trb_release_bridge_dispatch( $release_id )" in OWNER)
+check("recupero live Ruggia riconcilia firma e foglio una sola volta", "trb_owner_dashboard_reconcile_ruggia_contract" in OWNER and "DDB20260031" in OWNER and "1061056" in OWNER and "trb_release_bridge_apply_callback" in OWNER)
 
 # Authentication, public pages and general security.
 check("reset password usa una pagina pubblica dedicata", "trb_portal_password_reset_url" in PORTAL and "/recupera-password/" in PORTAL)

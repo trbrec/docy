@@ -160,6 +160,53 @@ function trb_owner_dashboard_backfill_ruggia_summary() {
 }
 add_action( 'init', 'trb_owner_dashboard_backfill_ruggia_summary', 30 );
 
+/**
+ * Finish the two live practices exactly once after this repair is deployed.
+ * The guards make the recovery harmless when an earlier browser request or a
+ * provider callback has already completed the same transition.
+ */
+function trb_owner_dashboard_schedule_live_practice_recovery() {
+	$feel_id = 12275;
+	$feel_state = sanitize_key( (string) get_post_meta( $feel_id, '_trb_contract_state', true ) );
+	if ( 'trb_release' === get_post_type( $feel_id ) && 'approved' === get_post_meta( $feel_id, '_trb_release_pipeline_status', true ) && ! in_array( $feel_state, array( 'contract_sent', 'signed' ), true ) && ! get_post_meta( $feel_id, '_trb_owner_live_recovery_20260825', true ) ) {
+		if ( ! wp_next_scheduled( 'trb_owner_dashboard_retry_feel_contract', array( $feel_id ) ) ) wp_schedule_single_event( time() + 20, 'trb_owner_dashboard_retry_feel_contract', array( $feel_id ) );
+	}
+	$ruggia_id = 12283;
+	$ruggia_state = sanitize_key( (string) get_post_meta( $ruggia_id, '_trb_contract_state', true ) );
+	if ( 'trb_release' === get_post_type( $ruggia_id ) && in_array( $ruggia_state, array( 'contract_sent', 'signed' ), true ) && ! get_post_meta( $ruggia_id, '_trb_owner_live_recovery_20260825', true ) ) {
+		if ( ! wp_next_scheduled( 'trb_owner_dashboard_reconcile_ruggia_contract', array( $ruggia_id ) ) ) wp_schedule_single_event( time() + 20, 'trb_owner_dashboard_reconcile_ruggia_contract', array( $ruggia_id ) );
+	}
+}
+add_action( 'init', 'trb_owner_dashboard_schedule_live_practice_recovery', 31 );
+
+function trb_owner_dashboard_retry_feel_contract( $release_id ) {
+	$release_id = absint( $release_id );
+	if ( 12275 !== $release_id || ! add_post_meta( $release_id, '_trb_owner_live_recovery_20260825', time(), true ) ) return;
+	if ( 'approved' !== get_post_meta( $release_id, '_trb_release_pipeline_status', true ) || in_array( get_post_meta( $release_id, '_trb_contract_state', true ), array( 'contract_sent', 'signed' ), true ) || ! function_exists( 'trb_release_bridge_dispatch' ) ) return;
+	update_post_meta( $release_id, '_trb_contract_state', 'preparing' );
+	delete_post_meta( $release_id, '_trb_contract_error' );
+	trb_release_bridge_dispatch( $release_id );
+}
+add_action( 'trb_owner_dashboard_retry_feel_contract', 'trb_owner_dashboard_retry_feel_contract', 10, 1 );
+
+function trb_owner_dashboard_reconcile_ruggia_contract( $release_id ) {
+	$release_id = absint( $release_id );
+	if ( 12283 !== $release_id || ! add_post_meta( $release_id, '_trb_owner_live_recovery_20260825', time(), true ) ) return;
+	if ( 'DDB20260031' !== (string) get_post_meta( $release_id, '_trb_contract_number', true ) || '1061056' !== (string) get_post_meta( $release_id, '_trb_otp_dossier_id', true ) ) return;
+	if ( 'signed' === get_post_meta( $release_id, '_trb_contract_state', true ) ) {
+		if ( function_exists( 'trb_release_bridge_notify_spreadsheet_signed' ) && ( ! get_post_meta( $release_id, '_trb_contract_spreadsheet_synced_at', true ) || get_post_meta( $release_id, '_trb_contract_spreadsheet_error', true ) ) ) trb_release_bridge_notify_spreadsheet_signed( $release_id );
+		return;
+	}
+	if ( 'contract_sent' !== get_post_meta( $release_id, '_trb_contract_state', true ) || ! function_exists( 'trb_release_bridge_apply_callback' ) ) return;
+	trb_release_bridge_apply_callback( array(
+		'release_id' => $release_id,
+		'dossier_id' => '1061056',
+		'status'     => 'completed',
+		'signed_at'  => gmdate( DATE_ATOM ),
+	) );
+}
+add_action( 'trb_owner_dashboard_reconcile_ruggia_contract', 'trb_owner_dashboard_reconcile_ruggia_contract', 10, 1 );
+
 function trb_owner_dashboard_render() {
 	global $wpdb;
 	if ( ! current_user_can( TRB_OWNER_DASHBOARD_CAPABILITY ) ) wp_die( 'Accesso non consentito.' );
