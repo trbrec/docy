@@ -74,7 +74,7 @@ jobs:
           fi
           rm -f "${response_file}" "${headers_file}"
 
-          for attempt in $(seq 1 24); do
+          for attempt in $(seq 1 36); do
             if [[ "${attempt}" == "1" || $(( attempt % 3 )) == "0" ]]; then
               curl --silent --show-error --connect-timeout 3 --max-time 8 \
                 "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s).${attempt}" >/dev/null || true
@@ -90,7 +90,7 @@ jobs:
               exit 0
             fi
             rm -f "${status_file}"
-            echo "Cron deploy verification ${attempt}/24 is still waiting for ${GITHUB_SHA}."
+            echo "Cron deploy verification ${attempt}/36 is still waiting for ${GITHUB_SHA}."
             sleep 10
           done
           echo "::error::Neither the direct endpoint nor the verified WordPress cron fallback deployed ${GITHUB_SHA}."

@@ -139,6 +139,9 @@ check("cruscotto direzione incluso dal tema", "inc/trb-owner-dashboard.php" in (
 check("cruscotto direzione usa ruolo e capability separati", "trb_owner_viewer" in OWNER and "trb_view_owner_dashboard" in OWNER and "'read'" in OWNER)
 check("cruscotto copre artisti release provini attività e comunicazioni", all(token in OWNER for token in ("trb_owner_dashboard_artist_users", "Release e contratti", "Provini e valutazioni", "Anomalie aperte", "Ultime comunicazioni automatiche")))
 check("cruscotto mostra i profili artista canonici e legacy", all(role in OWNER for role in ("artista_a", "artista_b", "artista_c", "artista_d", "artista_ddb12", "artista_dds", "artista_ddb", "artista_ddb-trb", "artista_trb")))
+check("cruscotto separa lettura e gestione operativa", "TRB_OWNER_DASHBOARD_MANAGE_CAPABILITY" in OWNER and "trb_owner_manager" in OWNER and "Direzione TRB · operativa" in OWNER)
+check("cruscotto dispone di navigazione ricerca filtri e dettagli release", all(token in OWNER for token in ("TRB Control Room", "trb-owner-nav", "trb_owner_dashboard_filter_releases", "release_status", "Cerca pratica, artista, ISRC, contratto", "Brani, ISRC e analisi")))
+check("cestino release è recuperabile protetto e tracciato", "wp_trash_post" in OWNER and "wp_untrash_post" in OWNER and "check_admin_referer( 'trb_owner_dashboard_trash_'" in OWNER and "trb_resource_event( 'owner-trash-release-'" in OWNER and "wp_delete_post" not in OWNER)
 check("firma contratto genera riepilogo direzione idempotente", "trb_owner_dashboard_watch_contract_state" in OWNER and "owner-contract-signed-" in OWNER and "andrea.tognassi@trbrec.com" in OWNER)
 check("pratica Ruggia firmata dispone di backfill riepilogativo", "trb_owner_dashboard_backfill_ruggia_summary" in OWNER and "$release_id = 12283" in OWNER)
 check("recupero live Greta ritenta il contratto una sola volta", "trb_owner_dashboard_retry_feel_contract" in OWNER and "12275" in OWNER and "_trb_owner_live_recovery_20260825" in OWNER and "trb_release_bridge_dispatch( $release_id )" in OWNER)
@@ -187,7 +190,7 @@ check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget
 check("audit produzione include anomalie risorsa ancora aperte", "open_resource_events" in RESOURCE and "severity IN ('warning','critical')" in RESOURCE and "'resource_events' => $open_resource_events" in RESOURCE)
 check("monitor distingue lo spazio hosting dallo staging", "Spazio hosting (filesystem condiviso)" in RESOURCE and "Filesystem hosting utilizzato" in RESOURCE)
 check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
-check("deploy SiteGround non dichiara successo prima della verifica", "timeout-minutes: 12" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "for attempt in $(seq 1 24)" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "Deployment remains queued through the five-minute internal WordPress safety net.\"\n          else" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
+check("deploy SiteGround non dichiara successo prima della verifica", "timeout-minutes: 12" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "for attempt in $(seq 1 36)" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "Deployment remains queued through the five-minute internal WordPress safety net.\"\n          else" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
 
 failed = [name for name, ok in checks if not ok]
 for name, ok in checks:
