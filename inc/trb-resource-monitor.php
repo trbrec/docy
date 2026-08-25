@@ -584,7 +584,7 @@ add_action( 'init', 'trb_resource_reconcile_completed_dual_acr_events', 31 );
 function trb_resource_poll_dual_acr_job( $ledger_id ) {
 	global $wpdb; $table = trb_resource_tables()['usage'];
 	$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id=%d", absint( $ledger_id ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	if ( ! $row || ! $row->provider_reference ) return;
+	if ( ! $row || ! $row->provider_reference || 'cancelled' === $row->status || 'trash' === get_post_status( $row->release_id ) ) return;
 	$envelope = json_decode( (string) $row->payload, true );
 	$container_id = absint( $envelope['trb_container_id'] ?? 0 );
 	$expected_engine = absint( $envelope['trb_expected_engine'] ?? 0 );
@@ -621,6 +621,7 @@ function trb_resource_poll_dual_acr_job( $ledger_id ) {
 add_action( 'trb_resource_poll_dual_acr_job', 'trb_resource_poll_dual_acr_job' );
 
 function trb_resource_start_dual_acr_analysis( $release_id ) {
+	if ( 'trash' === get_post_status( $release_id ) || get_post_meta( $release_id, '_trb_owner_cancelled_at', true ) ) return new WP_Error( 'TRB_RELEASE_CANCELLED' );
 	$s = trb_resource_settings();
 	$containers = array( 'fingerprinting_exact' => absint( $s['acr_fingerprint_container_id'] ?? 0 ), 'cover_song_scan' => absint( $s['acr_container_id'] ?? 0 ) );
 	if ( ! $containers['fingerprinting_exact'] || ! $containers['cover_song_scan'] ) return new WP_Error( 'ACR_DUAL_CONFIGURATION_INCOMPLETE' );
@@ -667,6 +668,7 @@ function trb_resource_start_dual_acr_analysis( $release_id ) {
 }
 
 function trb_resource_start_release_analysis( $release_id ) {
+	if ( 'trash' === get_post_status( $release_id ) || get_post_meta( $release_id, '_trb_owner_cancelled_at', true ) ) return;
 	$s = trb_resource_settings();
 	$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
 	if ( ! in_array( $technical['status'] ?? '', array( 'passed', 'warning' ), true ) ) return;
@@ -812,7 +814,7 @@ add_action( 'trb_resource_start_release_analysis_manual', 'trb_resource_start_re
 
 function trb_resource_poll_acr_job( $ledger_id ) {
 	global $wpdb; $table = trb_resource_tables()['usage']; $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id=%d", absint( $ledger_id ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	if ( ! $row || ! $row->provider_reference ) return;
+	if ( ! $row || ! $row->provider_reference || 'cancelled' === $row->status || 'trash' === get_post_status( $row->release_id ) ) return;
 	$s = trb_resource_settings();
 	$url = trb_resource_acr_endpoint() . '/api/fs-containers/' . rawurlencode( $s['acr_container_id'] ) . '/files/' . rawurlencode( $row->provider_reference );
 	$response = wp_remote_get( $url, array( 'timeout' => 60, 'headers' => array( 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $s['acr_token'] ) ) );

@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 const TRB_OWNER_DASHBOARD_CAPABILITY = 'trb_view_owner_dashboard';
 const TRB_OWNER_DASHBOARD_MANAGE_CAPABILITY = 'trb_manage_owner_dashboard';
-const TRB_OWNER_DASHBOARD_VERSION = '1.1.0';
+const TRB_OWNER_DASHBOARD_VERSION = '1.1.1';
 const TRB_OWNER_DASHBOARD_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1tanb_tOnvNuFMi_mMDCDQY6MPL-P3vXjeaKDvlvQ-cw/edit';
 
 /** Keep operational visibility separate from write/approval permissions. */
@@ -91,11 +91,53 @@ function trb_owner_dashboard_filter_releases( $releases, $artist_id, $query, $st
 	} ) );
 }
 
+/**
+ * Stop all local work for a recoverably trashed practice.
+ *
+ * A provider job that was already submitted may finish on the provider side,
+ * but the portal will neither poll it again nor start further paid work.
+ */
+function trb_owner_dashboard_stop_release_jobs( $release_id ) {
+	$release_id = absint( $release_id );
+	if ( ! $release_id ) return;
+	foreach ( array(
+		'trb_resource_start_release_analysis_manual',
+		'trb_release_audio_ready_for_analysis',
+		'trb_release_pcloud_sync',
+		'trb_release_pcloud_retry',
+		'trb_resource_retry_rights_document',
+	) as $hook ) {
+		wp_clear_scheduled_hook( $hook, array( $release_id ) );
+	}
+	if ( ! function_exists( 'trb_resource_tables' ) ) return;
+	global $wpdb;
+	$table = trb_resource_tables()['usage'];
+	$ledger_ids = $wpdb->get_col( $wpdb->prepare(
+		"SELECT id FROM $table WHERE release_id=%d AND status IN ('reserved','submitted','processing','estimated')",
+		$release_id
+	) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	foreach ( (array) $ledger_ids as $ledger_id ) {
+		wp_clear_scheduled_hook( 'trb_resource_poll_acr_job', array( (int) $ledger_id ) );
+		wp_clear_scheduled_hook( 'trb_resource_poll_dual_acr_job', array( (int) $ledger_id ) );
+	}
+	$wpdb->query( $wpdb->prepare(
+		"UPDATE $table SET status='cancelled',last_error='cancelled_by_owner',updated_at=%s WHERE release_id=%d AND status IN ('reserved','submitted','processing','estimated')",
+		current_time( 'mysql', true ), $release_id
+	) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+}
+
 function trb_owner_dashboard_trash_release() {
 	if ( ! current_user_can( TRB_OWNER_DASHBOARD_MANAGE_CAPABILITY ) ) wp_die( 'Non autorizzato.' );
 	$release_id = absint( $_GET['release_id'] ?? 0 );
 	check_admin_referer( 'trb_owner_dashboard_trash_' . $release_id );
 	if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) ) wp_die( 'Pratica non valida.' );
+	$contract_state = sanitize_key( (string) get_post_meta( $release_id, '_trb_contract_state', true ) );
+	if ( in_array( $contract_state, array( 'contract_sent', 'signed' ), true ) ) wp_die( 'Questa pratica ha già un contratto inviato o firmato e deve restare nello storico. Annullare prima il dossier esterno, se applicabile.' );
+	update_post_meta( $release_id, '_trb_owner_pretrash_pipeline_status', (string) get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
+	update_post_meta( $release_id, '_trb_owner_cancelled_at', current_time( 'mysql', true ) );
+	update_post_meta( $release_id, '_trb_owner_cancelled_by', get_current_user_id() );
+	update_post_meta( $release_id, '_trb_release_pipeline_status', 'cancelled' );
+	trb_owner_dashboard_stop_release_jobs( $release_id );
 	if ( ! wp_trash_post( $release_id ) ) wp_die( 'Impossibile spostare la pratica nel cestino.' );
 	if ( function_exists( 'trb_resource_event' ) ) trb_resource_event( 'owner-trash-release-' . $release_id, 'portal', 'info', 'Pratica spostata nel cestino dalla Direzione TRB.', array( 'release_id' => $release_id, 'user_id' => get_current_user_id() ) );
 	wp_safe_redirect( trb_owner_dashboard_url( array( 'view' => 'releases', 'trb_notice' => 'trashed' ) ) );
@@ -109,6 +151,12 @@ function trb_owner_dashboard_restore_release() {
 	check_admin_referer( 'trb_owner_dashboard_restore_' . $release_id );
 	if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) || 'trash' !== get_post_status( $release_id ) ) wp_die( 'Pratica non valida.' );
 	if ( ! wp_untrash_post( $release_id ) ) wp_die( 'Impossibile ripristinare la pratica.' );
+	$previous = sanitize_key( (string) get_post_meta( $release_id, '_trb_owner_pretrash_pipeline_status', true ) );
+	if ( $previous ) update_post_meta( $release_id, '_trb_release_pipeline_status', $previous );
+	delete_post_meta( $release_id, '_trb_owner_pretrash_pipeline_status' );
+	delete_post_meta( $release_id, '_trb_owner_cancelled_at' );
+	delete_post_meta( $release_id, '_trb_owner_cancelled_by' );
+	if ( ! wp_next_scheduled( 'trb_resource_recover_release_pipeline' ) ) wp_schedule_single_event( time() + 5, 'trb_resource_recover_release_pipeline' );
 	if ( function_exists( 'trb_resource_event' ) ) trb_resource_event( 'owner-restore-release-' . $release_id, 'portal', 'info', 'Pratica ripristinata dal cestino dalla Direzione TRB.', array( 'release_id' => $release_id, 'user_id' => get_current_user_id() ) );
 	wp_safe_redirect( trb_owner_dashboard_url( array( 'view' => 'releases', 'trb_notice' => 'restored' ) ) );
 	exit;
@@ -353,7 +401,7 @@ function trb_owner_dashboard_render() {
 		<table><thead><tr><th>Pratica</th><th>Artista / release</th><th>Uscita</th><th>Copyright</th><th>Pipeline</th><th>Contratto</th><th>Foglio</th><th>Azioni</th></tr></thead><tbody>
 		<?php if ( ! $releases ) : ?><tr><td colspan="8" class="trb-owner-empty">Nessuna release corrisponde ai filtri.</td></tr><?php endif; ?>
 		<?php foreach ( ( 'overview' === $view && ! $query && ! $status_filter ? array_slice( $releases, 0, 15 ) : $releases ) as $release ) : $user = get_userdata( $release->post_author ); $pipeline = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $contract = get_post_meta( $release->ID, '_trb_contract_state', true ); $contract_error = get_post_meta( $release->ID, '_trb_contract_error', true ); $decision = (array) get_post_meta( $release->ID, '_trb_release_analysis_decision', true ); $sheet_error = get_post_meta( $release->ID, '_trb_contract_spreadsheet_error', true ); $sheet_at = get_post_meta( $release->ID, '_trb_contract_spreadsheet_synced_at', true ); ?>
-		<tr><td>#<?php echo esc_html( $release->ID ); ?><br><span class="trb-owner-muted"><?php echo esc_html( get_post_modified_time( 'd/m/Y H:i', false, $release ) ); ?></span></td><td><?php echo esc_html( $user ? ( trb_portal_artist_profile_value( 'artist_name', $user->ID ) ?: $user->display_name ) : '—' ); ?><br><strong><?php echo esc_html( $release->post_title ); ?></strong></td><td><?php echo esc_html( get_post_meta( $release->ID, '_trb_release_date', true ) ?: get_post_meta( $release->ID, '_trb_release_original_date', true ) ?: '—' ); ?></td><td><?php echo esc_html( strtoupper( (string) ( $decision['semaphore'] ?? '—' ) ) ); ?><br><span class="trb-owner-muted"><?php echo esc_html( $decision['state'] ?? '—' ); ?></span></td><td><?php echo wp_kses_post( trb_owner_dashboard_badge( $pipeline ) ); ?></td><td><?php echo wp_kses_post( trb_owner_dashboard_badge( $contract ) ); ?><br><?php echo esc_html( get_post_meta( $release->ID, '_trb_contract_number', true ) ?: '—' ); ?><?php if ( $contract_error ) : ?><br><span class="trb-owner-error"><?php echo esc_html( $contract_error ); ?></span><?php endif; ?></td><td><?php if ( $sheet_error ) : ?><span class="trb-owner-error"><?php echo esc_html( $sheet_error ); ?></span><?php elseif ( $sheet_at ) : ?>Sincronizzato<br><span class="trb-owner-muted"><?php echo esc_html( $sheet_at ); ?></span><?php else : ?>In attesa<?php endif; ?></td><td><div class="trb-owner-actions"><a class="button" href="<?php echo esc_url( trb_owner_dashboard_url( array( 'view' => 'releases', 'release_id' => $release->ID ) ) ); ?>">Dettagli</a><?php if ( current_user_can( 'manage_options' ) && get_edit_post_link( $release->ID, 'url' ) ) : ?><a class="button" href="<?php echo esc_url( get_edit_post_link( $release->ID, 'url' ) ); ?>">WordPress</a><?php endif; ?><?php if ( current_user_can( TRB_OWNER_DASHBOARD_MANAGE_CAPABILITY ) && 'trash' !== $release->post_status ) : ?><a class="button" style="color:#b32d2e" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_owner_dashboard_trash_release&release_id=' . $release->ID ), 'trb_owner_dashboard_trash_' . $release->ID ) ); ?>" onclick="return confirm('Spostare nel cestino la pratica #<?php echo esc_js( $release->ID ); ?> — <?php echo esc_js( $release->post_title ); ?>? Potrai ripristinarla.')">Cestino</a><?php elseif ( current_user_can( TRB_OWNER_DASHBOARD_MANAGE_CAPABILITY ) ) : ?><a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_owner_dashboard_restore_release&release_id=' . $release->ID ), 'trb_owner_dashboard_restore_' . $release->ID ) ); ?>">Ripristina</a><?php endif; ?></div></td></tr>
+		<tr><td>#<?php echo esc_html( $release->ID ); ?><br><span class="trb-owner-muted"><?php echo esc_html( get_post_modified_time( 'd/m/Y H:i', false, $release ) ); ?></span></td><td><?php echo esc_html( $user ? ( trb_portal_artist_profile_value( 'artist_name', $user->ID ) ?: $user->display_name ) : '—' ); ?><br><strong><?php echo esc_html( $release->post_title ); ?></strong></td><td><?php echo esc_html( get_post_meta( $release->ID, '_trb_release_date', true ) ?: get_post_meta( $release->ID, '_trb_release_original_date', true ) ?: '—' ); ?></td><td><?php echo esc_html( strtoupper( (string) ( $decision['semaphore'] ?? '—' ) ) ); ?><br><span class="trb-owner-muted"><?php echo esc_html( $decision['state'] ?? '—' ); ?></span></td><td><?php echo wp_kses_post( trb_owner_dashboard_badge( $pipeline ) ); ?></td><td><?php echo wp_kses_post( trb_owner_dashboard_badge( $contract ) ); ?><br><?php echo esc_html( get_post_meta( $release->ID, '_trb_contract_number', true ) ?: '—' ); ?><?php if ( $contract_error ) : ?><br><span class="trb-owner-error"><?php echo esc_html( $contract_error ); ?></span><?php endif; ?></td><td><?php if ( $sheet_error ) : ?><span class="trb-owner-error"><?php echo esc_html( $sheet_error ); ?></span><?php elseif ( $sheet_at ) : ?>Sincronizzato<br><span class="trb-owner-muted"><?php echo esc_html( $sheet_at ); ?></span><?php else : ?>In attesa<?php endif; ?></td><td><div class="trb-owner-actions"><a class="button" href="<?php echo esc_url( trb_owner_dashboard_url( array( 'view' => 'releases', 'release_id' => $release->ID ) ) ); ?>">Dettagli</a><?php if ( current_user_can( 'manage_options' ) && get_edit_post_link( $release->ID, 'url' ) ) : ?><a class="button" href="<?php echo esc_url( get_edit_post_link( $release->ID, 'url' ) ); ?>">WordPress</a><?php endif; ?><?php if ( current_user_can( TRB_OWNER_DASHBOARD_MANAGE_CAPABILITY ) && 'trash' !== $release->post_status && ! in_array( $contract, array( 'contract_sent', 'signed' ), true ) ) : ?><a class="button" style="color:#b32d2e" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_owner_dashboard_trash_release&release_id=' . $release->ID ), 'trb_owner_dashboard_trash_' . $release->ID ) ); ?>" onclick="return confirm('Spostare nel cestino la pratica #<?php echo esc_js( $release->ID ); ?> — <?php echo esc_js( $release->post_title ); ?>? I processi automatici verranno fermati; potrai ripristinarla.')">Cestino</a><?php elseif ( current_user_can( TRB_OWNER_DASHBOARD_MANAGE_CAPABILITY ) && 'trash' === $release->post_status ) : ?><a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=trb_owner_dashboard_restore_release&release_id=' . $release->ID ), 'trb_owner_dashboard_restore_' . $release->ID ) ); ?>">Ripristina</a><?php endif; ?></div></td></tr>
 		<?php endforeach; ?></tbody></table></div><?php endif; ?>
 
 		<?php if ( in_array( $view, array( 'overview', 'demos' ), true ) ) : ?><div class="trb-owner-section"><h2>Provini e valutazioni</h2><p><?php foreach ( $demo_counts as $status => $count ) echo wp_kses_post( trb_owner_dashboard_badge( $status ) ) . ' ' . esc_html( $count ) . ' &nbsp; '; ?></p><table><thead><tr><th>Richiesta</th><th>Artista</th><th>Brano</th><th>Stato</th><th>Analisi</th><th>Foglio</th><th>Errore</th></tr></thead><tbody>
