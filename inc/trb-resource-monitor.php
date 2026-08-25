@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RESOURCE_MONITOR_VERSION', '1.0.0' );
+define( 'TRB_RESOURCE_MONITOR_VERSION', '1.1.0' );
 
 function trb_resource_settings() {
 	$defaults = array(
@@ -76,6 +76,7 @@ function trb_resource_install() {
 		recipient varchar(191) NOT NULL,
 		subject text NOT NULL,
 		body longtext NOT NULL,
+		headers longtext NULL,
 		status varchar(20) NOT NULL DEFAULT 'pending',
 		attempts int unsigned NOT NULL DEFAULT 0,
 		last_error text NULL,
@@ -109,12 +110,13 @@ function trb_resource_event( $key, $resource, $severity, $message, $context = ar
 	return (int) $wpdb->insert_id;
 }
 
-function trb_resource_queue_recipient_email( $event_key, $recipient, $subject, $body, $priority = false ) {
+function trb_resource_queue_recipient_email( $event_key, $recipient, $subject, $body, $priority = false, $headers = array() ) {
 	global $wpdb;
 	$table = trb_resource_tables()['notifications'];
+	$headers = is_array( $headers ) ? array_values( array_filter( array_map( 'sanitize_text_field', $headers ) ) ) : array();
 	$wpdb->query( $wpdb->prepare(
-		"INSERT IGNORE INTO $table (event_key,recipient,subject,body,status,attempts,created_at,updated_at) VALUES (%s,%s,%s,%s,'pending',0,%s,%s)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		sanitize_text_field( $event_key ), sanitize_email( $recipient ), ( $priority ? '[PRIORITÀ] ' : '' ) . sanitize_text_field( $subject ), wp_kses_post( $body ), trb_resource_now(), trb_resource_now()
+		"INSERT IGNORE INTO $table (event_key,recipient,subject,body,headers,status,attempts,created_at,updated_at) VALUES (%s,%s,%s,%s,%s,'pending',0,%s,%s)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		sanitize_text_field( $event_key ), sanitize_email( $recipient ), ( $priority ? '[PRIORITÀ] ' : '' ) . sanitize_text_field( $subject ), wp_kses_post( $body ), wp_json_encode( $headers ), trb_resource_now(), trb_resource_now()
 	) );
 	if ( ! wp_next_scheduled( 'trb_resource_process_notifications' ) ) wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'trb_resource_process_notifications' );
 }
@@ -136,13 +138,20 @@ function trb_resource_process_notifications() {
 			break;
 		}
 		$wpdb->update( $table, array( 'status' => 'sending', 'attempts' => (int) $row->attempts + 1, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
-		$sent = wp_mail( $row->recipient, $row->subject, $row->body, array( 'Content-Type: text/html; charset=UTF-8' ) );
+		$mail_headers = array( 'Content-Type: text/html; charset=UTF-8' );
+		$stored_headers = json_decode( (string) ( $row->headers ?? '' ), true );
+		foreach ( is_array( $stored_headers ) ? $stored_headers : array() as $stored_header ) {
+			if ( ! preg_match( '/^(Cc|Reply-To):\s*(.+)$/i', (string) $stored_header, $matches ) ) continue;
+			$email = sanitize_email( trim( $matches[2] ) );
+			if ( is_email( $email ) ) $mail_headers[] = ucfirst( strtolower( $matches[1] ) ) . ': ' . $email;
+		}
+		$sent = wp_mail( $row->recipient, $row->subject, $row->body, $mail_headers );
 		$wpdb->update( $table, array( 'status' => $sent ? 'sent' : 'retry', 'last_error' => $sent ? '' : 'wp_mail_failed', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
 		if ( 0 === strpos( (string) $row->event_key, 'artist-pipeline-recovered-' ) ) {
 			$receipts = get_option( 'trb_resource_recovery_mail_receipts', array() );
 			$receipts = is_array( $receipts ) ? $receipts : array();
 			$receipts[ md5( (string) $row->event_key ) ] = array(
-				'role'       => false !== strpos( (string) $row->event_key, '-admin-copy-' ) ? 'admin_copy' : 'artist',
+				'role'       => in_array( 'Cc: andrea.tognassi@trbrec.com', $mail_headers, true ) ? 'artist_cc_admin' : 'artist',
 				'status'     => $sent ? 'sent' : 'retry',
 				'attempts'   => (int) $row->attempts + 1,
 				'updated_at' => time(),
@@ -620,10 +629,21 @@ add_action( 'trb_resource_poll_acr_job', 'trb_resource_poll_acr_job' );
  * written by an older pipeline revision. Provider calls remain idempotent by
  * release audio hash, so recovery never purchases the same analysis twice.
  */
-function trb_resource_recovery_admin_recipients() {
-	$settings = trb_resource_settings();
-	$recipients = array( $settings['admin_email'] ?? '' );
-	return array_values( array_unique( array_filter( array_map( 'sanitize_email', $recipients ), 'is_email' ) ) );
+function trb_resource_artist_legal_greeting_name( $user ) {
+	if ( ! $user instanceof WP_User ) return 'Artista';
+	$name = trim( (string) $user->first_name );
+	if ( '' === $name && function_exists( 'trb_portal_artist_profile_value' ) ) {
+		$name = trim( (string) trb_portal_artist_profile_value( 'legal_name', $user->ID ) );
+	}
+	return '' !== $name ? $name : 'Artista';
+}
+
+function trb_resource_artist_email_signature() {
+	return '<p>Cordiali saluti,</p><p>Sezione Contratti e Distribuzione<br><strong>TRB rec – Music Publishing</strong> · <a href="https://trbrec.com">trbrec.com</a><br>P. IVA 02846170989 · REA BS-483571 · SDI 095EI9R</p><p><em>Privacy notice — This email and its contents are confidential and intended solely for the recipients. If you received it in error, please delete it and notify the sender.</em></p>';
+}
+
+function trb_resource_artist_recovery_cc_headers() {
+	return array( 'Cc: andrea.tognassi@trbrec.com' );
 }
 
 function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_status, $event_suffix = '' ) {
@@ -638,21 +658,16 @@ function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_st
 	$release = get_post( absint( $release_id ) );
 	$user = $release ? get_userdata( $release->post_author ) : false;
 	if ( ! $release || ! $user || ! is_email( $user->user_email ) ) return false;
-	$artist = function_exists( 'trb_portal_artist_profile_value' ) ? trb_portal_artist_profile_value( 'artist_name', $release->post_author ) : '';
-	$name = $artist ?: $user->display_name;
+	$name = trb_resource_artist_legal_greeting_name( $user );
 	$link = get_permalink( get_option( 'trb_portal_dashboard_created' ) ) . '#release-files-' . absint( $release_id );
-	$subject = 'Elaborazione ripresa per la release ' . $release->post_title;
-	$body = '<p>Ciao ' . esc_html( $name ) . ',</p><p>abbiamo rilevato e risolto un rallentamento tecnico del Portale Artisti che aveva interrotto temporaneamente l’elaborazione della release <strong>' . esc_html( $release->post_title ) . '</strong>.</p>';
-	$body .= '<p>La problematica dipendeva dal portale e non dai materiali inviati. La pratica è stata sbloccata e i controlli sono ripartiti automaticamente: <strong>non caricare nuovamente i file e non creare una pratica duplicata</strong>.</p>';
-	$body .= '<p>Puoi seguire lo stato aggiornato direttamente nella tua area riservata. Se sarà necessaria una correzione specifica del WAV riceverai una comunicazione separata con tutte le indicazioni.</p><p><a href="' . esc_url( $link ) . '">Apri la release nel Portale Artisti</a></p><p>TRB rec - Music Publishing</p>';
+	$subject = 'Aggiornamento sulla lavorazione della release ' . $release->post_title;
+	$body = '<p>Gentile ' . esc_html( $name ) . ',</p><p>ti informiamo che il Portale Artisti ha rilevato un’interruzione temporanea durante l’elaborazione della release “<strong>' . esc_html( $release->post_title ) . '</strong>”.</p>';
+	$body .= '<p>La problematica tecnica è stata risolta e la lavorazione è ripresa regolarmente. Non è richiesta alcuna azione da parte tua: <strong>non caricare nuovamente i materiali e non creare una pratica duplicata</strong>.</p>';
+	$body .= '<p>Puoi verificare in qualsiasi momento lo stato aggiornato della release accedendo alla tua area riservata:</p><p><a href="' . esc_url( $link ) . '">Apri la release nel Portale Artisti</a></p>';
+	$body .= '<p>Qualora durante i controlli emergesse la necessità di modificare o sostituire uno dei materiali inviati, riceverai una comunicazione specifica contenente tutte le indicazioni necessarie.</p><p>Ci scusiamo per il temporaneo inconveniente e ti ringraziamo per la collaborazione.</p>' . trb_resource_artist_email_signature();
 	$key = 'artist-pipeline-recovered-' . absint( $release_id ) . '-' . sanitize_key( $previous_status ) . '-' . $event_suffix;
 	update_post_meta( $release_id, '_trb_pipeline_recovery_notice_at', time() );
-	trb_resource_queue_recipient_email( $key, $user->user_email, $subject, $body );
-	foreach ( trb_resource_recovery_admin_recipients() as $admin_recipient ) {
-		if ( strtolower( $admin_recipient ) === strtolower( $user->user_email ) ) continue;
-		$copy_body = '<p><strong>Copia della comunicazione automatica inviata a ' . esc_html( $user->user_email ) . '.</strong></p>' . $body;
-		trb_resource_queue_recipient_email( $key . '-admin-copy-' . substr( md5( strtolower( $admin_recipient ) ), 0, 10 ), $admin_recipient, '[Copia artista] ' . $subject, $copy_body );
-	}
+	trb_resource_queue_recipient_email( $key, $user->user_email, $subject, $body, false, trb_resource_artist_recovery_cc_headers() );
 	return true;
 }
 
@@ -662,20 +677,14 @@ function trb_resource_notify_artist_recovery_without_release( $user_id, $event_s
 	if ( ! $confirmed_incident ) return false;
 	$user = get_userdata( absint( $user_id ) );
 	if ( ! $user || ! is_email( $user->user_email ) ) return false;
-	$artist = function_exists( 'trb_portal_artist_profile_value' ) ? trb_portal_artist_profile_value( 'artist_name', $user->ID ) : '';
-	$name = $artist ?: $user->display_name;
+	$name = trb_resource_artist_legal_greeting_name( $user );
 	$link = get_permalink( get_option( 'trb_portal_dashboard_created' ) );
 	$subject = 'Aggiornamento sul caricamento della tua release';
-	$body = '<p>Ciao ' . esc_html( $name ) . ',</p><p>abbiamo rilevato e risolto un problema tecnico del Portale Artisti che può avere interrotto il recente caricamento della tua release.</p>';
-	$body .= '<p>La problematica dipendeva dal portale e non dai materiali inviati. Accedi alla tua area riservata per verificare lo stato: se la pratica è visibile, <strong>non caricare nuovamente i file e non creare un duplicato</strong>; se invece non compare alcuna pratica, puoi ripetere ora l’invio.</p>';
-	$body .= '<p>Se sarà necessaria una correzione specifica del WAV riceverai una comunicazione separata.</p><p><a href="' . esc_url( $link ) . '">Apri il Portale Artisti</a></p><p>TRB rec - Music Publishing</p>';
+	$body = '<p>Gentile ' . esc_html( $name ) . ',</p><p>ti informiamo che il Portale Artisti ha rilevato un’interruzione temporanea durante il recente caricamento della tua release.</p>';
+	$body .= '<p>La problematica tecnica è stata risolta. Accedi alla tua area riservata per verificare lo stato: se la pratica è visibile, <strong>non caricare nuovamente i materiali e non creare una pratica duplicata</strong>; se invece non compare alcuna pratica, puoi ripetere ora l’invio.</p>';
+	$body .= '<p>Qualora fosse necessario modificare o sostituire uno dei materiali, riceverai una comunicazione specifica contenente tutte le indicazioni necessarie.</p><p><a href="' . esc_url( $link ) . '">Apri il Portale Artisti</a></p><p>Ci scusiamo per il temporaneo inconveniente e ti ringraziamo per la collaborazione.</p>' . trb_resource_artist_email_signature();
 	$key = 'artist-pipeline-recovered-user-' . absint( $user->ID ) . '-' . $event_suffix;
-	trb_resource_queue_recipient_email( $key, $user->user_email, $subject, $body );
-	foreach ( trb_resource_recovery_admin_recipients() as $admin_recipient ) {
-		if ( strtolower( $admin_recipient ) === strtolower( $user->user_email ) ) continue;
-		$copy_body = '<p><strong>Copia della comunicazione automatica inviata a ' . esc_html( $user->user_email ) . '.</strong></p>' . $body;
-		trb_resource_queue_recipient_email( $key . '-admin-copy-' . substr( md5( strtolower( $admin_recipient ) ), 0, 10 ), $admin_recipient, '[Copia artista] ' . $subject, $copy_body );
-	}
+	trb_resource_queue_recipient_email( $key, $user->user_email, $subject, $body, false, trb_resource_artist_recovery_cc_headers() );
 	return true;
 }
 
