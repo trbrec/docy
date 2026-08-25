@@ -605,7 +605,7 @@ function trb_resource_start_release_analysis( $release_id ) {
 			trb_resource_event( 'submit-' . $release_id . '-' . $track, 'acrcloud', 'critical', 'Invio ACRCloud non completato.', array( 'code' => $result->get_error_code() ) );
 			return;
 		}
-		$wpdb->update( $table, array( 'status' => 'submitted', 'provider_reference' => sanitize_text_field( $result['id'] ), 'attempts' => 1, 'payload' => wp_json_encode( $result ), 'updated_at' => trb_resource_now() ), array( 'id' => $ledger_id ) );
+		$wpdb->update( $table, array( 'status' => 'submitted', 'provider_reference' => sanitize_text_field( $result['id'] ), 'attempts' => 1, 'last_error' => '', 'payload' => wp_json_encode( $result ), 'updated_at' => trb_resource_now() ), array( 'id' => $ledger_id ) );
 		if ( $engine_replacement_stage ) {
 			trb_resource_set_acr_engine_recovery_stage( $release_id, $hash, $engine_replacement_stage );
 			$wpdb->query( $wpdb->prepare(
