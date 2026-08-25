@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.1' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.2' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -590,6 +590,85 @@ function trb_analysis_configure_acr_container() {
 	return $verified;
 }
 
+/**
+ * Replace a File Scanning container whose control-plane engine setting is not
+ * honoured by the regional processing node. The previous container remains
+ * untouched and its ID is retained for an immediate rollback.
+ */
+function trb_analysis_replace_acr_container() {
+	if ( ! current_user_can( 'manage_options' ) ) return new WP_Error( 'ACR_CONFIGURATION_FORBIDDEN' );
+	if ( ! function_exists( 'trb_resource_settings' ) ) return new WP_Error( 'ACR_CONFIGURATION_UNAVAILABLE' );
+	$s = trb_resource_settings();
+	$container = trb_analysis_fetch_acr_container();
+	if ( is_wp_error( $container ) ) return $container;
+	$buckets = array();
+	foreach ( (array) ( $container['buckets'] ?? array() ) as $bucket ) {
+		if ( is_array( $bucket ) && isset( $bucket['id'] ) ) $buckets[] = absint( $bucket['id'] );
+		elseif ( is_array( $bucket ) && ! empty( $bucket['name'] ) ) $buckets[] = sanitize_text_field( $bucket['name'] );
+		elseif ( is_scalar( $bucket ) ) $buckets[] = $bucket;
+	}
+	if ( ! $buckets ) return new WP_Error( 'ACR_MUSIC_BUCKET_MISSING', 'Il container non contiene alcun bucket da preservare.' );
+	$policy = isset( $container['policy'] ) && is_array( $container['policy'] ) ? $container['policy'] : array( 'type' => 'traverse', 'interval' => 0, 'rec_length' => 10 );
+	$policy['deepright'] = true;
+	$policy['music_detection'] = 0;
+	$policy['ai_detection'] = 0;
+	$payload = array(
+		'name'            => sanitize_text_field( ( $container['name'] ?? 'TRB rights analysis' ) . ' combined ' . wp_date( 'Ymd-His' ) ),
+		'region'          => 'eu-west-1',
+		'audio_type'      => 'linein',
+		'buckets'         => $buckets,
+		'engine'          => 3,
+		'policy'          => $policy,
+		'callback_url'    => esc_url_raw( $container['callback_url'] ?? '' ),
+		'deepright'       => 1,
+		'music_detection' => 0,
+		'ai_detection'    => 0,
+	);
+	$response = wp_remote_post( 'https://api-v2.acrcloud.com/api/fs-containers', array(
+		'timeout' => 60,
+		'headers' => array( 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $s['acr_token'], 'Content-Type' => 'application/json' ),
+		'body'    => wp_json_encode( $payload ),
+	) );
+	if ( is_wp_error( $response ) ) return new WP_Error( 'ACR_CONTAINER_REPLACEMENT_FAILED', $response->get_error_message() );
+	$code = (int) wp_remote_retrieve_response_code( $response );
+	$body = json_decode( wp_remote_retrieve_body( $response ), true );
+	$new_container = trb_analysis_acr_container_item( is_array( $body ) ? $body : array(), '' );
+	$new_id = absint( $new_container['id'] ?? 0 );
+	if ( $code < 200 || $code >= 300 || ! $new_id ) return new WP_Error( 'ACR_CONTAINER_REPLACEMENT_FAILED', 'HTTP ' . $code );
+	if ( 3 !== absint( $new_container['engine'] ?? 0 ) || 'eu-west-1' !== ( $new_container['region'] ?? '' ) ) {
+		return new WP_Error( 'ACR_CONTAINER_REPLACEMENT_INVALID', 'Il nuovo container non conferma motore combinato e regione UE.' );
+	}
+	$old_settings = get_option( 'trb_resource_monitor_settings', array() );
+	$new_settings = is_array( $old_settings ) ? $old_settings : array();
+	$new_settings['acr_container_id'] = (string) $new_id;
+	$new_settings['acr_region'] = 'eu-west-1';
+	$new_settings['acr_engine'] = 3;
+	$new_settings['acr_deepright'] = 1;
+	update_option( 'trb_resource_monitor_settings', $new_settings, false );
+	delete_option( 'trb_acr_container_snapshot' );
+	$verified = trb_analysis_verify_acr_container();
+	if ( is_wp_error( $verified ) ) {
+		update_option( 'trb_resource_monitor_settings', $old_settings, false );
+		delete_option( 'trb_acr_container_snapshot' );
+		return new WP_Error( 'ACR_CONTAINER_REPLACEMENT_UNVERIFIED', $verified->get_error_message() );
+	}
+	update_option( 'trb_acr_previous_container_id', (string) $s['acr_container_id'], false );
+	update_option( 'trb_acr_configuration_generation', substr( hash( 'sha256', wp_generate_uuid4() . '|' . microtime( true ) ), 0, 12 ), false );
+	$waiting = get_posts( array(
+		'post_type'      => 'trb_release',
+		'post_status'    => 'publish',
+		'posts_per_page' => 50,
+		'fields'         => 'ids',
+		'meta_key'       => '_trb_release_pipeline_status',
+		'meta_value'     => 'analysis_waiting_configuration',
+	) );
+	foreach ( $waiting as $release_id ) {
+		update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' );
+		if ( ! wp_next_scheduled( 'trb_resource_start_release_analysis_manual', array( $release_id ) ) ) wp_schedule_single_event( time() + 5, 'trb_resource_start_release_analysis_manual', array( $release_id ) );
+	}
+	return array( 'container_id' => $new_id, 'previous_container_id' => (string) $s['acr_container_id'], 'verified' => $verified );
+}
+
 /** Small dependency-free PDF writer for the audit report. */
 function trb_analysis_pdf( $lines, $path ) {
 	$pages = array_chunk( array_values( $lines ), 45 ); $objects = array(); $page_ids = array(); $next = 3;
@@ -704,6 +783,12 @@ function trb_analysis_admin_page() {
 		$message_error = is_wp_error( $configured );
 		$message = $message_error ? 'Configurazione ACRCloud non completata: ' . $configured->get_error_message() : 'ACRCloud configurato e verificato: fingerprinting + Cover Song, DeepRight attivo, regione UE.';
 	}
+	if ( isset( $_POST['trb_analysis_replace_acr'] ) ) {
+		check_admin_referer( 'trb_analysis_replace_acr' );
+		$replaced = trb_analysis_replace_acr_container();
+		$message_error = is_wp_error( $replaced );
+		$message = $message_error ? 'Sostituzione ACRCloud non completata: ' . $replaced->get_error_message() : 'Nuovo container ACRCloud combinato creato, verificato e attivato. Il precedente resta disponibile per il rollback.';
+	}
 	if ( isset( $_POST['trb_analysis_save'] ) ) {
 		check_admin_referer( 'trb_analysis_save' );
 		foreach ( array( 'true_peak_warning','master_lufs_extreme_max','master_lufs_extreme_min','master_silence_peak_max','premaster_peak_max','silence_warning_seconds','fingerprint_red_score','match_review_score' ) as $key ) if ( isset( $_POST[ $key ] ) ) $s[ $key ] = (float) wp_unslash( $_POST[ $key ] );
@@ -723,6 +808,7 @@ function trb_analysis_admin_page() {
 	<div class="wrap"><h1>Analisi release TRB</h1><?php if ( $message ) : ?><div class="notice notice-<?php echo $message_error ? 'error' : 'success'; ?>"><p><?php echo esc_html( $message ); ?></p></div><?php endif; ?>
 	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili · WAV PCM verificati e decodificati integralmente' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Sicurezza caricamenti</th><td><?php echo esc_html( 'Controlli rigorosi sul formato' . ( trb_analysis_wordfence_active() ? ' · Wordfence attivo' : '' ) . ( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? ' · ClamAV aggiuntivo disponibile' : '' ) ); ?></td></tr><tr><th>Politica contratti</th><td>Copyright verde: approvazione e contratto automatici · giallo/rosso: contratto sospeso ed email all’artista con Andrea in CC</td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · validato' : ' · controllo qualità in corso; non blocca i contratti con copyright verde' ) ); ?></td></tr></tbody></table>
 	<h2>Configurazione copyright ACRCloud</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_configure_acr' ); ?><p>Conserva nome, bucket, callback e politica del container; imposta il motore combinato 3, DeepRight, audio line-in e disattiva i servizi non necessari.</p><button class="button" name="trb_analysis_configure_acr" value="1">Configura e verifica il container</button></form>
+	<form method="post" style="margin-top:10px"><?php wp_nonce_field( 'trb_analysis_replace_acr' ); ?><p>Usa un nuovo container solo se il nodo regionale continua a elaborare con un motore diverso da quello verificato. Il container precedente non viene eliminato.</p><button class="button" name="trb_analysis_replace_acr" value="1">Crea e attiva container combinato sostitutivo</button></form>
 	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak: soglia di avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"><p class="description">Genera un avviso da ascoltare; da solo non rifiuta il master.</p></td></tr><tr><th>Livelli master estremi</th><td>Avviso master molto alto: <input name="master_lufs_extreme_max" value="<?php echo esc_attr( $s['master_lufs_extreme_max'] ); ?>"> LUFS · audio sostanzialmente muto sotto <input name="master_lufs_extreme_min" value="<?php echo esc_attr( $s['master_lufs_extreme_min'] ); ?>"> LUFS con true peak sotto <input name="master_silence_peak_max" value="<?php echo esc_attr( $s['master_silence_peak_max'] ); ?>"> dBTP<p class="description">Gli avvisi tecnici restano visibili per il controllo qualità, ma non vengono trattati come problemi di copyright. Solo un errore tecnico bloccante impedisce la prosecuzione.</p></td></tr><tr><th>Pre-master: picco consigliato</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"><p class="description">Un superamento genera un avviso, non un rifiuto automatico.</p></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label><p class="description">Il benchmark misura la qualità del sistema ma non blocca l’approvazione automatica quando il controllo copyright è verde.</p></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
 	<h2>Registra caso benchmark</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_benchmark_add' ); ?><input required name="label" placeholder="Caso / hash"> <select name="expected"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <select name="actual"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <input type="number" name="duration_ms" placeholder="ms"> <input type="number" step="0.000001" name="cost" placeholder="USD"> <button class="button" name="trb_analysis_benchmark_add" value="1">Registra</button></form>
 	<?php if ( $cases ) : ?><table class="widefat striped" style="margin-top:12px"><thead><tr><th>Caso</th><th>Atteso</th><th>Risultato</th><th>Tempo</th><th>Costo</th></tr></thead><tbody><?php foreach ( array_reverse( $cases ) as $case ) : ?><tr><td><?php echo esc_html( $case['label'] ); ?></td><td><?php echo esc_html( $case['expected'] ); ?></td><td><?php echo esc_html( $case['actual'] ); ?></td><td><?php echo esc_html( $case['duration_ms'] . ' ms' ); ?></td><td><?php echo esc_html( $case['cost'] . ' USD' ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?></div><?php
