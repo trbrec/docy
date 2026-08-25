@@ -455,17 +455,25 @@ function trb_resource_rescan_acr_file( $provider_reference ) {
 }
 
 /** Track the bounded recovery stage for a provider object created with an old engine. */
+function trb_resource_acr_configuration_generation() {
+	return sanitize_key( (string) get_option( 'trb_acr_configuration_generation', '' ) );
+}
+
 function trb_resource_acr_engine_recovery_stage( $release_id, $file_hash ) {
 	$stages = get_post_meta( absint( $release_id ), '_trb_acr_engine_recovery_stages', true );
 	$stages = is_array( $stages ) ? $stages : array();
-	return isset( $stages[ $file_hash ] ) ? absint( $stages[ $file_hash ] ) : 0;
+	if ( ! isset( $stages[ $file_hash ] ) ) return 0;
+	$entry = $stages[ $file_hash ];
+	$generation = trb_resource_acr_configuration_generation();
+	if ( is_array( $entry ) ) return (string) ( $entry['generation'] ?? '' ) === $generation ? absint( $entry['stage'] ?? 0 ) : 0;
+	return '' === $generation ? absint( $entry ) : 0;
 }
 
 function trb_resource_set_acr_engine_recovery_stage( $release_id, $file_hash, $stage ) {
 	$release_id = absint( $release_id );
 	$stages = get_post_meta( $release_id, '_trb_acr_engine_recovery_stages', true );
 	$stages = is_array( $stages ) ? $stages : array();
-	if ( $stage > 0 ) $stages[ $file_hash ] = absint( $stage );
+	if ( $stage > 0 ) $stages[ $file_hash ] = array( 'stage' => absint( $stage ), 'generation' => trb_resource_acr_configuration_generation() );
 	else unset( $stages[ $file_hash ] );
 	if ( $stages ) update_post_meta( $release_id, '_trb_acr_engine_recovery_stages', $stages );
 	else delete_post_meta( $release_id, '_trb_acr_engine_recovery_stages' );
@@ -567,7 +575,8 @@ function trb_resource_start_release_analysis( $release_id ) {
 					// The old object keeps the engine used when it was created. Use a
 					// deterministic replacement name so the current engine-3 policy is
 					// applied without repeatedly purchasing new scans on later retries.
-					$provider_name_suffix .= '-engine3-r' . absint( $release_id ) . '-t' . $track . '-v2';
+					$generation = trb_resource_acr_configuration_generation();
+					$provider_name_suffix .= '-engine3' . ( $generation ? '-g' . $generation : '' ) . '-r' . absint( $release_id ) . '-t' . $track . '-v2';
 					$engine_replacement_stage = 2;
 				} else {
 					update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' );
