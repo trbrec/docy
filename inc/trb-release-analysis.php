@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.1.0' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.0' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -22,7 +22,7 @@ function trb_analysis_settings() {
 		'fingerprint_red_score' => 80.0,
 		'match_review_score' => 1.0,
 		'benchmark_complete' => 0,
-		'auto_approval' => 0,
+		'auto_approval' => 1,
 		'clamav_binary' => '',
 	) );
 }
@@ -33,6 +33,9 @@ function trb_analysis_migrate_settings() {
 	if ( version_compare( $schema ?: '1.0.0', TRB_RELEASE_ANALYSIS_VERSION, '>=' ) ) return;
 	$stored = (array) get_option( 'trb_release_analysis_settings', array() );
 	if ( isset( $stored['premaster_peak_max'] ) && -3.0 === (float) $stored['premaster_peak_max'] ) $stored['premaster_peak_max'] = -6.0;
+	// From 1.2.0 the contract policy is deterministic: a clean copyright
+	// result is approved automatically; benchmarks remain quality metrics.
+	$stored['auto_approval'] = 1;
 	update_option( 'trb_release_analysis_settings', $stored, false );
 	update_option( 'trb_release_analysis_settings_schema', TRB_RELEASE_ANALYSIS_VERSION, false );
 }
@@ -235,12 +238,43 @@ function trb_analysis_queue_artist_correction_email( $release_id, $payload ) {
 	$hashes = array_values( array_filter( array_map( static function( $track ) { return sanitize_text_field( $track['sha256'] ?? '' ); }, (array) ( $payload['tracks'] ?? array() ) ) ) );
 	$errors = array_values( array_unique( (array) ( $payload['errors'] ?? array() ) ) );
 	if ( ! $errors ) return;
+	$name = function_exists( 'trb_resource_artist_legal_greeting_name' ) ? trb_resource_artist_legal_greeting_name( $user ) : trim( (string) $user->first_name );
+	if ( '' === $name ) $name = 'Artista';
 	$link = add_query_arg( 'trb_release', 'technical_correction', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . absint( $release_id );
-	$body = '<p>La release <strong>' . esc_html( $release->post_title ) . '</strong> è stata acquisita, ma il WAV deve essere sostituito prima di poter proseguire.</p>';
+	$body = '<p>Gentile ' . esc_html( $name ) . ',</p><p>la release <strong>' . esc_html( $release->post_title ) . '</strong> è stata acquisita, ma il WAV deve essere sostituito prima di poter proseguire.</p>';
 	$body .= '<p><strong>Motivo:</strong> ' . esc_html( implode( '; ', array_map( 'trb_analysis_finding_email_label', $errors ) ) ) . '</p>';
 	$body .= '<p>La pratica rimane aperta e gli altri dati non devono essere reinseriti.</p><p><a href="' . esc_url( $link ) . '">Apri la release e sostituisci il WAV</a></p>';
+	if ( function_exists( 'trb_resource_artist_email_signature' ) ) $body .= trb_resource_artist_email_signature();
 	$key = 'artist-technical-' . absint( $release_id ) . '-' . substr( hash( 'sha256', wp_json_encode( array( $hashes, $errors ) ) ), 0, 20 );
-	trb_resource_queue_recipient_email( $key, $user->user_email, 'Correzione richiesta per la release ' . $release->post_title, $body );
+	$headers = function_exists( 'trb_resource_artist_recovery_cc_headers' ) ? trb_resource_artist_recovery_cc_headers() : array( 'Cc: andrea.tognassi@trbrec.com' );
+	trb_resource_queue_recipient_email( $key, $user->user_email, 'Correzione richiesta per la release ' . $release->post_title, $body, false, $headers );
+}
+
+/** Notify the artist, with Andrea in CC, only after a real rights finding. */
+function trb_analysis_queue_artist_copyright_email( $release_id, $decision ) {
+	if ( ! function_exists( 'trb_resource_queue_recipient_email' ) ) return;
+	$semaphore = sanitize_key( $decision['semaphore'] ?? '' );
+	if ( ! in_array( $semaphore, array( 'yellow', 'red' ), true ) ) return;
+	$release = get_post( absint( $release_id ) );
+	$user = $release ? get_userdata( $release->post_author ) : false;
+	if ( ! $release || ! $user || ! is_email( $user->user_email ) ) return;
+
+	$name = function_exists( 'trb_resource_artist_legal_greeting_name' ) ? trb_resource_artist_legal_greeting_name( $user ) : trim( (string) $user->first_name );
+	if ( '' === $name ) $name = 'Artista';
+	$findings = array_values( array_unique( array_filter( array_map( 'sanitize_text_field', (array) ( $decision['copyright_findings'] ?? array() ) ) ) ) );
+	$link = add_query_arg( 'trb_release', 'copyright_review', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . absint( $release_id );
+	$body = '<p>Gentile ' . esc_html( $name ) . ',</p><p>durante il controllo dei diritti relativo alla release <strong>' . esc_html( $release->post_title ) . '</strong> è emersa una corrispondenza o una dichiarazione che richiede una verifica.</p>';
+	if ( $findings ) $body .= '<p><strong>Motivo della verifica:</strong> ' . esc_html( implode( '; ', $findings ) ) . '.</p>';
+	$body .= '<p>La segnalazione non costituisce automaticamente un accertamento di violazione. Il contratto rimane temporaneamente sospeso mentre verifichiamo i dati e l’eventuale documentazione sui diritti.</p>';
+	if ( 'copyright_documents_needed' === ( $decision['state'] ?? '' ) ) $body .= '<p>Accedi alla pratica e carica la documentazione richiesta, leggibile e riferita esattamente al materiale inviato.</p>';
+	else $body .= '<p>Non devi creare una nuova pratica né caricare nuovamente il brano, salvo nostra specifica richiesta.</p>';
+	$body .= '<p><a href="' . esc_url( $link ) . '">Apri la release nel Portale Artisti</a></p>';
+	if ( function_exists( 'trb_resource_artist_email_signature' ) ) $body .= trb_resource_artist_email_signature();
+
+	$hashes = array_values( array_filter( array_map( static function( $track ) { return sanitize_text_field( $track['sha256'] ?? '' ); }, (array) get_post_meta( $release_id, '_trb_release_files', true ) ) ) );
+	$key = 'artist-copyright-' . absint( $release_id ) . '-' . substr( hash( 'sha256', wp_json_encode( array( $semaphore, $decision['state'] ?? '', $findings, $hashes ) ) ), 0, 20 );
+	$headers = function_exists( 'trb_resource_artist_recovery_cc_headers' ) ? trb_resource_artist_recovery_cc_headers() : array( 'Cc: andrea.tognassi@trbrec.com' );
+	trb_resource_queue_recipient_email( $key, $user->user_email, 'Verifica dei diritti per la release ' . $release->post_title, $body, true, $headers );
 }
 
 /** Queue one consolidated, idempotent administrator email for a release requiring attention. */
@@ -344,8 +378,9 @@ function trb_analysis_run_technical( $release_id ) {
 	if ( 'failed' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_error' );
 	elseif ( 'warning' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_review' );
 	else update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_queued' );
-	// Warnings continue through copyright analysis and are included in its single final email.
-	// Only a terminal technical failure needs an immediate administrator notification.
+	// Non-blocking warnings continue through copyright analysis without being
+	// misclassified as rights problems. Only a terminal technical failure
+	// requires an immediate correction email.
 	if ( 'failed' === $status ) {
 		trb_analysis_queue_admin_review_email( $release_id, 'technical', $payload );
 		trb_analysis_queue_artist_correction_email( $release_id, $payload );
@@ -398,44 +433,58 @@ function trb_analysis_decide_release( $release_id ) {
 	$rows = $wpdb->get_results( $wpdb->prepare( "SELECT track_index,file_hash,payload,status FROM $table WHERE release_id=%d AND provider='acrcloud' AND service IN ('fingerprinting','fingerprinting_reuse') ORDER BY id ASC", $release_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$current_hashes = array(); foreach ( (array) get_post_meta( $release_id, '_trb_release_files', true ) as $file ) if ( 'audio' === ( $file['kind'] ?? '' ) ) $current_hashes[ absint( $file['track'] ?? 0 ) ] = (string) ( $file['sha256'] ?? '' );
 	$s = trb_analysis_settings();
-	$normalized = array(); $limitations = array(); $red = false; $yellow = false;
+	$normalized = array(); $limitations = array(); $copyright_findings = array(); $red = false; $yellow = false;
 	foreach ( $rows as $row ) {
 		if ( 'completed' !== $row['status'] ) continue;
 		if ( empty( $current_hashes[ absint( $row['track_index'] ) ] ) || ! hash_equals( $current_hashes[ absint( $row['track_index'] ) ], (string) $row['file_hash'] ) ) continue;
 		$item = json_decode( $row['payload'], true ); $result = trb_analysis_normalize_acr_result( is_array( $item ) ? $item : array() );
 		$normalized[ absint( $row['track_index'] ) ] = $result;
 	}
-	$declarations = (array) get_post_meta( $release_id, '_trb_release_rights_declarations', true );
-	$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
-	$release_state = (string) get_post_meta( $release_id, '_trb_release_state', true );
-	if ( 'warning' === ( $technical['status'] ?? '' ) ) $yellow = true;
-	foreach ( (array) ( $technical['tracks'] ?? array() ) as $index => $track ) {
-		if ( (float) ( $track['spec']['duration_seconds'] ?? 0 ) > 0 && (float) $track['spec']['duration_seconds'] < 15.0 ) {
-			$yellow = true;
-			$limitations[ absint( $index ) ][] = 'AUDIO_TOO_SHORT_FOR_RELIABLE_RECOGNITION';
-		}
+	$missing_tracks = array_diff_key( $current_hashes, $normalized );
+	if ( $missing_tracks ) {
+		update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_review' );
+		if ( function_exists( 'trb_resource_event' ) ) trb_resource_event( 'acr-incomplete-result-' . absint( $release_id ), 'acrcloud', 'critical', 'Decisione copyright sospesa: manca un risultato completo per una o più tracce correnti.', array( 'tracks' => array_keys( $missing_tracks ) ) );
+		return;
 	}
+	$declarations = (array) get_post_meta( $release_id, '_trb_release_rights_declarations', true );
+	$release_state = (string) get_post_meta( $release_id, '_trb_release_state', true );
 	foreach ( $normalized as $index => $result ) {
 		$nature = $declarations[ $index ]['nature'] ?? 'original';
 		foreach ( $result['matches'] as $match ) {
+			if ( $match['score'] < (float) $s['match_review_score'] ) continue;
+			$match_label = trim( implode( ' - ', array_filter( array( implode( ', ', (array) $match['artists'] ), $match['title'] ) ) ) );
+			$copyright_findings[] = 'Brano ' . ( absint( $index ) + 1 ) . ': corrispondenza ' . ( $match_label ?: 'nel catalogo del provider' );
 			if ( in_array( $match['engine'], array( 'music', 'custom_files' ), true ) && $match['score'] >= (float) $s['fingerprint_red_score'] && 'original' === $nature && 'unreleased' === $release_state ) $red = true;
-			elseif ( $match['score'] >= (float) $s['match_review_score'] ) $yellow = true;
+			else $yellow = true;
 		}
-		if ( ! empty( $result['deepright'] ) ) $yellow = true;
+		if ( ! empty( $result['deepright'] ) ) {
+			$yellow = true;
+			$copyright_findings[] = 'Brano ' . ( absint( $index ) + 1 ) . ': possibile contenuto derivato rilevato da DeepRight';
+		}
 	}
-	foreach ( $declarations as $declaration ) if ( in_array( $declaration['nature'] ?? '', array( 'type_beat','protected_samples','remix' ), true ) ) $yellow = true;
+	$declaration_labels = array( 'type_beat' => 'licenza type beat', 'protected_samples' => 'sample o elemento protetto dichiarato', 'remix' => 'remix dichiarato' );
+	foreach ( $declarations as $index => $declaration ) {
+		$nature = $declaration['nature'] ?? '';
+		if ( isset( $declaration_labels[ $nature ] ) ) {
+			$yellow = true;
+			$copyright_findings[] = 'Brano ' . ( absint( $index ) + 1 ) . ': ' . $declaration_labels[ $nature ];
+		}
+	}
 	$semaphore = $red ? 'red' : ( $yellow ? 'yellow' : 'green' );
 	$benchmark_ready = ! empty( $s['benchmark_complete'] ) && trb_analysis_benchmark_count() >= absint( $s['benchmark_required'] );
 	$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
 	$documents = is_array( $documents ) ? array_values( array_filter( $documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 	$documents_ready = false; foreach ( $documents as $document ) if ( 'synced' === ( $document['status'] ?? '' ) ) { $documents_ready = true; break; }
-	$state = 'red' === $semaphore ? ( 'unreleased' === $release_state ? 'published_audio_conflict' : ( $documents_ready ? 'manual_review' : 'copyright_documents_needed' ) ) : ( 'yellow' === $semaphore ? 'manual_review' : ( $benchmark_ready && ! empty( $s['auto_approval'] ) ? 'approved' : 'manual_review' ) );
-	$decision = array( 'semaphore' => $semaphore, 'state' => $state, 'results' => $normalized, 'limitations' => $limitations, 'benchmark_ready' => $benchmark_ready, 'decided_at' => time() );
+	$state = 'red' === $semaphore ? ( 'unreleased' === $release_state ? 'published_audio_conflict' : ( $documents_ready ? 'manual_review' : 'copyright_documents_needed' ) ) : ( 'yellow' === $semaphore ? 'manual_review' : 'approved' );
+	$decision = array( 'semaphore' => $semaphore, 'state' => $state, 'results' => $normalized, 'limitations' => $limitations, 'copyright_findings' => array_values( array_unique( $copyright_findings ) ), 'benchmark_ready' => $benchmark_ready, 'decided_at' => time() );
 	update_post_meta( $release_id, '_trb_release_analysis_decision', $decision );
 	update_post_meta( $release_id, '_trb_release_pipeline_status', $state );
 	if ( 'approved' === $state ) do_action( 'trb_release_analysis_approved', $release_id );
 	trb_analysis_generate_report( $release_id );
-	if ( 'approved' !== $state ) trb_analysis_queue_admin_review_email( $release_id, 'decision', $decision );
+	if ( 'approved' !== $state ) {
+		trb_analysis_queue_admin_review_email( $release_id, 'decision', $decision );
+		trb_analysis_queue_artist_copyright_email( $release_id, $decision );
+	}
 }
 
 function trb_analysis_benchmark_count() { return count( (array) get_option( 'trb_analysis_benchmark_cases', array() ) ); }
@@ -643,7 +692,7 @@ function trb_analysis_admin_page() {
 		foreach ( array( 'true_peak_warning','master_lufs_extreme_max','master_lufs_extreme_min','master_silence_peak_max','premaster_peak_max','silence_warning_seconds','fingerprint_red_score','match_review_score' ) as $key ) if ( isset( $_POST[ $key ] ) ) $s[ $key ] = (float) wp_unslash( $_POST[ $key ] );
 		$s['benchmark_required'] = max( 15, absint( $_POST['benchmark_required'] ?? 15 ) );
 		$s['benchmark_complete'] = isset( $_POST['benchmark_complete'] ) ? 1 : 0;
-		$s['auto_approval'] = isset( $_POST['auto_approval'] ) ? 1 : 0;
+		$s['auto_approval'] = 1;
 		$s['clamav_binary'] = isset( $_POST['clamav_binary'] ) ? sanitize_text_field( wp_unslash( $_POST['clamav_binary'] ) ) : '';
 		update_option( 'trb_release_analysis_settings', $s, false ); $message = 'Configurazione salvata.';
 	}
@@ -655,9 +704,9 @@ function trb_analysis_admin_page() {
 	$cases = (array) get_option( 'trb_analysis_benchmark_cases', array() ); $count = count( $cases ); $ready = ! empty( $s['benchmark_complete'] ) && $count >= absint( $s['benchmark_required'] );
 	?>
 	<div class="wrap"><h1>Analisi release TRB</h1><?php if ( $message ) : ?><div class="notice notice-<?php echo $message_error ? 'error' : 'success'; ?>"><p><?php echo esc_html( $message ); ?></p></div><?php endif; ?>
-	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili · WAV PCM verificati e decodificati integralmente' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Sicurezza caricamenti</th><td><?php echo esc_html( 'Controlli rigorosi sul formato' . ( trb_analysis_wordfence_active() ? ' · Wordfence attivo' : '' ) . ( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? ' · ClamAV aggiuntivo disponibile' : '' ) ); ?></td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · pronto' : ' · approvazione automatica bloccata' ) ); ?></td></tr></tbody></table>
+	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili · WAV PCM verificati e decodificati integralmente' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Sicurezza caricamenti</th><td><?php echo esc_html( 'Controlli rigorosi sul formato' . ( trb_analysis_wordfence_active() ? ' · Wordfence attivo' : '' ) . ( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? ' · ClamAV aggiuntivo disponibile' : '' ) ); ?></td></tr><tr><th>Politica contratti</th><td>Copyright verde: approvazione e contratto automatici · giallo/rosso: contratto sospeso ed email all’artista con Andrea in CC</td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · validato' : ' · controllo qualità in corso; non blocca i contratti con copyright verde' ) ); ?></td></tr></tbody></table>
 	<h2>Configurazione copyright ACRCloud</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_configure_acr' ); ?><p>Conserva nome, bucket, callback e politica del container; imposta il motore combinato 3, DeepRight, audio line-in e disattiva i servizi non necessari.</p><button class="button" name="trb_analysis_configure_acr" value="1">Configura e verifica il container</button></form>
-	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak: soglia di avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"><p class="description">Genera un avviso da ascoltare; da solo non rifiuta il master.</p></td></tr><tr><th>Livelli master estremi</th><td>Avviso master molto alto: <input name="master_lufs_extreme_max" value="<?php echo esc_attr( $s['master_lufs_extreme_max'] ); ?>"> LUFS · audio sostanzialmente muto sotto <input name="master_lufs_extreme_min" value="<?php echo esc_attr( $s['master_lufs_extreme_min'] ); ?>"> LUFS con true peak sotto <input name="master_silence_peak_max" value="<?php echo esc_attr( $s['master_silence_peak_max'] ); ?>"> dBTP<p class="description">Il master molto alto e le fasce LUFS/LRA legate al genere richiedono ascolto manuale. Solo un file sostanzialmente muto viene bloccato automaticamente per il livello.</p></td></tr><tr><th>Pre-master: picco consigliato</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"><p class="description">Un superamento genera un avviso, non un rifiuto automatico.</p></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label> <label><input type="checkbox" name="auto_approval" <?php checked( $s['auto_approval'] ); ?>> Consenti auto-approvazione verde solo dopo benchmark</label></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
+	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak: soglia di avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"><p class="description">Genera un avviso da ascoltare; da solo non rifiuta il master.</p></td></tr><tr><th>Livelli master estremi</th><td>Avviso master molto alto: <input name="master_lufs_extreme_max" value="<?php echo esc_attr( $s['master_lufs_extreme_max'] ); ?>"> LUFS · audio sostanzialmente muto sotto <input name="master_lufs_extreme_min" value="<?php echo esc_attr( $s['master_lufs_extreme_min'] ); ?>"> LUFS con true peak sotto <input name="master_silence_peak_max" value="<?php echo esc_attr( $s['master_silence_peak_max'] ); ?>"> dBTP<p class="description">Gli avvisi tecnici restano visibili per il controllo qualità, ma non vengono trattati come problemi di copyright. Solo un errore tecnico bloccante impedisce la prosecuzione.</p></td></tr><tr><th>Pre-master: picco consigliato</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"><p class="description">Un superamento genera un avviso, non un rifiuto automatico.</p></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label><p class="description">Il benchmark misura la qualità del sistema ma non blocca l’approvazione automatica quando il controllo copyright è verde.</p></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
 	<h2>Registra caso benchmark</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_benchmark_add' ); ?><input required name="label" placeholder="Caso / hash"> <select name="expected"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <select name="actual"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <input type="number" name="duration_ms" placeholder="ms"> <input type="number" step="0.000001" name="cost" placeholder="USD"> <button class="button" name="trb_analysis_benchmark_add" value="1">Registra</button></form>
 	<?php if ( $cases ) : ?><table class="widefat striped" style="margin-top:12px"><thead><tr><th>Caso</th><th>Atteso</th><th>Risultato</th><th>Tempo</th><th>Costo</th></tr></thead><tbody><?php foreach ( array_reverse( $cases ) as $case ) : ?><tr><td><?php echo esc_html( $case['label'] ); ?></td><td><?php echo esc_html( $case['expected'] ); ?></td><td><?php echo esc_html( $case['actual'] ); ?></td><td><?php echo esc_html( $case['duration_ms'] . ' ms' ); ?></td><td><?php echo esc_html( $case['cost'] . ' USD' ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?></div><?php
 }
