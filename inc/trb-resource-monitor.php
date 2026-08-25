@@ -627,10 +627,17 @@ function trb_resource_recovery_admin_recipients() {
 }
 
 function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_status, $event_suffix = '' ) {
-	if ( ! function_exists( 'trb_resource_queue_recipient_email' ) ) return;
+	/*
+	 * Artist-facing recovery messages are reserved for a confirmed incident.
+	 * The watchdog also performs harmless/idempotent retries during normal
+	 * processing; those retries must never be presented as a portal outage.
+	 */
+	$event_suffix = sanitize_key( $event_suffix );
+	$confirmed_incident = 0 === strpos( $event_suffix, 'confirmed-incident-' ) || 0 === strpos( $event_suffix, 'manual-resend-' );
+	if ( ! $confirmed_incident || ! function_exists( 'trb_resource_queue_recipient_email' ) ) return false;
 	$release = get_post( absint( $release_id ) );
 	$user = $release ? get_userdata( $release->post_author ) : false;
-	if ( ! $release || ! $user || ! is_email( $user->user_email ) ) return;
+	if ( ! $release || ! $user || ! is_email( $user->user_email ) ) return false;
 	$artist = function_exists( 'trb_portal_artist_profile_value' ) ? trb_portal_artist_profile_value( 'artist_name', $release->post_author ) : '';
 	$name = $artist ?: $user->display_name;
 	$link = get_permalink( get_option( 'trb_portal_dashboard_created' ) ) . '#release-files-' . absint( $release_id );
@@ -638,14 +645,15 @@ function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_st
 	$body = '<p>Ciao ' . esc_html( $name ) . ',</p><p>abbiamo rilevato e risolto un rallentamento tecnico del Portale Artisti che aveva interrotto temporaneamente l’elaborazione della release <strong>' . esc_html( $release->post_title ) . '</strong>.</p>';
 	$body .= '<p>La problematica dipendeva dal portale e non dai materiali inviati. La pratica è stata sbloccata e i controlli sono ripartiti automaticamente: <strong>non caricare nuovamente i file e non creare una pratica duplicata</strong>.</p>';
 	$body .= '<p>Puoi seguire lo stato aggiornato direttamente nella tua area riservata. Se sarà necessaria una correzione specifica del WAV riceverai una comunicazione separata con tutte le indicazioni.</p><p><a href="' . esc_url( $link ) . '">Apri la release nel Portale Artisti</a></p><p>TRB rec - Music Publishing</p>';
-	$key = 'artist-pipeline-recovered-' . absint( $release_id ) . '-' . sanitize_key( $previous_status ) . '-' . wp_date( 'Ymd' );
-	if ( $event_suffix ) $key .= '-' . sanitize_key( $event_suffix );
+	$key = 'artist-pipeline-recovered-' . absint( $release_id ) . '-' . sanitize_key( $previous_status ) . '-' . $event_suffix;
+	update_post_meta( $release_id, '_trb_pipeline_recovery_notice_at', time() );
 	trb_resource_queue_recipient_email( $key, $user->user_email, $subject, $body );
 	foreach ( trb_resource_recovery_admin_recipients() as $admin_recipient ) {
 		if ( strtolower( $admin_recipient ) === strtolower( $user->user_email ) ) continue;
 		$copy_body = '<p><strong>Copia della comunicazione automatica inviata a ' . esc_html( $user->user_email ) . '.</strong></p>' . $body;
 		trb_resource_queue_recipient_email( $key . '-admin-copy-' . substr( md5( strtolower( $admin_recipient ) ), 0, 10 ), $admin_recipient, '[Copia artista] ' . $subject, $copy_body );
 	}
+	return true;
 }
 
 function trb_resource_notify_artist_recovery_without_release( $user_id, $event_suffix ) {
@@ -707,8 +715,7 @@ function trb_resource_recover_release_pipeline() {
 			$recovered = 'analysis_waiting_configuration' !== sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
 		}
 		if ( $recovered ) {
-			update_post_meta( $release_id, '_trb_pipeline_recovery_notice_at', time() );
-			trb_resource_notify_artist_pipeline_recovery( $release_id, $status );
+			update_post_meta( $release_id, '_trb_pipeline_last_recovered_at', time() );
 		}
 		$current_status = sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
 		if ( $attempts >= 3 && $current_status === $status && function_exists( 'trb_resource_queue_email' ) ) {
@@ -720,6 +727,26 @@ function trb_resource_recover_release_pipeline() {
 	}
 }
 add_action( 'trb_resource_recover_release_pipeline', 'trb_resource_recover_release_pipeline' );
+
+/**
+ * Cancel messages queued by the former broad watchdog notification rule.
+ * Confirmed, explicitly keyed incident messages (such as the Ruggia backfill)
+ * are preserved. Sent messages are immutable and are left in the audit trail.
+ */
+function trb_resource_cancel_unconfirmed_recovery_notifications() {
+	if ( '20260825.1' === get_option( 'trb_resource_recovery_notification_policy_version' ) ) return;
+	global $wpdb;
+	$table = trb_resource_tables()['notifications'];
+	$automatic_pattern = $wpdb->esc_like( 'artist-pipeline-recovered-' ) . '%';
+	$manual_pattern = '%' . $wpdb->esc_like( '-manual-resend-' ) . '%';
+	$confirmed_pattern = '%' . $wpdb->esc_like( '-confirmed-incident-' ) . '%';
+	$wpdb->query( $wpdb->prepare(
+		"UPDATE $table SET status='cancelled',last_error='cancelled_unconfirmed_recovery_notice',updated_at=%s WHERE status IN ('pending','retry') AND event_key LIKE %s AND event_key NOT LIKE %s AND event_key NOT LIKE %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		trb_resource_now(), $automatic_pattern, $manual_pattern, $confirmed_pattern
+	) );
+	update_option( 'trb_resource_recovery_notification_policy_version', '20260825.1', false );
+}
+add_action( 'init', 'trb_resource_cancel_unconfirmed_recovery_notifications', 24 );
 
 /**
  * The first Ruggia recovery ran before artist-facing recovery notifications
