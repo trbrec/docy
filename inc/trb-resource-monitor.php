@@ -556,9 +556,9 @@ function trb_resource_start_release_analysis( $release_id ) {
 			}
 				continue;
 			}
-			if ( $existing && 'error' === $existing->status && 0 === strpos( (string) $existing->last_error, 'ACR_ENGINE_MISMATCH_' ) && ! empty( $existing->provider_reference ) ) {
+			if ( $existing && 'error' === $existing->status && ( 0 === strpos( (string) $existing->last_error, 'ACR_ENGINE_MISMATCH_' ) || 'ACR_FILE_NOT_FOUND_IN_CONTAINER' === (string) $existing->last_error ) && ! empty( $existing->provider_reference ) ) {
 				$engine_recovery_stage = trb_resource_acr_engine_recovery_stage( $release_id, $hash );
-				$rescan = $engine_recovery_stage < 1 ? trb_resource_rescan_acr_file( $existing->provider_reference ) : new WP_Error( 'ACR_RESCAN_ALREADY_ATTEMPTED' );
+				$rescan = $engine_recovery_stage < 1 && 'ACR_FILE_NOT_FOUND_IN_CONTAINER' !== (string) $existing->last_error ? trb_resource_rescan_acr_file( $existing->provider_reference ) : new WP_Error( 'ACR_RESCAN_ALREADY_ATTEMPTED' );
 				if ( ! is_wp_error( $rescan ) ) {
 					trb_resource_set_acr_engine_recovery_stage( $release_id, $hash, 1 );
 					$wpdb->update( $table, array( 'status' => 'submitted', 'attempts' => 1, 'last_error' => '', 'updated_at' => trb_resource_now() ), array( 'id' => (int) $existing->id ) );
@@ -644,6 +644,18 @@ function trb_resource_poll_acr_job( $ledger_id ) {
 	$item = trb_resource_acr_response_item( $data, $row->provider_reference );
 	$state = isset( $item['state'] ) ? (int) $item['state'] : 0;
 	$transport_error = is_wp_error( $response ) || $http_code < 200 || $http_code >= 300 || ! $item;
+	// After an atomic container switch an old provider reference is not present
+	// in the new regional container. A successful empty response is terminal for
+	// that reference: recreate the file once instead of polling it 30 times.
+	if ( ! is_wp_error( $response ) && $http_code >= 200 && $http_code < 300 && ! $item ) {
+		$missing_code = 'ACR_FILE_NOT_FOUND_IN_CONTAINER';
+		$wpdb->update( $table, array( 'status' => 'error', 'last_error' => $missing_code, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
+		trb_resource_settle_acr_companion_usage( $row, 'error', $missing_code );
+		trb_resource_set_acr_engine_recovery_stage( $row->release_id, (string) $row->file_hash, 1 );
+		update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'analysis_waiting_configuration' );
+		if ( ! wp_next_scheduled( 'trb_resource_start_release_analysis_manual', array( absint( $row->release_id ) ) ) ) wp_schedule_single_event( time() + 5, 'trb_resource_start_release_analysis_manual', array( absint( $row->release_id ) ) );
+		return;
+	}
 	if ( $transport_error && (int) $row->attempts < 30 ) {
 		$error = is_wp_error( $response ) ? $response->get_error_code() : ( $http_code ? 'ACR_HTTP_' . $http_code : 'ACR_RESPONSE_INVALID' );
 		$wpdb->update( $table, array( 'status' => 'processing', 'attempts' => (int) $row->attempts + 1, 'last_error' => $error, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
