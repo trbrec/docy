@@ -3,12 +3,12 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RESOURCE_MONITOR_VERSION', '1.1.0' );
+define( 'TRB_RESOURCE_MONITOR_VERSION', '1.2.0' );
 
 function trb_resource_settings() {
 	$defaults = array(
 		'admin_email' => 'info@trbrec.com',
-		'acr_enabled' => 0, 'acr_paid_confirmed' => 0, 'acr_token' => '', 'acr_container_id' => '', 'acr_region' => 'eu-west-1',
+		'acr_enabled' => 0, 'acr_paid_confirmed' => 0, 'acr_token' => '', 'acr_container_id' => '', 'acr_fingerprint_container_id' => '', 'acr_region' => 'eu-west-1',
 		'acr_monthly_budget' => 5.00, 'acr_fingerprint_max' => 0.05, 'acr_deepright_minute_max' => 0.001,
 		'acr_cover_minute_max' => 0.001, 'acr_metadata_call_max' => 0.01, 'acr_engine' => 3, 'acr_deepright' => 1,
 		'acr_excerpt_seconds' => 90, 'acr_excerpt_offset' => 30,
@@ -393,8 +393,13 @@ function trb_resource_create_excerpt( $source, $release_id, $track_index ) {
 
 function trb_resource_submit_acr_file( $path, $name ) {
 	$s = trb_resource_settings();
+	return trb_resource_submit_acr_file_to_container( $path, $name, $s['acr_container_id'] );
+}
+
+function trb_resource_submit_acr_file_to_container( $path, $name, $container_id ) {
+	$s = trb_resource_settings();
 	if ( ! function_exists( 'curl_init' ) || ! class_exists( 'CURLFile' ) ) return new WP_Error( 'ACR_TRANSPORT_UNAVAILABLE' );
-	$url = trb_resource_acr_endpoint() . '/api/fs-containers/' . rawurlencode( $s['acr_container_id'] ) . '/files';
+	$url = trb_resource_acr_endpoint() . '/api/fs-containers/' . rawurlencode( $container_id ) . '/files';
 	$curl = curl_init( $url );
 	curl_setopt_array( $curl, array( CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 300, CURLOPT_HTTPHEADER => array( 'Accept: application/json', 'Authorization: Bearer ' . $s['acr_token'] ), CURLOPT_POSTFIELDS => array( 'file' => new CURLFile( $path, 'audio/wav', $name ), 'data_type' => 'audio', 'name' => $name ) ) );
 	$body = curl_exec( $curl ); $code = (int) curl_getinfo( $curl, CURLINFO_RESPONSE_CODE ); $error = curl_error( $curl ); curl_close( $curl );
@@ -493,6 +498,127 @@ function trb_resource_schedule_analysis_configuration_retry( $release_id, $error
 	}
 }
 
+/** Finish one track only after independent exact and cover scans are complete. */
+function trb_resource_finalize_dual_acr_track( $release_id, $track, $hash ) {
+	global $wpdb; $table = trb_resource_tables()['usage'];
+	$rows = $wpdb->get_results( $wpdb->prepare(
+		"SELECT service,status,payload FROM $table WHERE release_id=%d AND track_index=%d AND file_hash=%s AND provider='acrcloud' AND service IN ('fingerprinting_exact','cover_song_scan') ORDER BY id DESC",
+		absint( $release_id ), absint( $track ), (string) $hash
+	), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$parts = array();
+	foreach ( $rows as $row ) if ( 'completed' === $row['status'] && ! isset( $parts[ $row['service'] ] ) ) $parts[ $row['service'] ] = json_decode( $row['payload'], true );
+	if ( empty( $parts['fingerprinting_exact'] ) || empty( $parts['cover_song_scan'] ) ) return false;
+	$exact = is_array( $parts['fingerprinting_exact'] ) ? $parts['fingerprinting_exact'] : array();
+	$cover = is_array( $parts['cover_song_scan'] ) ? $parts['cover_song_scan'] : array();
+	$merged_results = array();
+	foreach ( array( $exact['results'] ?? array(), $cover['results'] ?? array() ) as $result_set ) {
+		if ( ! is_array( $result_set ) ) continue;
+		foreach ( $result_set as $group => $items ) {
+			if ( ! is_array( $items ) ) continue;
+			$merged_results[ $group ] = array_merge( $merged_results[ $group ] ?? array(), $items );
+		}
+	}
+	$merged = $exact;
+	$merged['engine'] = 3;
+	$merged['state'] = ( ! empty( $merged_results ) || 1 === (int) ( $exact['state'] ?? -1 ) || 1 === (int) ( $cover['state'] ?? -1 ) ) ? 1 : -1;
+	$merged['results'] = $merged_results ?: null;
+	$merged['deepright'] = ! empty( $cover['deepright'] );
+	$merged['trb_dual_engine'] = true;
+	$key = hash( 'sha256', 'acrcloud-dual-merged|' . $hash . '|release:' . absint( $release_id ) . '|track:' . absint( $track ) );
+	$ledger_id = trb_resource_usage_reserve( array(
+		'service' => 'fingerprinting', 'idempotency_key' => $key, 'release_id' => $release_id,
+		'track_index' => $track, 'file_hash' => $hash, 'units' => 0, 'cost_max' => 0,
+		'cost_estimated' => 0, 'status' => 'completed', 'payload' => wp_json_encode( $merged ),
+	) );
+	$wpdb->update( $table, array( 'status' => 'completed', 'payload' => wp_json_encode( $merged ), 'last_error' => '', 'updated_at' => trb_resource_now() ), array( 'id' => $ledger_id ) );
+	return true;
+}
+
+function trb_resource_poll_dual_acr_job( $ledger_id ) {
+	global $wpdb; $table = trb_resource_tables()['usage'];
+	$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id=%d", absint( $ledger_id ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	if ( ! $row || ! $row->provider_reference ) return;
+	$envelope = json_decode( (string) $row->payload, true );
+	$container_id = absint( $envelope['trb_container_id'] ?? 0 );
+	$expected_engine = absint( $envelope['trb_expected_engine'] ?? 0 );
+	if ( ! $container_id || ! in_array( $expected_engine, array( 1, 2 ), true ) ) return;
+	$s = trb_resource_settings();
+	$url = trb_resource_acr_endpoint() . '/api/fs-containers/' . rawurlencode( $container_id ) . '/files/' . rawurlencode( $row->provider_reference );
+	$response = wp_remote_get( $url, array( 'timeout' => 60, 'headers' => array( 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $s['acr_token'] ) ) );
+	$http_code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+	$data = ! is_wp_error( $response ) ? json_decode( wp_remote_retrieve_body( $response ), true ) : array();
+	$item = trb_resource_acr_response_item( $data, $row->provider_reference );
+	$state = isset( $item['state'] ) ? (int) $item['state'] : 0;
+	if ( ( is_wp_error( $response ) || $http_code < 200 || $http_code >= 300 || ! $item || 0 === $state ) && (int) $row->attempts < 30 ) {
+		$error = is_wp_error( $response ) ? $response->get_error_code() : ( $http_code && ! $item ? 'ACR_RESPONSE_INVALID' : '' );
+		$wpdb->update( $table, array( 'status' => 'processing', 'attempts' => (int) $row->attempts + 1, 'last_error' => $error, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
+		wp_schedule_single_event( time() + 2 * MINUTE_IN_SECONDS, 'trb_resource_poll_dual_acr_job', array( (int) $row->id ) );
+		return;
+	}
+	$reported_engine = absint( $item['engine'] ?? 0 );
+	if ( ! in_array( $state, array( 1, -1 ), true ) || $reported_engine !== $expected_engine ) {
+		$error = 'ACR_DUAL_ENGINE_MISMATCH_' . $reported_engine . '_EXPECTED_' . $expected_engine;
+		$wpdb->update( $table, array( 'status' => 'error', 'payload' => wp_json_encode( $item ), 'last_error' => $error, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
+		update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'manual_review' );
+		trb_resource_event( 'acr-dual-' . $row->release_id . '-' . $row->track_index . '-' . $expected_engine, 'acrcloud', 'critical', 'Una delle due analisi copyright indipendenti non ha usato il motore previsto.', array( 'reported_engine' => $reported_engine, 'expected_engine' => $expected_engine ) );
+		return;
+	}
+	$wpdb->update( $table, array( 'status' => 'completed', 'payload' => wp_json_encode( $item ), 'last_error' => '', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
+	trb_resource_finalize_dual_acr_track( $row->release_id, $row->track_index, (string) $row->file_hash );
+	$pending = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $table WHERE release_id=%d AND service IN ('fingerprinting_exact','cover_song_scan') AND status IN ('reserved','submitted','processing')", $row->release_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	if ( 0 === $pending ) {
+		update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'copyright_review' );
+		if ( function_exists( 'trb_analysis_decide_release' ) ) trb_analysis_decide_release( absint( $row->release_id ) );
+	}
+}
+add_action( 'trb_resource_poll_dual_acr_job', 'trb_resource_poll_dual_acr_job' );
+
+function trb_resource_start_dual_acr_analysis( $release_id ) {
+	$s = trb_resource_settings();
+	$containers = array( 'fingerprinting_exact' => absint( $s['acr_fingerprint_container_id'] ?? 0 ), 'cover_song_scan' => absint( $s['acr_container_id'] ?? 0 ) );
+	if ( ! $containers['fingerprinting_exact'] || ! $containers['cover_song_scan'] ) return new WP_Error( 'ACR_DUAL_CONFIGURATION_INCOMPLETE' );
+	$files = (array) get_post_meta( $release_id, '_trb_release_files', true );
+	update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' );
+	global $wpdb; $table = trb_resource_tables()['usage'];
+	foreach ( $files as $file ) {
+		if ( 'audio' !== ( $file['kind'] ?? '' ) ) continue;
+		$hash = (string) ( $file['sha256'] ?? '' ); $track = absint( $file['track'] ?? 0 );
+		$local = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $file ) : '';
+		if ( ! $local ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' ); return new WP_Error( 'ACR_LOCAL_FILE_MISSING' ); }
+		if ( ! preg_match( '/^[a-f0-9]{64}$/', $hash ) ) $hash = hash_file( 'sha256', $local );
+		$duration = ! empty( $file['audio_spec']['duration_seconds'] ) ? (float) $file['audio_spec']['duration_seconds'] : 0;
+		$minutes = max( 1, ceil( $duration / 60 ) );
+		$maximum = (float) $s['acr_fingerprint_max'] + $minutes * (float) $s['acr_cover_minute_max'];
+		$guard = trb_resource_acr_budget_guard( $maximum, $release_id );
+		if ( is_wp_error( $guard ) ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'ACR_BUDGET_LIMIT_REACHED' ); return $guard; }
+		$excerpt = trb_resource_create_excerpt( $local, $release_id, $track );
+		if ( is_wp_error( $excerpt ) ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' ); return $excerpt; }
+		foreach ( $containers as $service => $container_id ) {
+			$expected_engine = 'fingerprinting_exact' === $service ? 1 : 2;
+			$key = hash( 'sha256', 'acrcloud-dual|' . $service . '|' . $container_id . '|' . $hash . '|release:' . absint( $release_id ) . '|track:' . $track );
+			$existing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE idempotency_key=%s", $key ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			if ( $existing && in_array( $existing->status, array( 'submitted', 'processing' ), true ) ) {
+				if ( ! wp_next_scheduled( 'trb_resource_poll_dual_acr_job', array( (int) $existing->id ) ) ) wp_schedule_single_event( time() + 5, 'trb_resource_poll_dual_acr_job', array( (int) $existing->id ) );
+				continue;
+			}
+			if ( $existing && 'completed' === $existing->status ) { trb_resource_finalize_dual_acr_track( $release_id, $track, $hash ); continue; }
+			$job_cost = 'fingerprinting_exact' === $service ? (float) $s['acr_fingerprint_max'] : $minutes * (float) $s['acr_cover_minute_max'];
+			$ledger_id = trb_resource_usage_reserve( array( 'service' => $service, 'idempotency_key' => $key, 'release_id' => $release_id, 'track_index' => $track, 'file_hash' => $hash, 'cost_max' => $job_cost, 'cost_estimated' => $job_cost, 'status' => 'reserved' ) );
+			$name = 'trb-' . $hash . '-' . $service . '-r' . absint( $release_id ) . '-t' . $track . '.wav';
+			$result = trb_resource_submit_acr_file_to_container( $excerpt, $name, $container_id );
+			if ( is_wp_error( $result ) ) {
+				$wpdb->update( $table, array( 'status' => 'error', 'last_error' => $result->get_error_code(), 'updated_at' => trb_resource_now() ), array( 'id' => $ledger_id ) );
+				wp_delete_file( $excerpt ); update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' ); return $result;
+			}
+			$envelope = array( 'trb_container_id' => $container_id, 'trb_expected_engine' => $expected_engine, 'trb_provider' => $result );
+			$wpdb->update( $table, array( 'status' => 'submitted', 'provider_reference' => sanitize_text_field( $result['id'] ), 'attempts' => 1, 'last_error' => '', 'payload' => wp_json_encode( $envelope ), 'updated_at' => trb_resource_now() ), array( 'id' => $ledger_id ) );
+			wp_schedule_single_event( time() + 2 * MINUTE_IN_SECONDS, 'trb_resource_poll_dual_acr_job', array( $ledger_id ) );
+		}
+		wp_delete_file( $excerpt );
+	}
+	return true;
+}
+
 function trb_resource_start_release_analysis( $release_id ) {
 	$s = trb_resource_settings();
 	$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
@@ -500,6 +626,10 @@ function trb_resource_start_release_analysis( $release_id ) {
 	if ( empty( $s['acr_enabled'] ) || empty( $s['acr_paid_confirmed'] ) || empty( $s['acr_token'] ) || empty( $s['acr_container_id'] ) ) {
 		update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_waiting_configuration' );
 		trb_resource_schedule_analysis_configuration_retry( $release_id, 'ACR_CONFIGURATION_INCOMPLETE' );
+		return;
+	}
+	if ( ! empty( $s['acr_fingerprint_container_id'] ) ) {
+		trb_resource_start_dual_acr_analysis( $release_id );
 		return;
 	}
 	if ( function_exists( 'trb_analysis_verify_acr_container' ) ) {
