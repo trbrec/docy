@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.0' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.1' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -570,7 +570,24 @@ function trb_analysis_configure_acr_container() {
 	$code = (int) wp_remote_retrieve_response_code( $response );
 	if ( $code < 200 || $code >= 300 ) return new WP_Error( 'ACR_CONTAINER_UPDATE_FAILED', 'HTTP ' . $code );
 	delete_option( 'trb_acr_container_snapshot' );
-	return trb_analysis_verify_acr_container();
+	$verified = trb_analysis_verify_acr_container();
+	if ( is_wp_error( $verified ) ) return $verified;
+	// A new generation prevents an object processed under the old provider
+	// policy from being reused after the container was explicitly realigned.
+	update_option( 'trb_acr_configuration_generation', substr( hash( 'sha256', wp_generate_uuid4() . '|' . microtime( true ) ), 0, 12 ), false );
+	$waiting = get_posts( array(
+		'post_type'      => 'trb_release',
+		'post_status'    => 'publish',
+		'posts_per_page' => 50,
+		'fields'         => 'ids',
+		'meta_key'       => '_trb_release_pipeline_status',
+		'meta_value'     => 'analysis_waiting_configuration',
+	) );
+	foreach ( $waiting as $release_id ) {
+		update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' );
+		if ( ! wp_next_scheduled( 'trb_resource_start_release_analysis_manual', array( $release_id ) ) ) wp_schedule_single_event( time() + 5, 'trb_resource_start_release_analysis_manual', array( $release_id ) );
+	}
+	return $verified;
 }
 
 /** Small dependency-free PDF writer for the audit report. */
