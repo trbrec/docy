@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RESOURCE_MONITOR_VERSION', '1.2.0' );
+define( 'TRB_RESOURCE_MONITOR_VERSION', '1.2.1' );
 
 function trb_resource_settings() {
 	$defaults = array(
@@ -110,6 +110,31 @@ function trb_resource_event( $key, $resource, $severity, $message, $context = ar
 	return (int) $wpdb->insert_id;
 }
 
+/** Close a current diagnostic without deleting its history or occurrence count. */
+function trb_resource_resolve_event( $key, $resource ) {
+	global $wpdb;
+	$table = trb_resource_tables()['events'];
+	$key = sanitize_key( $resource ) . ':' . sanitize_text_field( $key );
+	return false !== $wpdb->update( $table, array( 'status' => 'resolved' ), array( 'event_key' => $key, 'status' => 'open' ) );
+}
+
+/** Close every recoverable ACR diagnostic for a track after a complete result. */
+function trb_resource_resolve_acr_track_events( $release_id, $track ) {
+	$release_id = absint( $release_id );
+	$track = absint( $track );
+	foreach ( array(
+		'acr-engine-' . $release_id . '-' . $track,
+		'rescan-' . $release_id . '-' . $track,
+		'acr-engine-persistent-' . $release_id . '-' . $track,
+		'submit-' . $release_id . '-' . $track,
+		'acr-dual-' . $release_id . '-' . $track . '-1',
+		'acr-dual-' . $release_id . '-' . $track . '-2',
+	) as $event_key ) {
+		trb_resource_resolve_event( $event_key, 'acrcloud' );
+	}
+	trb_resource_resolve_event( 'acr-incomplete-result-' . $release_id, 'acrcloud' );
+}
+
 function trb_resource_queue_recipient_email( $event_key, $recipient, $subject, $body, $priority = false, $headers = array() ) {
 	global $wpdb;
 	$table = trb_resource_tables()['notifications'];
@@ -203,12 +228,14 @@ function trb_resource_temp_storage_guard( $incoming_bytes ) {
 	$required = (float) $incoming_bytes * max( 1, (float) $settings['temp_file_multiplier'] );
 	if ( null === $snapshot['free'] || null === $snapshot['used_percent'] ) return new WP_Error( 'TEMP_STORAGE_UNVERIFIED' );
 	if ( $snapshot['used_percent'] >= (float) $settings['temp_block'] || $snapshot['free'] < $required ) {
-		trb_resource_event( 'capacity', 'storage', 'critical', 'Storage temporaneo insufficiente.', $snapshot + array( 'required' => $required ) );
-		trb_resource_queue_email( 'storage-critical-' . wp_date( 'YmdH' ), 'Storage temporaneo quasi esaurito', 'I nuovi WAV sono stati fermati prima del caricamento. Verificare spazio e pratiche in attesa.', true );
+		trb_resource_event( 'capacity', 'storage', 'critical', 'Spazio hosting insufficiente per lo staging temporaneo.', $snapshot + array( 'required' => $required ) );
+		trb_resource_queue_email( 'storage-critical-' . wp_date( 'YmdH' ), 'Spazio hosting quasi esaurito', 'I nuovi WAV sono stati fermati prima del caricamento. Verificare lo spazio del filesystem e le pratiche in attesa.', true );
 		return new WP_Error( 'TEMP_STORAGE_LIMIT_REACHED' );
 	}
-	if ( $snapshot['used_percent'] >= (float) $settings['temp_warning_1'] ) trb_resource_event( 'capacity-warning', 'storage', 'warning', 'Storage temporaneo oltre la prima soglia.', $snapshot );
-	if ( $snapshot['used_percent'] >= (float) $settings['temp_warning_2'] ) trb_resource_queue_email( 'storage-85-' . wp_date( 'Ym' ), 'Storage temporaneo oltre la soglia di attenzione', 'Utilizzo corrente: ' . number_format_i18n( $snapshot['used_percent'], 1 ) . '%.' );
+	trb_resource_resolve_event( 'capacity', 'storage' );
+	if ( $snapshot['used_percent'] >= (float) $settings['temp_warning_1'] ) trb_resource_event( 'capacity-warning', 'storage', 'warning', 'Spazio hosting oltre la prima soglia.', $snapshot );
+	else trb_resource_resolve_event( 'capacity-warning', 'storage' );
+	if ( $snapshot['used_percent'] >= (float) $settings['temp_warning_2'] ) trb_resource_queue_email( 'storage-85-' . wp_date( 'Ym' ), 'Spazio hosting oltre la soglia di attenzione', 'Utilizzo corrente del filesystem: ' . number_format_i18n( $snapshot['used_percent'], 1 ) . '%.' );
 	return true;
 }
 
@@ -288,9 +315,13 @@ function trb_resource_pcloud_userinfo() {
 		}
 	}
 	update_option( 'trb_resource_pcloud_snapshot', array( 'time' => time(), 'data' => $data ), false );
-	if ( $data['used_percent'] >= (float) trb_resource_settings()['pcloud_warning_1'] ) trb_resource_event( 'quota-warning', 'pcloud', 'warning', 'Utilizzo pCloud oltre la prima soglia.', array( 'used_percent' => $data['used_percent'] ) );
-	if ( $data['used_percent'] >= (float) trb_resource_settings()['pcloud_warning_2'] ) trb_resource_queue_email( 'pcloud-85-' . wp_date( 'Ym' ), 'Quota pCloud oltre la soglia di attenzione', 'Spazio utilizzato: ' . number_format_i18n( $data['used_percent'], 1 ) . '%.' );
-	if ( $data['used_percent'] >= (float) trb_resource_settings()['pcloud_warning_3'] ) trb_resource_queue_email( 'pcloud-95-' . wp_date( 'Ym' ), 'Quota pCloud quasi esaurita', 'Spazio utilizzato: ' . number_format_i18n( $data['used_percent'], 1 ) . '%.', true );
+	$pcloud_settings = trb_resource_settings();
+	trb_resource_resolve_event( 'userinfo', 'pcloud' );
+	if ( $data['used_percent'] < (float) $pcloud_settings['pcloud_block'] && $data['free'] >= (float) $pcloud_settings['pcloud_safety_bytes'] ) trb_resource_resolve_event( 'quota', 'pcloud' );
+	if ( $data['used_percent'] >= (float) $pcloud_settings['pcloud_warning_1'] ) trb_resource_event( 'quota-warning', 'pcloud', 'warning', 'Utilizzo pCloud oltre la prima soglia.', array( 'used_percent' => $data['used_percent'] ) );
+	else trb_resource_resolve_event( 'quota-warning', 'pcloud' );
+	if ( $data['used_percent'] >= (float) $pcloud_settings['pcloud_warning_2'] ) trb_resource_queue_email( 'pcloud-85-' . wp_date( 'Ym' ), 'Quota pCloud oltre la soglia di attenzione', 'Spazio utilizzato: ' . number_format_i18n( $data['used_percent'], 1 ) . '%.' );
+	if ( $data['used_percent'] >= (float) $pcloud_settings['pcloud_warning_3'] ) trb_resource_queue_email( 'pcloud-95-' . wp_date( 'Ym' ), 'Quota pCloud quasi esaurita', 'Spazio utilizzato: ' . number_format_i18n( $data['used_percent'], 1 ) . '%.', true );
 	return $data;
 }
 
@@ -531,8 +562,24 @@ function trb_resource_finalize_dual_acr_track( $release_id, $track, $hash ) {
 		'cost_estimated' => 0, 'status' => 'completed', 'payload' => wp_json_encode( $merged ),
 	) );
 	$wpdb->update( $table, array( 'status' => 'completed', 'payload' => wp_json_encode( $merged ), 'last_error' => '', 'updated_at' => trb_resource_now() ), array( 'id' => $ledger_id ) );
+	trb_resource_resolve_acr_track_events( $release_id, $track );
 	return true;
 }
+
+/** Reconcile historical open events for tracks already completed by the dual scan. */
+function trb_resource_reconcile_completed_dual_acr_events() {
+	if ( '20260825.1' === get_option( 'trb_resource_event_reconciliation_version' ) ) return;
+	global $wpdb;
+	$table = trb_resource_tables()['usage'];
+	$payload_marker = '%' . $wpdb->esc_like( '"trb_dual_engine"' ) . '%';
+	$rows = $wpdb->get_results( $wpdb->prepare(
+		"SELECT DISTINCT release_id,track_index FROM $table WHERE provider='acrcloud' AND service='fingerprinting' AND status='completed' AND payload LIKE %s",
+		$payload_marker
+	), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	foreach ( (array) $rows as $row ) trb_resource_resolve_acr_track_events( $row['release_id'], $row['track_index'] );
+	update_option( 'trb_resource_event_reconciliation_version', '20260825.1', false );
+}
+add_action( 'init', 'trb_resource_reconcile_completed_dual_acr_events', 31 );
 
 function trb_resource_poll_dual_acr_job( $ledger_id ) {
 	global $wpdb; $table = trb_resource_tables()['usage'];
@@ -1108,8 +1155,12 @@ function trb_resource_daily_health() {
 	}
 	$storage = trb_resource_storage_snapshot();
 	$s = trb_resource_settings();
-	if ( null === $storage['used_percent'] ) trb_resource_event( 'storage-check-' . wp_date( 'Ymd' ), 'storage', 'info', 'Storage temporaneo non verificabile.' );
-	elseif ( $storage['used_percent'] >= (float) $s['temp_warning_2'] ) $anomalies[] = 'Storage temporaneo utilizzato al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%.';
+	if ( null === $storage['used_percent'] ) trb_resource_event( 'storage-check-' . wp_date( 'Ymd' ), 'storage', 'info', 'Spazio hosting non verificabile.' );
+	else {
+		if ( $storage['used_percent'] < (float) $s['temp_block'] ) trb_resource_resolve_event( 'capacity', 'storage' );
+		if ( $storage['used_percent'] < (float) $s['temp_warning_1'] ) trb_resource_resolve_event( 'capacity-warning', 'storage' );
+		if ( $storage['used_percent'] >= (float) $s['temp_warning_2'] ) $anomalies[] = 'Filesystem hosting utilizzato al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%.';
+	}
 	global $wpdb; $tables = trb_resource_tables();
 	// Manual review and active processing are expected workflow states. Notify
 	// Andrea only for states that indicate an actual block or rejected content.
@@ -1268,8 +1319,12 @@ function trb_resource_run_portal_audit() {
 	}
 	$failed_mail = (int) $wpdb->get_var( "SELECT COUNT(*) FROM " . trb_resource_tables()['notifications'] . " WHERE status='retry' AND attempts>0" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 	if ( $failed_mail ) $issues[] = $failed_mail . ' notifiche email in retry';
+	$open_resource_events = $wpdb->get_results( "SELECT resource,severity,message,SUM(occurrences) AS occurrences FROM " . trb_resource_tables()['events'] . " WHERE status='open' AND severity IN ('warning','critical') GROUP BY resource,severity,message ORDER BY severity,resource,message", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+	foreach ( (array) $open_resource_events as $open_event ) {
+		$issues[] = absint( $open_event['occurrences'] ) . ' occorrenze aperte ' . sanitize_key( $open_event['resource'] ) . '/' . sanitize_key( $open_event['severity'] ) . ': ' . sanitize_text_field( $open_event['message'] );
+	}
 
-	$snapshot = array( 'checked_at' => time(), 'profiles' => $profile_counts, 'pipelines' => $pipeline_counts, 'demos' => $demo_counts, 'demo_problems' => $demo_problems, 'release_qa' => $release_qa, 'release_matrix' => $release_matrix, 'cover_workflow' => $cover_workflow, 'pages' => $page_status, 'issues' => $issues );
+	$snapshot = array( 'checked_at' => time(), 'profiles' => $profile_counts, 'pipelines' => $pipeline_counts, 'demos' => $demo_counts, 'demo_problems' => $demo_problems, 'release_qa' => $release_qa, 'release_matrix' => $release_matrix, 'cover_workflow' => $cover_workflow, 'pages' => $page_status, 'resource_events' => $open_resource_events, 'issues' => $issues );
 	update_option( 'trb_resource_last_portal_audit', $snapshot, false );
 	$profile_rows = array();
 	foreach ( $profile_counts as $profile => $count ) $profile_rows[] = strtoupper( str_replace( '_', '-', $profile ) ) . ': ' . absint( $count );
@@ -1279,13 +1334,13 @@ function trb_resource_run_portal_audit() {
 	foreach ( $demo_counts as $status => $count ) $demo_summary[] = esc_html( $status ) . ': ' . absint( $count );
 	$body = '<p><strong>Gruppi:</strong> ' . esc_html( implode( ' · ', $profile_rows ) ) . '</p><p><strong>Pipeline release:</strong> ' . ( $pipeline_summary ? implode( ' · ', $pipeline_summary ) : 'nessuna pratica attiva' ) . '</p><p><strong>Valutazioni demo:</strong> ' . esc_html( implode( ' · ', $demo_summary ) ) . '</p>';
 	$body .= $issues ? '<p><strong>Interventi richiesti:</strong></p><ul><li>' . implode( '</li><li>', array_map( 'esc_html', $issues ) ) . '</li></ul>' : '<p><strong>Esito:</strong> nessuna anomalia rilevata in pagine, gruppi, permessi, valutazioni demo, release, eventi automatici, coda email e configurazione copyright.</p>';
-	trb_resource_queue_email( 'portal-audit-20260824.12', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
+	trb_resource_queue_email( 'portal-audit-20260825.1', 'Audit completo Portale Artisti completato', $body, (bool) $issues );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_run_portal_audit', 'trb_resource_run_portal_audit' );
 add_action( 'init', function() {
-	if ( '20260824.12' === get_option( 'trb_resource_portal_audit_version' ) ) return;
-	update_option( 'trb_resource_portal_audit_version', '20260824.12', false );
+	if ( '20260825.1' === get_option( 'trb_resource_portal_audit_version' ) ) return;
+	update_option( 'trb_resource_portal_audit_version', '20260825.1', false );
 	if ( ! wp_next_scheduled( 'trb_resource_run_portal_audit' ) ) wp_schedule_single_event( time() + 30, 'trb_resource_run_portal_audit' );
 }, 30 );
 
@@ -1379,7 +1434,7 @@ function trb_resource_render_admin() {
 	<tr><th>Errori / retry / rinnovo periodo</th><td><?php echo esc_html( absint( isset( $stats['errors'] ) ? $stats['errors'] : 0 ) . ' / ' . absint( isset( $stats['attempts'] ) ? $stats['attempts'] : 0 ) . ' / ' . $reset ); ?></td></tr>
 	<tr><th>DeepRight / Cover Song / Metadata</th><td><?php echo esc_html( (float) ( isset( $stats['deepright_minutes'] ) ? $stats['deepright_minutes'] : 0 ) . ' min / ' . (float) ( isset( $stats['cover_minutes'] ) ? $stats['cover_minutes'] : 0 ) . ' min / ' . absint( isset( $stats['metadata_calls'] ) ? $stats['metadata_calls'] : 0 ) . ' chiamate' ); ?></td></tr>
 	<tr><th>pCloud</th><td><?php echo esc_html( isset( $pcloud_snapshot['data']['used_percent'] ) ? number_format_i18n( $pcloud_snapshot['data']['used_percent'], 1 ) . '% utilizzato (' . ( $pcloud_snapshot['data']['source'] ?? 'origine non indicata' ) . ')' : 'Da verificare' ); ?></td></tr>
-	<tr><th>Storage temporaneo</th><td><?php echo esc_html( null !== $storage['used_percent'] ? number_format_i18n( $storage['used_percent'], 1 ) . '% utilizzato' : 'Non verificabile' ); ?></td></tr>
+	<tr><th>Spazio hosting (filesystem condiviso)</th><td><?php echo esc_html( null !== $storage['used_percent'] ? number_format_i18n( $storage['used_percent'], 1 ) . '% utilizzato' : 'Non verificabile' ); ?></td></tr>
 	</tbody></table><form method="post" style="margin:12px 0 24px"><?php wp_nonce_field( 'trb_resource_reconcile' ); ?><label><strong>Spesa effettiva ACRCloud del mese (USD)</strong> <input type="number" min="0" step="0.000001" name="acr_actual_cost" value="<?php echo esc_attr( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0 ); ?>"></label> <button class="button" name="trb_resource_reconcile" value="1">Registra riconciliazione</button></form>
 	<h2>Anomalie aperte</h2><?php if ( ! $events ) : ?><p>Nessuna anomalia registrata.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Ultimo evento</th><th>Risorsa</th><th>Gravità</th><th>Dettaglio</th><th>Occorrenze</th></tr></thead><tbody><?php foreach ( $events as $event ) : ?><tr><td><?php echo esc_html( $event->last_seen ); ?></td><td><?php echo esc_html( $event->resource ); ?></td><td><?php echo esc_html( $event->severity ); ?></td><td><?php echo esc_html( $event->message ); ?></td><td><?php echo esc_html( $event->occurrences ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
 	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $archive = (array) get_post_meta( $release->ID, '_trb_release_pcloud_archive', true ); $artist = get_userdata( $release->post_author ); $cover_requested = 'request' === get_post_meta( $release->ID, '_trb_release_cover_mode', true ); $cover_missing = $cover_requested && function_exists( 'trb_portal_release_has_final_cover' ) && ! trb_portal_release_has_final_cover( $release->ID ); ?><tr id="trb-release-<?php echo esc_attr( $release->ID ); ?>"><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state . ( $cover_missing ? ' · copertina definitiva mancante' : '' ) . ( ! empty( $archive['code'] ) ? ' · ' . $archive['code'] : '' ) . ( ! empty( $archive['detail'] ) ? ' · ' . $archive['detail'] : '' ) ); ?></td><td><form method="post" enctype="multipart/form-data"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="retry_acr">Rielabora risposta ACR</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( $cover_missing ) : ?><br><label><strong>Copertina definitiva:</strong> <input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png"></label> <label><input type="checkbox" name="trb_release_cover_300dpi" value="1"> Confermo 300 DPI</label> <button class="button" name="trb_resource_release_action" value="upload_cover">Collega copertina</button><?php endif; ?><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>

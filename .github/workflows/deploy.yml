@@ -22,6 +22,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
+      - name: Check out the exact main revision
+        uses: actions/checkout@v4
+
+      - name: Validate PHP and portal regressions
+        shell: bash
+        run: |
+          find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+          php tools/test-demo-delivery-window.php
+          python3 tools/portal-audit.py
+
       - name: Request GitHub OIDC token
         id: oidc
         shell: bash
