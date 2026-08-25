@@ -187,6 +187,7 @@ check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget
 check("audit produzione include anomalie risorsa ancora aperte", "open_resource_events" in RESOURCE and "severity IN ('warning','critical')" in RESOURCE and "'resource_events' => $open_resource_events" in RESOURCE)
 check("monitor distingue lo spazio hosting dallo staging", "Spazio hosting (filesystem condiviso)" in RESOURCE and "Filesystem hosting utilizzato" in RESOURCE)
 check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
+check("deploy SiteGround non dichiara successo prima della verifica", "timeout-minutes: 12" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "for attempt in $(seq 1 24)" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "Deployment remains queued through the five-minute internal WordPress safety net.\"\n          else" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
 
 failed = [name for name, ok in checks if not ok]
 for name, ok in checks:
