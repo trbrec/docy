@@ -99,6 +99,7 @@ check("errore ACR identico isolato per nuova release", "retry-release:" in RESOU
 check("fingerprint e cover detection richiesti insieme", "3 !== $reported_engine" in RESOURCE)
 check("job ACR eseguiti col vecchio motore vengono riscansionati", "trb_resource_rescan_acr_file" in RESOURCE and "ACR_ENGINE_MISMATCH_" in RESOURCE and "/rescan" in RESOURCE)
 check("fallback ACR ricrea una sola volta il file col motore combinato", "trb_resource_acr_engine_recovery_stage" in RESOURCE and "-engine3-r" in RESOURCE and "engine_replacement_stage = 2" in RESOURCE)
+check("nuovo oggetto ACR cancella il vecchio errore diagnostico", "'attempts' => 1, 'last_error' => '', 'payload' => wp_json_encode( $result )" in RESOURCE)
 check("fallback ACR persistente passa a revisione senza cicli di spesa", "acr-engine-persistent-" in RESOURCE and "Il file sostitutivo ACRCloud non ha applicato" in RESOURCE and "Nessun contratto è stato inviato automaticamente" in RESOURCE)
 check("copyright pulito approva e avvia sempre il contratto", "'yellow' === $semaphore ? 'manual_review' : 'approved'" in ANALYSIS and "do_action( 'trb_release_analysis_approved'" in ANALYSIS)
 check("contratto automatico solo dopo esito ACR completo per ogni traccia", "array_diff_key( $current_hashes, $normalized )" in ANALYSIS and "acr-incomplete-result-" in ANALYSIS)
