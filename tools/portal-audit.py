@@ -89,7 +89,7 @@ check("copia amministratore per ogni email di sblocco", "[Copia artista]" in RES
 check("notifiche automatiche non confermate eliminate dalla coda", "trb_resource_cancel_unconfirmed_recovery_notifications" in RESOURCE and "cancelled_unconfirmed_recovery_notice" in RESOURCE and "20260825.1" in RESOURCE)
 check("email di sblocco una tantum per la pratica Ruggia", "trb_resource_notify_ruggia_recovery_backfill" in RESOURCE and "manual-resend-20260824-2" in RESOURCE and "20260824.9" in RESOURCE)
 check("ricerca Ruggia robusta e senza finestra temporale", "u.user_login LIKE" in RESOURCE and "um.meta_value LIKE" in RESOURCE and "pm.meta_value LIKE" in RESOURCE and "45 days ago" not in RESOURCE)
-check("notifica Ruggia anche se il caricamento non ha creato la pratica", "trb_resource_notify_artist_recovery_without_release" in RESOURCE and "artist_found_without_release" in RESOURCE)
+check("notifica senza pratica solo per incidente confermato", "trb_resource_notify_artist_recovery_without_release" in RESOURCE and RESOURCE.count("if ( ! $confirmed_incident" ) >= 2 and "artist_found_without_release" in RESOURCE)
 check("ricevuta tecnica degli invii di sblocco", "trb_resource_recovery_mail_receipts" in RESOURCE)
 check("ACR idempotente per hash", "idempotency_key" in RESOURCE and "acrcloud|' . $hash" in RESOURCE)
 check("errore ACR identico isolato per nuova release", "retry-release:" in RESOURCE and "provider_name_suffix" in RESOURCE)
