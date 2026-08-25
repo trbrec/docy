@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.3' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.5' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -427,6 +427,26 @@ function trb_analysis_normalize_acr_result( $item ) {
 	return array( 'matches' => $matches, 'deepright' => is_array( $deep ) ? $deep : array(), 'raw_status' => sanitize_text_field( $root['status']['msg'] ?? '' ) );
 }
 
+/** Normalize an ISRC before comparing artist declarations with provider data. */
+function trb_analysis_normalize_isrc( $value ) {
+	return strtoupper( preg_replace( '/[^A-Z0-9]/i', '', (string) $value ) );
+}
+
+/**
+ * A fingerprint hit is expected when the artist is redistributing the same
+ * recording and supplied its existing ISRC.  Exact ISRC equality is the only
+ * automatic self-match: titles and artist names are deliberately insufficient
+ * because aliases, featuring credits and homonyms change over time.
+ */
+function trb_analysis_is_declared_catalogue_match( $release_state, $track, $match ) {
+	if ( 'previously_released' !== (string) $release_state ) return false;
+	$declared_isrc = trb_analysis_normalize_isrc( $track['isrc'] ?? '' );
+	$matched_isrc  = trb_analysis_normalize_isrc( $match['isrc'] ?? '' );
+	return preg_match( '/^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$/', $declared_isrc )
+		&& preg_match( '/^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$/', $matched_isrc )
+		&& hash_equals( $declared_isrc, $matched_isrc );
+}
+
 function trb_analysis_decide_release( $release_id ) {
 	global $wpdb; $table = function_exists( 'trb_resource_tables' ) ? trb_resource_tables()['usage'] : '';
 	if ( ! $table ) return;
@@ -447,19 +467,32 @@ function trb_analysis_decide_release( $release_id ) {
 		return;
 	}
 	$declarations = (array) get_post_meta( $release_id, '_trb_release_rights_declarations', true );
+	$tracks = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
 	$release_state = (string) get_post_meta( $release_id, '_trb_release_state', true );
 	foreach ( $normalized as $index => $result ) {
 		$nature = $declarations[ $index ]['nature'] ?? 'original';
+		$declared_self_match = false;
+		$unresolved_match = false;
 		foreach ( $result['matches'] as $match ) {
 			if ( $match['score'] < (float) $s['match_review_score'] ) continue;
 			$match_label = trim( implode( ' - ', array_filter( array( implode( ', ', (array) $match['artists'] ), $match['title'] ) ) ) );
+			if ( trb_analysis_is_declared_catalogue_match( $release_state, $tracks[ $index ] ?? array(), $match ) ) {
+				$declared_self_match = true;
+				$copyright_findings[] = 'Brano ' . ( absint( $index ) + 1 ) . ': registrazione già pubblicata coerente con l’ISRC dichiarato ' . trb_analysis_normalize_isrc( $match['isrc'] ?? '' );
+				continue;
+			}
+			$unresolved_match = true;
 			$copyright_findings[] = 'Brano ' . ( absint( $index ) + 1 ) . ': corrispondenza ' . ( $match_label ?: 'nel catalogo del provider' );
 			if ( in_array( $match['engine'], array( 'music', 'custom_files' ), true ) && $match['score'] >= (float) $s['fingerprint_red_score'] && 'original' === $nature && 'unreleased' === $release_state ) $red = true;
 			else $yellow = true;
 		}
 		if ( ! empty( $result['deepright'] ) ) {
-			$yellow = true;
-			$copyright_findings[] = 'Brano ' . ( absint( $index ) + 1 ) . ': possibile contenuto derivato rilevato da DeepRight';
+			if ( $declared_self_match && ! $unresolved_match ) {
+				$limitations[ $index ][] = 'DEEPRIGHT_COVER_CHECK_COHERENT_WITH_DECLARED_ISRC';
+			} else {
+				$yellow = true;
+				$copyright_findings[] = 'Brano ' . ( absint( $index ) + 1 ) . ': possibile contenuto derivato rilevato da DeepRight';
+			}
 		}
 	}
 	$declaration_labels = array( 'type_beat' => 'licenza type beat', 'protected_samples' => 'sample o elemento protetto dichiarato', 'remix' => 'remix dichiarato' );
