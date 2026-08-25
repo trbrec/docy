@@ -454,6 +454,23 @@ function trb_resource_rescan_acr_file( $provider_reference ) {
 	return in_array( $code, array( 200, 201, 202, 204 ), true ) ? true : new WP_Error( 'ACR_RESCAN_FAILED', 'HTTP ' . $code );
 }
 
+/** Track the bounded recovery stage for a provider object created with an old engine. */
+function trb_resource_acr_engine_recovery_stage( $release_id, $file_hash ) {
+	$stages = get_post_meta( absint( $release_id ), '_trb_acr_engine_recovery_stages', true );
+	$stages = is_array( $stages ) ? $stages : array();
+	return isset( $stages[ $file_hash ] ) ? absint( $stages[ $file_hash ] ) : 0;
+}
+
+function trb_resource_set_acr_engine_recovery_stage( $release_id, $file_hash, $stage ) {
+	$release_id = absint( $release_id );
+	$stages = get_post_meta( $release_id, '_trb_acr_engine_recovery_stages', true );
+	$stages = is_array( $stages ) ? $stages : array();
+	if ( $stage > 0 ) $stages[ $file_hash ] = absint( $stage );
+	else unset( $stages[ $file_hash ] );
+	if ( $stages ) update_post_meta( $release_id, '_trb_acr_engine_recovery_stages', $stages );
+	else delete_post_meta( $release_id, '_trb_acr_engine_recovery_stages' );
+}
+
 /** Retry transient container/configuration failures without leaving a release silent. */
 function trb_resource_schedule_analysis_configuration_retry( $release_id, $error_code ) {
 	$release_id = absint( $release_id );
@@ -502,6 +519,7 @@ function trb_resource_start_release_analysis( $release_id ) {
 		global $wpdb; $table = trb_resource_tables()['usage'];
 		$existing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE idempotency_key=%s", $key ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$provider_name_suffix = '';
+		$engine_replacement_stage = 0;
 		// A failed row belongs to the release that created it. Reusing that row
 		// for another release would make the provider callback complete the old
 		// practice and leave the new one permanently in progress.
@@ -531,8 +549,10 @@ function trb_resource_start_release_analysis( $release_id ) {
 				continue;
 			}
 			if ( $existing && 'error' === $existing->status && 0 === strpos( (string) $existing->last_error, 'ACR_ENGINE_MISMATCH_' ) && ! empty( $existing->provider_reference ) ) {
-				$rescan = trb_resource_rescan_acr_file( $existing->provider_reference );
+				$engine_recovery_stage = trb_resource_acr_engine_recovery_stage( $release_id, $hash );
+				$rescan = $engine_recovery_stage < 1 ? trb_resource_rescan_acr_file( $existing->provider_reference ) : new WP_Error( 'ACR_RESCAN_ALREADY_ATTEMPTED' );
 				if ( ! is_wp_error( $rescan ) ) {
+					trb_resource_set_acr_engine_recovery_stage( $release_id, $hash, 1 );
 					$wpdb->update( $table, array( 'status' => 'submitted', 'attempts' => 1, 'last_error' => '', 'updated_at' => trb_resource_now() ), array( 'id' => (int) $existing->id ) );
 					$wpdb->query( $wpdb->prepare(
 						"UPDATE $table SET status='estimated',last_error='',updated_at=%s WHERE release_id=%d AND track_index=%d AND file_hash=%s AND provider='acrcloud' AND service IN ('deepright','cover_song','metadata') AND status='error'",
@@ -542,7 +562,22 @@ function trb_resource_start_release_analysis( $release_id ) {
 					if ( ! wp_next_scheduled( 'trb_resource_poll_acr_job', array( (int) $existing->id ) ) ) wp_schedule_single_event( time() + 2 * MINUTE_IN_SECONDS, 'trb_resource_poll_acr_job', array( (int) $existing->id ) );
 					continue;
 				}
-				trb_resource_event( 'rescan-' . $release_id . '-' . $track, 'acrcloud', 'critical', 'Nuova scansione ACRCloud non avviata.', array( 'code' => $rescan->get_error_code() ) );
+				if ( $engine_recovery_stage < 1 ) trb_resource_event( 'rescan-' . $release_id . '-' . $track, 'acrcloud', 'critical', 'Nuova scansione ACRCloud non avviata.', array( 'code' => $rescan->get_error_code() ) );
+				if ( $engine_recovery_stage < 2 ) {
+					// The old object keeps the engine used when it was created. Use a
+					// deterministic replacement name so the current engine-3 policy is
+					// applied without repeatedly purchasing new scans on later retries.
+					$provider_name_suffix .= '-engine3-r' . absint( $release_id ) . '-t' . $track . '-v2';
+					$engine_replacement_stage = 2;
+				} else {
+					update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' );
+					trb_resource_event( 'acr-engine-persistent-' . $release_id . '-' . $track, 'acrcloud', 'critical', 'Il file sostitutivo ACRCloud non ha applicato il motore combinato.', array( 'expected_engine' => 3, 'file_hash' => $hash ) );
+					$release = get_post( $release_id );
+					$body = '<p>La pratica #' . absint( $release_id ) . ' (' . esc_html( $release ? $release->post_title : '' ) . ') richiede verifica manuale: anche il file sostitutivo ACRCloud non ha applicato il motore combinato fingerprinting + Cover Song.</p><p>Nessun contratto è stato inviato automaticamente.</p>';
+					trb_resource_queue_email( 'acr-engine-persistent-' . $release_id . '-' . $track, 'Analisi copyright da verificare manualmente', $body, true );
+					$waiting = true;
+					continue;
+				}
 			}
 		$duration = ! empty( $file['audio_spec']['duration_seconds'] ) ? (float) $file['audio_spec']['duration_seconds'] : 0;
 		$maximum = trb_resource_acr_max_cost( $duration );
@@ -571,6 +606,13 @@ function trb_resource_start_release_analysis( $release_id ) {
 			return;
 		}
 		$wpdb->update( $table, array( 'status' => 'submitted', 'provider_reference' => sanitize_text_field( $result['id'] ), 'attempts' => 1, 'payload' => wp_json_encode( $result ), 'updated_at' => trb_resource_now() ), array( 'id' => $ledger_id ) );
+		if ( $engine_replacement_stage ) {
+			trb_resource_set_acr_engine_recovery_stage( $release_id, $hash, $engine_replacement_stage );
+			$wpdb->query( $wpdb->prepare(
+				"UPDATE $table SET status='estimated',last_error='',updated_at=%s WHERE release_id=%d AND track_index=%d AND file_hash=%s AND provider='acrcloud' AND service IN ('deepright','cover_song','metadata') AND status='error'",
+				trb_resource_now(), $release_id, $track, $hash
+			) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
 		$waiting = true;
 		wp_schedule_single_event( time() + 2 * MINUTE_IN_SECONDS, 'trb_resource_poll_acr_job', array( $ledger_id ) );
 	}
@@ -615,6 +657,7 @@ function trb_resource_poll_acr_job( $ledger_id ) {
 	$wpdb->update( $table, array( 'status' => $status, 'payload' => wp_json_encode( $item ), 'last_error' => $last_error, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
 	trb_resource_settle_acr_companion_usage( $row, $status, $last_error );
 	if ( 'completed' === $status ) {
+		trb_resource_set_acr_engine_recovery_stage( $row->release_id, (string) $row->file_hash, 0 );
 		$pending = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $table WHERE release_id=%d AND status IN ('reserved','submitted','processing')", $row->release_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( 0 === $pending ) {
 			update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'copyright_review' );
@@ -639,7 +682,7 @@ function trb_resource_artist_legal_greeting_name( $user ) {
 }
 
 function trb_resource_artist_email_signature() {
-	return '<p>Cordiali saluti,</p><p>Sezione Contratti e Distribuzione<br><strong>TRB rec – Music Publishing</strong> · <a href="https://trbrec.com">trbrec.com</a><br>P. IVA 02846170989 · REA BS-483571 · SDI 095EI9R</p><p><em>Privacy notice — This email and its contents are confidential and intended solely for the recipients. If you received it in error, please delete it and notify the sender.</em></p>';
+	return '<p>Sezione Contratti e Distribuzione<br><strong>TRB rec – Music Publishing</strong> · <a href="https://trbrec.com">trbrec.com</a><br>P. IVA 02846170989 · REA BS-483571 · SDI 095EI9R</p><p><em>Privacy notice — This email and its contents are confidential and intended solely for the recipients. If you received it in error, please delete it and notify the sender.</em></p>';
 }
 
 function trb_resource_artist_recovery_cc_headers() {
