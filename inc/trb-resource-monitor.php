@@ -657,8 +657,11 @@ function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_st
 }
 
 function trb_resource_notify_artist_recovery_without_release( $user_id, $event_suffix ) {
+	$event_suffix = sanitize_key( $event_suffix );
+	$confirmed_incident = 0 === strpos( $event_suffix, 'confirmed-incident-' ) || 0 === strpos( $event_suffix, 'manual-resend-' );
+	if ( ! $confirmed_incident ) return false;
 	$user = get_userdata( absint( $user_id ) );
-	if ( ! $user || ! is_email( $user->user_email ) ) return;
+	if ( ! $user || ! is_email( $user->user_email ) ) return false;
 	$artist = function_exists( 'trb_portal_artist_profile_value' ) ? trb_portal_artist_profile_value( 'artist_name', $user->ID ) : '';
 	$name = $artist ?: $user->display_name;
 	$link = get_permalink( get_option( 'trb_portal_dashboard_created' ) );
@@ -666,13 +669,14 @@ function trb_resource_notify_artist_recovery_without_release( $user_id, $event_s
 	$body = '<p>Ciao ' . esc_html( $name ) . ',</p><p>abbiamo rilevato e risolto un problema tecnico del Portale Artisti che può avere interrotto il recente caricamento della tua release.</p>';
 	$body .= '<p>La problematica dipendeva dal portale e non dai materiali inviati. Accedi alla tua area riservata per verificare lo stato: se la pratica è visibile, <strong>non caricare nuovamente i file e non creare un duplicato</strong>; se invece non compare alcuna pratica, puoi ripetere ora l’invio.</p>';
 	$body .= '<p>Se sarà necessaria una correzione specifica del WAV riceverai una comunicazione separata.</p><p><a href="' . esc_url( $link ) . '">Apri il Portale Artisti</a></p><p>TRB rec - Music Publishing</p>';
-	$key = 'artist-pipeline-recovered-user-' . absint( $user->ID ) . '-' . sanitize_key( $event_suffix );
+	$key = 'artist-pipeline-recovered-user-' . absint( $user->ID ) . '-' . $event_suffix;
 	trb_resource_queue_recipient_email( $key, $user->user_email, $subject, $body );
 	foreach ( trb_resource_recovery_admin_recipients() as $admin_recipient ) {
 		if ( strtolower( $admin_recipient ) === strtolower( $user->user_email ) ) continue;
 		$copy_body = '<p><strong>Copia della comunicazione automatica inviata a ' . esc_html( $user->user_email ) . '.</strong></p>' . $body;
 		trb_resource_queue_recipient_email( $key . '-admin-copy-' . substr( md5( strtolower( $admin_recipient ) ), 0, 10 ), $admin_recipient, '[Copia artista] ' . $subject, $copy_body );
 	}
+	return true;
 }
 
 function trb_resource_recover_release_pipeline() {
