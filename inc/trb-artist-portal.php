@@ -2537,6 +2537,7 @@ function trb_portal_start_release() {
 	foreach ( $posted_tracks as $track_index => $posted_track ) {
 		$advisory = isset( $posted_track['advisory'] ) ? sanitize_key( $posted_track['advisory'] ) : '';
 		$audio_status = isset( $posted_track['audio_status'] ) ? sanitize_key( $posted_track['audio_status'] ) : '';
+		if ( '' === $audio_status && ! trb_portal_profile_has_service( 'mastering', $profile ) ) $audio_status = 'mastered';
 		$audio = trb_portal_release_upload_item( 'trb_track_audio', $track_index );
 		$audio_valid = trb_portal_validate_release_upload( $audio, 'audio' );
 		if ( is_wp_error( $audio_valid ) || ! in_array( $audio_status, array( 'mastered', 'mastering' ), true ) || ( ! trb_portal_profile_has_service( 'mastering', $profile ) && 'mastered' !== $audio_status ) ) $uploads_valid = is_wp_error( $audio_valid ) ? $audio_valid : new WP_Error( 'invalid_audio' );
