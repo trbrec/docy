@@ -201,6 +201,7 @@ check("upload release limita ogni file a 250 MB", "maxFileBytes=250*1024*1024" i
 check("upload release limita il totale a 4 GB", "maxSubmissionBytes=4*1024*1024*1024" in RELEASE_JS and "return 4 * 1024 * MB_IN_BYTES" in PORTAL)
 check("script upload non contiene observer ricorsivi", "MutationObserver" not in RELEASE_JS)
 check("parser WAV dichiarato una sola volta", RELEASE_JS.count("function wav(") == 1)
+check("ripristino bozza non azzera valori hidden predefiniti", "field.type==='hidden'&&pair[1]===''&&field.value!==''" in RELEASE_JS)
 check("audit produzione include demo pagine permessi matrice release e copertine", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "release_qa" in RESOURCE and "release_matrix" in RESOURCE and "cover_workflow" in RESOURCE and "20260825.1" in RESOURCE)
 check("audit produzione verifica contatori contratti firmati", "Contatore release non limitato ai contratti firmati" in RESOURCE)
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
