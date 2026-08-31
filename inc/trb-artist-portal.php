@@ -788,38 +788,25 @@ add_action( 'init', 'trb_portal_register_release_type', 5 );
 
 function trb_portal_release_types() {
 	return array(
-		// Too Lost classifies 1–3 tracks under ten minutes as a Single. An EP
-		// normally has 4–6 tracks, or 1–3 tracks when at least one lasts ten
-		// minutes or more and the complete release remains under 30 minutes.
-		'single'       => array( 'label' => 'Singolo', 'range' => '1–3 brani · ciascuno sotto 10 min', 'min' => 1, 'max' => 3 ),
-		'ep'           => array( 'label' => 'EP', 'range' => '4–6 brani · oppure 1–3 con un brano di almeno 10 min', 'min' => 1, 'max' => 6 ),
-		'album'        => array( 'label' => 'Album', 'range' => '7–15 brani · oppure durata totale di almeno 30 min', 'min' => 1, 'max' => 15 ),
-		'double_album' => array( 'label' => 'Doppio album', 'range' => '16–30 brani', 'min' => 16, 'max' => 30 ),
-		'compilation'  => array( 'label' => 'Compilation', 'range' => '16–24 brani', 'min' => 16, 'max' => 24 ),
-		'collection'   => array( 'label' => 'Collection', 'range' => '20–40 brani', 'min' => 20, 'max' => 40 ),
-		'catalogue'    => array( 'label' => 'Catalogo / repertorio edito', 'range' => 'fino a 60 brani', 'min' => 1, 'max' => 60, 'catalogue' => true ),
+		'single'       => array( 'label' => 'Singolo', 'range' => 'da 1 a 3 brani', 'min' => 1, 'max' => 3 ),
+		'ep'           => array( 'label' => 'EP', 'range' => 'da 4 a 8 brani', 'min' => 4, 'max' => 8 ),
+		'album'        => array( 'label' => 'Album', 'range' => 'da 9 a 18 brani', 'min' => 9, 'max' => 18 ),
+		'double_album' => array( 'label' => 'Doppio album', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 ),
+		'compilation'  => array( 'label' => 'Compilation', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 ),
+		'collection'   => array( 'label' => 'Collection', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 ),
 	);
 }
 
-/** Validate store-facing release formats using both track count and duration. */
+/** Validate the release format against the explicit track-count policy. */
 function trb_portal_release_type_matches_tracks( $type, $tracks, $types = null ) {
 	$types = is_array( $types ) ? $types : trb_portal_release_types();
 	if ( ! isset( $types[ $type ] ) || ! is_array( $tracks ) || empty( $tracks ) ) return false;
 
-	$count         = count( $tracks );
-	$total_seconds = 0;
-	$long_tracks   = 0;
+	$count = count( $tracks );
 	foreach ( $tracks as $track ) {
 		$duration = isset( $track['duration'] ) ? (string) $track['duration'] : '';
-		if ( ! preg_match( '/^(\d{2}):([0-5]\d)$/', $duration, $parts ) ) return false;
-		$seconds = ( (int) $parts[1] * 60 ) + (int) $parts[2];
-		$total_seconds += $seconds;
-		if ( $seconds >= 10 * MINUTE_IN_SECONDS ) $long_tracks++;
+		if ( ! preg_match( '/^\d{2}:[0-5]\d$/', $duration ) ) return false;
 	}
-
-	if ( 'single' === $type ) return $count <= 3 && 0 === $long_tracks;
-	if ( 'ep' === $type ) return $total_seconds < 30 * MINUTE_IN_SECONDS && ( ( $count >= 4 && $count <= 6 ) || ( $count <= 3 && $long_tracks > 0 ) );
-	if ( 'album' === $type ) return ( $count >= 7 && $count <= 15 ) || ( $count <= 15 && $total_seconds >= 30 * MINUTE_IN_SECONDS );
 
 	return $count >= $types[ $type ]['min'] && $count <= $types[ $type ]['max'];
 }
@@ -1829,6 +1816,24 @@ function trb_portal_cleanup_expired_release_staging() {
 	}
 }
 
+function trb_portal_release_max_file_bytes() {
+	return 250 * MB_IN_BYTES;
+}
+
+function trb_portal_release_max_submission_bytes() {
+	return 4 * 1024 * MB_IN_BYTES;
+}
+
+function trb_portal_release_staging_declared_bytes( $directory, $exclude_file_key = '' ) {
+	$total = 0;
+	foreach ( glob( trailingslashit( $directory ) . 'f*.json' ) ?: array() as $meta_path ) {
+		if ( $exclude_file_key && basename( $meta_path, '.json' ) === $exclude_file_key ) continue;
+		$meta = json_decode( (string) file_get_contents( $meta_path ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		if ( is_array( $meta ) && isset( $meta['size'] ) ) $total += max( 0, (int) $meta['size'] );
+	}
+	return $total;
+}
+
 function trb_portal_stage_release_chunk() {
 	if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Sessione non valida: aggiorna la pagina e accedi nuovamente.' ), 401 );
 	trb_portal_cleanup_expired_release_staging();
@@ -1841,7 +1846,7 @@ function trb_portal_stage_release_chunk() {
 	$last_modified = isset( $_POST['last_modified'] ) ? absint( $_POST['last_modified'] ) : 0;
 	$chunk_index = isset( $_POST['chunk_index'] ) ? absint( $_POST['chunk_index'] ) : 0;
 	$chunk_total = isset( $_POST['chunk_total'] ) ? absint( $_POST['chunk_total'] ) : 0;
-	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $session ) || ! preg_match( '/^f[0-9]{1,4}$/', $file_key ) || '' === $file_name || $file_size < 1 || $file_size > 1024 * MB_IN_BYTES || $chunk_total < 1 || $chunk_total > 512 || $chunk_index >= $chunk_total ) wp_send_json_error( array( 'message' => 'Parametri del caricamento non validi.' ), 422 );
+	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $session ) || ! preg_match( '/^f[0-9]{1,4}$/', $file_key ) || '' === $file_name || $file_size < 1 || $file_size > trb_portal_release_max_file_bytes() || $chunk_total < 1 || $chunk_total > 512 || $chunk_index >= $chunk_total ) wp_send_json_error( array( 'message' => 'Ogni file può avere una dimensione massima di 250 MB.' ), 422 );
 	$chunk = ! empty( $_FILES['trb_release_chunk'] ) ? $_FILES['trb_release_chunk'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 	if ( empty( $chunk['tmp_name'] ) || UPLOAD_ERR_OK !== (int) ( $chunk['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_uploaded_file( $chunk['tmp_name'] ) || (int) $chunk['size'] < 1 || (int) $chunk['size'] > 6 * MB_IN_BYTES ) wp_send_json_error( array( 'message' => 'Un blocco del file non è arrivato correttamente al server.' ), 422 );
 	$directory = trb_portal_release_staging_session_dir( $session, true );
@@ -1854,6 +1859,7 @@ function trb_portal_stage_release_chunk() {
 	foreach ( $signature as $key => $value ) if ( ! isset( $meta[ $key ] ) || (string) $meta[ $key ] !== (string) $value ) $matches = false;
 	if ( ! $matches ) {
 		if ( 0 !== $chunk_index ) wp_send_json_error( array( 'message' => 'La sequenza del caricamento è incompleta. Riprova senza ricaricare la pagina.' ), 409 );
+		if ( trb_portal_release_staging_declared_bytes( $directory, $file_key ) + $file_size > trb_portal_release_max_submission_bytes() ) wp_send_json_error( array( 'message' => 'Il caricamento complessivo non può superare 4 GB.' ), 413 );
 		if ( function_exists( 'trb_resource_temp_storage_guard' ) ) {
 			$guard = trb_resource_temp_storage_guard( $file_size );
 			if ( is_wp_error( $guard ) ) wp_send_json_error( array( 'message' => trb_portal_release_upload_error_message( $guard->get_error_code() ) ), 507 );
@@ -2067,7 +2073,7 @@ function trb_portal_validate_release_upload( $file, $kind ) {
 			if ( ! $image || ! in_array( (int) $image[2], array( IMAGETYPE_JPEG, IMAGETYPE_PNG ), true ) ) return new WP_Error( 'invalid_cover_reference' );
 		}
 	} elseif ( 'audio' === $kind ) {
-		if ( 'wav' !== $extension || (int) $file['size'] > 1024 * MB_IN_BYTES ) return new WP_Error( 'invalid_audio' );
+		if ( 'wav' !== $extension || (int) $file['size'] > trb_portal_release_max_file_bytes() ) return new WP_Error( 'invalid_audio' );
 		$spec = trb_portal_wav_spec( $file['tmp_name'] );
 		if ( is_wp_error( $spec ) || 2 !== (int) $spec['channels'] || $spec['sample_rate'] < 44100 || $spec['sample_rate'] > 96000 || $spec['bit_depth'] < 16 || $spec['bit_depth'] > 24 ) return new WP_Error( 'invalid_audio' );
 	} elseif ( 'rights_document' === $kind ) {
@@ -2490,7 +2496,6 @@ function trb_portal_start_release() {
 	$title = isset( $_POST['trb_release_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_title'] ) ) : '';
 	$type  = isset( $_POST['trb_release_type'] ) ? sanitize_key( wp_unslash( $_POST['trb_release_type'] ) ) : '';
 	$types = trb_portal_release_types();
-	$is_catalogue = isset( $types[ $type ]['catalogue'] ) && $types[ $type ]['catalogue'];
 	$release_state = isset( $_POST['trb_release_state'] ) ? sanitize_key( wp_unslash( $_POST['trb_release_state'] ) ) : '';
 	$release_date = isset( $_POST['trb_release_date'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_date'] ) ) : '';
 	$original_date = isset( $_POST['trb_release_original_date'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_original_date'] ) ) : '';
@@ -2585,21 +2590,16 @@ function trb_portal_start_release() {
 		trb_portal_release_submission_response( 'single_title_mismatch', 'Per un singolo, il titolo della release deve coincidere esattamente con il titolo del brano.', 422 );
 	}
 	if ( ! isset( $types[ $type ] ) ) trb_portal_release_submission_response( 'invalid', 'Seleziona una tipologia di pubblicazione valida.', 422 );
-	if ( ! $is_catalogue && '' === $title ) trb_portal_release_submission_response( 'invalid', 'Inserisci il titolo della release.', 422 );
+	if ( '' === $title ) trb_portal_release_submission_response( 'invalid', 'Inserisci il titolo della release.', 422 );
 	if ( empty( $posted_tracks ) || empty( $tracks ) || count( $tracks ) !== count( $posted_tracks ) ) trb_portal_release_submission_response( 'invalid', 'Uno o più brani hanno metadati, generi, autori o crediti mancanti o non validi.', 422 );
-	if ( ! trb_portal_release_type_matches_tracks( $type, $tracks, $types ) ) trb_portal_release_submission_response( 'invalid', 'Numero o durata dei brani non corrispondono alla tipologia di pubblicazione selezionata.', 422 );
+	if ( ! trb_portal_release_type_matches_tracks( $type, $tracks, $types ) ) trb_portal_release_submission_response( 'invalid', 'Il numero dei brani non corrisponde alla tipologia di pubblicazione selezionata.', 422 );
 	if ( ! in_array( $release_state, array( 'unreleased', 'previously_released' ), true ) ) trb_portal_release_submission_response( 'invalid', 'Seleziona lo stato della pubblicazione.', 422 );
 	if ( 'unreleased' === $release_state && ! $release_date_valid ) trb_portal_release_submission_response( 'invalid', 'Scegli una data di uscita non inferiore a 30 giorni da oggi.', 422 );
 	if ( 'previously_released' === $release_state && ! $original_date_valid ) trb_portal_release_submission_response( 'invalid', 'Inserisci una data di pubblicazione originale valida e non futura.', 422 );
-	if ( $is_catalogue && 'previously_released' !== $release_state ) trb_portal_release_submission_response( 'invalid', 'Un catalogo o repertorio edito deve essere indicato come già pubblicato.', 422 );
 	if ( is_wp_error( $uploads_valid ) ) {
 		$upload_code = $uploads_valid->get_error_code();
 		trb_portal_release_submission_response( 'audio_duration_mismatch' === $upload_code ? 'duration_mismatch' : 'invalid', trb_portal_release_upload_error_message( $upload_code ), 422 );
 	}
-	if ( $is_catalogue && '' === $title ) {
-		$title = 'Catalogo / repertorio edito';
-	}
-
 	// Unique markers close only the short race window caused by two tabs
 	// submitting at the same time. They are always released after persistence;
 	// only a signed contract consumes the monthly or annual allowance.
@@ -3025,8 +3025,8 @@ function trb_portal_seed_guides() {
 		);
 		$guides[ $prefix . 'tipologie-release' ] = array(
 			'title' => 'Quale tipologia di release devo scegliere?', 'profiles' => array( $profile ),
-			'excerpt' => 'Singolo, EP, album, compilation, collection e catalogo.',
-			'content' => '<p>Scegli la tipologia in base al numero effettivo dei brani e alla loro durata:</p><ul><li><strong>Singolo:</strong> da 1 a 3 brani, tutti di durata inferiore a 10 minuti.</li><li><strong>EP:</strong> da 4 a 6 brani con durata complessiva inferiore a 30 minuti; rientrano nell’EP anche 1–3 brani quando almeno uno dura 10 minuti o più e la release resta sotto i 30 minuti.</li><li><strong>Album:</strong> da 7 a 15 brani oppure una durata complessiva di almeno 30 minuti.</li><li><strong>Doppio album:</strong> da 16 a 30 brani.</li><li><strong>Compilation:</strong> da 16 a 24 brani.</li><li><strong>Collection:</strong> da 20 a 40 brani.</li><li><strong>Catalogo o repertorio musicale edito:</strong> da 1 a 60 brani già pubblicati.</li></ul><p>Il portale controlla automaticamente quantità e durata prima di creare la pratica. Gli store possono comunque determinare autonomamente come visualizzare il formato finale. Non dividere artificialmente un progetto e non usare “catalogo” per aggirare i limiti di una nuova uscita.</p>',
+			'excerpt' => 'Singolo, EP, album, doppio album, compilation e collection.',
+			'content' => '<p>Scegli la tipologia in base al numero effettivo dei brani:</p><ul><li><strong>Singolo:</strong> da 1 a 3 brani.</li><li><strong>EP:</strong> da 4 a 8 brani.</li><li><strong>Album:</strong> da 9 a 18 brani.</li><li><strong>Doppio album:</strong> da 18 a 24 brani.</li><li><strong>Compilation:</strong> da 18 a 24 brani.</li><li><strong>Collection:</strong> da 18 a 24 brani.</li></ul><p>Il portale controlla automaticamente la quantità prima di creare la pratica. Il blocco “Catalogo / repertorio edito” non è più disponibile: ogni invio deve corrispondere a una release definita, con un massimo di 24 brani.</p>',
 		);
 		$guides[ $prefix . 'inedita-o-edita' ] = array(
 			'title' => 'Release inedita o già pubblicata: come indicarla', 'profiles' => array( $profile ),
@@ -3078,7 +3078,7 @@ function trb_portal_seed_guides() {
 		'title'    => 'DDB12: come funziona la release mensile',
 		'profiles' => array( 'ddb12' ),
 		'excerpt'  => 'Quota, rinnovo mensile e casi che consumano la release disponibile.',
-		'content'  => '<p>Il gruppo <strong>DDB12 è associato al modello contrattuale DDB CSAE 600</strong> e consente di aprire una pratica release per ciascun mese solare, fino a 12 release durante i dodici mesi contrattuali. La quota non dipende dalla data di uscita scelta: conta il mese in cui la pratica viene creata correttamente nel Portale Artisti.</p><h4>Cosa conta come una release</h4><ul><li>Singolo, EP, album, doppio album, compilation, collection e catalogo consumano tutti una sola quota mensile.</li><li>Una bozza salvata o un caricamento non completato non consuma la quota.</li><li>Una pratica creata correttamente consuma la quota anche se in seguito richiede una correzione tecnica, documentale o contrattuale.</li></ul><h4>Rinnovo e programmazione</h4><ul><li>La disponibilità si rinnova automaticamente alle 00:00 del primo giorno di ogni mese, secondo il fuso Europe/Rome.</li><li>Le quote non utilizzate non si accumulano e non possono essere trasferite al mese successivo.</li><li>La data di pubblicazione può essere successiva: resta comunque necessario rispettare l’anticipo minimo indicato nel modulo.</li></ul><h4>Se devi correggere una pratica</h4><p>Non creare una seconda release: aggiorna la pratica esistente quando il portale lo consente oppure apri una segnalazione. Un annullamento eccezionale viene valutato dalla Direzione e non ripristina automaticamente una nuova quota.</p><p><strong>Esempio:</strong> se crei una pratica il 18 agosto, potrai aprirne una nuova dal 1° settembre, indipendentemente dalla data di uscita programmata per la release di agosto.</p>',
+		'content'  => '<p>Il gruppo <strong>DDB12 è associato al modello contrattuale DDB CSAE 600</strong> e consente di aprire una pratica release per ciascun mese solare, fino a 12 release durante i dodici mesi contrattuali. La quota non dipende dalla data di uscita scelta: conta il mese in cui la pratica viene creata correttamente nel Portale Artisti.</p><h4>Cosa conta come una release</h4><ul><li>Singolo, EP, album, doppio album, compilation e collection consumano tutti una sola quota mensile.</li><li>Una bozza salvata o un caricamento non completato non consuma la quota.</li><li>Una pratica creata correttamente consuma la quota anche se in seguito richiede una correzione tecnica, documentale o contrattuale.</li></ul><h4>Rinnovo e programmazione</h4><ul><li>La disponibilità si rinnova automaticamente alle 00:00 del primo giorno di ogni mese, secondo il fuso Europe/Rome.</li><li>Le quote non utilizzate non si accumulano e non possono essere trasferite al mese successivo.</li><li>La data di pubblicazione può essere successiva: resta comunque necessario rispettare l’anticipo minimo indicato nel modulo.</li></ul><h4>Se devi correggere una pratica</h4><p>Non creare una seconda release: aggiorna la pratica esistente quando il portale lo consente oppure apri una segnalazione. Un annullamento eccezionale viene valutato dalla Direzione e non ripristina automaticamente una nuova quota.</p><p><strong>Esempio:</strong> se crei una pratica il 18 agosto, potrai aprirne una nuova dal 1° settembre, indipendentemente dalla data di uscita programmata per la release di agosto.</p>',
 	);
 	$guides['dds-limite-release'] = array(
 		'title'    => 'DDS: come funziona la release mensile',
@@ -3166,9 +3166,9 @@ function trb_portal_sync_canonical_guides() {
 			update_post_meta( $guide_id, '_trb_portal_order', isset( $topic_order[ $topic ] ) ? $topic_order[ $topic ] : 999 );
 			$terms = array(
 				'servizi-profilo' => 'dds ddb12 ddb ddb-trb trb include incluso inclusi comprende compreso servizi vantaggi profilo contratto mastering copertina smartlink promo cards pitching playlist landing page press kit campagne curatori blogger influencer stampa radio date booking formazione mentoring attestato royalty store sconto 50',
-				'nuova-release' => 'nuova release pubblicazione contratto distribuzione iniziare singolo ep album compilation collection catalogo pratica',
+				'nuova-release' => 'nuova release pubblicazione contratto distribuzione iniziare singolo ep album doppio compilation collection pratica',
 				'profilo-artista' => 'profilo artista dati anagrafici documenti carta identita codice fiscale tessera sanitaria foto biografia cellulare file originale scaricare scarico download sostituire aggiornare scadenza',
-				'tipologie-release' => 'tipologia singolo ep album doppio album compilation collection catalogo repertorio numero brani',
+				'tipologie-release' => 'tipologia singolo ep album doppio album compilation collection numero brani limite 24',
 				'inedita-o-edita' => 'inedita edita gia pubblicata data originale redistribuzione catalogo precedente uscita',
 				'firma-otp' => 'contratto contratti firma firmare firmato digitale otp sms cellulare dati contrattuali documentazione dossier invito',
 				'audio' => 'formato audio file master finale definitivo premaster pre master wav 48 khz 48000 24 bit lossless mastering stem limiter clipping arriva ricevere trovare trovo ascoltare player scaricare download',
@@ -4723,7 +4723,7 @@ function trb_portal_render_release_section() {
 				<input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" />
 				<input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" />
 				<?php wp_nonce_field( 'trb_portal_start_release', 'trb_portal_release_nonce' ); ?>
-				<section class="trb-release-panel"><header><span>1</span><div><h3>Tipo di pubblicazione</h3><p>Scegli il formato che corrisponde al numero totale dei brani.</p></div></header><div class="trb-portal__release-types"><?php foreach ( $types as $key => $type ) : ?><label><input type="radio" name="trb_release_type" value="<?php echo esc_attr( $key ); ?>" required data-catalogue="<?php echo ! empty( $type['catalogue'] ) ? '1' : '0'; ?>" data-min="<?php echo esc_attr( $type['min'] ); ?>" data-max="<?php echo esc_attr( $type['max'] ); ?>" /><span><strong><?php echo esc_html( $type['label'] ); ?></strong><small><?php echo esc_html( $type['range'] ); ?></small></span></label><?php endforeach; ?></div></section>
+				<section class="trb-release-panel"><header><span>1</span><div><h3>Tipo di pubblicazione</h3><p>Scegli il formato che corrisponde al numero totale dei brani.</p></div></header><div class="trb-portal__release-types"><?php foreach ( $types as $key => $type ) : ?><label><input type="radio" name="trb_release_type" value="<?php echo esc_attr( $key ); ?>" required data-min="<?php echo esc_attr( $type['min'] ); ?>" data-max="<?php echo esc_attr( $type['max'] ); ?>" /><span><strong><?php echo esc_html( $type['label'] ); ?></strong><small><?php echo esc_html( $type['range'] ); ?></small></span></label><?php endforeach; ?></div></section>
 				<section class="trb-release-panel"><header><span>2</span><div><h3>Stato della pubblicazione</h3><p>Indica se la release è inedita o già pubblicata e completa la data richiesta.</p></div></header><div class="trb-portal__radios"><label><input type="radio" name="trb_release_state" value="unreleased" required /> Inedita: mai distribuita prima</label><label><input type="radio" name="trb_release_state" value="previously_released" required /> Edita: precedentemente rilasciata ed attualmente distribuita</label></div><label class="trb-portal__release-date" hidden><strong>Scegli la data di uscita della release <span aria-hidden="true">*</span></strong><small>Puoi selezionare una data di pubblicazione a partire dal trentesimo giorno successivo a oggi.</small><input type="date" name="trb_release_date" min="<?php echo esc_attr( $minimum_release_date ); ?>" /></label><label class="trb-portal__original-date" hidden>Data di pubblicazione originale <small>Puoi selezionare soltanto oggi o una data precedente.</small><input type="date" name="trb_release_original_date" max="<?php echo esc_attr( $today ); ?>" /></label></section>
 				<section class="trb-release-panel">
 					<header><span>3</span><div><h3>Dati e materiali della release</h3><p>Inserisci il titolo, la copertina, tutti i brani e il materiale editoriale richiesto.</p></div></header>
@@ -4777,9 +4777,9 @@ function trb_portal_render_release_section() {
 		function updateRights(track){var nature=track.querySelector('[data-content-nature]'),basis=track.querySelector('[data-rights-basis]'),help=track.querySelector('[data-rights-help]'),choices={original:[['owned','L\'opera è originale e non include contenuti di terzi']],type_beat:[['exclusive','Dispongo di una licenza esclusiva'],['nonexclusive','Dispongo di una licenza non esclusiva / basic']],remix:[['licensed','Dispongo della specifica licenza per distribuire il remix']],protected_samples:[['licensed','Dispongo di licenze specifiche per tutti i contenuti protetti']]};basis.innerHTML='';(choices[nature.value]||[]).forEach(function(item){var option=document.createElement('option');option.value=item[0];option.textContent=item[1];basis.appendChild(option);});basis.disabled=!choices[nature.value];if(choices[nature.value]){var first=document.createElement('option');first.value='';first.textContent='Seleziona una dichiarazione';first.disabled=true;first.selected=true;basis.insertBefore(first,basis.firstChild);}var helps={original:'Seleziona questa voce solo se il brano non utilizza contenuti di qualsiasi tipologia protetti da copyright o appartenenti a terzi.',type_beat:'La licenza del beat è obbligatoria. Le licenze non esclusive possono escludere Content ID e monetizzazione social.',remix:'Per inviare il remix devi allegare la licenza specifica che ne autorizza la distribuzione.',protected_samples:'Questa voce riguarda estratti da film o altri brani protetti da copyright. Senza licenze specifiche il brano non può essere inviato.'};help.textContent=helps[nature.value]||'La dichiarazione determina i controlli e la documentazione richiesta.';syncRightsFields(track);}
 		function updateWriterShares(group){var rows=contributorRows(group),count=rows.length,base=Math.floor(10000/count),remainder=10000-(base*count);rows.forEach(function(row,index){var share=row.querySelector('[data-writer-share]'),roles=row.querySelectorAll('.trb-writer-roles input[type="checkbox"]'),selected=Array.prototype.some.call(roles,function(role){return role.checked;});if(share){var cents=base+(index<remainder?1:0);share.value=(cents/100).toFixed(2).replace('.',',')+'%';}if(roles.length)roles[0].setCustomValidity(selected?'':'Seleziona Autore, Compositore oppure entrambi.');});}
 		function renumberContributors(track){track.querySelectorAll('[data-contributor-group]').forEach(function(group){var key=group.dataset.contributorGroup; contributorRows(group).forEach(function(row,index){row.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(new RegExp('(credits\\]\\['+key+'\\]\\[)\\d+(\\])'),'$1'+index+'$2');}); var remove=row.querySelector('[data-remove-contributor]'); if(remove)remove.hidden=contributorRows(group).length===1;});if(key==='writers')updateWriterShares(group);});}
-		function renumber(){var tracks=wrap.querySelectorAll('[data-track]');tracks.forEach(function(track,index){track.querySelector('[data-track-number]').textContent=index+1;track.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/trb_tracks\[\d+\]/,'trb_tracks['+index+']').replace(/trb_track_lyrics\[\d+\]/,'trb_track_lyrics['+index+']').replace(/trb_track_audio\[\d+\]/,'trb_track_audio['+index+']').replace(/trb_track_rights_document\[\d+\]/,'trb_track_rights_document['+index+']').replace(/trb_existing_isrc\[\d+\]/,'trb_existing_isrc['+index+']');});renumberContributors(track);track.querySelector('[data-remove-track]').hidden=tracks.length===1;});var selected=form.querySelector('input[name="trb_release_type"]:checked');if(selected){var max=Number(selected.dataset.max||60);add.disabled=tracks.length>=max;add.textContent=tracks.length>=max?'Limite raggiunto per la tipologia di release selezionata':'+ Aggiungi un altro brano';}}
+		function renumber(){var tracks=wrap.querySelectorAll('[data-track]');tracks.forEach(function(track,index){track.querySelector('[data-track-number]').textContent=index+1;track.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/trb_tracks\[\d+\]/,'trb_tracks['+index+']').replace(/trb_track_lyrics\[\d+\]/,'trb_track_lyrics['+index+']').replace(/trb_track_audio\[\d+\]/,'trb_track_audio['+index+']').replace(/trb_track_rights_document\[\d+\]/,'trb_track_rights_document['+index+']').replace(/trb_existing_isrc\[\d+\]/,'trb_existing_isrc['+index+']');});renumberContributors(track);track.querySelector('[data-remove-track]').hidden=tracks.length===1;});var selected=form.querySelector('input[name="trb_release_type"]:checked');if(selected){var max=Number(selected.dataset.max||24);add.disabled=tracks.length>=max;add.textContent=tracks.length>=max?'Limite raggiunto per la tipologia di release selezionata':'+ Aggiungi un altro brano';}}
 		function addTrack(){var index=wrap.querySelectorAll('[data-track]').length,html=template.innerHTML.replace(/__INDEX__/g,index);wrap.insertAdjacentHTML('beforeend',html);var track=wrap.lastElementChild,primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]'),advisory=track.querySelector('[data-track-advisory]'),nature=track.querySelector('[data-content-nature]'),basis=track.querySelector('[data-rights-basis]'),isrc=track.querySelector('[data-existing-isrc] input');primary.addEventListener('input',function(){validateGenres(track);});secondary.addEventListener('input',function(){validateGenres(track);});advisory.addEventListener('change',function(){updateLyrics(track);});nature.addEventListener('change',function(){updateRights(track);});basis.addEventListener('change',function(){syncRightsFields(track);});if(isrc)isrc.addEventListener('input',function(){normalizeIsrc(isrc);});updateLyrics(track);updateRights(track);renumber();updateState();}
-		function updateType(){var selected=form.querySelector('input[name="trb_release_type"]:checked'),catalogue=selected&&selected.dataset.catalogue==='1';title.hidden=!!catalogue;title.querySelector('input').required=!catalogue;if(catalogue){title.querySelector('input').value='';var old=form.querySelector('input[value="previously_released"]');old.checked=true;}updateState();renumber();}
+		function updateType(){title.hidden=false;title.querySelector('input').required=true;updateState();renumber();}
 		function updateState(){var selected=form.querySelector('input[name="trb_release_state"]:checked'),unreleased=selected&&selected.value==='unreleased',old=selected&&selected.value==='previously_released';releaseDate.hidden=!unreleased;releaseDateInput.required=!!unreleased;releaseDateInput.disabled=!unreleased;if(!unreleased)releaseDateInput.value='';originalDate.hidden=!old;originalDateInput.required=!!old;originalDateInput.disabled=!old;if(!old)originalDateInput.value='';wrap.querySelectorAll('[data-existing-isrc]').forEach(function(label){var input=label.querySelector('input'),heading=label.querySelector('[data-isrc-title]'),help=label.querySelector('[data-isrc-help]'),automatic=!!unreleased&&autoAssignIsrc;label.hidden=!old&&!automatic;input.disabled=!old;input.required=!!old;input.readOnly=!old;if(old){heading.textContent='ISRC del brano già pubblicato';help.textContent='Inserisci i 12 caratteri dell’ISRC, senza spazi o trattini.';input.placeholder='Es. ITV242600005';normalizeIsrc(input);}else{input.value='';input.setCustomValidity('');heading.textContent='Codice ISRC assegnato';help.textContent='L’ISRC verrà generato dal sistema e sarà presente nel contratto.';input.placeholder='Assegnato automaticamente dopo l’invio';}});}
 		add.addEventListener('click',addTrack);
 		wrap.addEventListener('click',function(event){var target=event.target;if(target.matches('[data-remove-track]')){target.closest('[data-track]').remove();renumber();return;}if(target.matches('[data-add-contributor]')){var group=target.closest('[data-contributor-group]'),rows=group.querySelector('[data-contributor-rows]'),track=target.closest('[data-track]'),clone=contributorPrototype(group);if(!clone)return;var trackIndex=Array.prototype.indexOf.call(wrap.querySelectorAll('[data-track]'),track);clone.querySelectorAll('[name]').forEach(function(field){field.name=field.name.replace(/__INDEX__/g,trackIndex);});clone.querySelectorAll('input').forEach(function(input){if(input.type==='checkbox')input.checked=false;else input.value='';});rows.appendChild(clone);renumberContributors(track);return;}if(target.matches('[data-remove-contributor]')){var group=target.closest('[data-contributor-group]');if(contributorRows(group).length<=1)return;target.closest('.trb-contributor-row').remove();renumberContributors(group.closest('[data-track]'));}});
