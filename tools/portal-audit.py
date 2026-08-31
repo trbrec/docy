@@ -20,6 +20,7 @@ REGISTRATION = (ROOT / "template-artist-registration.php").read_text(encoding="u
 SUPPORT = (ROOT / "template-artist-support.php").read_text(encoding="utf-8")
 DEMO_JS = (ROOT / "assets/js/trb-demo-evaluation.js").read_text(encoding="utf-8")
 RELEASE_JS = (ROOT / "assets/js/trb-release-upload.js").read_text(encoding="utf-8")
+RELEASE_TYPES = PORTAL.split("function trb_portal_release_types()", 1)[1].split("function trb_portal_release_type_matches_tracks", 1)[0]
 
 checks: list[tuple[str, bool]] = []
 
@@ -186,6 +187,20 @@ check("invii e retry demo restano sempre nella finestra consentita", "trb_portal
 check("cleanup demo elimina copie locali e remote", "trb_demo_cleanup_request" in DEMO and "trb_demo_webdav_request( 'DELETE'" in DEMO)
 check("health check demo accessibile al monitor", "'/trb/v1/demo-health'" in DEPLOY)
 check("release caricate a blocchi e finalizzate con sessione idempotente", "trb_portal_stage_release_chunk" in PORTAL and "trb_release_submission_token" in RELEASE_JS and "trb_staged_uploads_json" in RELEASE_JS)
+check("matrice release applica i sei limiti definitivi", all(token in RELEASE_TYPES for token in (
+    "'single'       => array( 'label' => 'Singolo', 'range' => 'da 1 a 3 brani', 'min' => 1, 'max' => 3 )",
+    "'ep'           => array( 'label' => 'EP', 'range' => 'da 4 a 8 brani', 'min' => 4, 'max' => 8 )",
+    "'album'        => array( 'label' => 'Album', 'range' => 'da 9 a 18 brani', 'min' => 9, 'max' => 18 )",
+    "'double_album' => array( 'label' => 'Doppio album', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
+    "'compilation'  => array( 'label' => 'Compilation', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
+    "'collection'   => array( 'label' => 'Collection', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
+)))
+check("catalogo repertorio edito rimosso dalle tipologie", "'catalogue'" not in RELEASE_TYPES and "data-catalogue" not in PORTAL)
+check("limite frontend fermo a 24 tracce", "selected.dataset.max||24" in PORTAL and "selected.dataset.max||60" not in PORTAL)
+check("upload release limita ogni file a 250 MB", "maxFileBytes=250*1024*1024" in RELEASE_JS and "return 250 * MB_IN_BYTES" in PORTAL)
+check("upload release limita il totale a 4 GB", "maxSubmissionBytes=4*1024*1024*1024" in RELEASE_JS and "return 4 * 1024 * MB_IN_BYTES" in PORTAL)
+check("script upload non contiene observer ricorsivi", "MutationObserver" not in RELEASE_JS)
+check("parser WAV dichiarato una sola volta", RELEASE_JS.count("function wav(") == 1)
 check("audit produzione include demo pagine permessi matrice release e copertine", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "release_qa" in RESOURCE and "release_matrix" in RESOURCE and "cover_workflow" in RESOURCE and "20260825.1" in RESOURCE)
 check("audit produzione verifica contatori contratti firmati", "Contatore release non limitato ai contratti firmati" in RESOURCE)
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
