@@ -22,6 +22,7 @@ REGISTRATION = (ROOT / "template-artist-registration.php").read_text(encoding="u
 SUPPORT = (ROOT / "template-artist-support.php").read_text(encoding="utf-8")
 DEMO_JS = (ROOT / "assets/js/trb-demo-evaluation.js").read_text(encoding="utf-8")
 RELEASE_JS = (ROOT / "assets/js/trb-release-upload.js").read_text(encoding="utf-8")
+RELEASE_UX = (ROOT / "assets/js/trb-release-form-ux.js").read_text(encoding="utf-8")
 RELEASE_TYPES = PORTAL.split("function trb_portal_release_types()", 1)[1].split("function trb_portal_release_type_matches_tracks", 1)[0]
 
 checks: list[tuple[str, bool]] = []
@@ -217,13 +218,23 @@ check("upload release limita il totale a 4 GB", "maxSubmissionBytes=4*1024*1024*
 check("script upload non contiene observer ricorsivi", "MutationObserver" not in RELEASE_JS)
 check("parser WAV dichiarato una sola volta", RELEASE_JS.count("function wav(") == 1)
 check("ripristino bozza non azzera valori hidden predefiniti", "field.type==='hidden'&&pair[1]===''&&field.value!==''" in RELEASE_JS and "if(!field.value)field.value='mastered'" in RELEASE_JS)
+check("nuove bozze non generano indici tecnici sparsi", "9000+Number" not in RELEASE_UX and "data-credit-roles-json" in RELEASE_UX and "[roles_json]" in PORTAL)
+check("selettori ruolo sono creati solo quando l'artista li apre", "row.trbSetCreditRoles=setRoles" in RELEASE_UX and "function build(){if(built)return" in RELEASE_UX)
+check("observer crediti ascolta solo nuove righe e non il proprio sottoalbero", "new MutationObserver(scan).observe(rows,{childList:true})" in RELEASE_UX and "observe(group,{childList:true,subtree:true})" not in RELEASE_UX)
+check("ripristino automatico ha un budget globale di righe", "DRAFT_MAX_RESTORED_CONTRIBUTORS=600" in RELEASE_JS and "draftContributorTargets" in RELEASE_JS)
+check("bozze legacy convertono i ruoli senza perdita", "legacyTechnical" in RELEASE_JS and "unmappedTechnical" in RELEASE_JS and "trb_portal_normalize_release_draft_pairs" in PORTAL)
+check("migrazione bozze legacy richiede un backup verificato", "_trb_release_form_draft_backup_20260901" in PORTAL and "$backup_ready = metadata_exists" in PORTAL and "if ( ! $backup_ready )" in PORTAL and "trb_release_draft_schema_v2_migrated" in PORTAL)
+check("deploy verifica tutti gli script del modulo release", all(script in DEPLOY for script in ("'assets/js/trb-release-upload.js'", "'assets/js/trb-release-form-ux.js'", "'assets/js/trb-release-form-fix.js'")))
+check("health deploy espone solo i conteggi della migrazione bozze", "'release_draft_migration'" in DEPLOY and "'unresolved' => absint( $draft_migration['unresolved']" in DEPLOY)
+check("backend accetta ruoli multipli compatti", "isset( $row['roles_json'] )" in PORTAL and "json_decode( (string) $row['roles_json']" in PORTAL)
+check("riepilogo crediti esclude le righe tecniche", ".trb-contributor-row:not([data-shadow])" in RELEASE_JS and "data-credit-roles-json" in RELEASE_JS)
 check("server normalizza lo stato audio omesso per profili senza mastering", "'' === $audio_status && ! trb_portal_profile_has_service( 'mastering', $profile )" in PORTAL)
 check("audit produzione include demo pagine permessi matrice release e copertine", "demo_problems" in RESOURCE and "Pagina pubblica mancante" in RESOURCE and "release_qa" in RESOURCE and "release_matrix" in RESOURCE and "cover_workflow" in RESOURCE and "20260825.1" in RESOURCE)
 check("audit produzione verifica contatori contratti firmati", "Contatore release non limitato ai contratti firmati" in RESOURCE)
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 check("audit produzione include anomalie risorsa ancora aperte", "open_resource_events" in RESOURCE and "severity IN ('warning','critical')" in RESOURCE and "'resource_events' => $open_resource_events" in RESOURCE)
 check("monitor distingue lo spazio hosting dallo staging", "Spazio hosting (filesystem condiviso)" in RESOURCE and "Filesystem hosting utilizzato" in RESOURCE)
-check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
+check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-draft-normalizer.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
 check("deploy SiteGround non dichiara successo prima della verifica", "timeout-minutes: 12" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "for attempt in $(seq 1 36)" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "Deployment remains queued through the five-minute internal WordPress safety net.\"\n          else" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
 
 failed = [name for name, ok in checks if not ok]
