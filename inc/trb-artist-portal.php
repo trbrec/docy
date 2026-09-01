@@ -1769,21 +1769,26 @@ foreach ( array(
 	add_action( 'admin_post_nopriv_' . $trb_protected_action, 'trb_portal_protected_action_unauthenticated' );
 }
 
-function trb_portal_release_staging_root( $user_id = 0 ) {
+function trb_portal_release_staging_base() {
 	$uploads = wp_upload_dir();
-	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
-	return trailingslashit( $uploads['basedir'] ) . 'trb-release-staging/' . $user_id;
+	return trailingslashit( $uploads['basedir'] ) . 'trb-release-staging';
 }
 
-function trb_portal_release_staging_session_dir( $session, $create = false ) {
+function trb_portal_release_staging_root( $user_id = 0 ) {
+	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+	return trailingslashit( trb_portal_release_staging_base() ) . $user_id;
+}
+
+function trb_portal_release_staging_session_dir( $session, $create = false, $user_id = 0 ) {
 	$session = sanitize_text_field( $session );
 	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $session ) ) return false;
-	$root = trb_portal_release_staging_root();
+	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+	if ( ! $user_id ) return false;
+	$root = trb_portal_release_staging_root( $user_id );
 	$directory = trailingslashit( $root ) . $session;
 	if ( $create ) {
 		if ( ! wp_mkdir_p( $directory ) ) return false;
-		$uploads = wp_upload_dir();
-		$protected_root = trailingslashit( $uploads['basedir'] ) . 'trb-release-staging';
+		$protected_root = trb_portal_release_staging_base();
 		$rules = trailingslashit( $protected_root ) . '.htaccess';
 		if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	}
@@ -1796,25 +1801,77 @@ function trb_portal_release_is_staged_path( $path ) {
 	return $root && $path && is_file( $path ) && 0 === strpos( $path, $root . DIRECTORY_SEPARATOR );
 }
 
-function trb_portal_cleanup_release_staging_session( $session ) {
-	$directory = trb_portal_release_staging_session_dir( $session, false );
-	$root = realpath( trb_portal_release_staging_root() );
+function trb_portal_cleanup_release_staging_session( $session, $user_id = 0 ) {
+	$user_id   = $user_id ? absint( $user_id ) : get_current_user_id();
+	$directory = trb_portal_release_staging_session_dir( $session, false, $user_id );
+	$root = realpath( trb_portal_release_staging_root( $user_id ) );
 	$directory = $directory ? realpath( $directory ) : false;
 	if ( ! $root || ! $directory || 0 !== strpos( $directory, $root . DIRECTORY_SEPARATOR ) ) return;
 	foreach ( glob( trailingslashit( $directory ) . '*' ) ?: array() as $path ) if ( is_file( $path ) ) wp_delete_file( $path );
 	@rmdir( $directory ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
 }
 
+/**
+ * Remove abandoned chunk-upload sessions for every account, including artists
+ * who never return after an interrupted upload. The former per-user sweep left
+ * those files on the hosting indefinitely unless the same account uploaded
+ * again.
+ */
+function trb_portal_cleanup_expired_release_staging_all() {
+	$base = realpath( trb_portal_release_staging_base() );
+	$summary = array( 'users' => 0, 'sessions' => 0, 'files' => 0, 'bytes' => 0, 'run_at' => time() );
+	if ( ! $base || ! is_dir( $base ) ) {
+		update_option( 'trb_release_staging_cleanup_last', $summary, false );
+		return $summary;
+	}
+
+	$cutoff = time() - DAY_IN_SECONDS;
+	foreach ( glob( trailingslashit( $base ) . '*' ) ?: array() as $user_root ) {
+		$user_id = basename( $user_root );
+		$resolved_user_root = realpath( $user_root );
+		if ( ! ctype_digit( $user_id ) || ! $resolved_user_root || ! is_dir( $resolved_user_root ) || 0 !== strpos( $resolved_user_root, $base . DIRECTORY_SEPARATOR ) ) continue;
+		$summary['users']++;
+
+		foreach ( glob( trailingslashit( $resolved_user_root ) . '*' ) ?: array() as $directory ) {
+			$session = basename( $directory );
+			$resolved_directory = realpath( $directory );
+			if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $session ) || ! $resolved_directory || ! is_dir( $resolved_directory ) || 0 !== strpos( $resolved_directory, $resolved_user_root . DIRECTORY_SEPARATOR ) || filemtime( $resolved_directory ) > $cutoff ) continue;
+
+			$session_files = 0;
+			$session_bytes = 0;
+			foreach ( glob( trailingslashit( $resolved_directory ) . '*' ) ?: array() as $path ) {
+				if ( ! is_file( $path ) ) continue;
+				$session_files++;
+				$session_bytes += max( 0, (int) filesize( $path ) );
+			}
+			trb_portal_cleanup_release_staging_session( $session, (int) $user_id );
+			clearstatcache( true, $resolved_directory );
+			if ( ! is_dir( $resolved_directory ) ) {
+				$summary['sessions']++;
+				$summary['files'] += $session_files;
+				$summary['bytes'] += $session_bytes;
+			}
+		}
+
+		if ( ! ( glob( trailingslashit( $resolved_user_root ) . '*' ) ?: array() ) ) @rmdir( $resolved_user_root ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.rmdir
+	}
+
+	update_option( 'trb_release_staging_cleanup_last', $summary, false );
+	return $summary;
+}
+
 function trb_portal_cleanup_expired_release_staging() {
-	$key = '_trb_release_staging_cleanup_' . get_current_user_id();
+	$key = '_trb_release_staging_cleanup_global';
 	if ( get_transient( $key ) ) return;
 	set_transient( $key, 1, HOUR_IN_SECONDS );
-	$root = trb_portal_release_staging_root();
-	foreach ( glob( trailingslashit( $root ) . '*' ) ?: array() as $directory ) {
-		if ( ! is_dir( $directory ) || filemtime( $directory ) > time() - DAY_IN_SECONDS ) continue;
-		trb_portal_cleanup_release_staging_session( basename( $directory ) );
-	}
+	trb_portal_cleanup_expired_release_staging_all();
 }
+
+function trb_portal_schedule_release_staging_cleanup() {
+	if ( ! wp_next_scheduled( 'trb_portal_cleanup_release_staging_event' ) ) wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly', 'trb_portal_cleanup_release_staging_event' );
+}
+add_action( 'init', 'trb_portal_schedule_release_staging_cleanup', 20 );
+add_action( 'trb_portal_cleanup_release_staging_event', 'trb_portal_cleanup_expired_release_staging_all' );
 
 function trb_portal_release_max_file_bytes() {
 	return 250 * MB_IN_BYTES;

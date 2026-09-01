@@ -215,6 +215,10 @@ check("catalogo repertorio edito rimosso dalle tipologie", "'catalogue'" not in 
 check("limite frontend fermo a 24 tracce", "selected.dataset.max||24" in PORTAL and "selected.dataset.max||60" not in PORTAL)
 check("upload release limita ogni file a 250 MB", "maxFileBytes=250*1024*1024" in RELEASE_JS and "return 250 * MB_IN_BYTES" in PORTAL)
 check("upload release limita il totale a 4 GB", "maxSubmissionBytes=4*1024*1024*1024" in RELEASE_JS and "return 4 * 1024 * MB_IN_BYTES" in PORTAL)
+check("cleanup staging scaduto copre tutti gli account", "trb_portal_cleanup_expired_release_staging_all" in PORTAL and "glob( trailingslashit( $base ) . '*' )" in PORTAL and "trb_portal_cleanup_release_staging_session( $session, (int) $user_id )" in PORTAL)
+check("cleanup staging eseguito automaticamente ogni ora", "trb_portal_cleanup_release_staging_event" in PORTAL and "wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly'" in PORTAL)
+check("cleanup staging confina i percorsi e conserva sessioni recenti", "0 !== strpos( $resolved_directory, $resolved_user_root . DIRECTORY_SEPARATOR )" in PORTAL and "filemtime( $resolved_directory ) > $cutoff" in PORTAL)
+check("cleanup staging registra solo rimozioni riuscite", "trb_release_staging_cleanup_last" in PORTAL and "clearstatcache( true, $resolved_directory )" in PORTAL and "if ( ! is_dir( $resolved_directory ) )" in PORTAL and "$summary['bytes'] += $session_bytes" in PORTAL)
 check("script upload non contiene observer ricorsivi", "MutationObserver" not in RELEASE_JS)
 check("parser WAV dichiarato una sola volta", RELEASE_JS.count("function wav(") == 1)
 check("ripristino bozza non azzera valori hidden predefiniti", "field.type==='hidden'&&pair[1]===''&&field.value!==''" in RELEASE_JS and "if(!field.value)field.value='mastered'" in RELEASE_JS)
@@ -234,7 +238,7 @@ check("audit produzione verifica contatori contratti firmati", "Contatore releas
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 check("audit produzione include anomalie risorsa ancora aperte", "open_resource_events" in RESOURCE and "severity IN ('warning','critical')" in RESOURCE and "'resource_events' => $open_resource_events" in RESOURCE)
 check("monitor distingue lo spazio hosting dallo staging", "Spazio hosting (filesystem condiviso)" in RESOURCE and "Filesystem hosting utilizzato" in RESOURCE)
-check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-draft-normalizer.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
+check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-draft-normalizer.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-staging-cleanup.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
 check("deploy SiteGround non dichiara successo prima della verifica", "timeout-minutes: 12" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "for attempt in $(seq 1 36)" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "Deployment remains queued through the five-minute internal WordPress safety net.\"\n          else" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
 
 failed = [name for name, ok in checks if not ok]
