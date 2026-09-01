@@ -4049,6 +4049,7 @@ function trb_portal_render_demo_section() {
 	$status = isset( $_GET['trb_demo'] ) ? sanitize_key( wp_unslash( $_GET['trb_demo'] ) ) : '';
 	$is_test_account = trb_portal_is_demo_test_account();
 	$recent_requests = trb_portal_recent_demo_requests();
+	$genres = trb_portal_genres();
 	?>
 	<section id="demo" class="trb-portal__section">
 		<div class="trb-portal__demo">
@@ -4068,6 +4069,8 @@ function trb_portal_render_demo_section() {
 					<?php wp_nonce_field( 'trb_portal_submit_demo', 'trb_demo_nonce' ); ?>
 					<div class="trb-portal__demo-intro"><strong>Dati trasmessi automaticamente</strong><p>Nome, cognome, nome d’arte ed e-mail vengono acquisiti dal profilo artista e non devono essere inseriti nuovamente.</p></div>
 					<label>Titolo del provino <span>*</span><input type="text" name="trb_demo_title" maxlength="160" required /></label>
+					<label>Genere musicale <span>*</span><input type="search" name="trb_demo_genre" maxlength="120" required list="trb-demo-genres" autocomplete="off" placeholder="Cerca e seleziona il genere musicale" /></label>
+					<datalist id="trb-demo-genres"><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"></option><?php endforeach; ?></datalist>
 					<div class="trb-portal__demo-upload" data-demo-text-block>
 						<label>Caricamento testo autoriale <span>*</span><small>Obbligatorio quando il provino contiene un testo interpretato. Formati ammessi: TXT o DOCX. Il contenuto viene convertito in testo semplice per evitare elaborazioni e consumi inutili.</small><input type="file" name="trb_demo_text" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-demo-text /></label>
 						<label class="trb-portal__choice"><input type="checkbox" name="trb_demo_no_lyrics" value="1" data-demo-no-lyrics /> Il provino non contiene testo</label>
@@ -4220,11 +4223,12 @@ function trb_portal_submit_demo() {
 		trb_portal_demo_finish( 'weekly_limit', $dashboard );
 	}
 	$title = isset( $_POST['trb_demo_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_title'] ) ) : '';
+	$genre = isset( $_POST['trb_demo_genre'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_genre'] ) ) : '';
 	$no_lyrics = isset( $_POST['trb_demo_no_lyrics'] );
 	$text_only = isset( $_POST['trb_demo_text_only'] );
 	$has_text = ! empty( $_FILES['trb_demo_text']['name'] );
 	$has_audio = ! empty( $_FILES['trb_demo_audio']['name'] );
-	$valid = '' !== $title && ( $has_text || $has_audio ) && ! ( $no_lyrics && $text_only ) && ( $has_text || $no_lyrics ) && ( $has_audio || $text_only );
+	$valid = '' !== $title && in_array( $genre, trb_portal_genres(), true ) && ( $has_text || $has_audio ) && ! ( $no_lyrics && $text_only ) && ( $has_text || $no_lyrics ) && ( $has_audio || $text_only );
 	if ( ! $valid ) {
 		trb_portal_demo_finish( 'invalid', $dashboard );
 	}
@@ -4241,7 +4245,7 @@ function trb_portal_submit_demo() {
 		trb_portal_demo_finish( 'processing', $dashboard );
 	}
 
-	$fingerprint = hash( 'sha256', strtolower( $title ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_text']['name'] ) ) . ':' . (int) $_FILES['trb_demo_text']['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_audio']['name'] ) ) . ':' . (int) $_FILES['trb_demo_audio']['size'] : '-' ) );
+	$fingerprint = hash( 'sha256', strtolower( $title ) . '|' . strtolower( $genre ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_text']['name'] ) ) . ':' . (int) $_FILES['trb_demo_text']['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_audio']['name'] ) ) . ':' . (int) $_FILES['trb_demo_audio']['size'] : '-' ) );
 	$previous = get_user_meta( $user_id, '_trb_demo_last_fingerprint', true );
 	if ( is_array( $previous ) && ! empty( $previous['hash'] ) && hash_equals( (string) $previous['hash'], $fingerprint ) && time() - (int) $previous['time'] < 10 * MINUTE_IN_SECONDS ) {
 		delete_user_meta( $user_id, $lock_key );
@@ -4268,7 +4272,7 @@ function trb_portal_submit_demo() {
 		'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
 		'first_name' => $user->first_name, 'last_name' => $user->last_name,
 		'artist_name' => trb_portal_artist_profile_value( 'artist_name', $user_id ), 'email' => $user->user_email,
-		'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'no_lyrics' => $no_lyrics,
+		'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'genre' => $genre, 'no_lyrics' => $no_lyrics,
 		'text_only' => $text_only, 'text_file' => $text, 'audio_file' => $audio,
 	);
 	update_post_meta( $request_id, '_trb_demo_payload', $payload );
