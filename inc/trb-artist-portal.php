@@ -2422,6 +2422,12 @@ function trb_portal_save_release_draft() {
 		if ( ! is_array( $pair ) || 2 !== count( $pair ) || ! is_scalar( $pair[0] ) || ! is_scalar( $pair[1] ) ) continue;
 		$name = sanitize_text_field( (string) $pair[0] );
 		if ( '' === $name || strlen( $name ) > 240 || in_array( $name, $excluded, true ) ) continue;
+		if ( preg_match( '/^(?:trb_tracks|trb_existing_isrc)\\[(\\d+)\\]/', $name, $track_match ) && (int) $track_match[1] > 23 ) continue;
+		if ( preg_match( '/^trb_tracks\\[(\\d+)\\]\\[credits\\]\\[(writers|credits)\\]\\[(\\d+)\\]/', $name, $contributor_match ) ) {
+			$contributor_index = (int) $contributor_match[3];
+			$is_technical_role = 'credits' === $contributor_match[2] && $contributor_index >= 9000;
+			if ( ! $is_technical_role && $contributor_index > 249 ) continue;
+		}
 		$value = sanitize_textarea_field( (string) $pair[1] );
 		if ( strlen( $value ) > 5000 ) $value = substr( $value, 0, 5000 );
 		$clean[] = array( $name, $value );
