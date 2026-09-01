@@ -74,6 +74,7 @@ require get_template_directory() . '/inc/trb-release-analysis.php';
 require get_template_directory() . '/inc/trb-resource-monitor.php';
 require get_template_directory() . '/inc/trb-owner-dashboard.php';
 require get_template_directory() . '/inc/trb-portal-launch-campaign.php';
+require get_template_directory() . '/inc/trb-crm-connector.php';
 
 /** Canonical portal favicon (also covers admin and login screens). */
 function trb_portal_favicon() {
