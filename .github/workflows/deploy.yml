@@ -28,6 +28,7 @@ jobs:
       - name: Validate PHP and portal regressions
         shell: bash
         run: |
+          node tests/release-draft-restore.test.js
           find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
           php tools/test-demo-delivery-window.php
           python3 tools/portal-audit.py
