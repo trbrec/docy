@@ -2397,6 +2397,161 @@ function trb_portal_release_submission_response( $status, $message = '', $http_s
 	exit;
 }
 
+/**
+ * Convert legacy sparse multi-role credit rows into a compact draft field.
+ *
+ * Older browsers represented every additional role with indexes such as 9100
+ * and 9200. Those indexes are valid submission details, but they must never be
+ * interpreted as a request to build thousands of visible form rows.
+ */
+function trb_portal_normalize_release_draft_pairs( $pairs, &$report = null ) {
+	$report = array( 'skipped' => 0, 'legacy_technical' => 0, 'unmapped_technical' => 0, 'changed' => false );
+	if ( ! is_array( $pairs ) ) return array();
+
+	$excluded  = array( 'action', 'trb_portal_release_nonce', 'trb_release_stage_nonce', 'trb_release_submission_token' );
+	$clean     = array();
+	$credits   = array();
+	$technical = array();
+	foreach ( array_slice( $pairs, 0, 4000 ) as $pair ) {
+		if ( ! is_array( $pair ) || 2 !== count( $pair ) || ! is_scalar( $pair[0] ) || ! is_scalar( $pair[1] ) ) {
+			$report['skipped']++;
+			continue;
+		}
+		$name = sanitize_text_field( (string) $pair[0] );
+		if ( '' === $name || strlen( $name ) > 240 || in_array( $name, $excluded, true ) ) {
+			$report['skipped']++;
+			continue;
+		}
+		if ( preg_match( '/^(?:trb_tracks|trb_existing_isrc)\[(\d+)\]/', $name, $track_match ) && (int) $track_match[1] > 23 ) {
+			$report['skipped']++;
+			continue;
+		}
+		$value = sanitize_textarea_field( (string) $pair[1] );
+		if ( strlen( $value ) > 5000 ) $value = substr( $value, 0, 5000 );
+
+		$contributor_match = array();
+		if ( preg_match( '/^trb_tracks\[(\d+)\]\[credits\]\[(writers|credits)\]\[(\d+)\]/', $name, $contributor_match ) ) {
+			$track_index       = (int) $contributor_match[1];
+			$contributor_group = $contributor_match[2];
+			$contributor_index = (int) $contributor_match[3];
+			$is_technical      = 'credits' === $contributor_group && $contributor_index >= 9000;
+			if ( ! $is_technical && $contributor_index > 249 ) {
+				$report['skipped']++;
+				continue;
+			}
+			$credit_field = array();
+			if ( 'credits' === $contributor_group && preg_match( '/^trb_tracks\[(\d+)\]\[credits\]\[credits\]\[(\d+)\]\[(name|role|roles_json)\]$/', $name, $credit_field ) ) {
+				$key = $track_index . '-' . $contributor_index;
+				if ( $is_technical ) {
+					if ( ! isset( $technical[ $key ] ) ) $technical[ $key ] = array( 'track' => $track_index, 'index' => $contributor_index, 'name' => '', 'role' => '', 'pairs' => array() );
+					$technical[ $key ][ $credit_field[3] ] = $value;
+					$technical[ $key ]['pairs'][] = array( $name, $value );
+					$report['legacy_technical']++;
+					continue;
+				}
+				if ( ! isset( $credits[ $key ] ) ) $credits[ $key ] = array( 'track' => $track_index, 'index' => $contributor_index, 'name' => '', 'role' => '', 'roles' => array() );
+				if ( 'roles_json' === $credit_field[3] ) {
+					$decoded_roles = json_decode( $value, true );
+					if ( ! is_array( $decoded_roles ) ) {
+						$report['skipped']++;
+						continue;
+					}
+					$decoded_roles = array_filter( $decoded_roles, 'is_scalar' );
+					$credits[ $key ]['roles'] = array_values( array_unique( array_filter( array_map( 'sanitize_text_field', $decoded_roles ) ) ) );
+					continue;
+				}
+				$credits[ $key ][ $credit_field[3] ] = $value;
+			}
+		}
+		$clean[] = array( $name, $value );
+	}
+	$report['skipped'] += max( 0, count( $pairs ) - 4000 );
+
+	$visible_by_track = array();
+	foreach ( $credits as $key => $credit ) {
+		if ( empty( $credit['roles'] ) && '' !== $credit['role'] ) $credits[ $key ]['roles'][] = $credit['role'];
+		$visible_by_track[ $credit['track'] ][ $credit['index'] ] = $key;
+	}
+	foreach ( $visible_by_track as &$visible_keys ) ksort( $visible_keys, SORT_NUMERIC );
+	unset( $visible_keys );
+
+	foreach ( $technical as $shadow ) {
+		$target_key = '';
+		$needle     = strtolower( preg_replace( '/\s+/', ' ', trim( $shadow['name'] ) ) );
+		$ordered    = array_values( isset( $visible_by_track[ $shadow['track'] ] ) ? $visible_by_track[ $shadow['track'] ] : array() );
+		$sequence   = intdiv( $shadow['index'] - 9000, 100 ) - 1;
+		if ( $sequence >= 0 && isset( $ordered[ $sequence ] ) ) {
+			$sequence_candidate = $credits[ $ordered[ $sequence ] ];
+			$sequence_name      = strtolower( preg_replace( '/\s+/', ' ', trim( $sequence_candidate['name'] ) ) );
+			if ( '' === $needle || $needle === $sequence_name ) $target_key = $ordered[ $sequence ];
+		}
+		$exact_keys = array();
+		foreach ( isset( $visible_by_track[ $shadow['track'] ] ) ? $visible_by_track[ $shadow['track'] ] : array() as $candidate_key ) {
+			$candidate = $credits[ $candidate_key ];
+			$candidate_name = strtolower( preg_replace( '/\s+/', ' ', trim( $candidate['name'] ) ) );
+			if ( '' !== $needle && $needle === $candidate_name ) $exact_keys[] = $candidate_key;
+		}
+		if ( '' === $target_key && 1 === count( $exact_keys ) ) $target_key = $exact_keys[0];
+		if ( '' !== $target_key && '' !== $shadow['role'] ) {
+			$credits[ $target_key ]['roles'][] = $shadow['role'];
+			$credits[ $target_key ]['roles'] = array_values( array_unique( $credits[ $target_key ]['roles'] ) );
+		} else {
+			$report['unmapped_technical']++;
+			foreach ( $shadow['pairs'] as $legacy_pair ) $clean[] = $legacy_pair;
+		}
+	}
+
+	foreach ( $credits as $credit ) {
+		$roles = array_values( array_unique( array_filter( $credit['roles'] ) ) );
+		if ( empty( $roles ) ) continue;
+		$clean[] = array(
+			'trb_tracks[' . $credit['track'] . '][credits][credits][' . $credit['index'] . '][roles_json]',
+			wp_json_encode( $roles ),
+		);
+	}
+	$report['changed'] = wp_json_encode( array_values( $pairs ) ) !== wp_json_encode( $clean );
+	return array_values( $clean );
+}
+
+/** One-time reversible migration of every stored release draft. */
+function trb_portal_migrate_release_drafts_v2() {
+	$version = '20260901.2';
+	$marker  = get_option( 'trb_release_draft_schema_v2_migrated', array() );
+	if ( is_array( $marker ) && isset( $marker['version'] ) && $version === $marker['version'] ) return;
+	$lock_key = 'trb_release_draft_schema_v2_lock';
+	$lock     = absint( get_option( $lock_key, 0 ) );
+	if ( $lock && time() - $lock < 10 * MINUTE_IN_SECONDS ) return;
+	if ( $lock ) delete_option( $lock_key );
+	if ( ! add_option( $lock_key, time(), '', false ) ) return;
+
+	global $wpdb;
+	$user_ids = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT user_id FROM {$wpdb->usermeta} WHERE meta_key = %s", '_trb_release_form_draft' ) );
+	$summary  = array( 'version' => $version, 'at' => time(), 'drafts' => count( $user_ids ), 'affected' => 0, 'backed_up' => 0, 'migrated' => 0, 'unresolved' => 0 );
+	foreach ( $user_ids as $user_id ) {
+		$draft = get_user_meta( (int) $user_id, '_trb_release_form_draft', true );
+		if ( ! is_array( $draft ) || empty( $draft['pairs'] ) || ! is_array( $draft['pairs'] ) ) continue;
+		$normalized = trb_portal_normalize_release_draft_pairs( $draft['pairs'], $report );
+		if ( empty( $report['legacy_technical'] ) ) continue;
+		$summary['affected']++;
+		if ( ! empty( $report['unmapped_technical'] ) ) {
+			$summary['unresolved']++;
+			continue;
+		}
+		$backup_ready = metadata_exists( 'user', (int) $user_id, '_trb_release_form_draft_backup_20260901' ) || add_user_meta( (int) $user_id, '_trb_release_form_draft_backup_20260901', $draft, true );
+		if ( ! $backup_ready ) {
+			$summary['unresolved']++;
+			continue;
+		}
+		$summary['backed_up']++;
+		$draft['pairs'] = $normalized;
+		if ( update_user_meta( (int) $user_id, '_trb_release_form_draft', $draft ) ) $summary['migrated']++;
+		else $summary['unresolved']++;
+	}
+	update_option( 'trb_release_draft_schema_v2_migrated', $summary, false );
+	delete_option( $lock_key );
+}
+add_action( 'init', 'trb_portal_migrate_release_drafts_v2', 30 );
+
 /** Persist release form text fields across expired sessions and new tabs. */
 function trb_portal_save_release_draft() {
 	if ( ! is_user_logged_in() ) {
@@ -2416,24 +2571,9 @@ function trb_portal_save_release_draft() {
 	if ( ! is_array( $pairs ) || count( $pairs ) > 4000 ) {
 		wp_send_json_error( array( 'message' => 'Bozza non valida.' ), 422 );
 	}
-	$excluded = array( 'action', 'trb_portal_release_nonce', 'trb_release_stage_nonce', 'trb_release_submission_token' );
-	$clean = array();
-	foreach ( $pairs as $pair ) {
-		if ( ! is_array( $pair ) || 2 !== count( $pair ) || ! is_scalar( $pair[0] ) || ! is_scalar( $pair[1] ) ) continue;
-		$name = sanitize_text_field( (string) $pair[0] );
-		if ( '' === $name || strlen( $name ) > 240 || in_array( $name, $excluded, true ) ) continue;
-		if ( preg_match( '/^(?:trb_tracks|trb_existing_isrc)\\[(\\d+)\\]/', $name, $track_match ) && (int) $track_match[1] > 23 ) continue;
-		if ( preg_match( '/^trb_tracks\\[(\\d+)\\]\\[credits\\]\\[(writers|credits)\\]\\[(\\d+)\\]/', $name, $contributor_match ) ) {
-			$contributor_index = (int) $contributor_match[3];
-			$is_technical_role = 'credits' === $contributor_match[2] && $contributor_index >= 9000;
-			if ( ! $is_technical_role && $contributor_index > 249 ) continue;
-		}
-		$value = sanitize_textarea_field( (string) $pair[1] );
-		if ( strlen( $value ) > 5000 ) $value = substr( $value, 0, 5000 );
-		$clean[] = array( $name, $value );
-	}
+	$clean = trb_portal_normalize_release_draft_pairs( $pairs, $normalization_report );
 	update_user_meta( $user_id, '_trb_release_form_draft', array( 'version' => 1, 'savedAt' => time() * 1000, 'pairs' => $clean ) );
-	wp_send_json_success( array( 'saved_at' => time() ) );
+	wp_send_json_success( array( 'saved_at' => time(), 'draft_schema' => 2, 'legacy_roles_normalized' => absint( $normalization_report['legacy_technical'] ) ) );
 }
 add_action( 'wp_ajax_trb_portal_save_release_draft', 'trb_portal_save_release_draft' );
 add_action( 'admin_post_trb_portal_save_release_draft', 'trb_portal_save_release_draft' );
@@ -2830,9 +2970,14 @@ function trb_portal_sanitize_contributors( $rows, $allowed_roles ) {
 	$clean = array();
 	foreach ( (array) $rows as $row ) {
 		$name = isset( $row['name'] ) ? sanitize_text_field( $row['name'] ) : '';
-		$role = isset( $row['role'] ) ? sanitize_text_field( $row['role'] ) : '';
-		if ( '' !== $name && isset( $allowed_roles[ $role ] ) ) {
-			$clean[] = array( 'name' => $name, 'role' => $role );
+		$roles = array();
+		if ( isset( $row['roles_json'] ) && is_scalar( $row['roles_json'] ) ) {
+			$decoded_roles = json_decode( (string) $row['roles_json'], true );
+			if ( is_array( $decoded_roles ) ) $roles = array_map( 'sanitize_text_field', array_filter( $decoded_roles, 'is_scalar' ) );
+		}
+		if ( empty( $roles ) && isset( $row['role'] ) ) $roles[] = sanitize_text_field( $row['role'] );
+		foreach ( array_unique( $roles ) as $role ) {
+			if ( '' !== $name && isset( $allowed_roles[ $role ] ) ) $clean[] = array( 'name' => $name, 'role' => $role );
 		}
 	}
 	return $clean;
@@ -4769,7 +4914,7 @@ function trb_portal_render_release_section() {
 			</div><div class="trb-track-audio"><strong>File audio del brano <span>*</span></strong><input type="file" name="trb_track_audio[__INDEX__]" accept=".wav,audio/wav,audio/x-wav" required /><small>Solo formato WAV · minimo 44.100 Hz / 16 bit. È fortemente consigliato 48.000 Hz / 24 bit. Il sistema verifica automaticamente caratteristiche e durata reale del file.</small><span class="trb-audio-duration-check" data-audio-duration-check aria-live="polite"></span><?php if ( ! trb_portal_profile_has_service( 'mastering', $profile ) ) : ?><input type="hidden" name="trb_tracks[__INDEX__][audio_status]" value="mastered" /><p class="trb-audio-dds-note">Il mastering non è incluso nel tuo profilo: carica il master definitivo oppure richiedi il servizio nello Store con lo sconto riservato del 50%.</p><?php else : ?><fieldset class="trb-audio-status"><legend>Stato del file audio <span>*</span></legend><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastered" required /> Il brano è già in versione master</label><label><input type="radio" name="trb_tracks[__INDEX__][audio_status]" value="mastering" required /> Richiedo il mastering del brano</label></fieldset><?php endif; ?></div><label class="trb-track-lyrics" data-track-lyrics hidden>Testo del brano <span>*</span><input type="file" name="trb_track_lyrics[__INDEX__]" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,text/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" disabled /><small>Obbligatorio quando il brano contiene un testo. Allega TXT, DOCX, ODT o RTF · massimo 5 MB.</small></label></div>
 			<fieldset class="trb-portal__credits"><legend>Crediti</legend><p class="trb-portal__field-help">Inserisci ogni persona separatamente e seleziona tutti i ruoli che si applicano.</p>
 				<div class="trb-contributor-group" data-contributor-group="writers"><h4>Autori e compositori <span>*</span></h4><p>Indica chi ha scritto il testo e chi ha composto la musica. La quota viene ripartita automaticamente in parti uguali fra le persone inserite.</p><div data-contributor-rows><div class="trb-contributor-row trb-contributor-row--writer"><input type="text" name="trb_tracks[__INDEX__][credits][writers][0][name]" required aria-label="Nome dell’autore o compositore" placeholder="Nome completo" /><fieldset class="trb-writer-roles"><legend>Ruolo <span>*</span></legend><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Lyricist" /> Autore</label><label><input type="checkbox" name="trb_tracks[__INDEX__][credits][writers][0][roles][]" value="Composer" /> Compositore</label></fieldset><label class="trb-writer-share">Quota diritto d’autore<input type="text" name="trb_tracks[__INDEX__][credits][writers][0][share]" value="100,00%" readonly tabindex="-1" data-writer-share /></label><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi autore/compositore</button></div>
-				<div class="trb-contributor-group" data-contributor-group="credits"><h4>Crediti <span>*</span></h4><p>Inserisci ogni ulteriore partecipante al brano e seleziona il ruolo Too Lost corrispondente. Aggiungi una riga distinta per ciascuna persona e per ciascun ruolo. <strong>Sono consentiti solo nominativi completi di persone o nomi di aziende realmente esistenti.</strong></p><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][credits][0][name]" required aria-label="Nome della persona accreditata" placeholder="Nome completo o nome d’arte" /><input type="search" name="trb_tracks[__INDEX__][credits][credits][0][role]" required aria-label="Ruolo nei crediti" list="trb-credit-roles" autocomplete="off" placeholder="Cerca ruolo" /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi credito</button></div>
+				<div class="trb-contributor-group" data-contributor-group="credits"><h4>Crediti <span>*</span></h4><p>Inserisci una riga per ogni partecipante e seleziona tutti i ruoli Too Lost applicabili alla stessa persona. <strong>Sono consentiti solo nominativi completi di persone o nomi di aziende realmente esistenti.</strong></p><div data-contributor-rows><div class="trb-contributor-row"><input type="text" name="trb_tracks[__INDEX__][credits][credits][0][name]" required aria-label="Nome della persona accreditata" placeholder="Nome completo o nome d’arte" /><input type="search" name="trb_tracks[__INDEX__][credits][credits][0][role]" required aria-label="Ruolo nei crediti" list="trb-credit-roles" autocomplete="off" placeholder="Cerca ruolo" /><input type="hidden" name="trb_tracks[__INDEX__][credits][credits][0][roles_json]" value="" data-credit-roles-json /><button type="button" data-remove-contributor hidden>Rimuovi</button></div></div><button type="button" class="trb-add-contributor" data-add-contributor>+ Aggiungi credito</button></div>
 			</fieldset>
 		</article>
 	</template>

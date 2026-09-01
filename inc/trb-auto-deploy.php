@@ -101,7 +101,7 @@ function trb_docy_deploy_verified_sha( $sha ) {
 	// the workflow green, so GitHub Actions retries instead of accepting a
 	// stale theme as deployed.
 	$verified = true;
-	foreach ( array( 'functions.php', 'inc/trb-auto-deploy.php', 'inc/trb-artist-portal.php', 'inc/trb-demo-automation.php' ) as $marker ) {
+	foreach ( array( 'functions.php', 'inc/trb-auto-deploy.php', 'inc/trb-artist-portal.php', 'inc/trb-demo-automation.php', 'assets/js/trb-release-upload.js', 'assets/js/trb-release-form-ux.js', 'assets/js/trb-release-form-fix.js' ) as $marker ) {
 		$remote_marker = wp_remote_get(
 			'https://raw.githubusercontent.com/trbrec/docy/' . rawurlencode( $sha ) . '/' . $marker,
 			array( 'timeout' => 30, 'headers' => array( 'User-Agent' => 'TRB-rec-WordPress-Auto-Deploy' ) )
@@ -201,6 +201,8 @@ function trb_docy_register_push_deploy_route() {
 			'callback'            => function() {
 				$status = get_option( TRB_DOCY_DEPLOY_STATUS_OPTION, array() );
 				$status = is_array( $status ) ? $status : array();
+				$draft_migration = get_option( 'trb_release_draft_schema_v2_migrated', array() );
+				$draft_migration = is_array( $draft_migration ) ? $draft_migration : array();
 				$discovery = get_option( 'trb_resource_recovery_mail_discovery', array() );
 				$discovery = is_array( $discovery ) ? $discovery : array();
 				$receipts = get_option( 'trb_resource_recovery_mail_receipts', array() );
@@ -233,6 +235,15 @@ function trb_docy_register_push_deploy_route() {
 						'release_qa' => $release_qa,
 						'release_matrix' => $release_matrix,
 						'cover_workflow' => $cover_workflow,
+						'release_draft_migration' => array(
+							'version'    => sanitize_text_field( (string) ( $draft_migration['version'] ?? '' ) ),
+							'checked_at' => absint( $draft_migration['at'] ?? 0 ),
+							'drafts'     => absint( $draft_migration['drafts'] ?? 0 ),
+							'affected'   => absint( $draft_migration['affected'] ?? 0 ),
+							'backed_up'  => absint( $draft_migration['backed_up'] ?? 0 ),
+							'migrated'   => absint( $draft_migration['migrated'] ?? 0 ),
+							'unresolved' => absint( $draft_migration['unresolved'] ?? 0 ),
+						),
 						'recovery_mail' => array(
 							'discovery' => sanitize_key( (string) ( $discovery['status'] ?? '' ) ),
 							'checked_at' => absint( $discovery['updated_at'] ?? 0 ),
