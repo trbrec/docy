@@ -1,11 +1,12 @@
 <?php
 /**
- * General, incremental Artist Portal -> CRM connector.
+ * General, incremental Artist Portal -> CRM extension connector.
  *
- * The portal remains authoritative for artist accounts, demo requests and
- * release practices.  The connector sends versioned snapshots and never moves
- * or deletes source files.  Delivery is at-least-once; the CRM acknowledges
- * every event and de-duplicates it by immutable event id and payload hash.
+ * The established release synchronizer remains the only owner of release
+ * reconciliation. This extension covers the missing artist-account and demo
+ * entities, sends versioned snapshots and never moves or deletes source files.
+ * Delivery is at-least-once; the CRM acknowledges every event and de-duplicates
+ * it by immutable event id and payload hash.
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -62,7 +63,7 @@ function trb_crm_connector_install() {
 	) {$charset};" );
 	update_option( 'trb_crm_connector_schema', TRB_CRM_CONNECTOR_SCHEMA, false );
 	if ( false === get_option( 'trb_crm_bootstrap_state', false ) ) {
-		update_option( 'trb_crm_bootstrap_state', array( 'phase' => 'artists', 'artist_page' => 1, 'release_page' => 1, 'demo_page' => 1, 'complete' => false ), false );
+		update_option( 'trb_crm_bootstrap_state', array( 'phase' => 'artists', 'artist_page' => 1, 'demo_page' => 1, 'complete' => false ), false );
 	}
 }
 add_action( 'init', 'trb_crm_connector_install', 2 );
@@ -123,58 +124,6 @@ function trb_crm_connector_profile_payload( $user_id ) {
 	) );
 }
 
-function trb_crm_connector_release_workflow( $release_id ) {
-	$pipeline = sanitize_key( (string) get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
-	if ( in_array( $pipeline, array( 'approved', 'contract_ready', 'contract_sent', 'signed', 'ready_for_distribution' ), true ) ) return 'ready';
-	if ( false !== strpos( $pipeline, 'scheduled' ) ) return 'scheduled';
-	if ( false !== strpos( $pipeline, 'published' ) || false !== strpos( $pipeline, 'distributed' ) ) return 'published';
-	if ( in_array( $pipeline, array( 'cancelled', 'rejected', 'security_rejected', 'trashed' ), true ) ) return 'cancelled';
-	if ( $pipeline && ! in_array( $pipeline, array( 'draft', 'created' ), true ) ) return 'in_progress';
-	return 'draft';
-}
-
-function trb_crm_connector_release_payload( $release_id ) {
-	$post = get_post( $release_id );
-	if ( ! $post || 'trb_release' !== $post->post_type ) return null;
-	$user = get_userdata( $post->post_author );
-	$files = array();
-	foreach ( (array) get_post_meta( $release_id, '_trb_release_files', true ) as $file ) {
-		if ( ! is_array( $file ) ) continue;
-		$files[] = array_intersect_key( trb_crm_connector_clean( $file ), array_flip( array( 'kind', 'track', 'name', 'filename', 'type', 'mime_type', 'size', 'byte_size', 'sha256', 'status', 'audio_status', 'security_status', 'pcloud_file_id', 'pcloud_id', 'pcloud_path', 'remote_path', 'uploaded_at' ) ) );
-	}
-	$meta = array(
-		'release_type' => get_post_meta( $release_id, '_trb_release_type', true ),
-		'release_state' => get_post_meta( $release_id, '_trb_release_state', true ),
-		'release_date' => get_post_meta( $release_id, '_trb_release_date', true ),
-		'original_release_date' => get_post_meta( $release_id, '_trb_release_original_date', true ),
-		'pipeline_status' => get_post_meta( $release_id, '_trb_release_pipeline_status', true ),
-		'release_status' => get_post_meta( $release_id, '_trb_release_status', true ),
-		'release_step' => get_post_meta( $release_id, '_trb_release_step', true ),
-		'contract_state' => get_post_meta( $release_id, '_trb_contract_state', true ),
-		'contract_number' => get_post_meta( $release_id, '_trb_contract_number', true ),
-		'tracks' => get_post_meta( $release_id, '_trb_release_tracks', true ),
-		'files' => $files,
-		'pcloud_archive' => get_post_meta( $release_id, '_trb_release_pcloud_archive', true ),
-		'rights_declarations' => get_post_meta( $release_id, '_trb_release_rights_declarations', true ),
-		'rights_documents' => get_post_meta( $release_id, '_trb_release_rights_documents', true ),
-		'technical_analysis' => get_post_meta( $release_id, '_trb_release_technical_analysis', true ),
-		'copyright_analysis' => get_post_meta( $release_id, '_trb_release_analysis_report', true ),
-		'analysis_decision' => get_post_meta( $release_id, '_trb_release_analysis_decision', true ),
-	);
-	return trb_crm_connector_clean( array(
-		'release_id' => (int) $release_id,
-		'user_id' => (int) $post->post_author,
-		'email' => $user ? strtolower( (string) $user->user_email ) : '',
-		'artist_name' => function_exists( 'trb_portal_artist_profile_value' ) ? trb_portal_artist_profile_value( 'artist_name', $post->post_author ) : ( $user ? $user->display_name : '' ),
-		'title' => (string) $post->post_title,
-		'post_status' => (string) $post->post_status,
-		'workflow_status' => trb_crm_connector_release_workflow( $release_id ),
-		'created_at' => (string) $post->post_date_gmt,
-		'updated_at' => (string) $post->post_modified_gmt,
-		'metadata' => $meta,
-	) );
-}
-
 function trb_crm_connector_demo_payload( $request_id ) {
 	$post = get_post( $request_id );
 	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
@@ -205,10 +154,9 @@ function trb_crm_connector_queue( $entity_type, $external_id, $payload = null, $
 	trb_crm_connector_install();
 	$entity_type = sanitize_key( $entity_type );
 	$external_id = sanitize_text_field( (string) $external_id );
-	if ( ! in_array( $entity_type, array( 'artist', 'release', 'demo' ), true ) || '' === $external_id ) return false;
+	if ( ! in_array( $entity_type, array( 'artist', 'demo' ), true ) || '' === $external_id ) return false;
 	if ( null === $payload && 'delete' !== $operation ) {
 		if ( 'artist' === $entity_type ) $payload = trb_crm_connector_profile_payload( absint( $external_id ) );
-		elseif ( 'release' === $entity_type ) $payload = trb_crm_connector_release_payload( absint( $external_id ) );
 		else $payload = trb_crm_connector_demo_payload( absint( $external_id ) );
 	}
 	if ( null === $payload ) return false;
@@ -218,7 +166,7 @@ function trb_crm_connector_queue( $entity_type, $external_id, $payload = null, $
 	$hash = hash( 'sha256', (string) $payload_json );
 	$event_id = hash( 'sha256', implode( '|', array( TRB_CRM_CONNECTOR_SOURCE, $entity_type, $external_id, $operation, $version, $hash ) ) );
 	// Keep the audit trail but deliver only the newest unsent snapshot for an
-	// entity. A release save can update many post-meta rows in one request.
+	// entity. A demo processing step can update many post-meta rows in one request.
 	$wpdb->query( $wpdb->prepare( "UPDATE " . trb_crm_connector_table() . " SET status='superseded' WHERE entity_type=%s AND external_id=%s AND status IN ('queued','retry')", $entity_type, $external_id ) );
 	$inserted = $wpdb->insert( trb_crm_connector_table(), array(
 		'event_id' => $event_id, 'entity_type' => $entity_type, 'external_id' => $external_id,
@@ -236,14 +184,12 @@ add_action( 'profile_update', 'trb_crm_connector_profile_saved', 50 );
 
 function trb_crm_connector_post_change( $post_id, $post ) {
 	if ( wp_is_post_revision( $post_id ) ) return;
-	if ( 'trb_release' === $post->post_type ) trb_crm_connector_queue( 'release', $post_id );
-	elseif ( 'trb_request' === $post->post_type && get_post_meta( $post_id, '_trb_demo_payload', true ) ) trb_crm_connector_queue( 'demo', $post_id );
+	if ( 'trb_request' === $post->post_type && get_post_meta( $post_id, '_trb_demo_payload', true ) ) trb_crm_connector_queue( 'demo', $post_id );
 }
 add_action( 'save_post', 'trb_crm_connector_post_change', 100, 2 );
 
 function trb_crm_connector_meta_change( $meta_id, $object_id, $meta_key ) {
-	if ( 0 === strpos( (string) $meta_key, '_trb_release_' ) || '_trb_contract_state' === $meta_key ) trb_crm_connector_queue( 'release', $object_id );
-	elseif ( 0 === strpos( (string) $meta_key, '_trb_demo_' ) ) trb_crm_connector_queue( 'demo', $object_id );
+	if ( 0 === strpos( (string) $meta_key, '_trb_demo_' ) ) trb_crm_connector_queue( 'demo', $object_id );
 }
 add_action( 'added_post_meta', 'trb_crm_connector_meta_change', 100, 3 );
 add_action( 'updated_post_meta', 'trb_crm_connector_meta_change', 100, 3 );
@@ -251,8 +197,7 @@ add_action( 'deleted_post_meta', 'trb_crm_connector_meta_change', 100, 3 );
 
 function trb_crm_connector_before_delete( $post_id, $post ) {
 	if ( ! $post ) return;
-	if ( 'trb_release' === $post->post_type ) trb_crm_connector_queue( 'release', $post_id, array( 'release_id' => (int) $post_id, 'title' => $post->post_title, 'updated_at' => current_time( 'mysql', true ) ), 'delete' );
-	elseif ( 'trb_request' === $post->post_type && get_post_meta( $post_id, '_trb_demo_payload', true ) ) trb_crm_connector_queue( 'demo', $post_id, array( 'request_id' => (int) $post_id, 'title' => $post->post_title, 'updated_at' => current_time( 'mysql', true ) ), 'delete' );
+	if ( 'trb_request' === $post->post_type && get_post_meta( $post_id, '_trb_demo_payload', true ) ) trb_crm_connector_queue( 'demo', $post_id, array( 'request_id' => (int) $post_id, 'title' => $post->post_title, 'updated_at' => current_time( 'mysql', true ) ), 'delete' );
 }
 add_action( 'before_delete_post', 'trb_crm_connector_before_delete', 10, 2 );
 
@@ -264,12 +209,7 @@ function trb_crm_connector_bootstrap( $limit = 50 ) {
 		$page = max( 1, absint( isset( $state['artist_page'] ) ? $state['artist_page'] : 1 ) );
 		$users = get_users( array( 'number' => $limit, 'paged' => $page, 'fields' => 'ids', 'orderby' => 'ID', 'order' => 'ASC' ) );
 		foreach ( $users as $user_id ) trb_crm_connector_queue( 'artist', $user_id );
-		if ( count( $users ) < $limit ) { $state['phase'] = 'releases'; $state['release_page'] = 1; } else $state['artist_page'] = $page + 1;
-	} elseif ( 'releases' === $phase ) {
-		$page = max( 1, absint( isset( $state['release_page'] ) ? $state['release_page'] : 1 ) );
-		$ids = get_posts( array( 'post_type' => 'trb_release', 'post_status' => array( 'publish','private','pending','draft','trash' ), 'posts_per_page' => $limit, 'paged' => $page, 'fields' => 'ids', 'orderby' => 'ID', 'order' => 'ASC' ) );
-		foreach ( $ids as $id ) trb_crm_connector_queue( 'release', $id );
-		if ( count( $ids ) < $limit ) { $state['phase'] = 'demos'; $state['demo_page'] = 1; } else $state['release_page'] = $page + 1;
+		if ( count( $users ) < $limit ) { $state['phase'] = 'demos'; $state['demo_page'] = 1; } else $state['artist_page'] = $page + 1;
 	} else {
 		$page = max( 1, absint( isset( $state['demo_page'] ) ? $state['demo_page'] : 1 ) );
 		$ids = get_posts( array( 'post_type' => 'trb_request', 'post_status' => 'any', 'posts_per_page' => $limit, 'paged' => $page, 'fields' => 'ids', 'meta_key' => '_trb_demo_payload', 'orderby' => 'ID', 'order' => 'ASC' ) );
@@ -331,7 +271,7 @@ function trb_crm_connector_health() {
 	$counts = array( 'queued' => 0, 'retry' => 0, 'acknowledged' => 0 );
 	if ( trb_crm_connector_table_exists() ) foreach ( $wpdb->get_results( "SELECT status,COUNT(*) total FROM {$table} GROUP BY status", ARRAY_A ) as $row ) $counts[ $row['status'] ] = (int) $row['total'];
 	$next = wp_next_scheduled( 'trb_crm_connector_tick' );
-	return array( 'ready' => ! empty( $settings['enabled'] ) && ! empty( $settings['endpoint'] ) && strlen( $settings['secret'] ) >= 32 && (bool) $next, 'schema_version' => TRB_CRM_CONNECTOR_SCHEMA, 'source' => TRB_CRM_CONNECTOR_SOURCE, 'endpoint_host' => wp_parse_url( $settings['endpoint'], PHP_URL_HOST ), 'secret_configured' => strlen( $settings['secret'] ) >= 32, 'schedule_seconds' => 300, 'next_run_at' => $next ? gmdate( 'c', $next ) : null, 'queue' => $counts, 'bootstrap' => get_option( 'trb_crm_bootstrap_state', array() ), 'last_run' => get_option( 'trb_crm_connector_last_run', array() ) );
+	return array( 'ready' => ! empty( $settings['enabled'] ) && ! empty( $settings['endpoint'] ) && strlen( $settings['secret'] ) >= 32 && (bool) $next, 'schema_version' => TRB_CRM_CONNECTOR_SCHEMA, 'source' => TRB_CRM_CONNECTOR_SOURCE, 'scope' => array( 'artist', 'demo' ), 'release_sync_owner' => 'trb-z-crm-release-sync-r26.php', 'endpoint_host' => wp_parse_url( $settings['endpoint'], PHP_URL_HOST ), 'secret_configured' => strlen( $settings['secret'] ) >= 32, 'schedule_seconds' => 300, 'next_run_at' => $next ? gmdate( 'c', $next ) : null, 'queue' => $counts, 'bootstrap' => get_option( 'trb_crm_bootstrap_state', array() ), 'last_run' => get_option( 'trb_crm_connector_last_run', array() ) );
 }
 
 function trb_crm_connector_table_exists() {
@@ -344,38 +284,3 @@ function trb_crm_connector_health_route() {
 	register_rest_route( 'trb/v1', '/crm-sync-health', array( 'methods' => WP_REST_Server::READABLE, 'callback' => function() { return rest_ensure_response( trb_crm_connector_health() ); }, 'permission_callback' => '__return_true' ) );
 }
 add_action( 'rest_api_init', 'trb_crm_connector_health_route' );
-
-function trb_crm_connector_verify_inbound( WP_REST_Request $request ) {
-	$settings = trb_crm_connector_settings();
-	$timestamp = (string) $request->get_header( 'x-trb-timestamp' );
-	$signature = (string) $request->get_header( 'x-trb-signature' );
-	return strlen( $settings['secret'] ) >= 32 && ctype_digit( $timestamp ) && abs( time() - (int) $timestamp ) <= 300 && 0 === strpos( $signature, 'sha256=' ) && hash_equals( 'sha256=' . hash_hmac( 'sha256', $timestamp . '.' . $request->get_body(), $settings['secret'] ), $signature );
-}
-
-function trb_crm_connector_release_mutation( WP_REST_Request $request ) {
-	if ( ! trb_crm_connector_verify_inbound( $request ) ) return new WP_Error( 'trb_sync_unauthorized', 'Non autorizzato', array( 'status' => 401 ) );
-	$release_id = absint( $request['id'] );
-	$post = get_post( $release_id );
-	if ( ! $post || 'trb_release' !== $post->post_type ) return new WP_Error( 'trb_sync_not_found', 'Release non trovata', array( 'status' => 404 ) );
-	$input = (array) $request->get_json_params();
-	$operation = sanitize_key( isset( $input['operation'] ) ? $input['operation'] : 'update_release' );
-	if ( ! empty( $input['expected_title'] ) && ! hash_equals( (string) $post->post_title, (string) $input['expected_title'] ) ) return new WP_Error( 'trb_sync_title_mismatch', 'Titolo non corrispondente', array( 'status' => 409 ) );
-	if ( 'delete_release' === $operation ) {
-		if ( empty( $input['confirm'] ) ) return new WP_Error( 'trb_sync_confirmation', 'Conferma mancante', array( 'status' => 422 ) );
-		if ( 'signed' === get_post_meta( $release_id, '_trb_contract_state', true ) ) return new WP_Error( 'trb_sync_protected', 'Una release con contratto firmato non può essere eliminata', array( 'status' => 409 ) );
-		wp_trash_post( $release_id );
-		return rest_ensure_response( array( 'ok' => true, 'deleted' => true, 'reference' => 'artist:' . $release_id ) );
-	}
-	$map = array( 'planned_release_date' => '_trb_release_date', 'catalog_number' => '_trb_release_catalog_number', 'upc' => '_trb_release_upc' );
-	foreach ( $map as $input_key => $meta_key ) if ( array_key_exists( $input_key, $input ) ) update_post_meta( $release_id, $meta_key, sanitize_text_field( (string) $input[ $input_key ] ) );
-	$workflow = sanitize_key( isset( $input['workflow_status'] ) ? $input['workflow_status'] : '' );
-	$pipeline_map = array( 'draft' => 'draft', 'in_progress' => 'manual_review', 'ready' => 'ready_for_distribution', 'scheduled' => 'scheduled', 'published' => 'published', 'cancelled' => 'cancelled' );
-	if ( isset( $pipeline_map[ $workflow ] ) ) update_post_meta( $release_id, '_trb_release_pipeline_status', $pipeline_map[ $workflow ] );
-	trb_crm_connector_queue( 'release', $release_id );
-	return rest_ensure_response( array( 'ok' => true, 'updated' => true, 'reference' => 'artist:' . $release_id ) );
-}
-
-function trb_crm_connector_inbound_routes() {
-	register_rest_route( 'trb-crm/v1', '/release/(?P<id>\d+)', array( array( 'methods' => array( 'POST','DELETE' ), 'callback' => 'trb_crm_connector_release_mutation', 'permission_callback' => '__return_true' ) ) );
-}
-add_action( 'rest_api_init', 'trb_crm_connector_inbound_routes' );
