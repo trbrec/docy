@@ -418,28 +418,190 @@ function trb_demo_cleanup_request( $request_id ) {
 }
 add_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' );
 
-/** Non-sensitive readiness endpoint used by deployment monitoring. */
+/** Build a non-sensitive service result for the public demo health endpoint. */
+function trb_demo_health_service_result( $configured, $response, $accepted_codes, $started_at ) {
+    $checked_at = time();
+    $result = array(
+        'configured' => (bool) $configured,
+        'status'     => $configured ? 'error' : 'not_configured',
+        'checked_at' => gmdate( 'c', $checked_at ),
+        'latency_ms' => max( 0, (int) round( ( microtime( true ) - $started_at ) * 1000 ) ),
+        'http_status'=> 0,
+        'error_code' => $configured ? 'UNKNOWN_ERROR' : 'NOT_CONFIGURED',
+    );
+    if ( ! $configured ) return $result;
+    if ( is_wp_error( $response ) ) {
+        $result['error_code'] = strtoupper( sanitize_key( $response->get_error_code() ) );
+        return $result;
+    }
+    $result['http_status'] = absint( wp_remote_retrieve_response_code( $response ) );
+    if ( in_array( $result['http_status'], $accepted_codes, true ) ) {
+        $result['status'] = 'operational';
+        $result['error_code'] = '';
+    } else {
+        $result['error_code'] = 'HTTP_' . $result['http_status'];
+    }
+    return $result;
+}
+
+/** Read-only queue snapshot. It never processes jobs, sends mail or touches files. */
+function trb_demo_health_queue_snapshot() {
+    $counts = array_fill_keys( array( 'queued', 'retry', 'ready', 'sent', 'manual_review', 'email_failed' ), 0 );
+    $problems = array_fill_keys( array( 'stalled', 'missing_files', 'missing_remote', 'sheet_unsynced' ), 0 );
+    $request_ids = get_posts( array(
+        'post_type'      => 'trb_request',
+        'post_status'    => array( 'publish', 'private', 'draft', 'pending' ),
+        'posts_per_page' => 200,
+        'fields'         => 'ids',
+        'orderby'        => 'modified',
+        'order'          => 'DESC',
+        'meta_query'     => array( array( 'key' => '_trb_demo_payload', 'compare' => 'EXISTS' ) ),
+    ) );
+    foreach ( $request_ids as $request_id ) {
+        $payload = get_post_meta( $request_id, '_trb_demo_payload', true );
+        if ( ! is_array( $payload ) ) continue;
+        $status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
+        if ( isset( $counts[ $status ] ) ) $counts[ $status ]++;
+        $submitted_at = ! empty( $payload['submitted_at'] ) ? strtotime( $payload['submitted_at'] ) : 0;
+        if ( in_array( $status, array( 'queued', 'retry' ), true ) && $submitted_at && $submitted_at < time() - 2 * HOUR_IN_SECONDS ) $problems['stalled']++;
+        if ( in_array( $status, array( 'queued', 'retry' ), true ) ) {
+            $has_file = false;
+            foreach ( array( 'text_file', 'audio_file' ) as $file_key ) {
+                if ( empty( $payload[ $file_key ] ) ) continue;
+                $has_file = true;
+                if ( ! trb_demo_local_path( $payload[ $file_key ] ) ) $problems['missing_files']++;
+            }
+            if ( ! $has_file ) $problems['missing_files']++;
+        }
+        $remote = get_post_meta( $request_id, '_trb_demo_remote', true );
+        $cleaned = (bool) get_post_meta( $request_id, '_trb_demo_cleaned_at', true );
+        if ( in_array( $status, array( 'ready', 'sent' ), true ) && ! $cleaned && empty( $remote['folder'] ) ) $problems['missing_remote']++;
+        if ( in_array( $status, array( 'ready', 'sent' ), true ) && ! get_post_meta( $request_id, '_trb_demo_sheet_synced', true ) ) $problems['sheet_unsynced']++;
+    }
+    return array( 'counts' => $counts, 'problems' => $problems );
+}
+
+/**
+ * Probe integrations without uploading data or consuming model tokens.
+ * OpenAI uses a model metadata GET; pCloud uses a depth-zero WebDAV PROPFIND.
+ */
+function trb_demo_refresh_operational_health() {
+    if ( get_transient( 'trb_demo_operational_health_lock' ) ) return;
+    set_transient( 'trb_demo_operational_health_lock', 1, 2 * MINUTE_IN_SECONDS );
+    $settings = trb_demo_settings();
+
+    $pcloud_configured = ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] );
+    $pcloud_started = microtime( true );
+    $pcloud = $pcloud_configured ? wp_remote_request(
+        trb_demo_remote_url( $settings['webdav_endpoint'], '/' ),
+        array(
+            'method'      => 'PROPFIND',
+            'timeout'     => 20,
+            'redirection' => 0,
+            'headers'     => array(
+                'Authorization' => 'Basic ' . base64_encode( $settings['pcloud_user'] . ':' . $settings['pcloud_pass'] ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+                'Depth'         => '0',
+            ),
+        )
+    ) : null;
+    $pcloud_result = trb_demo_health_service_result( $pcloud_configured, $pcloud, array( 200, 207, 301 ), $pcloud_started );
+
+    $openai_configured = ! empty( $settings['openai_key'] );
+    $openai_started = microtime( true );
+    $model = ! empty( $settings['text_model'] ) ? $settings['text_model'] : 'gpt-4.1-mini';
+    $openai = $openai_configured ? wp_remote_get(
+        'https://api.openai.com/v1/models/' . rawurlencode( $model ),
+        array(
+            'timeout' => 20,
+            'headers' => array( 'Authorization' => 'Bearer ' . $settings['openai_key'] ),
+        )
+    ) : null;
+    $openai_result = trb_demo_health_service_result( $openai_configured, $openai, array( 200 ), $openai_started );
+
+    $queue = trb_demo_health_queue_snapshot();
+    $snapshot = array(
+        'schema_version' => '1.1',
+        'checked_at'     => gmdate( 'c' ),
+        'checked_at_ts'  => time(),
+        'integrations'   => array(
+            'pcloud' => $pcloud_result,
+            'openai' => $openai_result,
+        ),
+        'queue'          => $queue,
+    );
+    update_option( 'trb_demo_operational_health', $snapshot, false );
+    delete_transient( 'trb_demo_operational_health_lock' );
+}
+add_action( 'trb_demo_refresh_operational_health', 'trb_demo_refresh_operational_health' );
+
+function trb_demo_health_cron_schedules( $schedules ) {
+    $schedules['trb_demo_fifteen_minutes'] = array( 'interval' => 15 * MINUTE_IN_SECONDS, 'display' => 'Ogni 15 minuti (health provini)' );
+    return $schedules;
+}
+add_filter( 'cron_schedules', 'trb_demo_health_cron_schedules' );
+add_action( 'init', function() {
+    if ( ! wp_next_scheduled( 'trb_demo_refresh_operational_health' ) ) {
+        wp_schedule_event( time() + MINUTE_IN_SECONDS, 'trb_demo_fifteen_minutes', 'trb_demo_refresh_operational_health' );
+    }
+} );
+
+/** Non-sensitive readiness endpoint used by deployment and recurring monitoring. */
 function trb_demo_health_payload() {
-	$settings = trb_demo_settings();
-	$window = function_exists( 'trb_portal_demo_delivery_window' ) ? trb_portal_demo_delivery_window() : array();
-	$payload = array(
-		'ready' => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ) && ! empty( $settings['openai_key'] ),
-		'delivery_window' => array(
-			'working_hours' => (int) ( $window['hours'] ?? 0 ),
-			'days'          => 'monday-saturday',
-			'opens_at'      => '08:30',
-			'closes_at'     => '18:30',
-			'timezone'      => trb_portal_demo_delivery_timezone()->getName(),
-		),
-	);
-	if ( current_user_can( 'manage_options' ) ) {
-		$payload['pcloud_configured'] = ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] );
-		$payload['openai_configured'] = ! empty( $settings['openai_key'] );
-		$payload['spreadsheet_configured'] = ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] );
-		$payload['processor_registered'] = has_action( 'trb_portal_process_demo', 'trb_demo_process_request' ) > 0;
-		$payload['cleanup_registered'] = has_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' ) > 0;
-	}
-	return $payload;
+    $settings = trb_demo_settings();
+    $window = function_exists( 'trb_portal_demo_delivery_window' ) ? trb_portal_demo_delivery_window() : array();
+    $snapshot = get_option( 'trb_demo_operational_health', array() );
+    $snapshot = is_array( $snapshot ) ? $snapshot : array();
+    $checked_at_ts = absint( $snapshot['checked_at_ts'] ?? 0 );
+    $max_age = 30 * MINUTE_IN_SECONDS;
+    $stale = ! $checked_at_ts || $checked_at_ts < time() - $max_age;
+    $integrations = is_array( $snapshot['integrations'] ?? null ) ? $snapshot['integrations'] : array();
+    $queue = is_array( $snapshot['queue'] ?? null ) ? $snapshot['queue'] : array( 'counts' => array(), 'problems' => array() );
+    $handlers = array(
+        'processor_registered' => has_action( 'trb_portal_process_demo', 'trb_demo_process_request' ) > 0,
+        'sender_registered'    => has_action( 'trb_portal_send_demo_review', 'trb_demo_send_review' ) > 0,
+        'cleanup_registered'   => has_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' ) > 0,
+        'watchdog_scheduled'   => (bool) wp_next_scheduled( 'trb_demo_recover_stalled_requests' ),
+        'health_scheduled'     => (bool) wp_next_scheduled( 'trb_demo_refresh_operational_health' ),
+    );
+    $configuration = array(
+        'pcloud'     => ! empty( $settings['webdav_endpoint'] ) && ! empty( $settings['pcloud_user'] ) && ! empty( $settings['pcloud_pass'] ),
+        'openai'     => ! empty( $settings['openai_key'] ),
+        'spreadsheet'=> ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] ),
+    );
+    $problem_total = array_sum( array_map( 'absint', is_array( $queue['problems'] ?? null ) ? $queue['problems'] : array() ) );
+    $failed_total = absint( $queue['counts']['manual_review'] ?? 0 ) + absint( $queue['counts']['email_failed'] ?? 0 );
+    $integrations_operational = isset( $integrations['pcloud']['status'], $integrations['openai']['status'] )
+        && 'operational' === $integrations['pcloud']['status']
+        && 'operational' === $integrations['openai']['status'];
+    $ready = ! in_array( false, $configuration, true ) && ! in_array( false, $handlers, true ) && $integrations_operational && ! $stale && 0 === $problem_total && 0 === $failed_total;
+    $status = ! $checked_at_ts ? 'pending' : ( $ready ? 'healthy' : 'degraded' );
+
+    $payload = array(
+        'schema_version' => '1.1',
+        'status'         => $status,
+        'ready'          => $ready,
+        'checked_at'     => $checked_at_ts ? gmdate( 'c', $checked_at_ts ) : null,
+        'freshness'      => array( 'stale' => $stale, 'max_age_seconds' => $max_age ),
+        'configuration'  => $configuration,
+        'integrations'   => $integrations,
+        'handlers'       => $handlers,
+        'queue'          => $queue,
+        'delivery_window' => array(
+            'working_hours' => (int) ( $window['hours'] ?? 0 ),
+            'days'          => 'monday-saturday',
+            'opens_at'      => '08:30',
+            'closes_at'     => '18:30',
+            'timezone'      => trb_portal_demo_delivery_timezone()->getName(),
+        ),
+    );
+    if ( current_user_can( 'manage_options' ) ) {
+        $payload['pcloud_configured'] = $configuration['pcloud'];
+        $payload['openai_configured'] = $configuration['openai'];
+        $payload['spreadsheet_configured'] = $configuration['spreadsheet'];
+        $payload['processor_registered'] = $handlers['processor_registered'];
+        $payload['cleanup_registered'] = $handlers['cleanup_registered'];
+    }
+    return $payload;
 }
 
 function trb_demo_register_health_route() {
