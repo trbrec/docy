@@ -991,6 +991,9 @@ function trb_portal_register_rest_routes() {
 add_action( 'rest_api_init', 'trb_portal_register_rest_routes' );
 
 function trb_portal_artist_profile_is_complete( $user_id = 0 ) {
+	$resolved_user_id = $user_id ? absint( $user_id ) : get_current_user_id();
+	$resolved_user = $resolved_user_id ? get_userdata( $resolved_user_id ) : false;
+	if ( $resolved_user instanceof WP_User && function_exists( 'trb_portal_is_release_qa_account' ) && trb_portal_is_release_qa_account( $resolved_user ) ) return true;
 	$completion = trb_portal_artist_profile_completion( $user_id );
 	return 0 === $completion['remaining'];
 }

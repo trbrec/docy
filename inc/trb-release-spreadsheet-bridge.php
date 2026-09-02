@@ -236,7 +236,7 @@ add_action( 'init', 'trb_release_bridge_seed_spotify4_qa_contract', 5 );
 
 /** Keep every contractual QA account ready to exercise its own release rule. */
 function trb_release_bridge_seed_release_group_qa_contracts() {
-	if ( '20260902.1' === get_option( 'trb_release_group_qa_contract_version' ) ) return;
+	if ( '20260902.2' === get_option( 'trb_release_group_qa_contract_version' ) ) return;
 	$fixtures = array(
 		'spotify1' => array( 'profile' => 'dds', 'term' => '01/01/26 - 31/12/26' ),
 		'spotify6' => array( 'profile' => 'ddb12', 'term' => '01/01/26 - 31/12/26' ),
@@ -259,6 +259,9 @@ function trb_release_bridge_seed_release_group_qa_contracts() {
 		}
 		update_user_meta( $user->ID, '_trb_artist_contract_profile', $fixture['profile'] );
 		if ( 'spotify9' === $login && function_exists( 'trb_portal_profiles' ) ) {
+			if ( '' === trim( (string) get_user_meta( $user->ID, '_trb_artist_artist_name', true ) ) ) {
+				update_user_meta( $user->ID, '_trb_artist_artist_name', 'Artista QA Collection 24' );
+			}
 			$profiles = trb_portal_profiles();
 			foreach ( $profiles as $profile ) {
 				foreach ( array_merge( array( $profile['role'] ?? '' ), (array) ( $profile['aliases'] ?? array() ) ) as $role ) {
@@ -269,7 +272,7 @@ function trb_release_bridge_seed_release_group_qa_contracts() {
 			if ( ! in_array( 'artista_d', (array) $user->roles, true ) ) $user->add_role( 'artista_d' );
 		}
 	}
-	update_option( 'trb_release_group_qa_contract_version', '20260902.1', false );
+	update_option( 'trb_release_group_qa_contract_version', '20260902.2', false );
 }
 add_action( 'init', 'trb_release_bridge_seed_release_group_qa_contracts', 6 );
 
