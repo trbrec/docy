@@ -2649,7 +2649,6 @@ function trb_portal_release_upload_error_message( $code ) {
 		'missing_lyrics'             => 'Il testo obbligatorio del brano non è arrivato al server.',
 		'invalid_lyrics'             => 'Il testo del brano deve essere un file TXT, DOCX, ODT o RTF valido fino a 5 MB.',
 		'audio_duration_mismatch'    => 'La durata indicata non coincide con il WAV: è ammessa una tolleranza massima di 1 secondo.',
-		'audio_standard_mismatch'    => 'Tutti i WAV della release devono avere la stessa frequenza di campionamento e profondità in bit.',
 		'missing_rights_document'    => 'La licenza obbligatoria non è arrivata al server.',
 		'invalid_rights_document'    => 'La licenza deve essere un PDF valido fino a 10 MB.',
 		'release_storage_failed'     => 'Il server non è riuscito a trasferire un file dall’area temporanea all’archivio privato.',
@@ -2735,7 +2734,6 @@ function trb_portal_start_release() {
 		$uploads_valid = trb_portal_validate_release_upload( $cover_reference, 'cover_reference' );
 	}
 	if ( ! is_wp_error( $uploads_valid ) ) $uploads_valid = trb_portal_validate_release_upload( $presentation, 'presentation' );
-	$release_audio_standard = null;
 	$rights_documents = array();
 	foreach ( $posted_tracks as $track_index => $posted_track ) {
 		$advisory = isset( $posted_track['advisory'] ) ? sanitize_key( $posted_track['advisory'] ) : '';
@@ -2749,11 +2747,6 @@ function trb_portal_start_release() {
 			$declared_seconds = ( isset( $posted_track['duration_minutes'] ) ? absint( $posted_track['duration_minutes'] ) : 0 ) * 60 + ( isset( $posted_track['duration_seconds'] ) ? absint( $posted_track['duration_seconds'] ) : 0 );
 			if ( is_wp_error( $wav_spec ) || $declared_seconds <= 0 || abs( $wav_spec['duration_seconds'] - $declared_seconds ) > 1.0 ) {
 				$uploads_valid = new WP_Error( 'audio_duration_mismatch' );
-			}
-			if ( ! is_wp_error( $wav_spec ) ) {
-				$current_standard = array( (int) $wav_spec['sample_rate'], (int) $wav_spec['bit_depth'] );
-				if ( null === $release_audio_standard ) $release_audio_standard = $current_standard;
-				elseif ( $release_audio_standard !== $current_standard ) $uploads_valid = new WP_Error( 'audio_standard_mismatch' );
 			}
 		}
 		$lyrics = trb_portal_release_upload_item( 'trb_track_lyrics', $track_index );
@@ -2872,6 +2865,10 @@ function trb_portal_start_release() {
 		)
 	);
 	if ( $release_id && ! is_wp_error( $release_id ) ) {
+		if ( trb_portal_is_release_qa_account() ) {
+			update_post_meta( $release_id, '_trb_release_qa_mode', '1' );
+			update_post_meta( $release_id, '_trb_release_qa_account', sanitize_user( wp_get_current_user()->user_login ) );
+		}
 		$release_files = array();
 		$stored_rights_documents = array();
 		if ( 'upload' === $cover_mode ) {
@@ -4093,11 +4090,22 @@ function trb_portal_is_demo_test_account( $user = null ) {
 	return in_array( strtolower( (string) $user->user_email ), $allowed, true );
 }
 
-/** Dedicated release QA identity used to exercise the unrestricted TRB flow. */
+/** Dedicated release QA identities used to exercise the unrestricted TRB flow. */
 function trb_portal_is_release_qa_account( $user = null ) {
 	$user = $user instanceof WP_User ? $user : wp_get_current_user();
 	if ( ! $user || ! $user->exists() ) return false;
-	return 'spotify4' === strtolower( (string) $user->user_login ) || 'spotify4@trbrec.com' === strtolower( (string) $user->user_email );
+	$login = strtolower( (string) $user->user_login );
+	$email = strtolower( (string) $user->user_email );
+	return in_array( $login, array( 'spotify4', 'spotify9' ), true )
+		|| in_array( $email, array( 'spotify4@trbrec.com', 'spotify9@trbrec.com' ), true );
+}
+
+/** True only for a release authored by a dedicated QA identity. */
+function trb_portal_release_is_qa( $release_id ) {
+	$release = get_post( absint( $release_id ) );
+	if ( ! $release || 'trb_release' !== $release->post_type ) return false;
+	$user = get_userdata( $release->post_author );
+	return $user instanceof WP_User && trb_portal_is_release_qa_account( $user );
 }
 
 /** Non-sensitive readiness report for the production release QA fixture. */
