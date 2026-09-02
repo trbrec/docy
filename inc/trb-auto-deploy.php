@@ -227,6 +227,7 @@ function trb_docy_register_push_deploy_route() {
 				$release_qa = function_exists( 'trb_portal_release_qa_health_payload' ) ? trb_portal_release_qa_health_payload() : array( 'account_found' => false, 'form_available' => false );
 				$release_matrix = function_exists( 'trb_portal_release_group_health_payload' ) ? trb_portal_release_group_health_payload() : array( 'healthy' => false, 'groups' => array() );
 				$cover_workflow = function_exists( 'trb_portal_cover_workflow_health_payload' ) ? trb_portal_cover_workflow_health_payload() : array( 'healthy' => false, 'profiles' => array(), 'handlers' => array() );
+				$demo_health = function_exists( 'trb_demo_health_payload' ) ? trb_demo_health_payload() : array( 'schema_version' => '1.1', 'status' => 'unavailable', 'ready' => false );
 				return rest_ensure_response(
 					array(
 						'sha'        => sanitize_text_field( (string) get_option( TRB_DOCY_DEPLOYED_SHA_OPTION, '' ) ),
@@ -235,6 +236,7 @@ function trb_docy_register_push_deploy_route() {
 						'release_qa' => $release_qa,
 						'release_matrix' => $release_matrix,
 						'cover_workflow' => $cover_workflow,
+						'demo_health' => $demo_health,
 						'release_draft_migration' => array(
 							'version'    => sanitize_text_field( (string) ( $draft_migration['version'] ?? '' ) ),
 							'checked_at' => absint( $draft_migration['at'] ?? 0 ),

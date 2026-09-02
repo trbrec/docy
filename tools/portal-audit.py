@@ -198,6 +198,12 @@ check("nuova finestra applicata anche alle demo non ancora inviate", "trb_demo_m
 check("invii e retry demo restano sempre nella finestra consentita", "trb_portal_demo_next_delivery_time" in PORTAL and DEMO.count("trb_portal_demo_next_delivery_time") >= 4)
 check("cleanup demo elimina copie locali e remote", "trb_demo_cleanup_request" in DEMO and "trb_demo_webdav_request( 'DELETE'" in DEMO)
 check("health check demo accessibile al monitor", "'/trb/v1/demo-health'" in DEPLOY)
+health_function = DEMO.split("function trb_demo_health_payload()", 1)[1].split("function trb_demo_register_health_route", 1)[0]
+check("health demo distingue configurazione e operativita", all(token in health_function for token in ("schema_version", "integrations_operational", "freshness", "queue", "degraded")))
+check("health demo usa probe periodiche senza richieste esterne pubbliche", "trb_demo_refresh_operational_health" in DEMO and "trb_demo_fifteen_minutes" in DEMO and "wp_remote_" not in health_function)
+check("probe OpenAI non consuma token", "https://api.openai.com/v1/models/" in DEMO and "trb_demo_health_service_result" in DEMO)
+check("probe pCloud non carica file", "'method'      => 'PROPFIND'" in DEMO and "'Depth'         => '0'" in DEMO)
+check("deploy status include health demo corrente", "'demo_health' => $demo_health" in DEPLOY)
 check("connettore generale incluso nel portale", "inc/trb-crm-connector.php" in FUNCTIONS and "TRB_CRM_CONNECTOR_SCHEMA" in CONNECTOR)
 check("connettore estende il sync a artisti e provini", all(token in CONNECTOR for token in ("'artist'", "'demo'", "trb_crm_connector_profile_payload", "trb_crm_connector_demo_payload")))
 check("connettore non duplica la sincronizzazione release esistente", "release_sync_owner" in CONNECTOR and "trb_crm_connector_release_payload" not in CONNECTOR and "trb_crm_connector_release_mutation" not in CONNECTOR)
