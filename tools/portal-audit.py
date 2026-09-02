@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Dependency-free release/permissions regression audit for the TRB portal."""
 
+
 from pathlib import Path
 import re
 import sys
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PORTAL = (ROOT / "inc/trb-artist-portal.php").read_text(encoding="utf-8")
@@ -25,11 +27,16 @@ RELEASE_JS = (ROOT / "assets/js/trb-release-upload.js").read_text(encoding="utf-
 RELEASE_UX = (ROOT / "assets/js/trb-release-form-ux.js").read_text(encoding="utf-8")
 RELEASE_TYPES = PORTAL.split("function trb_portal_release_types()", 1)[1].split("function trb_portal_release_type_matches_tracks", 1)[0]
 
+
 checks: list[tuple[str, bool]] = []
+
+
 
 
 def check(name: str, condition: bool) -> None:
     checks.append((name, bool(condition)))
+
+
 
 
 for profile, role in {
@@ -45,11 +52,13 @@ for profile, role in {
         re.S,
     )))
 
+
 for profile in ("ddb", "ddb_trb", "trb"):
     check(f"{profile} con release illimitate", bool(re.search(
         rf"'{profile}'\s*=>\s*array\([^\n]+?'release_limit'\s*=>\s*'unlimited'",
         PORTAL,
     )))
+
 
 check("DDS e DDB12 limitati esclusivamente dal profilo mensile", "array( 'dds', 'ddb12' )" in PORTAL)
 check("DDS escluso da pitching e playlist incluse", "'editorial_pitching'    => $service( 'Pitching editoriale', $development )" in PORTAL and "'owned_playlists'       => $service( 'Inserimento nelle playlist proprietarie', $development )" in PORTAL)
@@ -158,6 +167,7 @@ check("pratica Ruggia firmata dispone di backfill riepilogativo", "trb_owner_das
 check("recupero live Greta ritenta il contratto una sola volta", "trb_owner_dashboard_retry_feel_contract" in OWNER and "12275" in OWNER and "_trb_owner_live_recovery_20260825" in OWNER and "trb_release_bridge_dispatch( $release_id )" in OWNER)
 check("recupero live Ruggia riconcilia firma e foglio una sola volta", "trb_owner_dashboard_reconcile_ruggia_contract" in OWNER and "DDB20260031" in OWNER and "1061056" in OWNER and "trb_release_bridge_apply_callback" in OWNER)
 
+
 # Authentication, public pages and general security.
 check("reset password usa una pagina pubblica dedicata", "trb_portal_password_reset_url" in PORTAL and "/recupera-password/" in PORTAL)
 check("email WordPress manuali riscrivono il link di reset", "retrieve_password_message" in PORTAL and "trb_portal_use_branded_password_reset_link" in PORTAL)
@@ -171,6 +181,7 @@ check("registrazione protetta da captcha monouso e honeypot", "trb_portal_regist
 check("registrazioni restano in approvazione e vengono ripulite", "pw_new_user_approve" in PORTAL and "trb_portal_cleanup_pending_accounts" in PORTAL and "30 * DAY_IN_SECONDS" in PORTAL)
 check("segnalazioni protette da nonce honeypot tempo minimo e rate limit", "trb_support_nonce" in SUPPORT + PORTAL and "trb_support_website" in SUPPORT + PORTAL and "time() - $started < 3" in PORTAL and "trb_support_rate_" in PORTAL)
 check("segnalazioni archiviate e recapitate alla casella TRB", "wp_insert_post" in PORTAL and "wp_mail( 'info@trbrec.com'" in PORTAL and "admin_post_nopriv_trb_portal_submit_support" in PORTAL)
+
 
 # Demo evaluation pipeline.
 check("demo esclusa per DDS lato interfaccia e server", "if ( 'dds' === trb_portal_user_profile() ) return;" in PORTAL and "'forbidden'" in PORTAL)
@@ -241,7 +252,7 @@ check("durata e stile autori riallineati sui brani aggiunti", "new MutationObser
 check("ripristino automatico ha un budget globale di righe", "DRAFT_MAX_RESTORED_CONTRIBUTORS=600" in RELEASE_JS and "draftContributorTargets" in RELEASE_JS)
 check("bozze legacy convertono i ruoli senza perdita", "legacyTechnical" in RELEASE_JS and "unmappedTechnical" in RELEASE_JS and "trb_portal_normalize_release_draft_pairs" in PORTAL)
 check("migrazione bozze legacy richiede un backup verificato", "_trb_release_form_draft_backup_20260901" in PORTAL and "$backup_ready = metadata_exists" in PORTAL and "if ( ! $backup_ready )" in PORTAL and "trb_release_draft_schema_v2_migrated" in PORTAL)
-check("deploy verifica tutti gli script del modulo release", all(script in DEPLOY for script in ("'assets/js/trb-release-upload.js'", "'assets/js/trb-release-form-ux.js'", "'assets/js/trb-release-form-fix.js'")))
+check("deploy verifica i blob modificati dal commit richiesto", all(marker in DEPLOY for marker in ("function trb_docy_get_commit_files", "function trb_docy_local_git_blob_sha", "function trb_docy_verify_deployed_commit", "$file['sha']", "hash_equals( $blob, trb_docy_local_git_blob_sha( $local_file ) )")) and "foreach ( array( 'functions.php'" not in DEPLOY)
 check("health deploy espone solo i conteggi della migrazione bozze", "'release_draft_migration'" in DEPLOY and "'unresolved' => absint( $draft_migration['unresolved']" in DEPLOY)
 check("backend accetta ruoli multipli compatti", "isset( $row['roles_json'] )" in PORTAL and "json_decode( (string) $row['roles_json']" in PORTAL)
 check("riepilogo crediti esclude le righe tecniche", ".trb-contributor-row:not([data-shadow])" in RELEASE_JS and "data-credit-roles-json" in RELEASE_JS)
@@ -253,6 +264,7 @@ check("audit produzione include anomalie risorsa ancora aperte", "open_resource_
 check("monitor distingue lo spazio hosting dallo staging", "Spazio hosting (filesystem condiviso)" in RESOURCE and "Filesystem hosting utilizzato" in RESOURCE)
 check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-draft-normalizer.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-staging-cleanup.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
 check("deploy SiteGround non dichiara successo prima della verifica", "timeout-minutes: 12" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "for attempt in $(seq 1 36)" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "Deployment remains queued through the five-minute internal WordPress safety net.\"\n          else" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
+
 
 failed = [name for name, ok in checks if not ok]
 for name, ok in checks:
