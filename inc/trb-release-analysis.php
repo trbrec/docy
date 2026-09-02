@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.5' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.6' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -98,6 +98,12 @@ function trb_analysis_float( $pattern, $text ) {
 	return preg_match( $pattern, $text, $m ) ? (float) str_replace( ',', '.', $m[1] ) : null;
 }
 
+/** Return the final value emitted by a complete FFmpeg analysis. */
+function trb_analysis_last_float( $pattern, $text ) {
+	if ( ! preg_match_all( $pattern, $text, $matches ) || empty( $matches[1] ) ) return null;
+	return (float) str_replace( ',', '.', (string) end( $matches[1] ) );
+}
+
 /** Decode the complete WAV and calculate measurements from actual audio samples. */
 function trb_analysis_inspect_wav( $path ) {
 	$ffprobe = trb_analysis_binary( 'ffprobe' );
@@ -121,9 +127,9 @@ function trb_analysis_inspect_wav( $path ) {
 	$tail = trb_analysis_exec( escapeshellarg( $ffmpeg ) . ' -hide_banner -nostats -ss ' . escapeshellarg( (string) $tail_start ) . ' -i ' . escapeshellarg( $path ) . ' -af astats=reset=0 -f null -' );
 	$duration = isset( $data['format']['duration'] ) ? (float) $data['format']['duration'] : (float) ( $stream['duration'] ?? 0 );
 	$bits = (int) ( $stream['bits_per_raw_sample'] ?? $stream['bits_per_sample'] ?? 0 );
-	$integrated = trb_analysis_float( '/\bI:\s*(-?[0-9.]+)\s*LUFS/', $text );
-	$lra = trb_analysis_float( '/\bLRA:\s*([0-9.]+)\s*LU/', $text );
-	$true_peak = trb_analysis_float( '/\bPeak:\s*(-?[0-9.]+)\s*dBFS/', $text );
+	$integrated = trb_analysis_last_float( '/\bI:\s*(-?[0-9.]+)\s*LUFS/', $text );
+	$lra = trb_analysis_last_float( '/\bLRA:\s*([0-9.]+)\s*LU/', $text );
+	$true_peak = trb_analysis_last_float( '/\bPeak:\s*(-?[0-9.]+)\s*dBFS/', $text );
 	$peak_level = trb_analysis_float( '/Peak level dB:\s*(-?[0-9.]+)/', $text );
 	$rms_level = trb_analysis_float( '/RMS level dB:\s*(-?[0-9.]+)/', $text );
 	$nans = trb_analysis_float( '/Number of NaNs:\s*([0-9.]+)/', $text );
@@ -288,6 +294,10 @@ function trb_analysis_queue_artist_copyright_email( $release_id, $decision ) {
 /** Queue one consolidated, idempotent administrator email for a release requiring attention. */
 function trb_analysis_queue_admin_review_email( $release_id, $stage, $payload ) {
 	if ( ! function_exists( 'trb_resource_queue_email' ) ) return;
+	if ( function_exists( 'trb_portal_release_is_qa' ) && trb_portal_release_is_qa( $release_id ) ) {
+		update_post_meta( $release_id, '_trb_qa_admin_email_suppressed', sanitize_key( $stage ) );
+		return;
+	}
 	$release = get_post( $release_id );
 	if ( ! $release || 'trb_release' !== $release->post_type ) return;
 
@@ -360,6 +370,8 @@ function trb_analysis_excerpt_window( $path, $maximum_seconds = 90 ) {
 function trb_analysis_run_technical( $release_id ) {
 	$tracks = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
 	$files = (array) get_post_meta( $release_id, '_trb_release_files', true );
+	$release_state = sanitize_key( get_post_meta( $release_id, '_trb_release_state', true ) );
+	$uniformity_required = 'previously_released' !== $release_state;
 	$results = array(); $reference = null; $release_errors = array(); $release_warnings = array();
 	update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_analysis_running' );
 	foreach ( $files as $file ) {
@@ -375,13 +387,13 @@ function trb_analysis_run_technical( $release_id ) {
 		$declared = function_exists( 'trb_portal_release_track_duration_seconds' ) && isset( $tracks[ $index ] ) ? trb_portal_release_track_duration_seconds( $tracks[ $index ] ) : 0;
 		$findings = trb_analysis_track_findings( $spec, $tracks[ $index ] ?? array(), $declared );
 		if ( null === $reference ) $reference = array( 'sample_rate' => $spec['sample_rate'], 'bit_depth' => $spec['bit_depth'] );
-		elseif ( $reference['sample_rate'] !== $spec['sample_rate'] || $reference['bit_depth'] !== $spec['bit_depth'] ) $findings['errors'][] = 'RELEASE_AUDIO_INCONSISTENT';
+		elseif ( $uniformity_required && ( $reference['sample_rate'] !== $spec['sample_rate'] || $reference['bit_depth'] !== $spec['bit_depth'] ) ) $findings['errors'][] = 'RELEASE_AUDIO_INCONSISTENT';
 		$results[ $index ] = array( 'status' => empty( $findings['errors'] ) ? ( empty( $findings['warnings'] ) ? 'passed' : 'warning' ) : 'failed', 'declared_seconds' => $declared, 'sha256' => hash_file( 'sha256', $path ), 'spec' => $spec, 'findings' => $findings );
 		$release_errors = array_merge( $release_errors, $findings['errors'] );
 		$release_warnings = array_merge( $release_warnings, $findings['warnings'] );
 	}
 	$status = $release_errors ? 'failed' : ( $release_warnings ? 'warning' : 'passed' );
-	$payload = array( 'version' => TRB_RELEASE_ANALYSIS_VERSION, 'status' => $status, 'tracks' => $results, 'errors' => array_values( array_unique( $release_errors ) ), 'warnings' => array_values( array_unique( $release_warnings ) ), 'completed_at' => time() );
+	$payload = array( 'version' => TRB_RELEASE_ANALYSIS_VERSION, 'status' => $status, 'release_state' => $release_state, 'uniformity_required' => $uniformity_required, 'tracks' => $results, 'errors' => array_values( array_unique( $release_errors ) ), 'warnings' => array_values( array_unique( $release_warnings ) ), 'completed_at' => time() );
 	update_post_meta( $release_id, '_trb_release_technical_analysis', $payload );
 	if ( 'failed' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_error' );
 	elseif ( 'warning' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_review' );
