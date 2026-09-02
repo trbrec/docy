@@ -63,6 +63,102 @@ function trb_docy_store_deploy_status( $state, $message, $sha = '' ) {
 	);
 }
 
+/** Return the files changed by one exact GitHub commit. */
+function trb_docy_get_commit_files( $sha ) {
+	$files = array();
+
+	for ( $page = 1; $page <= 10; $page++ ) {
+		$github = wp_remote_get(
+			'https://api.github.com/repos/trbrec/docy/commits/' . rawurlencode( $sha ) . '?per_page=100&page=' . $page,
+			array(
+				'timeout' => 20,
+				'headers' => array(
+					'Accept'     => 'application/vnd.github+json',
+					'User-Agent' => 'TRB-rec-WordPress-Auto-Deploy',
+				),
+			)
+		);
+
+		if ( is_wp_error( $github ) || 200 !== wp_remote_retrieve_response_code( $github ) ) {
+			return new WP_Error( 'trb_commit_manifest_unavailable', 'Impossibile verificare il manifest del commit GitHub.', array( 'status' => 503 ) );
+		}
+
+		$data  = json_decode( wp_remote_retrieve_body( $github ), true );
+		if ( 1 === $page && ( ! isset( $data['sha'] ) || ! hash_equals( $sha, strtolower( (string) $data['sha'] ) ) ) ) {
+			return new WP_Error( 'trb_commit_manifest_invalid', 'GitHub ha restituito un manifest diverso dal commit richiesto.', array( 'status' => 503 ) );
+		}
+		$batch = is_array( $data['files'] ?? null ) ? $data['files'] : array();
+		$files = array_merge( $files, $batch );
+
+		if ( count( $batch ) < 100 ) {
+			return $files;
+		}
+	}
+
+	return new WP_Error( 'trb_commit_manifest_too_large', 'Il commit modifica troppi file per una verifica sicura.', array( 'status' => 503 ) );
+}
+
+/** Calculate the Git blob identifier for a local file without loading it in memory. */
+function trb_docy_local_git_blob_sha( $file ) {
+	$size   = filesize( $file );
+	$handle = fopen( $file, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+	if ( false === $size || false === $handle ) {
+		if ( is_resource( $handle ) ) {
+			fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		}
+		return '';
+	}
+
+	$context = hash_init( 'sha1' );
+	hash_update( $context, 'blob ' . $size . "\0" );
+	hash_update_stream( $context, $handle );
+	fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+	return hash_final( $context );
+}
+
+/** Verify the deployed tree against the blobs changed by the requested commit. */
+function trb_docy_verify_deployed_commit( $sha ) {
+	$files = trb_docy_get_commit_files( $sha );
+	if ( is_wp_error( $files ) ) {
+		return $files;
+	}
+
+	$theme_root = trailingslashit( get_template_directory() );
+	$checked    = 0;
+	foreach ( $files as $file ) {
+		$path   = isset( $file['filename'] ) ? (string) $file['filename'] : '';
+		$status = isset( $file['status'] ) ? sanitize_key( $file['status'] ) : '';
+		$blob   = isset( $file['sha'] ) ? strtolower( (string) $file['sha'] ) : '';
+
+		$segments = explode( '/', str_replace( '\\', '/', $path ) );
+		if ( '' === $path || '/' === substr( $path, 0, 1 ) || false !== strpos( $path, '\\' ) || in_array( '..', $segments, true ) || in_array( '', $segments, true ) ) {
+			return new WP_Error( 'trb_commit_manifest_invalid', 'Il manifest del commit contiene un percorso non valido.', array( 'status' => 503 ) );
+		}
+
+		// Repository automation is not part of the WordPress theme installed by
+		// Deployer for Git, so workflow-only changes are intentionally ignored.
+		if ( 0 === strpos( $path, '.github/' ) ) {
+			continue;
+		}
+
+		$local_file = $theme_root . $path;
+		if ( 'removed' === $status ) {
+			if ( file_exists( $local_file ) ) {
+				return new WP_Error( 'trb_deploy_stale', 'Un file rimosso dal commit è ancora presente nel tema.', array( 'status' => 503 ) );
+			}
+			$checked++;
+			continue;
+		}
+
+		if ( ! preg_match( '/^[a-f0-9]{40}$/', $blob ) || ! is_file( $local_file ) || ! hash_equals( $blob, trb_docy_local_git_blob_sha( $local_file ) ) ) {
+			return new WP_Error( 'trb_deploy_stale', 'I file locali non corrispondono ancora al commit richiesto.', array( 'status' => 503 ) );
+		}
+		$checked++;
+	}
+
+	return array( 'verified' => true, 'checked' => $checked );
+}
+
 /** Deploy one already verified commit through Deployer for Git. */
 function trb_docy_deploy_verified_sha( $sha ) {
 	if ( get_transient( 'trb_docy_auto_deploy_lock' ) ) {
@@ -97,25 +193,12 @@ function trb_docy_deploy_verified_sha( $sha ) {
 	}
 
 	// Deployer for Git can report success before its GitHub archive cache has
-	// caught up with main. Verify a commit-specific source file before marking
-	// the workflow green, so GitHub Actions retries instead of accepting a
-	// stale theme as deployed.
-	$verified = true;
-	foreach ( array( 'functions.php', 'inc/trb-auto-deploy.php', 'inc/trb-artist-portal.php', 'inc/trb-demo-automation.php', 'assets/js/trb-release-upload.js', 'assets/js/trb-release-form-ux.js', 'assets/js/trb-release-form-fix.js' ) as $marker ) {
-		$remote_marker = wp_remote_get(
-			'https://raw.githubusercontent.com/trbrec/docy/' . rawurlencode( $sha ) . '/' . $marker,
-			array( 'timeout' => 30, 'headers' => array( 'User-Agent' => 'TRB-rec-WordPress-Auto-Deploy' ) )
-		);
-		$local_marker = trailingslashit( get_template_directory() ) . $marker;
-		$verified = $verified
-			&& ! is_wp_error( $remote_marker )
-			&& 200 === wp_remote_retrieve_response_code( $remote_marker )
-			&& is_file( $local_marker )
-			&& hash_equals( hash( 'sha256', wp_remote_retrieve_body( $remote_marker ) ), hash_file( 'sha256', $local_marker ) );
-		if ( ! $verified ) break;
-	}
-	if ( ! $verified ) {
-		$message = 'Deployer ha restituito successo, ma i file locali non corrispondono ancora al commit richiesto.';
+	// caught up with main. Verify only the blobs changed by the requested
+	// commit: static marker files can legitimately differ after an emergency
+	// production hotfix and used to produce false deployment failures.
+	$verification = trb_docy_verify_deployed_commit( $sha );
+	if ( is_wp_error( $verification ) ) {
+		$message = $verification->get_error_message();
 		trb_docy_store_deploy_status( 'error', $message, $sha );
 		delete_transient( 'trb_docy_auto_deploy_lock' );
 		return new WP_Error( 'trb_deploy_stale', $message, array( 'status' => 503 ) );
