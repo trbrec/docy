@@ -236,6 +236,8 @@ check("ripristino bozza non azzera valori hidden predefiniti", "field.type==='hi
 check("nuove bozze non generano indici tecnici sparsi", "9000+Number" not in RELEASE_UX and "data-credit-roles-json" in RELEASE_UX and "[roles_json]" in PORTAL)
 check("selettori ruolo sono creati solo quando l'artista li apre", "row.trbSetCreditRoles=setRoles" in RELEASE_UX and "function build(){if(built)return" in RELEASE_UX)
 check("observer crediti ascolta solo nuove righe e non il proprio sottoalbero", "new MutationObserver(scan).observe(rows,{childList:true})" in RELEASE_UX and "observe(group,{childList:true,subtree:true})" not in RELEASE_UX)
+check("widget crediti inizializzato anche sui brani aggiunti", "new MutationObserver(scanGroups).observe(tracks,{childList:true})" in RELEASE_UX)
+check("durata e stile autori riallineati sui brani aggiunti", "new MutationObserver(scan).observe(tracks,{childList:true})" in RELEASE_UX and "function dynamicTracks(form)" in RELEASE_UX)
 check("ripristino automatico ha un budget globale di righe", "DRAFT_MAX_RESTORED_CONTRIBUTORS=600" in RELEASE_JS and "draftContributorTargets" in RELEASE_JS)
 check("bozze legacy convertono i ruoli senza perdita", "legacyTechnical" in RELEASE_JS and "unmappedTechnical" in RELEASE_JS and "trb_portal_normalize_release_draft_pairs" in PORTAL)
 check("migrazione bozze legacy richiede un backup verificato", "_trb_release_form_draft_backup_20260901" in PORTAL and "$backup_ready = metadata_exists" in PORTAL and "if ( ! $backup_ready )" in PORTAL and "trb_release_draft_schema_v2_migrated" in PORTAL)
