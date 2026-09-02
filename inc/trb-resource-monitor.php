@@ -138,10 +138,18 @@ function trb_resource_resolve_acr_track_events( $release_id, $track ) {
 function trb_resource_queue_recipient_email( $event_key, $recipient, $subject, $body, $priority = false, $headers = array() ) {
 	global $wpdb;
 	$table = trb_resource_tables()['notifications'];
+	$recipient = sanitize_email( $recipient );
 	$headers = is_array( $headers ) ? array_values( array_filter( array_map( 'sanitize_text_field', $headers ) ) ) : array();
+	if ( in_array( strtolower( $recipient ), array( 'spotify4@trbrec.com', 'spotify9@trbrec.com' ), true ) ) {
+		$wpdb->query( $wpdb->prepare(
+			"INSERT IGNORE INTO $table (event_key,recipient,subject,body,headers,status,attempts,last_error,created_at,updated_at) VALUES (%s,%s,%s,%s,%s,'cancelled_qa',0,'qa_recipient_suppressed',%s,%s)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			sanitize_text_field( $event_key ), $recipient, ( $priority ? '[PRIORITÀ] ' : '' ) . sanitize_text_field( $subject ), wp_kses_post( $body ), wp_json_encode( $headers ), trb_resource_now(), trb_resource_now()
+		) );
+		return;
+	}
 	$wpdb->query( $wpdb->prepare(
 		"INSERT IGNORE INTO $table (event_key,recipient,subject,body,headers,status,attempts,created_at,updated_at) VALUES (%s,%s,%s,%s,%s,'pending',0,%s,%s)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		sanitize_text_field( $event_key ), sanitize_email( $recipient ), ( $priority ? '[PRIORITÀ] ' : '' ) . sanitize_text_field( $subject ), wp_kses_post( $body ), wp_json_encode( $headers ), trb_resource_now(), trb_resource_now()
+		sanitize_text_field( $event_key ), $recipient, ( $priority ? '[PRIORITÀ] ' : '' ) . sanitize_text_field( $subject ), wp_kses_post( $body ), wp_json_encode( $headers ), trb_resource_now(), trb_resource_now()
 	) );
 	if ( ! wp_next_scheduled( 'trb_resource_process_notifications' ) ) wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'trb_resource_process_notifications' );
 }

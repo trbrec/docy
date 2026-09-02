@@ -236,13 +236,14 @@ add_action( 'init', 'trb_release_bridge_seed_spotify4_qa_contract', 5 );
 
 /** Keep every contractual QA account ready to exercise its own release rule. */
 function trb_release_bridge_seed_release_group_qa_contracts() {
-	if ( '20260824.2' === get_option( 'trb_release_group_qa_contract_version' ) ) return;
+	if ( '20260902.1' === get_option( 'trb_release_group_qa_contract_version' ) ) return;
 	$fixtures = array(
 		'spotify1' => array( 'profile' => 'dds', 'term' => '01/01/26 - 31/12/26' ),
 		'spotify6' => array( 'profile' => 'ddb12', 'term' => '01/01/26 - 31/12/26' ),
 		'spotify2' => array( 'profile' => 'ddb', 'term' => '01/01/26 - 31/12/26' ),
 		'spotify3' => array( 'profile' => 'ddb_trb', 'term' => '01/01/26 - 31/12/27' ),
 		'spotify4' => array( 'profile' => 'trb', 'term' => '01/01/26 - INFINITO' ),
+		'spotify9' => array( 'profile' => 'trb', 'term' => '01/01/26 - INFINITO' ),
 	);
 	foreach ( $fixtures as $login => $fixture ) {
 		$user = get_user_by( 'login', $login );
@@ -257,8 +258,18 @@ function trb_release_bridge_seed_release_group_qa_contracts() {
 			update_user_meta( $user->ID, '_trb_artist_contract_term', $fixture['term'] );
 		}
 		update_user_meta( $user->ID, '_trb_artist_contract_profile', $fixture['profile'] );
+		if ( 'spotify9' === $login && function_exists( 'trb_portal_profiles' ) ) {
+			$profiles = trb_portal_profiles();
+			foreach ( $profiles as $profile ) {
+				foreach ( array_merge( array( $profile['role'] ?? '' ), (array) ( $profile['aliases'] ?? array() ) ) as $role ) {
+					$role = sanitize_key( $role );
+					if ( $role && 'artista_d' !== $role && in_array( $role, (array) $user->roles, true ) ) $user->remove_role( $role );
+				}
+			}
+			if ( ! in_array( 'artista_d', (array) $user->roles, true ) ) $user->add_role( 'artista_d' );
+		}
 	}
-	update_option( 'trb_release_group_qa_contract_version', '20260824.2', false );
+	update_option( 'trb_release_group_qa_contract_version', '20260902.1', false );
 }
 add_action( 'init', 'trb_release_bridge_seed_release_group_qa_contracts', 6 );
 
@@ -706,9 +717,15 @@ add_action( 'added_post_meta', 'trb_release_bridge_meta_written', 10, 4 );
 add_action( 'updated_post_meta', 'trb_release_bridge_meta_written', 10, 4 );
 
 function trb_release_bridge_queue_dispatch( $release_id ) {
-    $release_id = absint( $release_id );
-    if ( 'trb_release' !== get_post_type( $release_id ) || 'approved' !== get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) return;
-    $current = get_post_meta( $release_id, '_trb_contract_state', true );
+	$release_id = absint( $release_id );
+	if ( 'trb_release' !== get_post_type( $release_id ) || 'approved' !== get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) return;
+	if ( function_exists( 'trb_portal_release_is_qa' ) && trb_portal_release_is_qa( $release_id ) ) {
+		update_post_meta( $release_id, '_trb_contract_state', 'qa_simulated' );
+		update_post_meta( $release_id, '_trb_contract_qa_simulated_at', current_time( 'mysql', true ) );
+		delete_post_meta( $release_id, '_trb_contract_error' );
+		return;
+	}
+	$current = get_post_meta( $release_id, '_trb_contract_state', true );
     if ( in_array( $current, array( 'contract_sent', 'signed' ), true ) ) return;
     update_post_meta( $release_id, '_trb_contract_state', 'preparing' );
     if ( ! wp_next_scheduled( 'trb_release_bridge_dispatch', array( $release_id ) ) ) wp_schedule_single_event( time() + 10, 'trb_release_bridge_dispatch', array( $release_id ) );
@@ -1090,6 +1107,12 @@ function trb_release_bridge_notify_spreadsheet_signed( $release_id ) {
 }
 
 function trb_release_bridge_dispatch( $release_id ) {
+	if ( function_exists( 'trb_portal_release_is_qa' ) && trb_portal_release_is_qa( $release_id ) ) {
+		update_post_meta( $release_id, '_trb_contract_state', 'qa_simulated' );
+		update_post_meta( $release_id, '_trb_contract_qa_simulated_at', current_time( 'mysql', true ) );
+		delete_post_meta( $release_id, '_trb_contract_error' );
+		return;
+	}
     $current = get_post_meta( $release_id, '_trb_contract_state', true );
     if ( in_array( $current, array( 'contract_sent', 'signed' ), true ) ) return;
     if ( 'approved' !== get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) { update_post_meta($release_id,'_trb_contract_state','waiting_analysis'); return; }
