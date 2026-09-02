@@ -231,6 +231,10 @@ function trb_analysis_admin_technical_email_rows( $payload ) {
 
 /** Notify the artist only when a new WAV hash has an objective blocking error. */
 function trb_analysis_queue_artist_correction_email( $release_id, $payload ) {
+	if ( function_exists( 'trb_portal_release_is_qa' ) && trb_portal_release_is_qa( $release_id ) ) {
+		update_post_meta( $release_id, '_trb_qa_artist_email_suppressed', 'technical' );
+		return;
+	}
 	if ( ! function_exists( 'trb_resource_queue_recipient_email' ) ) return;
 	$release = get_post( $release_id );
 	$user = $release ? get_userdata( $release->post_author ) : false;
@@ -252,6 +256,10 @@ function trb_analysis_queue_artist_correction_email( $release_id, $payload ) {
 
 /** Notify the artist, with Andrea in CC, only after a real rights finding. */
 function trb_analysis_queue_artist_copyright_email( $release_id, $decision ) {
+	if ( function_exists( 'trb_portal_release_is_qa' ) && trb_portal_release_is_qa( $release_id ) ) {
+		update_post_meta( $release_id, '_trb_qa_artist_email_suppressed', 'copyright' );
+		return;
+	}
 	if ( ! function_exists( 'trb_resource_queue_recipient_email' ) ) return;
 	$semaphore = sanitize_key( $decision['semaphore'] ?? '' );
 	if ( ! in_array( $semaphore, array( 'yellow', 'red' ), true ) ) return;
