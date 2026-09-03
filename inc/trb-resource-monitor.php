@@ -5,7 +5,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 
-define( 'TRB_RESOURCE_MONITOR_VERSION', '1.2.2' );
+define( 'TRB_RESOURCE_MONITOR_VERSION', '1.2.3' );
 
 
 function trb_resource_settings() {
@@ -17,7 +17,7 @@ function trb_resource_settings() {
 		'acr_excerpt_seconds' => 90, 'acr_excerpt_offset' => 30,
 		'pcloud_api_host' => 'https://eapi.pcloud.com', 'pcloud_auth_token' => '', 'pcloud_safety_bytes' => 1073741824,
 		'pcloud_warning_1' => 70, 'pcloud_warning_2' => 85, 'pcloud_warning_3' => 95, 'pcloud_block' => 98,
-		'temp_warning_1' => 70, 'temp_warning_2' => 85, 'temp_block' => 95, 'temp_file_multiplier' => 2.5,
+		'temp_warning_1' => 70, 'temp_warning_2' => 85, 'temp_block' => 95, 'temp_file_multiplier' => 2.5, 'temp_min_free_bytes' => 5368709120,
 		'email_daily_limit' => 200,
 	);
 	$saved = get_option( 'trb_resource_monitor_settings', array() );
@@ -233,7 +233,7 @@ function trb_resource_storage_snapshot() {
 	$path = ! empty( $uploads['basedir'] ) ? $uploads['basedir'] : ABSPATH;
 	$free = @disk_free_space( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 	$total = @disk_total_space( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-	return array( 'free' => false === $free ? null : (float) $free, 'total' => false === $total ? null : (float) $total, 'used_percent' => $total ? ( ( $total - $free ) / $total ) * 100 : null );
+	return array( 'free' => false === $free ? null : (float) $free, 'total' => false === $total ? null : (float) $total, 'used_percent' => $total ? ( ( $total - $free ) / $total ) * 100 : null, 'scope' => 'shared-filesystem' );
 }
 
 
@@ -251,16 +251,17 @@ function trb_resource_temp_storage_guard( $incoming_bytes ) {
 	$settings = trb_resource_settings();
 	$snapshot = trb_resource_storage_snapshot();
 	$required = (float) $incoming_bytes * max( 1, (float) $settings['temp_file_multiplier'] );
-	if ( null === $snapshot['free'] || null === $snapshot['used_percent'] ) return new WP_Error( 'TEMP_STORAGE_UNVERIFIED' );
-	if ( $snapshot['used_percent'] >= (float) $settings['temp_block'] || $snapshot['free'] < $required ) {
+	if ( null === $snapshot['free'] ) return new WP_Error( 'TEMP_STORAGE_UNVERIFIED' );
+	if ( $snapshot['free'] < $required ) {
 		trb_resource_event( 'capacity', 'storage', 'critical', 'Spazio hosting insufficiente per lo staging temporaneo.', $snapshot + array( 'required' => $required ) );
 		trb_resource_queue_email( 'storage-critical-' . wp_date( 'YmdH' ), 'Spazio hosting quasi esaurito', 'I nuovi WAV sono stati fermati prima del caricamento. Verificare lo spazio del filesystem e le pratiche in attesa.', true );
 		return new WP_Error( 'TEMP_STORAGE_LIMIT_REACHED' );
 	}
 	trb_resource_resolve_event( 'capacity', 'storage' );
-	if ( $snapshot['used_percent'] >= (float) $settings['temp_warning_1'] ) trb_resource_event( 'capacity-warning', 'storage', 'warning', 'Spazio hosting oltre la prima soglia.', $snapshot );
+	$warning_floor = max( (float) $settings['temp_min_free_bytes'], $required * 2 );
+	if ( $snapshot['free'] < $warning_floor ) trb_resource_event( 'capacity-warning', 'storage', 'warning', 'Spazio libero sul filesystem condiviso sotto il margine operativo.', $snapshot + array( 'warning_floor' => $warning_floor ) );
 	else trb_resource_resolve_event( 'capacity-warning', 'storage' );
-	if ( $snapshot['used_percent'] >= (float) $settings['temp_warning_2'] ) trb_resource_queue_email( 'storage-85-' . wp_date( 'Ym' ), 'Spazio hosting oltre la soglia di attenzione', 'Utilizzo corrente del filesystem: ' . number_format_i18n( $snapshot['used_percent'], 1 ) . '%.' );
+	if ( $snapshot['free'] < (float) $settings['temp_min_free_bytes'] ) trb_resource_queue_email( 'storage-free-' . wp_date( 'Ym' ), 'Spazio hosting disponibile sotto il margine', 'Spazio libero sul filesystem condiviso: ' . size_format( $snapshot['free'], 2 ) . '.' );
 	return true;
 }
 
@@ -319,10 +320,14 @@ function trb_resource_pcloud_userinfo() {
 	if ( ! empty( $settings['pcloud_auth_token'] ) ) {
 		$response = wp_remote_post( $host . '/userinfo', array( 'timeout' => 30, 'body' => array( 'auth' => $settings['pcloud_auth_token'] ) ) );
 		if ( ! is_wp_error( $response ) ) $data = json_decode( wp_remote_retrieve_body( $response ), true );
-		if ( ! is_array( $data ) || ! empty( $data['result'] ) || empty( $data['quota'] ) || ! isset( $data['usedquota'] ) ) return new WP_Error( 'PCLOUD_USERINFO_FAILED' );
-		$data['used_percent'] = ( (float) $data['usedquota'] / (float) $data['quota'] ) * 100;
-		$data['free'] = (float) $data['quota'] - (float) $data['usedquota'];
-		$data['source'] = 'api';
+		if ( ! is_array( $data ) || ! empty( $data['result'] ) || empty( $data['quota'] ) || ! isset( $data['usedquota'] ) ) {
+			$data = trb_resource_pcloud_webdav_userinfo();
+			if ( is_wp_error( $data ) ) return new WP_Error( 'PCLOUD_API_AND_WEBDAV_QUOTA_UNAVAILABLE', $data->get_error_message() );
+		} else {
+			$data['used_percent'] = ( (float) $data['usedquota'] / (float) $data['quota'] ) * 100;
+			$data['free'] = (float) $data['quota'] - (float) $data['usedquota'];
+			$data['source'] = 'api';
+		}
 	} else {
 		$legacy = function_exists( 'trb_demo_settings' ) ? trb_demo_settings() : array();
 		if ( empty( $legacy['pcloud_user'] ) || empty( $legacy['pcloud_pass'] ) ) return new WP_Error( 'PCLOUD_AUTH_MISSING' );
@@ -370,11 +375,37 @@ function trb_resource_pcloud_guard( $incoming_bytes ) {
 }
 
 
+/** Read the current billed amount through ACRCloud's bearer-token Console API. */
+function trb_resource_acr_current_bill() {
+	$settings = trb_resource_settings();
+	if ( empty( $settings['acr_token'] ) ) return new WP_Error( 'ACR_BILLING_TOKEN_MISSING' );
+	$response = wp_remote_get( 'https://api-v2.acrcloud.com/api/billing/current-bill', array(
+		'timeout' => 30,
+		'headers' => array( 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $settings['acr_token'] ),
+	) );
+	if ( is_wp_error( $response ) ) return new WP_Error( 'ACR_BILLING_REQUEST_FAILED', $response->get_error_message() );
+	$code = (int) wp_remote_retrieve_response_code( $response );
+	$payload = json_decode( wp_remote_retrieve_body( $response ), true );
+	$bill = is_array( $payload ) && isset( $payload['data'] ) && is_array( $payload['data'] ) ? $payload['data'] : array();
+	if ( $code < 200 || $code >= 300 || ! isset( $bill['amount'] ) || ! is_numeric( $bill['amount'] ) ) return new WP_Error( 'ACR_BILLING_RESPONSE_INVALID', 'HTTP ' . $code );
+	$snapshot = array(
+		'checked_at' => time(),
+		'amount' => max( 0, (float) $bill['amount'] ),
+		'bill_begin' => sanitize_text_field( (string) ( $bill['bill_begin'] ?? '' ) ),
+		'bill_end' => sanitize_text_field( (string) ( $bill['bill_end'] ?? '' ) ),
+		'state' => isset( $bill['state'] ) ? absint( $bill['state'] ) : null,
+	);
+	update_option( 'trb_resource_acr_bill_snapshot', $snapshot, false );
+	trb_resource_resolve_event( 'billing-' . trb_resource_period_key(), 'acrcloud' );
+	return $snapshot;
+}
+
+
 function trb_resource_acr_stats( $period = '' ) {
 	global $wpdb;
 	$table = trb_resource_tables()['usage'];
 	$period = $period ? $period : trb_resource_period_key();
-	$row = $wpdb->get_row( $wpdb->prepare( "SELECT SUM(CASE WHEN service='fingerprinting' THEN 1 ELSE 0 END) requests,COUNT(DISTINCT CASE WHEN service='fingerprinting' THEN file_hash ELSE NULL END) tracks,SUM(cost_max) cost_max,SUM(cost_estimated) cost_estimated,SUM(COALESCE(cost_actual,0)) cost_actual,SUM(CASE WHEN service='deepright' THEN units ELSE 0 END) deepright_minutes,SUM(CASE WHEN service='cover_song' THEN units ELSE 0 END) cover_minutes,SUM(CASE WHEN service='metadata' THEN units ELSE 0 END) metadata_calls,SUM(CASE WHEN service='fingerprinting' THEN attempts ELSE 0 END) attempts,SUM(CASE WHEN status='error' THEN 1 ELSE 0 END) errors FROM $table WHERE provider='acrcloud' AND period_key=%s", $period ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$row = $wpdb->get_row( $wpdb->prepare( "SELECT SUM(CASE WHEN service='fingerprinting' THEN 1 ELSE 0 END) requests,COUNT(DISTINCT CASE WHEN service='fingerprinting' THEN file_hash ELSE NULL END) tracks,SUM(cost_max) cost_max,SUM(cost_estimated) cost_estimated,COALESCE(MAX(CASE WHEN service='reconciliation' THEN cost_actual ELSE NULL END),SUM(CASE WHEN service<>'reconciliation' THEN COALESCE(cost_actual,0) ELSE 0 END)) cost_actual,SUM(CASE WHEN service='deepright' THEN units ELSE 0 END) deepright_minutes,SUM(CASE WHEN service='cover_song' THEN units ELSE 0 END) cover_minutes,SUM(CASE WHEN service='metadata' THEN units ELSE 0 END) metadata_calls,SUM(CASE WHEN service='fingerprinting' THEN attempts ELSE 0 END) attempts,SUM(CASE WHEN status='error' THEN 1 ELSE 0 END) errors FROM $table WHERE provider='acrcloud' AND period_key=%s", $period ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	return $row ? (array) $row : array();
 }
 
@@ -1225,30 +1256,41 @@ function trb_resource_daily_health() {
 	};
 	$pcloud = trb_resource_pcloud_userinfo();
 	if ( is_wp_error( $pcloud ) ) {
-		trb_resource_event( 'quota-check-' . wp_date( 'Ymd' ), 'pcloud', 'warning', 'Quota pCloud non verificabile.', array( 'code' => $pcloud->get_error_code() ) );
-		$add_anomaly( 'pcloud-quota', 'Quota pCloud non verificabile automaticamente. I trasferimenti continuano a essere verificati via WebDAV, ma la capacità residua richiede controllo.', 'pcloud' );
+		$pcloud_code = sanitize_key( $pcloud->get_error_code() );
+		update_option( 'trb_resource_pcloud_diagnostic', array( 'checked_at' => $checked_at, 'code' => $pcloud_code, 'source' => 'api-webdav' ), false );
+		trb_resource_event( 'quota-check-' . wp_date( 'Ymd' ), 'pcloud', 'warning', 'Quota pCloud non verificabile.', array( 'code' => $pcloud_code ) );
+		$add_anomaly( 'pcloud-quota', 'Quota pCloud non verificabile automaticamente (' . strtoupper( $pcloud_code ) . '). I trasferimenti continuano a essere verificati via WebDAV, ma la capacità residua richiede controllo.', 'pcloud' );
 	}
 	else {
+		update_option( 'trb_resource_pcloud_diagnostic', array( 'checked_at' => $checked_at, 'code' => '', 'source' => sanitize_key( (string) ( $pcloud['source'] ?? 'verified' ) ) ), false );
 		trb_resource_resolve_event( 'quota-check-' . wp_date( 'Ymd' ), 'pcloud' );
 		$covered_resources[] = 'pcloud';
 		if ( $pcloud['used_percent'] >= (float) $settings['pcloud_warning_1'] ) $add_anomaly( 'pcloud-capacity', 'pCloud utilizzato al ' . number_format_i18n( $pcloud['used_percent'], 1 ) . '%.', 'pcloud' );
 	}
 	$storage = trb_resource_storage_snapshot();
-	if ( null === $storage['used_percent'] ) {
+	if ( null === $storage['free'] ) {
 		trb_resource_event( 'storage-check-' . wp_date( 'Ymd' ), 'storage', 'warning', 'Spazio hosting non verificabile.' );
 		$add_anomaly( 'storage-unavailable', 'Spazio hosting non verificabile automaticamente.', 'storage' );
 	}
 	else {
 		$covered_resources[] = 'storage';
-		if ( $storage['used_percent'] < (float) $settings['temp_block'] ) trb_resource_resolve_event( 'capacity', 'storage' );
-		if ( $storage['used_percent'] < (float) $settings['temp_warning_1'] ) trb_resource_resolve_event( 'capacity-warning', 'storage' );
-		if ( $storage['used_percent'] >= (float) $settings['temp_warning_1'] ) $add_anomaly( 'storage-capacity', 'Filesystem hosting utilizzato al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%.', 'storage' );
+		trb_resource_resolve_event( 'storage-check-' . wp_date( 'Ymd' ), 'storage' );
+		if ( $storage['free'] > 0 ) trb_resource_resolve_event( 'capacity', 'storage' );
+		if ( $storage['free'] >= (float) $settings['temp_min_free_bytes'] ) trb_resource_resolve_event( 'capacity-warning', 'storage' );
+		else $add_anomaly( 'storage-capacity', 'Filesystem condiviso con soli ' . size_format( $storage['free'], 2 ) . ' liberi: margine operativo inferiore a ' . size_format( $settings['temp_min_free_bytes'], 2 ) . '.', 'storage' );
 	}
+	$acr_bill = trb_resource_acr_current_bill();
+	$acr_bill_verified = ! is_wp_error( $acr_bill );
+	if ( $acr_bill_verified ) trb_resource_set_acr_actual_cost( trb_resource_period_key(), $acr_bill['amount'] );
+	else trb_resource_event( 'billing-' . trb_resource_period_key(), 'acrcloud', 'info', 'Spesa effettiva ACRCloud non sincronizzata.', array( 'code' => $acr_bill->get_error_code() ) );
 	$acr_stats = trb_resource_acr_stats();
 	$acr_budget = (float) $settings['acr_monthly_budget'];
 	$acr_spent = isset( $acr_stats['cost_max'] ) ? (float) $acr_stats['cost_max'] : 0;
 	$acr_percent = $acr_budget > 0 ? min( 100, $acr_spent / $acr_budget * 100 ) : 100;
-	if ( $acr_percent >= 50 ) $add_anomaly( 'acr-budget', 'Budget ACRCloud utilizzato al ' . number_format_i18n( $acr_percent, 1 ) . '% (' . number_format_i18n( $acr_spent, 4 ) . ' / ' . number_format_i18n( $acr_budget, 2 ) . ' USD).', 'acrcloud' );
+	if ( $acr_percent >= 50 ) {
+		$acr_actual_text = $acr_bill_verified ? ' Spesa effettiva sincronizzata: ' . number_format_i18n( $acr_bill['amount'], 4 ) . ' USD.' : ' Spesa effettiva non sincronizzata (' . strtoupper( sanitize_key( $acr_bill->get_error_code() ) ) . ').';
+		$add_anomaly( 'acr-budget', 'Impegno massimo prudenziale ACRCloud al ' . number_format_i18n( $acr_percent, 1 ) . '% (' . number_format_i18n( $acr_spent, 4 ) . ' / ' . number_format_i18n( $acr_budget, 2 ) . ' USD).' . $acr_actual_text, 'acrcloud' );
+	}
 	global $wpdb; $tables = trb_resource_tables();
 	// Manual review and active processing are expected workflow states. Notify
 	// Andrea only for states that indicate an actual block or rejected content.
@@ -1286,7 +1328,7 @@ function trb_resource_daily_health() {
 	$email_queued = false;
 	if ( $anomalies ) {
 		$body = '<p>Controllo automatico eseguito il ' . esc_html( wp_date( 'd/m/Y H:i:s', $checked_at ) ) . '.</p><p>' . implode( '</p><p>', array_map( 'esc_html', $anomalies ) ) . '</p><p><a href="' . esc_url( admin_url( 'admin.php?page=trb-resource-monitor' ) ) . '">Apri il monitor risorse</a></p>';
-		trb_resource_queue_email( 'daily-health-v2-' . wp_date( 'Ymd' ), 'Controllo giornaliero Portale Artisti: intervento richiesto', $body, true );
+		trb_resource_queue_email( 'daily-health-v3-' . wp_date( 'Ymd' ), 'Controllo giornaliero Portale Artisti: intervento richiesto', $body, true );
 		$email_queued = true;
 	}
 	update_option( 'trb_resource_daily_health_status', array( 'checked_at' => $checked_at, 'anomaly_count' => count( $anomalies ), 'email_queued' => $email_queued ? 1 : 0 ), false );
@@ -1297,7 +1339,9 @@ add_action( 'trb_resource_daily_health_catchup', 'trb_resource_daily_health' );
 function trb_resource_schedule_daily_health() {
 	if ( ! wp_next_scheduled( 'trb_resource_daily_health' ) ) wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'trb_resource_daily_health' );
 	$last_run = absint( get_option( 'trb_resource_daily_health_last_run', 0 ) );
-	if ( ( ! $last_run || $last_run < time() - 23 * HOUR_IN_SECONDS ) && ! wp_next_scheduled( 'trb_resource_daily_health_catchup' ) ) wp_schedule_single_event( time(), 'trb_resource_daily_health_catchup' );
+	$rollout = (string) get_option( 'trb_resource_daily_health_rollout', '' );
+	if ( TRB_RESOURCE_MONITOR_VERSION !== $rollout ) update_option( 'trb_resource_daily_health_rollout', TRB_RESOURCE_MONITOR_VERSION, false );
+	if ( ( TRB_RESOURCE_MONITOR_VERSION !== $rollout || ! $last_run || $last_run < time() - 23 * HOUR_IN_SECONDS ) && ! wp_next_scheduled( 'trb_resource_daily_health_catchup' ) ) wp_schedule_single_event( time(), 'trb_resource_daily_health_catchup' );
 }
 add_action( 'init', 'trb_resource_schedule_daily_health', 30 );
 
@@ -1520,7 +1564,7 @@ function trb_resource_render_admin() {
 	if ( isset( $_POST['trb_resource_save'] ) ) {
 		check_admin_referer( 'trb_resource_save' );
 		$boolean = array( 'acr_enabled', 'acr_paid_confirmed', 'acr_deepright' );
-		$numeric = array( 'acr_monthly_budget','acr_fingerprint_max','acr_deepright_minute_max','acr_cover_minute_max','acr_metadata_call_max','acr_engine','acr_excerpt_seconds','acr_excerpt_offset','pcloud_safety_bytes','pcloud_warning_1','pcloud_warning_2','pcloud_warning_3','pcloud_block','temp_warning_1','temp_warning_2','temp_block','temp_file_multiplier','email_daily_limit' );
+		$numeric = array( 'acr_monthly_budget','acr_fingerprint_max','acr_deepright_minute_max','acr_cover_minute_max','acr_metadata_call_max','acr_engine','acr_excerpt_seconds','acr_excerpt_offset','pcloud_safety_bytes','pcloud_warning_1','pcloud_warning_2','pcloud_warning_3','pcloud_block','temp_warning_1','temp_warning_2','temp_block','temp_file_multiplier','temp_min_free_bytes','email_daily_limit' );
 		$updated = $settings;
 		foreach ( $boolean as $field ) $updated[ $field ] = isset( $_POST[ $field ] ) ? 1 : 0;
 		foreach ( $numeric as $field ) if ( isset( $_POST[ $field ] ) ) $updated[ $field ] = (float) wp_unslash( $_POST[ $field ] );
@@ -1533,23 +1577,24 @@ function trb_resource_render_admin() {
 	}
 	$stats = trb_resource_acr_stats(); $budget = (float) $settings['acr_monthly_budget']; $spent = isset( $stats['cost_max'] ) ? (float) $stats['cost_max'] : 0; $percent = $budget > 0 ? min( 100, $spent / $budget * 100 ) : 100;
 	$day = (int) wp_date( 'j' ); $days = (int) wp_date( 't' ); $projection = $day > 0 ? $spent / $day * $days : $spent; $average = ! empty( $stats['tracks'] ) ? $spent / (int) $stats['tracks'] : 0; $reset = wp_date( 'd/m/Y', ( new DateTimeImmutable( 'first day of next month 00:00:00', wp_timezone() ) )->getTimestamp() );
-	$pcloud_snapshot = get_option( 'trb_resource_pcloud_snapshot', array() ); $storage = trb_resource_storage_snapshot(); global $wpdb; $tables = trb_resource_tables();
+	$pcloud_snapshot = get_option( 'trb_resource_pcloud_snapshot', array() ); $pcloud_diagnostic = (array) get_option( 'trb_resource_pcloud_diagnostic', array() ); $acr_bill_snapshot = (array) get_option( 'trb_resource_acr_bill_snapshot', array() ); $storage = trb_resource_storage_snapshot(); global $wpdb; $tables = trb_resource_tables();
 	$daily_health_status = (array) get_option( 'trb_resource_daily_health_status', array() ); $daily_health_last = absint( get_option( 'trb_resource_daily_health_last_run', 0 ) ); $daily_health_next = wp_next_scheduled( 'trb_resource_daily_health_catchup' );
 	if ( ! $daily_health_next ) $daily_health_next = wp_next_scheduled( 'trb_resource_daily_health' );
 	$events = $wpdb->get_results( "SELECT * FROM {$tables['events']} WHERE status='open' ORDER BY last_seen DESC LIMIT 20" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$queue = get_posts( array( 'post_type' => 'trb_release', 'post_status' => 'publish', 'posts_per_page' => 50, 'meta_query' => array( array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'approved' ), 'compare' => 'NOT IN' ) ) ) );
 	?>
 	<div class="wrap"><h1>Monitoraggio risorse TRB</h1><p>Sistema indipendente di prevenzione per costi, crediti, spazio e notifiche.</p>
-	<?php if ( $percent >= 90 ) : ?><div class="notice notice-error"><p><strong>Budget ACRCloud oltre il 90%.</strong> Le nuove analisi saranno bloccate prima di superare il limite.</p></div><?php elseif ( $percent >= 75 ) : ?><div class="notice notice-warning"><p>Budget ACRCloud oltre il 75%.</p></div><?php elseif ( $percent >= 50 ) : ?><div class="notice notice-info"><p>Budget ACRCloud oltre il 50%.</p></div><?php endif; ?>
+	<?php if ( $percent >= 90 ) : ?><div class="notice notice-error"><p><strong>Impegno massimo prudenziale ACRCloud oltre il 90%.</strong> Le nuove analisi saranno bloccate prima di superare il limite.</p></div><?php elseif ( $percent >= 75 ) : ?><div class="notice notice-warning"><p>Impegno massimo prudenziale ACRCloud oltre il 75%.</p></div><?php elseif ( $percent >= 50 ) : ?><div class="notice notice-info"><p>Impegno massimo prudenziale ACRCloud oltre il 50%.</p></div><?php endif; ?>
 	<h2>Quadro corrente</h2><table class="widefat striped"><tbody>
-	<tr><th>Budget ACRCloud</th><td><?php echo esc_html( number_format_i18n( $spent, 4 ) . ' / ' . number_format_i18n( $budget, 2 ) . ' USD (' . number_format_i18n( $percent, 1 ) . '%)' ); ?></td></tr>
+	<tr><th>Impegno massimo prudenziale ACRCloud</th><td><?php echo esc_html( number_format_i18n( $spent, 4 ) . ' / ' . number_format_i18n( $budget, 2 ) . ' USD (' . number_format_i18n( $percent, 1 ) . '%)' ); ?></td></tr>
 	<tr><th>Tracce / richieste</th><td><?php echo esc_html( absint( isset( $stats['tracks'] ) ? $stats['tracks'] : 0 ) . ' / ' . absint( isset( $stats['requests'] ) ? $stats['requests'] : 0 ) ); ?></td></tr>
 	<tr><th>Costo medio / proiezione fine mese</th><td><?php echo esc_html( number_format_i18n( $average, 4 ) . ' USD / ' . number_format_i18n( $projection, 4 ) . ' USD' ); ?></td></tr>
-	<tr><th>Spesa stimata / effettiva</th><td><?php echo esc_html( number_format_i18n( isset( $stats['cost_estimated'] ) ? $stats['cost_estimated'] : 0, 4 ) . ' USD / ' . number_format_i18n( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0, 4 ) . ' USD' ); ?></td></tr>
+	<tr><th>Spesa stimata / effettiva sincronizzata</th><td><?php echo esc_html( number_format_i18n( isset( $stats['cost_estimated'] ) ? $stats['cost_estimated'] : 0, 4 ) . ' USD / ' . number_format_i18n( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0, 4 ) . ' USD' ); ?></td></tr>
+	<tr><th>Ultima fattura ACRCloud</th><td><?php echo esc_html( isset( $acr_bill_snapshot['amount'] ) ? number_format_i18n( $acr_bill_snapshot['amount'], 4 ) . ' USD · sincronizzata il ' . wp_date( 'd/m/Y H:i:s', absint( $acr_bill_snapshot['checked_at'] ?? 0 ) ) : 'Da sincronizzare automaticamente' ); ?></td></tr>
 	<tr><th>Errori / retry / rinnovo periodo</th><td><?php echo esc_html( absint( isset( $stats['errors'] ) ? $stats['errors'] : 0 ) . ' / ' . absint( isset( $stats['attempts'] ) ? $stats['attempts'] : 0 ) . ' / ' . $reset ); ?></td></tr>
 	<tr><th>DeepRight / Cover Song / Metadata</th><td><?php echo esc_html( (float) ( isset( $stats['deepright_minutes'] ) ? $stats['deepright_minutes'] : 0 ) . ' min / ' . (float) ( isset( $stats['cover_minutes'] ) ? $stats['cover_minutes'] : 0 ) . ' min / ' . absint( isset( $stats['metadata_calls'] ) ? $stats['metadata_calls'] : 0 ) . ' chiamate' ); ?></td></tr>
-	<tr><th>pCloud</th><td><?php echo esc_html( isset( $pcloud_snapshot['data']['used_percent'] ) ? number_format_i18n( $pcloud_snapshot['data']['used_percent'], 1 ) . '% utilizzato (' . ( $pcloud_snapshot['data']['source'] ?? 'origine non indicata' ) . ')' : 'Da verificare' ); ?></td></tr>
-	<tr><th>Spazio hosting (filesystem condiviso)</th><td><?php echo esc_html( null !== $storage['used_percent'] ? number_format_i18n( $storage['used_percent'], 1 ) . '% utilizzato' : 'Non verificabile' ); ?></td></tr>
+	<tr><th>pCloud</th><td><?php echo esc_html( isset( $pcloud_snapshot['data']['used_percent'] ) ? number_format_i18n( $pcloud_snapshot['data']['used_percent'], 1 ) . '% utilizzato (' . ( $pcloud_snapshot['data']['source'] ?? 'origine non indicata' ) . ')' : 'Da verificare' . ( ! empty( $pcloud_diagnostic['code'] ) ? ' · ' . strtoupper( $pcloud_diagnostic['code'] ) : '' ) ); ?></td></tr>
+	<tr><th>Filesystem condiviso (dato informativo)</th><td><?php echo esc_html( null !== $storage['free'] ? size_format( $storage['free'], 2 ) . ' liberi' . ( null !== $storage['used_percent'] ? ' · volume condiviso al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%' : '' ) : 'Non verificabile' ); ?></td></tr>
 	<tr><th>Controllo automatico giornaliero</th><td><?php echo esc_html( 'Ultimo: ' . ( $daily_health_last ? wp_date( 'd/m/Y H:i:s', $daily_health_last ) : 'mai eseguito' ) . ' · Prossimo: ' . ( $daily_health_next ? wp_date( 'd/m/Y H:i:s', $daily_health_next ) : 'da pianificare' ) . ' · Anomalie ultimo controllo: ' . absint( $daily_health_status['anomaly_count'] ?? 0 ) . ( ! empty( $daily_health_status['email_queued'] ) ? ' · email accodata' : '' ) ); ?></td></tr>
 	</tbody></table><form method="post" style="margin:12px 0 24px"><?php wp_nonce_field( 'trb_resource_reconcile' ); ?><label><strong>Spesa effettiva ACRCloud del mese (USD)</strong> <input type="number" min="0" step="0.000001" name="acr_actual_cost" value="<?php echo esc_attr( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0 ); ?>"></label> <button class="button" name="trb_resource_reconcile" value="1">Registra riconciliazione</button></form>
 	<h2>Anomalie aperte</h2><?php if ( ! $events ) : ?><p>Nessuna anomalia registrata.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Ultimo evento</th><th>Risorsa</th><th>Gravità</th><th>Dettaglio</th><th>Occorrenze</th></tr></thead><tbody><?php foreach ( $events as $event ) : ?><tr><td><?php echo esc_html( $event->last_seen ); ?></td><td><?php echo esc_html( $event->resource ); ?></td><td><?php echo esc_html( $event->severity ); ?></td><td><?php echo esc_html( $event->message ); ?></td><td><?php echo esc_html( $event->occurrences ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
@@ -1560,7 +1605,7 @@ function trb_resource_render_admin() {
 	<tr><th>Budget e costi massimi USD</th><td>Budget <input type="number" step="0.01" name="acr_monthly_budget" value="<?php echo esc_attr( $settings['acr_monthly_budget'] ); ?>"> Fingerprint <input type="number" step="0.000001" name="acr_fingerprint_max" value="<?php echo esc_attr( $settings['acr_fingerprint_max'] ); ?>"> DeepRight/min <input type="number" step="0.000001" name="acr_deepright_minute_max" value="<?php echo esc_attr( $settings['acr_deepright_minute_max'] ); ?>"> Cover/min <input type="number" step="0.000001" name="acr_cover_minute_max" value="<?php echo esc_attr( $settings['acr_cover_minute_max'] ); ?>"> Metadata <input type="number" step="0.000001" name="acr_metadata_call_max" value="<?php echo esc_attr( $settings['acr_metadata_call_max'] ); ?>"></td></tr>
 	<tr><th>pCloud API</th><td><input class="regular-text" name="pcloud_api_host" value="<?php echo esc_attr( $settings['pcloud_api_host'] ); ?>"><br><input type="password" class="regular-text" name="pcloud_auth_token" placeholder="Token invariato se vuoto"><p>Il sistema usa in alternativa le credenziali WebDAV già configurate.</p></td></tr>
 	<tr><th>Soglie pCloud %</th><td><input name="pcloud_warning_1" value="<?php echo esc_attr( $settings['pcloud_warning_1'] ); ?>" size="4"> / <input name="pcloud_warning_2" value="<?php echo esc_attr( $settings['pcloud_warning_2'] ); ?>" size="4"> / <input name="pcloud_warning_3" value="<?php echo esc_attr( $settings['pcloud_warning_3'] ); ?>" size="4"> / blocco <input name="pcloud_block" value="<?php echo esc_attr( $settings['pcloud_block'] ); ?>" size="4"> Margine byte <input name="pcloud_safety_bytes" value="<?php echo esc_attr( $settings['pcloud_safety_bytes'] ); ?>"></td></tr>
-	<tr><th>Soglie storage %</th><td><input name="temp_warning_1" value="<?php echo esc_attr( $settings['temp_warning_1'] ); ?>" size="4"> / <input name="temp_warning_2" value="<?php echo esc_attr( $settings['temp_warning_2'] ); ?>" size="4"> / blocco <input name="temp_block" value="<?php echo esc_attr( $settings['temp_block'] ); ?>" size="4"> Moltiplicatore spazio <input name="temp_file_multiplier" value="<?php echo esc_attr( $settings['temp_file_multiplier'] ); ?>" size="5"></td></tr>
+	<tr><th>Margine staging hosting</th><td>Spazio libero minimo <input name="temp_min_free_bytes" value="<?php echo esc_attr( $settings['temp_min_free_bytes'] ); ?>"> byte · Moltiplicatore per caricamento <input name="temp_file_multiplier" value="<?php echo esc_attr( $settings['temp_file_multiplier'] ); ?>" size="5"><p>Le percentuali del volume condiviso sono solo informative e non bloccano le release.</p></td></tr>
 	<tr><th>Limite email giornaliero</th><td><input name="email_daily_limit" value="<?php echo esc_attr( $settings['email_daily_limit'] ); ?>"></td></tr>
 	</tbody></table><p><button class="button button-primary" name="trb_resource_save" value="1">Salva configurazione</button></p></form></div>
 	<?php
