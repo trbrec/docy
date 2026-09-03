@@ -2,9 +2,13 @@
 """Dependency-free release/permissions regression audit for the TRB portal."""
 
 
+
+
 from pathlib import Path
 import re
 import sys
+
+
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +20,7 @@ PCLOUD = (ROOT / "inc/trb-release-pcloud-archive.php").read_text(encoding="utf-8
 BRIDGE = (ROOT / "inc/trb-release-spreadsheet-bridge.php").read_text(encoding="utf-8")
 DEMO = (ROOT / "inc/trb-demo-automation.php").read_text(encoding="utf-8")
 DEPLOY = (ROOT / "inc/trb-auto-deploy.php").read_text(encoding="utf-8")
+DEPLOY_WORKFLOW = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
 CONNECTOR = (ROOT / "inc/trb-crm-connector.php").read_text(encoding="utf-8")
 FUNCTIONS = (ROOT / "functions.php").read_text(encoding="utf-8")
 PASSWORD = (ROOT / "template-artist-password.php").read_text(encoding="utf-8")
@@ -28,13 +33,23 @@ RELEASE_UX = (ROOT / "assets/js/trb-release-form-ux.js").read_text(encoding="utf
 RELEASE_TYPES = PORTAL.split("function trb_portal_release_types()", 1)[1].split("function trb_portal_release_type_matches_tracks", 1)[0]
 
 
+
+
 checks: list[tuple[str, bool]] = []
+
+
+
+
 
 
 
 
 def check(name: str, condition: bool) -> None:
     checks.append((name, bool(condition)))
+
+
+
+
 
 
 
@@ -53,11 +68,15 @@ for profile, role in {
     )))
 
 
+
+
 for profile in ("ddb", "ddb_trb", "trb"):
     check(f"{profile} con release illimitate", bool(re.search(
         rf"'{profile}'\s*=>\s*array\([^\n]+?'release_limit'\s*=>\s*'unlimited'",
         PORTAL,
     )))
+
+
 
 
 check("DDS e DDB12 limitati esclusivamente dal profilo mensile", "array( 'dds', 'ddb12' )" in PORTAL)
@@ -106,7 +125,7 @@ check("email artista solo per incidente confermato", "trb_resource_notify_artist
 check("Andrea in CC nella stessa email artista", "Cc: andrea.tognassi@trbrec.com" in RESOURCE and "[Copia artista]" not in RESOURCE and "-admin-copy" not in RESOURCE)
 check("email di recupero usa nome anagrafico e tono informale", "trb_resource_artist_legal_greeting_name" in RESOURCE and "$user->first_name" in RESOURCE and "Gentile ' . esc_html( $name )" in RESOURCE and "da parte tua" in RESOURCE)
 check("email di recupero include firma aziendale e privacy", "Sezione Contratti e Distribuzione" in RESOURCE and "P. IVA 02846170989" in RESOURCE and "REA BS-483571" in RESOURCE and "SDI 095EI9R" in RESOURCE and "Privacy notice" in RESOURCE)
-check("coda email conserva CC e Reply-To validati", "headers longtext NULL" in RESOURCE and "Cc|Reply-To" in RESOURCE and "TRB_RESOURCE_MONITOR_VERSION', '1.2.1" in RESOURCE)
+check("coda email conserva CC e Reply-To validati", "headers longtext NULL" in RESOURCE and "Cc|Reply-To" in RESOURCE and "TRB_RESOURCE_MONITOR_VERSION', '1.2.2" in RESOURCE)
 check("destinatari QA non ricevono email reali", "cancelled_qa" in RESOURCE and "qa_recipient_suppressed" in RESOURCE and "spotify9@trbrec.com" in RESOURCE)
 check("notifiche automatiche non confermate eliminate dalla coda", "trb_resource_cancel_unconfirmed_recovery_notifications" in RESOURCE and "cancelled_unconfirmed_recovery_notice" in RESOURCE and "20260825.1" in RESOURCE)
 check("email di sblocco una tantum per la pratica Ruggia", "trb_resource_notify_ruggia_recovery_backfill" in RESOURCE and "manual-resend-20260824-2" in RESOURCE and "20260824.9" in RESOURCE)
@@ -146,6 +165,10 @@ check("email artista su errore tecnico oggettivo", "trb_analysis_queue_artist_co
 check("email amministratore su verifica copyright", "trb_analysis_queue_admin_review_email" in ANALYSIS)
 check("coda email riprogrammata se restano notifiche", "$remaining" in RESOURCE and "trb_resource_process_notifications" in RESOURCE)
 check("monitor giornaliero per blocchi e ruoli ambigui", "account hanno più gruppi contrattuali" in RESOURCE)
+check("monitor giornaliero copre capacità, budget e quota non verificabile", "pcloud_warning_1" in RESOURCE and "temp_warning_1" in RESOURCE and "$acr_percent >= 50" in RESOURCE and "Quota pCloud non verificabile automaticamente" in RESOURCE)
+check("monitor giornaliero recupera esecuzioni saltate", "trb_resource_daily_health_last_run" in RESOURCE and "trb_resource_daily_health_catchup" in RESOURCE and "23 * HOUR_IN_SECONDS" in RESOURCE)
+check("monitor giornaliero include anomalie aperte e rende visibile lo stato", "severity IN ('warning','critical')" in RESOURCE and "Controllo automatico giornaliero" in RESOURCE and "email accodata" in RESOURCE)
+check("richiamo esterno giornaliero attiva soltanto il monitor del sito", "cron: '17 5,17 * * *'" in DEPLOY_WORKFLOW and "trigger-daily-site-health" in DEPLOY_WORKFLOW and "wp-cron.php?doing_wp_cron" in DEPLOY_WORKFLOW)
 check("audit reale post-deploy con riepilogo email", "trb_resource_run_portal_audit" in RESOURCE and "Audit completo Portale Artisti completato" in RESOURCE)
 check("download file release vincolato al proprietario", "trb_portal_current_user_can_access_release" in PORTAL)
 check("file privati profilo vincolati all'utente e a un nonce", "check_admin_referer( 'trb_portal_private_file_'" in PORTAL and "trb_portal_private_profile_files()" in PORTAL)
@@ -168,6 +191,8 @@ check("recupero live Greta ritenta il contratto una sola volta", "trb_owner_dash
 check("recupero live Ruggia riconcilia firma e foglio una sola volta", "trb_owner_dashboard_reconcile_ruggia_contract" in OWNER and "DDB20260031" in OWNER and "1061056" in OWNER and "trb_release_bridge_apply_callback" in OWNER)
 
 
+
+
 # Authentication, public pages and general security.
 check("reset password usa una pagina pubblica dedicata", "trb_portal_password_reset_url" in PORTAL and "/recupera-password/" in PORTAL)
 check("email WordPress manuali riscrivono il link di reset", "retrieve_password_message" in PORTAL and "trb_portal_use_branded_password_reset_link" in PORTAL)
@@ -181,6 +206,8 @@ check("registrazione protetta da captcha monouso e honeypot", "trb_portal_regist
 check("registrazioni restano in approvazione e vengono ripulite", "pw_new_user_approve" in PORTAL and "trb_portal_cleanup_pending_accounts" in PORTAL and "30 * DAY_IN_SECONDS" in PORTAL)
 check("segnalazioni protette da nonce honeypot tempo minimo e rate limit", "trb_support_nonce" in SUPPORT + PORTAL and "trb_support_website" in SUPPORT + PORTAL and "time() - $started < 3" in PORTAL and "trb_support_rate_" in PORTAL)
 check("segnalazioni archiviate e recapitate alla casella TRB", "wp_insert_post" in PORTAL and "wp_mail( 'info@trbrec.com'" in PORTAL and "admin_post_nopriv_trb_portal_submit_support" in PORTAL)
+
+
 
 
 # Demo evaluation pipeline.
@@ -264,6 +291,8 @@ check("audit produzione include anomalie risorsa ancora aperte", "open_resource_
 check("monitor distingue lo spazio hosting dallo staging", "Spazio hosting (filesystem condiviso)" in RESOURCE and "Filesystem hosting utilizzato" in RESOURCE)
 check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-draft-normalizer.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-staging-cleanup.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
 check("deploy SiteGround non dichiara successo prima della verifica", "timeout-minutes: 12" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "for attempt in $(seq 1 36)" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "Deployment remains queued through the five-minute internal WordPress safety net.\"\n          else" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
+
+
 
 
 failed = [name for name, ok in checks if not ok]

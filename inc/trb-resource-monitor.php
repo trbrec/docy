@@ -1,9 +1,12 @@
 <?php
 /** Independent TRB monitoring for provider budgets, quotas and release jobs. */
 
+
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'TRB_RESOURCE_MONITOR_VERSION', '1.2.1' );
+
+define( 'TRB_RESOURCE_MONITOR_VERSION', '1.2.2' );
+
 
 function trb_resource_settings() {
 	$defaults = array(
@@ -21,6 +24,7 @@ function trb_resource_settings() {
 	return wp_parse_args( is_array( $saved ) ? $saved : array(), $defaults );
 }
 
+
 function trb_resource_tables() {
 	global $wpdb;
 	return array(
@@ -29,6 +33,7 @@ function trb_resource_tables() {
 		'notifications' => $wpdb->prefix . 'trb_notification_queue',
 	);
 }
+
 
 function trb_resource_install() {
 	global $wpdb;
@@ -91,8 +96,10 @@ add_action( 'init', function() {
 	if ( TRB_RESOURCE_MONITOR_VERSION !== get_option( 'trb_resource_monitor_db_version' ) ) trb_resource_install();
 } );
 
+
 function trb_resource_period_key() { return wp_date( 'Y-m' ); }
 function trb_resource_now() { return current_time( 'mysql', true ); }
+
 
 function trb_resource_event( $key, $resource, $severity, $message, $context = array() ) {
 	global $wpdb;
@@ -110,6 +117,7 @@ function trb_resource_event( $key, $resource, $severity, $message, $context = ar
 	return (int) $wpdb->insert_id;
 }
 
+
 /** Close a current diagnostic without deleting its history or occurrence count. */
 function trb_resource_resolve_event( $key, $resource ) {
 	global $wpdb;
@@ -117,6 +125,7 @@ function trb_resource_resolve_event( $key, $resource ) {
 	$key = sanitize_key( $resource ) . ':' . sanitize_text_field( $key );
 	return false !== $wpdb->update( $table, array( 'status' => 'resolved' ), array( 'event_key' => $key, 'status' => 'open' ) );
 }
+
 
 /** Close every recoverable ACR diagnostic for a track after a complete result. */
 function trb_resource_resolve_acr_track_events( $release_id, $track ) {
@@ -134,6 +143,7 @@ function trb_resource_resolve_acr_track_events( $release_id, $track ) {
 	}
 	trb_resource_resolve_event( 'acr-incomplete-result-' . $release_id, 'acrcloud' );
 }
+
 
 function trb_resource_queue_recipient_email( $event_key, $recipient, $subject, $body, $priority = false, $headers = array() ) {
 	global $wpdb;
@@ -154,10 +164,12 @@ function trb_resource_queue_recipient_email( $event_key, $recipient, $subject, $
 	if ( ! wp_next_scheduled( 'trb_resource_process_notifications' ) ) wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'trb_resource_process_notifications' );
 }
 
+
 function trb_resource_queue_email( $event_key, $subject, $body, $priority = false ) {
 	$settings = trb_resource_settings();
 	trb_resource_queue_recipient_email( $event_key, $settings['admin_email'], $subject, $body, $priority );
 }
+
 
 function trb_resource_process_notifications() {
 	global $wpdb;
@@ -201,17 +213,20 @@ function trb_resource_process_notifications() {
 }
 add_action( 'trb_resource_process_notifications', 'trb_resource_process_notifications' );
 
+
 function trb_resource_mail_failed( $error ) {
 	$message = is_wp_error( $error ) ? $error->get_error_message() : 'Errore email non specificato';
 	trb_resource_event( 'smtp-' . wp_date( 'YmdH' ), 'email', 'warning', 'Invio email non riuscito.', array( 'message' => $message ) );
 }
 add_action( 'wp_mail_failed', 'trb_resource_mail_failed', 10, 1 );
 
+
 function trb_resource_mail_succeeded() {
 	$key = 'trb_resource_all_email_sent_' . wp_date( 'Ymd' );
 	update_option( $key, (int) get_option( $key, 0 ) + 1, false );
 }
 add_action( 'wp_mail_succeeded', 'trb_resource_mail_succeeded' );
+
 
 function trb_resource_storage_snapshot() {
 	$uploads = wp_upload_dir();
@@ -221,6 +236,7 @@ function trb_resource_storage_snapshot() {
 	return array( 'free' => false === $free ? null : (float) $free, 'total' => false === $total ? null : (float) $total, 'used_percent' => $total ? ( ( $total - $free ) / $total ) * 100 : null );
 }
 
+
 function trb_resource_acr_thresholds( $current, $budget ) {
 	if ( $budget <= 0 ) return;
 	$percent = (float) $current / (float) $budget * 100;
@@ -229,6 +245,7 @@ function trb_resource_acr_thresholds( $current, $budget ) {
 	if ( $percent >= 75 ) trb_resource_queue_email( 'acr-budget-75-' . $period, 'Budget ACRCloud oltre il 75%', 'Il registro prudenziale ha raggiunto il ' . number_format_i18n( $percent, 1 ) . '% del budget mensile.' );
 	if ( $percent >= 90 ) trb_resource_queue_email( 'acr-budget-90-' . $period, 'Budget ACRCloud oltre il 90%', 'Il registro prudenziale ha raggiunto il ' . number_format_i18n( $percent, 1 ) . '%. Verificare il pannello prima delle prossime analisi.', true );
 }
+
 
 function trb_resource_temp_storage_guard( $incoming_bytes ) {
 	$settings = trb_resource_settings();
@@ -246,6 +263,7 @@ function trb_resource_temp_storage_guard( $incoming_bytes ) {
 	if ( $snapshot['used_percent'] >= (float) $settings['temp_warning_2'] ) trb_resource_queue_email( 'storage-85-' . wp_date( 'Ym' ), 'Spazio hosting oltre la soglia di attenzione', 'Utilizzo corrente del filesystem: ' . number_format_i18n( $snapshot['used_percent'], 1 ) . '%.' );
 	return true;
 }
+
 
 /**
  * Read quota through the same WebDAV account used by every archive pipeline.
@@ -293,6 +311,7 @@ function trb_resource_pcloud_webdav_userinfo() {
 	);
 }
 
+
 function trb_resource_pcloud_userinfo() {
 	$settings = trb_resource_settings();
 	$host = in_array( untrailingslashit( $settings['pcloud_api_host'] ), array( 'https://api.pcloud.com', 'https://eapi.pcloud.com' ), true ) ? untrailingslashit( $settings['pcloud_api_host'] ) : 'https://eapi.pcloud.com';
@@ -333,6 +352,7 @@ function trb_resource_pcloud_userinfo() {
 	return $data;
 }
 
+
 function trb_resource_pcloud_guard( $incoming_bytes ) {
 	$settings = trb_resource_settings();
 	$data = trb_resource_pcloud_userinfo();
@@ -349,6 +369,7 @@ function trb_resource_pcloud_guard( $incoming_bytes ) {
 	return $data;
 }
 
+
 function trb_resource_acr_stats( $period = '' ) {
 	global $wpdb;
 	$table = trb_resource_tables()['usage'];
@@ -356,6 +377,7 @@ function trb_resource_acr_stats( $period = '' ) {
 	$row = $wpdb->get_row( $wpdb->prepare( "SELECT SUM(CASE WHEN service='fingerprinting' THEN 1 ELSE 0 END) requests,COUNT(DISTINCT CASE WHEN service='fingerprinting' THEN file_hash ELSE NULL END) tracks,SUM(cost_max) cost_max,SUM(cost_estimated) cost_estimated,SUM(COALESCE(cost_actual,0)) cost_actual,SUM(CASE WHEN service='deepright' THEN units ELSE 0 END) deepright_minutes,SUM(CASE WHEN service='cover_song' THEN units ELSE 0 END) cover_minutes,SUM(CASE WHEN service='metadata' THEN units ELSE 0 END) metadata_calls,SUM(CASE WHEN service='fingerprinting' THEN attempts ELSE 0 END) attempts,SUM(CASE WHEN status='error' THEN 1 ELSE 0 END) errors FROM $table WHERE provider='acrcloud' AND period_key=%s", $period ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	return $row ? (array) $row : array();
 }
+
 
 function trb_resource_set_acr_actual_cost( $period, $amount ) {
 	global $wpdb;
@@ -373,11 +395,13 @@ function trb_resource_set_acr_actual_cost( $period, $amount ) {
 	) );
 }
 
+
 function trb_resource_acr_max_cost( $duration_seconds ) {
 	$s = trb_resource_settings();
 	$minutes = max( 1, ceil( (float) $duration_seconds / 60 ) );
 	return round( (float) $s['acr_fingerprint_max'] + $minutes * ( (float) $s['acr_deepright_minute_max'] + (float) $s['acr_cover_minute_max'] ) + (float) $s['acr_metadata_call_max'], 6 );
 }
+
 
 function trb_resource_acr_budget_guard( $maximum, $release_id = 0 ) {
 	$s = trb_resource_settings();
@@ -392,6 +416,7 @@ function trb_resource_acr_budget_guard( $maximum, $release_id = 0 ) {
 	}
 	return true;
 }
+
 
 function trb_resource_usage_reserve( $data ) {
 	global $wpdb;
@@ -409,11 +434,13 @@ function trb_resource_usage_reserve( $data ) {
 	return $id;
 }
 
+
 function trb_resource_acr_endpoint() {
 	$s = trb_resource_settings();
 	$map = array( 'eu-west-1' => 'https://api-eu-west-1.acrcloud.com', 'us-west-2' => 'https://api-us-west-2.acrcloud.com', 'ap-southeast-1' => 'https://api-ap-southeast-1.acrcloud.com' );
 	return isset( $map[ $s['acr_region'] ] ) ? $map[ $s['acr_region'] ] : $map['eu-west-1'];
 }
+
 
 function trb_resource_create_excerpt( $source, $release_id, $track_index ) {
 	$s = trb_resource_settings();
@@ -430,10 +457,12 @@ function trb_resource_create_excerpt( $source, $release_id, $track_index ) {
 	return 0 === $code && is_file( $target ) ? $target : new WP_Error( 'AUDIO_EXCERPT_FAILED', implode( ' ', array_slice( $output, -3 ) ) );
 }
 
+
 function trb_resource_submit_acr_file( $path, $name ) {
 	$s = trb_resource_settings();
 	return trb_resource_submit_acr_file_to_container( $path, $name, $s['acr_container_id'] );
 }
+
 
 function trb_resource_submit_acr_file_to_container( $path, $name, $container_id ) {
 	$s = trb_resource_settings();
@@ -445,6 +474,7 @@ function trb_resource_submit_acr_file_to_container( $path, $name, $container_id 
 	$data = json_decode( (string) $body, true );
 	return $code >= 200 && $code < 300 && ! empty( $data['data']['id'] ) ? $data['data'] : new WP_Error( 'ACR_SUBMIT_FAILED', $error ? $error : 'HTTP ' . $code );
 }
+
 
 /** Recover a provider job after an ambiguous timeout before allowing a retry. */
 function trb_resource_find_acr_file( $name ) {
@@ -458,6 +488,7 @@ function trb_resource_find_acr_file( $name ) {
 	}
 	return new WP_Error( 'ACR_FILE_NOT_FOUND' );
 }
+
 
 /**
  * Normalize ACRCloud File Scanning responses.
@@ -478,6 +509,7 @@ function trb_resource_acr_response_item( $data, $provider_reference = '' ) {
 	return array();
 }
 
+
 function trb_resource_settle_acr_companion_usage( $row, $status, $last_error = '' ) {
 	global $wpdb;
 	$table = trb_resource_tables()['usage'];
@@ -486,6 +518,7 @@ function trb_resource_settle_acr_companion_usage( $row, $status, $last_error = '
 		$status, $last_error, trb_resource_now(), (int) $row->release_id, (int) $row->track_index, (string) $row->file_hash
 	) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 }
+
 
 /** Re-run an existing provider file after the container policy was corrected. */
 function trb_resource_rescan_acr_file( $provider_reference ) {
@@ -498,10 +531,12 @@ function trb_resource_rescan_acr_file( $provider_reference ) {
 	return in_array( $code, array( 200, 201, 202, 204 ), true ) ? true : new WP_Error( 'ACR_RESCAN_FAILED', 'HTTP ' . $code );
 }
 
+
 /** Track the bounded recovery stage for a provider object created with an old engine. */
 function trb_resource_acr_configuration_generation() {
 	return sanitize_key( (string) get_option( 'trb_acr_configuration_generation', '' ) );
 }
+
 
 function trb_resource_acr_engine_recovery_stage( $release_id, $file_hash ) {
 	$stages = get_post_meta( absint( $release_id ), '_trb_acr_engine_recovery_stages', true );
@@ -513,6 +548,7 @@ function trb_resource_acr_engine_recovery_stage( $release_id, $file_hash ) {
 	return '' === $generation ? absint( $entry ) : 0;
 }
 
+
 function trb_resource_set_acr_engine_recovery_stage( $release_id, $file_hash, $stage ) {
 	$release_id = absint( $release_id );
 	$stages = get_post_meta( $release_id, '_trb_acr_engine_recovery_stages', true );
@@ -522,6 +558,7 @@ function trb_resource_set_acr_engine_recovery_stage( $release_id, $file_hash, $s
 	if ( $stages ) update_post_meta( $release_id, '_trb_acr_engine_recovery_stages', $stages );
 	else delete_post_meta( $release_id, '_trb_acr_engine_recovery_stages' );
 }
+
 
 /** Retry transient container/configuration failures without leaving a release silent. */
 function trb_resource_schedule_analysis_configuration_retry( $release_id, $error_code ) {
@@ -536,6 +573,7 @@ function trb_resource_schedule_analysis_configuration_retry( $release_id, $error
 		trb_resource_queue_email( 'acr-configuration-retry-' . $release_id . '-' . wp_date( 'Ymd' ), 'Verifica ACRCloud ancora in attesa', $body, true );
 	}
 }
+
 
 /** Finish one track only after independent exact and cover scans are complete. */
 function trb_resource_finalize_dual_acr_track( $release_id, $track, $hash ) {
@@ -574,6 +612,7 @@ function trb_resource_finalize_dual_acr_track( $release_id, $track, $hash ) {
 	return true;
 }
 
+
 /** Reconcile historical open events for tracks already completed by the dual scan. */
 function trb_resource_reconcile_completed_dual_acr_events() {
 	if ( '20260825.1' === get_option( 'trb_resource_event_reconciliation_version' ) ) return;
@@ -588,6 +627,7 @@ function trb_resource_reconcile_completed_dual_acr_events() {
 	update_option( 'trb_resource_event_reconciliation_version', '20260825.1', false );
 }
 add_action( 'init', 'trb_resource_reconcile_completed_dual_acr_events', 31 );
+
 
 function trb_resource_poll_dual_acr_job( $ledger_id ) {
 	global $wpdb; $table = trb_resource_tables()['usage'];
@@ -627,6 +667,7 @@ function trb_resource_poll_dual_acr_job( $ledger_id ) {
 	}
 }
 add_action( 'trb_resource_poll_dual_acr_job', 'trb_resource_poll_dual_acr_job' );
+
 
 function trb_resource_start_dual_acr_analysis( $release_id ) {
 	if ( 'trash' === get_post_status( $release_id ) || get_post_meta( $release_id, '_trb_owner_cancelled_at', true ) ) return new WP_Error( 'TRB_RELEASE_CANCELLED' );
@@ -674,6 +715,7 @@ function trb_resource_start_dual_acr_analysis( $release_id ) {
 	}
 	return true;
 }
+
 
 function trb_resource_start_release_analysis( $release_id ) {
 	if ( 'trash' === get_post_status( $release_id ) || get_post_meta( $release_id, '_trb_owner_cancelled_at', true ) ) return;
@@ -820,6 +862,7 @@ function trb_resource_start_release_analysis( $release_id ) {
 add_action( 'trb_release_audio_ready_for_analysis', 'trb_resource_start_release_analysis', 10, 1 );
 add_action( 'trb_resource_start_release_analysis_manual', 'trb_resource_start_release_analysis', 10, 1 );
 
+
 function trb_resource_poll_acr_job( $ledger_id ) {
 	global $wpdb; $table = trb_resource_tables()['usage']; $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id=%d", absint( $ledger_id ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	if ( ! $row || ! $row->provider_reference || 'cancelled' === $row->status || 'trash' === get_post_status( $row->release_id ) ) return;
@@ -875,6 +918,7 @@ function trb_resource_poll_acr_job( $ledger_id ) {
 }
 add_action( 'trb_resource_poll_acr_job', 'trb_resource_poll_acr_job' );
 
+
 /**
  * Resume release jobs whose one-shot cron event was lost or whose status was
  * written by an older pipeline revision. Provider calls remain idempotent by
@@ -889,13 +933,16 @@ function trb_resource_artist_legal_greeting_name( $user ) {
 	return '' !== $name ? $name : 'Artista';
 }
 
+
 function trb_resource_artist_email_signature() {
 	return '<p>Sezione Contratti e Distribuzione<br><strong>TRB rec – Music Publishing</strong> · <a href="https://trbrec.com">trbrec.com</a><br>P. IVA 02846170989 · REA BS-483571 · SDI 095EI9R</p><p><em>Privacy notice — This email and its contents are confidential and intended solely for the recipients. If you received it in error, please delete it and notify the sender.</em></p>';
 }
 
+
 function trb_resource_artist_recovery_cc_headers() {
 	return array( 'Cc: andrea.tognassi@trbrec.com' );
 }
+
 
 function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_status, $event_suffix = '' ) {
 	/*
@@ -922,6 +969,7 @@ function trb_resource_notify_artist_pipeline_recovery( $release_id, $previous_st
 	return true;
 }
 
+
 function trb_resource_notify_artist_recovery_without_release( $user_id, $event_suffix ) {
 	$event_suffix = sanitize_key( $event_suffix );
 	$confirmed_incident = 0 === strpos( $event_suffix, 'confirmed-incident-' ) || 0 === strpos( $event_suffix, 'manual-resend-' );
@@ -939,6 +987,7 @@ function trb_resource_notify_artist_recovery_without_release( $user_id, $event_s
 	return true;
 }
 
+
 function trb_resource_recover_release_pipeline() {
 	$release_ids = get_posts( array(
 		'post_type'      => 'trb_release',
@@ -953,6 +1002,7 @@ function trb_resource_recover_release_pipeline() {
 			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'archived_pending_analysis', 'technical_review', 'copyright_queued', 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review' ), 'compare' => 'IN' ),
 		),
 	) );
+
 
 	foreach ( $release_ids as $release_id ) {
 		$status  = sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
@@ -992,6 +1042,7 @@ function trb_resource_recover_release_pipeline() {
 }
 add_action( 'trb_resource_recover_release_pipeline', 'trb_resource_recover_release_pipeline' );
 
+
 /**
  * Cancel messages queued by the former broad watchdog notification rule.
  * Confirmed, explicitly keyed incident messages (such as the Ruggia backfill)
@@ -1011,6 +1062,7 @@ function trb_resource_cancel_unconfirmed_recovery_notifications() {
 	update_option( 'trb_resource_recovery_notification_policy_version', '20260825.1', false );
 }
 add_action( 'init', 'trb_resource_cancel_unconfirmed_recovery_notifications', 24 );
+
 
 /**
  * The first Ruggia recovery ran before artist-facing recovery notifications
@@ -1050,6 +1102,7 @@ function trb_resource_notify_ruggia_recovery_backfill() {
 		return;
 	}
 
+
 	update_option( 'trb_resource_recovery_mail_discovery', array( 'status' => 'release_found', 'updated_at' => time() ), false );
 	$status = sanitize_key( get_post_meta( $release_id, '_trb_pipeline_last_recovery_status', true ) );
 	if ( ! $status ) $status = sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
@@ -1057,6 +1110,7 @@ function trb_resource_notify_ruggia_recovery_backfill() {
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_notify_ruggia_recovery_backfill', 'trb_resource_notify_ruggia_recovery_backfill' );
+
 
 add_action( 'init', function() {
 	if ( ! wp_next_scheduled( 'trb_resource_recover_release_pipeline' ) ) wp_schedule_event( time() + MINUTE_IN_SECONDS, 'hourly', 'trb_resource_recover_release_pipeline' );
@@ -1067,10 +1121,12 @@ add_action( 'init', function() {
 	}
 }, 25 );
 
+
 function trb_resource_release_rights_folder( $release_id, $track_index ) {
 	$archive = (array) get_post_meta( $release_id, '_trb_release_pcloud_archive', true );
 	return isset( $archive['folders'][ absint( $track_index ) ] ) ? $archive['folders'][ absint( $track_index ) ] : new WP_Error( 'PCLOUD_RELEASE_FOLDER_MISSING' );
 }
+
 
 function trb_resource_sync_rights_document( $release_id, $document_index ) {
 	$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
@@ -1101,11 +1157,13 @@ function trb_resource_sync_rights_document( $release_id, $document_index ) {
 	return true;
 }
 
+
 function trb_resource_retry_rights_document( $release_id, $document_index ) {
 	$result = trb_resource_sync_rights_document( absint( $release_id ), absint( $document_index ) );
 	if ( is_wp_error( $result ) && ! wp_next_scheduled( 'trb_resource_retry_rights_document', array( absint( $release_id ), absint( $document_index ) ) ) ) wp_schedule_single_event( time() + 30 * MINUTE_IN_SECONDS, 'trb_resource_retry_rights_document', array( absint( $release_id ), absint( $document_index ) ) );
 }
 add_action( 'trb_resource_retry_rights_document', 'trb_resource_retry_rights_document', 10, 2 );
+
 
 function trb_resource_upload_rights_document() {
 	if ( ! is_user_logged_in() ) auth_redirect();
@@ -1144,6 +1202,7 @@ function trb_resource_upload_rights_document() {
 }
 add_action( 'admin_post_trb_resource_upload_rights', 'trb_resource_upload_rights_document' );
 
+
 function trb_resource_render_rights_box( $release_id ) {
 	$status = (string) get_post_meta( $release_id, '_trb_release_pipeline_status', true );
 	$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
@@ -1153,31 +1212,50 @@ function trb_resource_render_rights_box( $release_id ) {
 	?><div class="trb-portal__message"><strong>Documentazione sui diritti</strong><p>Allega licenze, autorizzazioni o attestazioni relative al brano. I documenti vengono archiviati nella stessa cartella pCloud del WAV e sottoposti a verifica.</p><?php if ( $documents ) : ?><ul><?php foreach ( $documents as $document ) : ?><li><?php echo esc_html( $document['original_name'] . ' · ' . ( 'synced' === $document['status'] ? 'archiviato' : 'trasferimento in attesa' ) ); ?></li><?php endforeach; ?></ul><?php endif; ?><form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="trb_resource_upload_rights"><?php wp_nonce_field( 'trb_resource_rights_' . $release_id ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release_id ); ?>"><label>Brano <select name="track_index"><?php foreach ( $tracks as $index => $track ) : ?><option value="<?php echo esc_attr( $index ); ?>"><?php echo esc_html( ( $index + 1 ) . '. ' . $track['title'] ); ?></option><?php endforeach; ?></select></label><input type="file" name="rights_document" accept=".pdf,.jpg,.jpeg,.png,.docx" required><button class="trb-button trb-button--compact">Allega documento</button></form></div><?php
 }
 
+
 function trb_resource_daily_health() {
+	$checked_at = time();
+	update_option( 'trb_resource_daily_health_last_run', $checked_at, false );
+	$settings = trb_resource_settings();
 	$anomalies = array();
+	$covered_resources = array();
+	$add_anomaly = static function( $key, $message, $resource = '' ) use ( &$anomalies, &$covered_resources ) {
+		$anomalies[ sanitize_key( $key ) ] = sanitize_text_field( $message );
+		if ( $resource ) $covered_resources[] = sanitize_key( $resource );
+	};
 	$pcloud = trb_resource_pcloud_userinfo();
-	// WebDAV often omits quota properties even while file transfers work. Keep
-	// that diagnostic in the monitor without turning it into an email alert.
-	if ( is_wp_error( $pcloud ) ) trb_resource_event( 'quota-check-' . wp_date( 'Ymd' ), 'pcloud', 'info', 'Quota pCloud non verificabile.', array( 'code' => $pcloud->get_error_code() ) );
+	if ( is_wp_error( $pcloud ) ) {
+		trb_resource_event( 'quota-check-' . wp_date( 'Ymd' ), 'pcloud', 'warning', 'Quota pCloud non verificabile.', array( 'code' => $pcloud->get_error_code() ) );
+		$add_anomaly( 'pcloud-quota', 'Quota pCloud non verificabile automaticamente. I trasferimenti continuano a essere verificati via WebDAV, ma la capacità residua richiede controllo.', 'pcloud' );
+	}
 	else {
-		$s = trb_resource_settings();
-		if ( $pcloud['used_percent'] >= (float) $s['pcloud_warning_2'] ) $anomalies[] = 'pCloud utilizzato al ' . number_format_i18n( $pcloud['used_percent'], 1 ) . '%.';
+		trb_resource_resolve_event( 'quota-check-' . wp_date( 'Ymd' ), 'pcloud' );
+		$covered_resources[] = 'pcloud';
+		if ( $pcloud['used_percent'] >= (float) $settings['pcloud_warning_1'] ) $add_anomaly( 'pcloud-capacity', 'pCloud utilizzato al ' . number_format_i18n( $pcloud['used_percent'], 1 ) . '%.', 'pcloud' );
 	}
 	$storage = trb_resource_storage_snapshot();
-	$s = trb_resource_settings();
-	if ( null === $storage['used_percent'] ) trb_resource_event( 'storage-check-' . wp_date( 'Ymd' ), 'storage', 'info', 'Spazio hosting non verificabile.' );
-	else {
-		if ( $storage['used_percent'] < (float) $s['temp_block'] ) trb_resource_resolve_event( 'capacity', 'storage' );
-		if ( $storage['used_percent'] < (float) $s['temp_warning_1'] ) trb_resource_resolve_event( 'capacity-warning', 'storage' );
-		if ( $storage['used_percent'] >= (float) $s['temp_warning_2'] ) $anomalies[] = 'Filesystem hosting utilizzato al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%.';
+	if ( null === $storage['used_percent'] ) {
+		trb_resource_event( 'storage-check-' . wp_date( 'Ymd' ), 'storage', 'warning', 'Spazio hosting non verificabile.' );
+		$add_anomaly( 'storage-unavailable', 'Spazio hosting non verificabile automaticamente.', 'storage' );
 	}
+	else {
+		$covered_resources[] = 'storage';
+		if ( $storage['used_percent'] < (float) $settings['temp_block'] ) trb_resource_resolve_event( 'capacity', 'storage' );
+		if ( $storage['used_percent'] < (float) $settings['temp_warning_1'] ) trb_resource_resolve_event( 'capacity-warning', 'storage' );
+		if ( $storage['used_percent'] >= (float) $settings['temp_warning_1'] ) $add_anomaly( 'storage-capacity', 'Filesystem hosting utilizzato al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%.', 'storage' );
+	}
+	$acr_stats = trb_resource_acr_stats();
+	$acr_budget = (float) $settings['acr_monthly_budget'];
+	$acr_spent = isset( $acr_stats['cost_max'] ) ? (float) $acr_stats['cost_max'] : 0;
+	$acr_percent = $acr_budget > 0 ? min( 100, $acr_spent / $acr_budget * 100 ) : 100;
+	if ( $acr_percent >= 50 ) $add_anomaly( 'acr-budget', 'Budget ACRCloud utilizzato al ' . number_format_i18n( $acr_percent, 1 ) . '% (' . number_format_i18n( $acr_spent, 4 ) . ' / ' . number_format_i18n( $acr_budget, 2 ) . ' USD).', 'acrcloud' );
 	global $wpdb; $tables = trb_resource_tables();
 	// Manual review and active processing are expected workflow states. Notify
 	// Andrea only for states that indicate an actual block or rejected content.
 	$blocked = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key='_trb_release_pipeline_status' AND meta_value IN ('technical_error','security_rejected','upload_failed','isrc_assignment_failed','analysis_waiting_configuration','ACR_BUDGET_LIMIT_REACHED','PCLOUD_QUOTA_LIMIT_REACHED')" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$failed_mail = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$tables['notifications']} WHERE status='retry' AND attempts>0" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	if ( $blocked ) $anomalies[] = $blocked . ' pratiche risultano realmente bloccate.';
-	if ( $failed_mail ) $anomalies[] = $failed_mail . ' notifiche email non sono state recapitate.';
+	if ( $blocked ) $add_anomaly( 'blocked-releases', $blocked . ' pratiche risultano realmente bloccate.', 'pipeline' );
+	if ( $failed_mail ) $add_anomaly( 'failed-mail', $failed_mail . ' notifiche email non sono state recapitate.', 'email' );
 	if ( function_exists( 'trb_portal_profiles' ) && function_exists( 'trb_portal_user_profile_candidates' ) ) {
 		$artist_roles = array();
 		$missing_roles = array();
@@ -1194,16 +1272,35 @@ function trb_resource_daily_health() {
 			$profiles_found = array_unique( array_merge( array_keys( $candidates['canonical'] ), array_keys( $candidates['legacy'] ) ) );
 			if ( count( $profiles_found ) > 1 ) $ambiguous++;
 		}
-		if ( $missing_roles ) $anomalies[] = 'Ruoli contrattuali mancanti: ' . implode( ', ', $missing_roles ) . '.';
-		if ( $ambiguous ) $anomalies[] = $ambiguous . ' account hanno più gruppi contrattuali assegnati e richiedono verifica amministrativa.';
+		if ( $missing_roles ) $add_anomaly( 'missing-roles', 'Ruoli contrattuali mancanti: ' . implode( ', ', $missing_roles ) . '.', 'roles' );
+		if ( $ambiguous ) $add_anomaly( 'ambiguous-roles', $ambiguous . ' account hanno più gruppi contrattuali assegnati e richiedono verifica amministrativa.', 'roles' );
 	}
-	if ( $anomalies ) trb_resource_queue_email( 'daily-digest-' . wp_date( 'Ymd' ), 'Intervento richiesto sul Portale Artisti', '<p>' . implode( '</p><p>', array_map( 'esc_html', $anomalies ) ) . '</p>', true );
+	$open_events = $wpdb->get_results( "SELECT resource,severity,message,occurrences FROM {$tables['events']} WHERE status='open' AND severity IN ('warning','critical') ORDER BY severity DESC,last_seen DESC LIMIT 30", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	foreach ( $open_events as $event ) {
+		$resource = sanitize_key( (string) $event['resource'] );
+		if ( 'critical' !== $event['severity'] && in_array( $resource, $covered_resources, true ) ) continue;
+		$occurrences = max( 1, absint( $event['occurrences'] ) );
+		$add_anomaly( 'event-' . md5( $resource . '|' . $event['severity'] . '|' . $event['message'] ), strtoupper( $event['severity'] ) . ' · ' . $resource . ': ' . $event['message'] . ( $occurrences > 1 ? ' (' . $occurrences . ' occorrenze)' : '' ), $resource );
+	}
+	$anomalies = array_values( $anomalies );
+	$email_queued = false;
+	if ( $anomalies ) {
+		$body = '<p>Controllo automatico eseguito il ' . esc_html( wp_date( 'd/m/Y H:i:s', $checked_at ) ) . '.</p><p>' . implode( '</p><p>', array_map( 'esc_html', $anomalies ) ) . '</p><p><a href="' . esc_url( admin_url( 'admin.php?page=trb-resource-monitor' ) ) . '">Apri il monitor risorse</a></p>';
+		trb_resource_queue_email( 'daily-health-v2-' . wp_date( 'Ymd' ), 'Controllo giornaliero Portale Artisti: intervento richiesto', $body, true );
+		$email_queued = true;
+	}
+	update_option( 'trb_resource_daily_health_status', array( 'checked_at' => $checked_at, 'anomaly_count' => count( $anomalies ), 'email_queued' => $email_queued ? 1 : 0 ), false );
 	trb_resource_process_notifications();
 }
 add_action( 'trb_resource_daily_health', 'trb_resource_daily_health' );
-add_action( 'init', function() {
+add_action( 'trb_resource_daily_health_catchup', 'trb_resource_daily_health' );
+function trb_resource_schedule_daily_health() {
 	if ( ! wp_next_scheduled( 'trb_resource_daily_health' ) ) wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'trb_resource_daily_health' );
-} );
+	$last_run = absint( get_option( 'trb_resource_daily_health_last_run', 0 ) );
+	if ( ( ! $last_run || $last_run < time() - 23 * HOUR_IN_SECONDS ) && ! wp_next_scheduled( 'trb_resource_daily_health_catchup' ) ) wp_schedule_single_event( time(), 'trb_resource_daily_health_catchup' );
+}
+add_action( 'init', 'trb_resource_schedule_daily_health', 30 );
+
 
 /** Run and mail one deployment-time audit against the real production data. */
 function trb_resource_run_portal_audit() {
@@ -1260,6 +1357,7 @@ function trb_resource_run_portal_audit() {
 		}
 	}
 
+
 	$pipeline_rows = $wpdb->get_results( "SELECT pm.meta_value AS pipeline_status,COUNT(*) AS total FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID=pm.post_id WHERE pm.meta_key='_trb_release_pipeline_status' AND p.post_type='trb_release' AND p.post_status IN ('publish','private','pending') GROUP BY pm.meta_value ORDER BY total DESC", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$pipeline_counts = array();
 	foreach ( (array) $pipeline_rows as $row ) {
@@ -1269,6 +1367,7 @@ function trb_resource_run_portal_audit() {
 	foreach ( array( 'technical_error','security_rejected','upload_failed','isrc_assignment_failed','analysis_waiting_configuration','acr_budget_limit_reached','pcloud_quota_limit_reached' ) as $blocked_status ) {
 		if ( ! empty( $pipeline_counts[ $blocked_status ] ) ) $issues[] = $pipeline_counts[ $blocked_status ] . ' pratiche in ' . $blocked_status;
 	}
+
 
 	$required_events = array( 'trb_resource_recover_release_pipeline', 'trb_resource_daily_health', 'trb_analysis_security_retry', 'trb_release_pcloud_import_masters', 'trb_demo_recover_stalled_requests', 'trb_portal_cleanup_pending_accounts', 'trb_portal_check_identity_expirations', 'trb_release_bridge_transition_expired_ddb_trb' );
 	foreach ( $required_events as $event ) if ( ! wp_next_scheduled( $event ) ) $issues[] = 'Evento automatico non pianificato: ' . $event;
@@ -1281,6 +1380,7 @@ function trb_resource_run_portal_audit() {
 	$dashboard_id = absint( get_option( 'trb_portal_dashboard_created' ) );
 	$page_status['area-artisti'] = $dashboard_id && 'publish' === get_post_status( $dashboard_id );
 	if ( ! $page_status['area-artisti'] ) $issues[] = 'Dashboard artisti mancante o non pubblicata';
+
 
 	$demo_counts = array_fill_keys( array( 'queued', 'retry', 'ready', 'sent', 'manual_review', 'email_failed' ), 0 );
 	$demo_problems = array_fill_keys( array( 'stalled', 'missing_files', 'missing_remote', 'sheet_unsynced' ), 0 );
@@ -1334,6 +1434,7 @@ function trb_resource_run_portal_audit() {
 		$issues[] = absint( $open_event['occurrences'] ) . ' occorrenze aperte ' . sanitize_key( $open_event['resource'] ) . '/' . sanitize_key( $open_event['severity'] ) . ': ' . sanitize_text_field( $open_event['message'] );
 	}
 
+
 	$snapshot = array( 'checked_at' => time(), 'profiles' => $profile_counts, 'pipelines' => $pipeline_counts, 'demos' => $demo_counts, 'demo_problems' => $demo_problems, 'release_qa' => $release_qa, 'release_matrix' => $release_matrix, 'cover_workflow' => $cover_workflow, 'pages' => $page_status, 'resource_events' => $open_resource_events, 'issues' => $issues );
 	update_option( 'trb_resource_last_portal_audit', $snapshot, false );
 	$profile_rows = array();
@@ -1354,10 +1455,12 @@ add_action( 'init', function() {
 	if ( ! wp_next_scheduled( 'trb_resource_run_portal_audit' ) ) wp_schedule_single_event( time() + 30, 'trb_resource_run_portal_audit' );
 }, 30 );
 
+
 function trb_resource_admin_menu() {
 	add_management_page( 'Monitoraggio risorse TRB', 'Monitoraggio risorse TRB', 'manage_options', 'trb-resource-monitor', 'trb_resource_render_admin' );
 }
 add_action( 'admin_menu', 'trb_resource_admin_menu' );
+
 
 function trb_resource_render_admin() {
 	if ( ! current_user_can( 'manage_options' ) ) return;
@@ -1431,6 +1534,8 @@ function trb_resource_render_admin() {
 	$stats = trb_resource_acr_stats(); $budget = (float) $settings['acr_monthly_budget']; $spent = isset( $stats['cost_max'] ) ? (float) $stats['cost_max'] : 0; $percent = $budget > 0 ? min( 100, $spent / $budget * 100 ) : 100;
 	$day = (int) wp_date( 'j' ); $days = (int) wp_date( 't' ); $projection = $day > 0 ? $spent / $day * $days : $spent; $average = ! empty( $stats['tracks'] ) ? $spent / (int) $stats['tracks'] : 0; $reset = wp_date( 'd/m/Y', ( new DateTimeImmutable( 'first day of next month 00:00:00', wp_timezone() ) )->getTimestamp() );
 	$pcloud_snapshot = get_option( 'trb_resource_pcloud_snapshot', array() ); $storage = trb_resource_storage_snapshot(); global $wpdb; $tables = trb_resource_tables();
+	$daily_health_status = (array) get_option( 'trb_resource_daily_health_status', array() ); $daily_health_last = absint( get_option( 'trb_resource_daily_health_last_run', 0 ) ); $daily_health_next = wp_next_scheduled( 'trb_resource_daily_health_catchup' );
+	if ( ! $daily_health_next ) $daily_health_next = wp_next_scheduled( 'trb_resource_daily_health' );
 	$events = $wpdb->get_results( "SELECT * FROM {$tables['events']} WHERE status='open' ORDER BY last_seen DESC LIMIT 20" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$queue = get_posts( array( 'post_type' => 'trb_release', 'post_status' => 'publish', 'posts_per_page' => 50, 'meta_query' => array( array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'approved' ), 'compare' => 'NOT IN' ) ) ) );
 	?>
@@ -1445,6 +1550,7 @@ function trb_resource_render_admin() {
 	<tr><th>DeepRight / Cover Song / Metadata</th><td><?php echo esc_html( (float) ( isset( $stats['deepright_minutes'] ) ? $stats['deepright_minutes'] : 0 ) . ' min / ' . (float) ( isset( $stats['cover_minutes'] ) ? $stats['cover_minutes'] : 0 ) . ' min / ' . absint( isset( $stats['metadata_calls'] ) ? $stats['metadata_calls'] : 0 ) . ' chiamate' ); ?></td></tr>
 	<tr><th>pCloud</th><td><?php echo esc_html( isset( $pcloud_snapshot['data']['used_percent'] ) ? number_format_i18n( $pcloud_snapshot['data']['used_percent'], 1 ) . '% utilizzato (' . ( $pcloud_snapshot['data']['source'] ?? 'origine non indicata' ) . ')' : 'Da verificare' ); ?></td></tr>
 	<tr><th>Spazio hosting (filesystem condiviso)</th><td><?php echo esc_html( null !== $storage['used_percent'] ? number_format_i18n( $storage['used_percent'], 1 ) . '% utilizzato' : 'Non verificabile' ); ?></td></tr>
+	<tr><th>Controllo automatico giornaliero</th><td><?php echo esc_html( 'Ultimo: ' . ( $daily_health_last ? wp_date( 'd/m/Y H:i:s', $daily_health_last ) : 'mai eseguito' ) . ' · Prossimo: ' . ( $daily_health_next ? wp_date( 'd/m/Y H:i:s', $daily_health_next ) : 'da pianificare' ) . ' · Anomalie ultimo controllo: ' . absint( $daily_health_status['anomaly_count'] ?? 0 ) . ( ! empty( $daily_health_status['email_queued'] ) ? ' · email accodata' : '' ) ); ?></td></tr>
 	</tbody></table><form method="post" style="margin:12px 0 24px"><?php wp_nonce_field( 'trb_resource_reconcile' ); ?><label><strong>Spesa effettiva ACRCloud del mese (USD)</strong> <input type="number" min="0" step="0.000001" name="acr_actual_cost" value="<?php echo esc_attr( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0 ); ?>"></label> <button class="button" name="trb_resource_reconcile" value="1">Registra riconciliazione</button></form>
 	<h2>Anomalie aperte</h2><?php if ( ! $events ) : ?><p>Nessuna anomalia registrata.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Ultimo evento</th><th>Risorsa</th><th>Gravità</th><th>Dettaglio</th><th>Occorrenze</th></tr></thead><tbody><?php foreach ( $events as $event ) : ?><tr><td><?php echo esc_html( $event->last_seen ); ?></td><td><?php echo esc_html( $event->resource ); ?></td><td><?php echo esc_html( $event->severity ); ?></td><td><?php echo esc_html( $event->message ); ?></td><td><?php echo esc_html( $event->occurrences ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
 	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $archive = (array) get_post_meta( $release->ID, '_trb_release_pcloud_archive', true ); $artist = get_userdata( $release->post_author ); $cover_requested = 'request' === get_post_meta( $release->ID, '_trb_release_cover_mode', true ); $cover_missing = $cover_requested && function_exists( 'trb_portal_release_has_final_cover' ) && ! trb_portal_release_has_final_cover( $release->ID ); ?><tr id="trb-release-<?php echo esc_attr( $release->ID ); ?>"><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state . ( $cover_missing ? ' · copertina definitiva mancante' : '' ) . ( ! empty( $archive['code'] ) ? ' · ' . $archive['code'] : '' ) . ( ! empty( $archive['detail'] ) ? ' · ' . $archive['detail'] : '' ) ); ?></td><td><form method="post" enctype="multipart/form-data"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="retry_acr">Rielabora risposta ACR</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( $cover_missing ) : ?><br><label><strong>Copertina definitiva:</strong> <input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png"></label> <label><input type="checkbox" name="trb_release_cover_300dpi" value="1"> Confermo 300 DPI</label> <button class="button" name="trb_resource_release_action" value="upload_cover">Collega copertina</button><?php endif; ?><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>

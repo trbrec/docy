@@ -8,6 +8,9 @@ on:
   push:
     branches:
       - main
+  schedule:
+    - cron: '17 5,17 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,6 +22,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -98,3 +102,16 @@ jobs:
           done
           echo "::error::Neither the direct endpoint nor the verified WordPress cron fallback deployed ${GITHUB_SHA}."
           exit 1
+
+  trigger-daily-site-health:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Activate the site-native daily monitor
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 45 \
+            -H "Cache-Control: no-cache" \
+            -H "User-Agent: TRB-Daily-Site-Health/1.0" \
+            "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s)" >/dev/null
