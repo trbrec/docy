@@ -762,7 +762,7 @@ function trb_resource_start_release_analysis( $release_id ) {
 	if ( ! empty( $s['acr_fingerprint_container_id'] ) ) {
 		trb_resource_start_dual_acr_analysis( $release_id );
 		return;
-	}
+if ( 'retry_pcloud' === $action ) { if ( function_exists( 'trb_release_pcloud_run_sync' ) ) trb_release_pcloud_run_sync( $release_id ); elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id ); }
 	if ( function_exists( 'trb_analysis_verify_acr_container' ) ) {
 		$container = trb_analysis_verify_acr_container();
 		if ( is_wp_error( $container ) ) {
