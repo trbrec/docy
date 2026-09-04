@@ -762,7 +762,7 @@ function trb_resource_start_release_analysis( $release_id ) {
 	if ( ! empty( $s['acr_fingerprint_container_id'] ) ) {
 		trb_resource_start_dual_acr_analysis( $release_id );
 		return;
-if ( 'retry_pcloud' === $action ) { if ( function_exists( 'trb_release_pcloud_run_sync' ) ) trb_release_pcloud_run_sync( $release_id ); elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id ); }
+	}
 	if ( function_exists( 'trb_analysis_verify_acr_container' ) ) {
 		$container = trb_analysis_verify_acr_container();
 		if ( is_wp_error( $container ) ) {
@@ -1522,7 +1522,7 @@ function trb_resource_render_admin() {
 		$action = sanitize_key( wp_unslash( $_POST['trb_resource_release_action'] ) );
 		if ( $release_id && 'trb_release' === get_post_type( $release_id ) ) {
 			if ( 'override_budget' === $action ) { update_post_meta( $release_id, '_trb_acr_budget_override', 1 ); update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' ); wp_schedule_single_event( time() + 5, 'trb_resource_start_release_analysis_manual', array( $release_id ) ); }
-			if ( 'retry_pcloud' === $action && function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
+			if ( 'retry_pcloud' === $action ) { if ( function_exists( 'trb_release_pcloud_run_sync' ) ) trb_release_pcloud_run_sync( $release_id ); elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id ); }
 			if ( 'retry_acr' === $action ) {
 				update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_in_progress' );
 				trb_resource_start_release_analysis( $release_id );
