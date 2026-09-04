@@ -467,6 +467,52 @@ function trb_analysis_is_declared_catalogue_match( $release_state, $track, $matc
 		&& hash_equals( $declared_isrc, $matched_isrc );
 }
 
+/**
+ * Skip paid provider scanning only when every track is an attested, unchanged
+ * catalogue recording with a valid existing ISRC. Any mixed or incomplete
+ * declaration keeps the normal ACRCloud path active for the whole release.
+ */
+function trb_analysis_catalogue_bypass_eligible( $release_id ) {
+	if ( 'previously_released' !== (string) get_post_meta( $release_id, '_trb_release_state', true ) ) return false;
+	$tracks = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
+	$declarations = (array) get_post_meta( $release_id, '_trb_release_rights_declarations', true );
+	if ( ! $tracks || count( $tracks ) !== count( $declarations ) ) return false;
+	foreach ( $tracks as $index => $track ) {
+		$declaration = isset( $declarations[ $index ] ) && is_array( $declarations[ $index ] ) ? $declarations[ $index ] : array();
+		$isrc = trb_analysis_normalize_isrc( $track['isrc'] ?? '' );
+		if ( 'original' !== ( $declaration['nature'] ?? '' ) || 'catalogue_reissue' !== ( $declaration['basis'] ?? '' ) || ! preg_match( '/^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$/', $isrc ) ) return false;
+	}
+	return true;
+}
+
+/** Persist an auditable green decision without transmitting audio to ACRCloud. */
+function trb_analysis_apply_catalogue_bypass( $release_id ) {
+	if ( ! trb_analysis_catalogue_bypass_eligible( $release_id ) ) return false;
+	$existing = (array) get_post_meta( $release_id, '_trb_release_analysis_decision', true );
+	if ( 'approved' === ( $existing['state'] ?? '' ) && 'declared_catalogue_reissue' === ( $existing['acrcloud']['reason'] ?? '' ) ) return true;
+	$tracks = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
+	$limitations = array();
+	$isrcs = array();
+	foreach ( $tracks as $index => $track ) {
+		$limitations[ $index ] = array( 'ACRCLOUD_BYPASSED_DECLARED_CATALOGUE_REISSUE' );
+		$isrcs[ $index ] = trb_analysis_normalize_isrc( $track['isrc'] ?? '' );
+	}
+	$decision = array(
+		'semaphore' => 'green', 'state' => 'approved', 'results' => array(), 'limitations' => $limitations,
+		'copyright_findings' => array( 'ACRCloud non eseguito: ripubblicazione dello stesso master già distribuito, dichiarata dall’artista e associata a ISRC esistenti.' ),
+		'benchmark_ready' => false, 'acrcloud' => array( 'status' => 'not_run', 'reason' => 'declared_catalogue_reissue' ), 'decided_at' => time(),
+	);
+	update_post_meta( $release_id, '_trb_release_analysis_decision', $decision );
+	update_post_meta( $release_id, '_trb_acr_bypass', array( 'reason' => 'declared_catalogue_reissue', 'isrcs' => $isrcs, 'applied_at' => time() ) );
+	update_post_meta( $release_id, '_trb_release_pipeline_status', 'approved' );
+	$history = (array) get_post_meta( $release_id, '_trb_release_decision_history', true );
+	$history[] = array( 'action' => 'acrcloud_bypassed_declared_catalogue_reissue', 'user_id' => 0, 'at' => time() );
+	update_post_meta( $release_id, '_trb_release_decision_history', array_slice( $history, -100 ) );
+	if ( function_exists( 'trb_analysis_generate_report' ) ) trb_analysis_generate_report( $release_id );
+	do_action( 'trb_release_analysis_approved', $release_id );
+	return true;
+}
+
 function trb_analysis_decide_release( $release_id ) {
 	global $wpdb; $table = function_exists( 'trb_resource_tables' ) ? trb_resource_tables()['usage'] : '';
 	if ( ! $table ) return;
@@ -805,7 +851,8 @@ function trb_analysis_generate_report( $release_id ) {
 	foreach ( $report_documents as $document ) $lines[] = 'Documento diritti: ' . ( $document['original_name'] ?? $document['name'] ?? '' ) . ' - SHA256 ' . ( $document['sha256'] ?? '' ) . ' - ' . ( $document['status'] ?? '' );
 	foreach ( (array) get_post_meta( $release_id, '_trb_release_decision_history', true ) as $event ) { $user = get_userdata( absint( $event['user_id'] ?? 0 ) ); $lines[] = 'Cronologia: ' . gmdate( 'c', absint( $event['at'] ?? 0 ) ) . ' - ' . ( $event['action'] ?? '' ) . ' - ' . ( $user ? $user->user_login : 'sistema' ); }
 	$lines[] = 'Restrizioni Content ID/social: le licenze non esclusive o basic richiedono verifica e possono escludere la monetizzazione.';
-	$lines[] = 'Approvazione automatica: ' . ( ! empty( $decision['benchmark_ready'] ) ? 'benchmark pronto' : 'disabilitata fino al completamento del benchmark' );
+	if ( 'declared_catalogue_reissue' === ( $decision['acrcloud']['reason'] ?? '' ) ) $lines[] = 'ACRCloud: non eseguito - ripubblicazione dichiarata dello stesso master già distribuito, con ISRC esistente.';
+	else $lines[] = 'Approvazione automatica: ' . ( ! empty( $decision['benchmark_ready'] ) ? 'benchmark pronto' : 'disabilitata fino al completamento del benchmark' );
 	$uploads = wp_upload_dir(); $dir = trailingslashit( $uploads['basedir'] ) . 'trb-release-private/' . $release_id; wp_mkdir_p( $dir );
 	$name = trb_portal_release_audio_name_segment( $artist, 'ARTISTA' ) . '_-_' . trb_portal_release_audio_name_segment( $release->post_title, 'RELEASE' ) . '_(COPYRIGHT_CHECK).pdf';
 	$path = trailingslashit( $dir ) . $name;
