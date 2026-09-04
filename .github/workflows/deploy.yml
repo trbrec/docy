@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: deploy-docy-production
@@ -39,69 +38,40 @@ jobs:
           php tools/test-demo-delivery-window.php
           python3 tools/portal-audit.py
 
-      - name: Request GitHub OIDC token
-        id: oidc
-        shell: bash
-        run: |
-          audience='https://artist.trbrec.com/wp-json/trb/v1/deploy'
-          audience_encoded=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "${audience}")
-          token_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${audience_encoded}"
-          token=$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${token_url}" | jq -r '.value')
-          test -n "${token}" && test "${token}" != "null"
-          echo "token=${token}" >> "${GITHUB_OUTPUT}"
-
-      - name: Deploy verified main commit
+      - name: Deploy and verify exact main revision over SSH
         shell: bash
         env:
-          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+          DEPLOY_PATH: /home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy
         run: |
-          payload=$(jq -nc --arg sha "${GITHUB_SHA}" '{sha: $sha}')
-          response_file=$(mktemp)
-          headers_file=$(mktemp)
-          http_code=$(curl --silent --show-error --connect-timeout 5 --max-time 45 \
-            -X POST \
-            -H "Authorization: Bearer ${OIDC_TOKEN}" \
-            -H "Accept: application/json" \
-            -H "Content-Type: application/json" \
-            -H "User-Agent: Mozilla/5.0 (compatible; TRB-GitHub-Deploy/1.1)" \
-            --data "${payload}" \
-            -D "${headers_file}" -o "${response_file}" -w '%{http_code}' \
-            https://artist.trbrec.com/wp-json/trb/v1/deploy || true)
-          if jq -e --arg sha "${GITHUB_SHA}" '.success == true and .sha == $sha' "${response_file}" >/dev/null 2>&1; then
-            cat "${response_file}"
-            exit 0
-          fi
-          content_type=$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{gsub("\r",""); print $2; exit}' "${headers_file}")
-          if grep -qi '^sg-captcha:[[:space:]]*challenge' "${headers_file}"; then
-            echo "::notice::SiteGround challenged the GitHub runner before WordPress. Deployment remains queued through the five-minute internal WordPress safety net."
-          else
-            echo "Direct deploy returned HTTP ${http_code}, content-type ${content_type:-unknown}; activating the WordPress cron fallback."
-          fi
-          rm -f "${response_file}" "${headers_file}"
-
-          for attempt in $(seq 1 36); do
-            if [[ "${attempt}" == "1" || $(( attempt % 3 )) == "0" ]]; then
-              curl --silent --show-error --connect-timeout 3 --max-time 8 \
-                "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s).${attempt}" >/dev/null || true
-            fi
-            status_file=$(mktemp)
-            status_code=$(curl --silent --show-error --connect-timeout 3 --max-time 8 \
-              -H "Accept: application/json" \
-              -H "Cache-Control: no-cache" \
-              -o "${status_file}" -w '%{http_code}' \
-              "https://artist.trbrec.com/wp-json/trb/v1/deploy-status?check=${attempt}" || true)
-            if [[ "${status_code}" == "200" ]] && jq -e --arg sha "${GITHUB_SHA}" '.sha == $sha' "${status_file}" >/dev/null 2>&1; then
-              cat "${status_file}"
-              exit 0
-            fi
-            rm -f "${status_file}"
-            echo "Cron deploy verification ${attempt}/36 is still waiting for ${GITHUB_SHA}."
-            sleep 10
-          done
-          echo "::error::Neither the direct endpoint nor the verified WordPress cron fallback deployed ${GITHUB_SHA}."
-          exit 1
+          install -d -m 700 "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: \
+            ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          rsync -az --checksum \
+            --exclude='.git/' --exclude='.github/' --exclude='.trb-deployed-sha' \
+            -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            ./ "${remote}:${DEPLOY_PATH}/"
+          printf '%s\n' "${GITHUB_SHA}" | \
+            ssh "${ssh_opts[@]}" "${remote}" "cat > '${DEPLOY_PATH}/.trb-deployed-sha'"
+          deployed_sha=$(ssh "${ssh_opts[@]}" "${remote}" "cat '${DEPLOY_PATH}/.trb-deployed-sha'")
+          test "${deployed_sha}" = "${GITHUB_SHA}"
+          ssh "${ssh_opts[@]}" "${remote}" \
+            "php -l '${DEPLOY_PATH}/functions.php' && php -l '${DEPLOY_PATH}/inc/trb-resource-monitor.php'"
+          echo "Successfully deployed and verified ${deployed_sha}."
 
   trigger-daily-site-health:
     if: github.event_name != 'push'
