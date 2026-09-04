@@ -750,9 +750,10 @@ function trb_resource_start_dual_acr_analysis( $release_id ) {
 
 function trb_resource_start_release_analysis( $release_id ) {
 	if ( 'trash' === get_post_status( $release_id ) || get_post_meta( $release_id, '_trb_owner_cancelled_at', true ) ) return;
-	$s = trb_resource_settings();
 	$technical = (array) get_post_meta( $release_id, '_trb_release_technical_analysis', true );
 	if ( ! in_array( $technical['status'] ?? '', array( 'passed', 'warning' ), true ) ) return;
+	if ( function_exists( 'trb_analysis_apply_catalogue_bypass' ) && trb_analysis_apply_catalogue_bypass( $release_id ) ) return;
+	$s = trb_resource_settings();
 	if ( empty( $s['acr_enabled'] ) || empty( $s['acr_paid_confirmed'] ) || empty( $s['acr_token'] ) || empty( $s['acr_container_id'] ) ) {
 		update_post_meta( $release_id, '_trb_release_pipeline_status', 'analysis_waiting_configuration' );
 		trb_resource_schedule_analysis_configuration_retry( $release_id, 'ACR_CONFIGURATION_INCOMPLETE' );
