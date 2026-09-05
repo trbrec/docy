@@ -44,6 +44,8 @@ function trb_intake_record( $user_id, $token, $post ) {
 			'_trb_release_expected_tracks' => count( $raw_tracks ),
 			'_trb_release_intake_error' => 'Invio ricevuto; acquisizione e validazione dei file non ancora completate.',
 		);
+		$pairs = json_decode( (string) ( $post['trb_release_payload_json'] ?? '' ), true );
+		if ( is_array( $pairs ) && function_exists( 'trb_portal_normalize_release_draft_pairs' ) ) $meta['_trb_release_intake_draft'] = trb_portal_normalize_release_draft_pairs( $pairs );
 		if ( trb_portal_is_release_qa_account() ) $meta['_trb_release_qa_mode'] = '1';
 		$id = wp_insert_post( array( 'post_type' => 'trb_release', 'post_status' => 'private', 'post_title' => $title ?: 'Release da completare', 'post_author' => absint( $user_id ), 'meta_input' => $meta ), true );
 		if ( ! is_wp_error( $id ) && $id ) trb_intake_sync( $id );
