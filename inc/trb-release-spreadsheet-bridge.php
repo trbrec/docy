@@ -287,7 +287,9 @@ add_action( 'user_profile_update_errors', 'trb_release_bridge_validate_contract_
 
 function trb_release_bridge_validate_contract_model( $errors, $update, $user ) {
     if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['trb_artist_preliminary_contract'] ) ) return;
-    $valid = trb_release_bridge_validate_preliminary_contract( $user, wp_unslash( $_POST['trb_artist_preliminary_contract'] ) );
+    // WordPress passes stdClass here, while the shared validator requires WP_User.
+    $stored_user = $user instanceof WP_User ? $user : get_userdata( absint( $user->ID ?? 0 ) );
+    $valid = trb_release_bridge_validate_preliminary_contract( $stored_user, wp_unslash( $_POST['trb_artist_preliminary_contract'] ) );
     if ( is_wp_error( $valid ) ) $errors->add( $valid->get_error_code(), $valid->get_error_message() );
 }
 add_action( 'user_profile_update_errors', 'trb_release_bridge_validate_contract_model', 10, 3 );
