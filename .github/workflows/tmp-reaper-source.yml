@@ -1,0 +1,30 @@
+name: Temporary REAPER 7.79 source template download
+
+on:
+  push:
+    branches:
+      - tmp/reaper-source-20260905
+    paths:
+      - .github/workflows/tmp-reaper-source.yml
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download official REAPER 7.79 language-pack template
+        run: |
+          mkdir -p artifact
+          curl --fail --location --retry 4 --retry-all-errors --output artifact/reaper779.ReaperLangPack https://landoleet.org/old/reaper779.ReaperLangPack
+          test $(wc -c < artifact/reaper779.ReaperLangPack) -gt 1000000
+          sha256sum artifact/reaper779.ReaperLangPack > artifact/SHA256.txt
+      - name: Upload source template
+        uses: actions/upload-artifact@v4
+        with:
+          name: reaper779-official-template
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 1
