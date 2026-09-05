@@ -5,6 +5,8 @@ class WP_Error { public function __construct(public $code, public $message='') {
 class Reply extends Exception { public function __construct(public $payload){parent::__construct('reply');} }
 $posts=[];$options=[];$next=1;$logged=true;$nonce=true;
 function is_wp_error($v){return $v instanceof WP_Error;}
+function add_action(...$args){}
+function get_userdata($id){return (object)["ID"=>$id];}
 function absint($v){return abs((int)$v);}
 function sanitize_text_field($v){return trim(strip_tags((string)$v));}
 function sanitize_key($v){return preg_replace('/[^a-z0-9_\-]/','',strtolower((string)$v));}
