@@ -109,3 +109,14 @@ function trb_intake_recovery_notice() {
 	echo '<p><button class="button" type="submit">Recupera invio fallito come pratica incompleta</button></p></form></div>';
 }
 add_action( 'admin_notices', 'trb_intake_recovery_notice' );
+
+/** Business status received from the CRM must not approve technical processing. */
+function trb_intake_protect_pipeline( $check, $post_id, $key, $value ) {
+	if ( '_trb_release_pipeline_status' !== $key ) return $check;
+	if ( ! empty( $GLOBALS['trb_crm_sync_update_from_crm'] ) ) return true;
+	$phase = (string) get_post_meta( $post_id, '_trb_release_intake_phase', true );
+	if ( '' !== $phase && 'complete' !== $phase && in_array( $value, array( 'approved', 'analysis_in_progress', 'technical_analysis_running', 'archived_pending_analysis' ), true ) ) return true;
+	return $check;
+}
+add_filter( 'update_post_metadata', 'trb_intake_protect_pipeline', 10, 4 );
+add_filter( 'add_post_metadata', 'trb_intake_protect_pipeline', 10, 4 );
