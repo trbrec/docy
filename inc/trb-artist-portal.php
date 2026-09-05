@@ -2426,6 +2426,11 @@ function trb_portal_release_submission_response( $status, $message = '', $http_s
 	$status     = sanitize_key( $status );
 	$release_id = absint( $release_id );
 	$is_success = 'created' === $status;
+	if ( ! $is_success && ! empty( $GLOBALS['trb_verified_intake_id'] ) ) {
+		$receipt_id = trb_intake_failure( $status, $message );
+		if ( ! $release_id ) $release_id = $receipt_id;
+		if ( $receipt_id ) $message = 'Pratica #' . $receipt_id . ' incompleta. ' . $message;
+	}
 	$redirect   = add_query_arg( 'trb_release', $status, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release';
 	if ( $is_success && is_user_logged_in() ) {
 		delete_user_meta( get_current_user_id(), '_trb_release_form_draft' );
@@ -2661,6 +2666,8 @@ function trb_portal_release_upload_error_message( $code ) {
 	return isset( $messages[ $code ] ) ? $messages[ $code ] : 'Uno o più file non rispettano i requisiti indicati. La pratica non è stata registrata.';
 }
 
+require_once __DIR__ . '/trb-release-intake.php';
+
 function trb_portal_start_release() {
 	if ( ! is_user_logged_in() ) {
 		trb_portal_release_submission_response( 'session_expired', 'Registrazione finale: la sessione non è più valida. Accedi nuovamente e riprova.', 401 );
@@ -2697,6 +2704,21 @@ function trb_portal_start_release() {
 	}
 	if ( ! current_user_can( 'manage_options' ) && trb_portal_monthly_limit_reached( $user_id ) ) {
 		trb_portal_monthly_limit_redirect();
+	}
+	$submission_token = sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ?? '' ) );
+	$intake_id = trb_intake_record( $user_id, $submission_token, wp_unslash( $_POST ) );
+	if ( is_wp_error( $intake_id ) ) trb_portal_release_submission_response( 'intake_failed', $intake_id->get_error_message(), 409 );
+	$intake_phase = (string) get_post_meta( $intake_id, '_trb_release_intake_phase', true );
+	$intake_pipeline = (string) get_post_meta( $intake_id, '_trb_release_pipeline_status', true );
+	if ( 'complete' === $intake_phase || ( '' === $intake_phase && ! in_array( $intake_pipeline, array( 'upload_failed', 'isrc_assignment_failed' ), true ) ) ) {
+		trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: nessun duplicato.', 200, $intake_id );
+	}
+	if ( ! in_array( $intake_phase, array( 'awaiting_upload', 'validation_failed' ), true ) ) {
+		trb_portal_release_submission_response( 'recovery_required', 'Pratica #' . $intake_id . ' conservata con acquisizione parziale. È necessario completarla dalla pratica esistente.', 409, $intake_id );
+	}
+	$GLOBALS['trb_verified_intake_id'] = $intake_id;
+	if ( ! empty( $_POST['trb_release_intake_only'] ) ) {
+		wp_send_json_success( array( 'status' => 'received', 'release_id' => $intake_id, 'message' => 'Invio ricevuto; acquisizione dei file da completare.' ), 200 );
 	}
 	$title = isset( $_POST['trb_release_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_title'] ) ) : '';
 	$type  = isset( $_POST['trb_release_type'] ) ? sanitize_key( wp_unslash( $_POST['trb_release_type'] ) ) : '';
@@ -2849,28 +2871,17 @@ function trb_portal_start_release() {
 		if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 		trb_portal_release_submission_response( 'upload_in_progress', 'Una richiesta precedente è ancora in elaborazione. Attendi senza inviare nuovamente i file.', 409 );
 	}
-	$submission_token = isset( $_POST['trb_release_submission_token'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ) ) : '';
-	if ( $submission_token ) {
-		$existing_release = get_posts( array(
-			'post_type'      => 'trb_release',
-			'post_status'    => array( 'publish', 'private', 'pending', 'draft' ),
-			'author'         => $user_id,
-			'posts_per_page' => 1,
-			'fields'         => 'ids',
-			'meta_key'       => '_trb_release_submission_token',
-			'meta_value'     => $submission_token,
-		) );
-		if ( $existing_release ) {
-			if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
-			if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
-			delete_user_meta( $user_id, $submit_lock_key );
-			trb_portal_cleanup_release_staging_session( $submission_token );
-			trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: non è stato creato alcun duplicato.', 200, $existing_release[0] );
-		}
+	if ( 'complete' === get_post_meta( $intake_id, '_trb_release_intake_phase', true ) ) {
+		if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
+		if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
+		delete_user_meta( $user_id, $submit_lock_key );
+		trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: nessun duplicato.', 200, $intake_id );
 	}
+	update_post_meta( $intake_id, '_trb_release_intake_phase', 'acquiring_files' );
 
-	$release_id = wp_insert_post(
+	$release_id = wp_update_post(
 		array(
+			'ID'          => $intake_id,
 			'post_type'   => 'trb_release',
 			'post_status' => 'publish',
 			'post_title'  => $title,
@@ -2927,7 +2938,8 @@ function trb_portal_start_release() {
 			if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key );
 			if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key );
 			delete_user_meta( $user_id, $submit_lock_key );
-			if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
+			update_post_meta( $release_id, '_trb_release_intake_phase', 'files_partial' );
+			trb_intake_sync( $release_id );
 			trb_portal_release_submission_response( 'error', 'I dati della pratica sono stati conservati, ma uno o più file non sono stati archiviati. Causa: ' . trb_portal_release_upload_error_message( $file_error->get_error_code() ) . ' Non reinviare tutto: la pratica è visibile e può essere completata.', 500, $release_id );
 		}
 		if ( 'unreleased' === $release_state ) {
@@ -3003,6 +3015,10 @@ function trb_portal_start_release() {
 		if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
 		delete_user_meta( $user_id, $submit_lock_key );
 		if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
+		update_post_meta( $release_id, '_trb_release_intake_phase', 'complete' );
+		delete_post_meta( $release_id, '_trb_release_intake_error' );
+		delete_post_meta( $release_id, '_trb_release_intake_error_code' );
+		trb_intake_sync( $release_id );
 		trb_portal_release_submission_response( 'created', 'Pratica creata correttamente.', 200, $release_id );
 	}
 	if ( $annual_reservation_key ) {
@@ -4711,6 +4727,7 @@ function trb_portal_release_pipeline_label( $release_id ) {
 		'copyright_queued'           => 'Controllo dei diritti in coda',
 		'security_scan_waiting'      => 'I materiali sono conservati in sicurezza e attendono il controllo antivirus. Non caricarli nuovamente.',
 		'security_rejected'          => 'Un materiale richiede verifica di sicurezza da parte di TRB.',
+		'upload_incomplete'          => 'Invio ricevuto: file o validazione da completare',
 		'upload_failed'              => 'Dati acquisiti: caricamento dei file incompleto',
 		'analysis_in_progress'        => 'Controllo del brano in corso',
 		'analysis_waiting_configuration' => 'Il controllo del brano è temporaneamente in attesa. Non è necessario caricare nuovamente il file.',
