@@ -1,0 +1,32 @@
+name: Temporary REAPER Qwen translation test
+
+on:
+  push:
+    branches:
+      - tmp/reaper-qwen-test-20260905
+    paths:
+      - .github/workflows/tmp-reaper-qwen-test.yml
+      - tools/tmp_reaper_qwen/**
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONUNBUFFERED: "1"
+      HF_HUB_DISABLE_XET: "1"
+      CMAKE_ARGS: "-DGGML_NATIVE=OFF"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU llama.cpp binding
+        run: |
+          python -m pip install --disable-pip-version-check "huggingface_hub>=0.27,<2"
+          python -m pip install --disable-pip-version-check llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+      - name: Test context-aware translation
+        run: python tools/tmp_reaper_qwen/test_qwen.py
