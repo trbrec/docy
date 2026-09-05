@@ -35,6 +35,13 @@ function trb_recovery_page() {
 	$files = trb_recovery_file_candidates( $post->post_author );
 	echo '<h2>' . esc_html( $post->post_title ) . ' · #' . $id . '</h2><p>Associa soltanto i materiali corretti. Le copie originali restano conservate; il recupero non avvia contratti, analisi o distribuzione.</p><form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="trb_recovery_attach"><input type="hidden" name="release_id" value="' . $id . '">';
 	wp_nonce_field( 'trb_recovery_attach_' . $id );
+	$associated = get_post_meta( $id, '_trb_release_files', true );
+	if ( is_array( $associated ) && $associated ) {
+		echo '<h3>Materiali già recuperati</h3><ul>';
+		foreach ( $associated as $file_index => $stored ) echo '<li><a href="' . esc_url( trb_portal_release_file_url( $id, $file_index ) ) . '">' . esc_html( $stored['original_name'] ?? $stored['name'] ?? '' ) . '</a> · SHA-256 ' . esc_html( $stored['sha256'] ?? '' ) . '</li>';
+		echo '</ul>';
+	}
+
 	echo '<table class="widefat striped"><thead><tr><th>File ricevuto</th><th>Verifica</th><th>Associazione</th></tr></thead><tbody>';
 	foreach ( $files as $key => $file ) {
 		$details = size_format( $file['size'] );
@@ -46,7 +53,8 @@ function trb_recovery_page() {
 			$image = @getimagesize( $file['path'] );
 			if ( $image ) $details .= ' · ' . $image[0] . ' × ' . $image[1];
 		}
-		echo '<tr><td><strong>' . esc_html( $file['name'] ) . '</strong><br><small>' . esc_html( $file['relative'] ) . '</small></td><td>' . esc_html( $details ) . '</td><td><select aria-label="Associazione ' . esc_attr( $file['relative'] ) . '" name="files[' . esc_attr( $key ) . ']"><option value="">Non utilizzare</option><option value="cover">Copertina</option><option value="presentation">Presentazione</option>';
+		$preview = in_array( $extension, array( 'png', 'jpg', 'jpeg' ), true ) ? '<br><img alt="Anteprima ' . esc_attr( $file['name'] ) . '" style="max-width:260px;height:auto" src="' . esc_url( wp_nonce_url( add_query_arg( array( 'action' => 'trb_recovery_preview', 'release_id' => $id, 'file_key' => $key ), admin_url( 'admin-post.php' ) ), 'trb_recovery_preview_' . $id ) ) . '">' : '';
+		echo '<tr><td><strong>' . esc_html( $file['name'] ) . '</strong><br><small>' . esc_html( $file['relative'] ) . '</small>' . $preview . '</td><td>' . esc_html( $details ) . '</td><td><select aria-label="Associazione ' . esc_attr( $file['relative'] ) . '" name="files[' . esc_attr( $key ) . ']"><option value="">Non utilizzare</option><option value="cover">Copertina</option><option value="presentation">Presentazione</option>';
 		foreach ( $tracks as $index => $track ) {
 			if ( ! is_array( $track ) ) continue;
 			echo '<option value="audio:' . absint( $index ) . '">Audio: ' . esc_html( $track['title'] ?? '' ) . '</option><option value="lyrics:' . absint( $index ) . '">Testo: ' . esc_html( $track['title'] ?? '' ) . '</option>';
@@ -127,3 +135,25 @@ function trb_recovery_attach() {
 	exit;
 }
 add_action( 'admin_post_trb_recovery_attach', 'trb_recovery_attach' );
+
+/** Authenticated, image-only preview; filenames never become arbitrary paths. */
+function trb_recovery_preview() {
+	if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Accesso non consentito.' );
+	$id = absint( $_GET['release_id'] ?? 0 );
+	check_admin_referer( 'trb_recovery_preview_' . $id );
+	$post = trb_recovery_release( $id );
+	if ( ! $post ) wp_die( 'Pratica non disponibile.' );
+	$key = sanitize_key( $_GET['file_key'] ?? '' );
+	$files = trb_recovery_file_candidates( $post->post_author );
+	if ( ! isset( $files[ $key ] ) ) wp_die( 'File non disponibile.' );
+	$file = $files[ $key ];
+	$image = @getimagesize( $file['path'] );
+	if ( ! $image || ! in_array( (int) $image[2], array( IMAGETYPE_JPEG, IMAGETYPE_PNG ), true ) ) wp_die( 'Anteprima immagine non disponibile.' );
+	nocache_headers();
+	header( 'X-Content-Type-Options: nosniff' );
+	header( 'Content-Type: ' . ( IMAGETYPE_PNG === (int) $image[2] ? 'image/png' : 'image/jpeg' ) );
+	header( 'Content-Length: ' . $file['size'] );
+	readfile( $file['path'] );
+	exit;
+}
+add_action( 'admin_post_trb_recovery_preview', 'trb_recovery_preview' );
