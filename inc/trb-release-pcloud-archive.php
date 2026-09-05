@@ -234,6 +234,11 @@ function trb_release_pcloud_sync( $release_id ) {
 	if ( '' === trim( $artist_name ) ) return new WP_Error( 'artist_name_missing' );
 	$tracks = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
 	$files = (array) get_post_meta( $release_id, '_trb_release_files', true );
+	$intake_phase = (string) get_post_meta( $release_id, '_trb_release_intake_phase', true );
+	if ( '' !== $intake_phase && 'complete' !== $intake_phase ) return new WP_Error( 'release_intake_incomplete', 'La ricevuta è incompleta: acquisizione e validazione dei file non concluse.' );
+	$audio_indexes = array();
+	foreach ( $files as $file ) if ( is_array( $file ) && 'audio' === ( $file['kind'] ?? '' ) && isset( $file['track'] ) ) $audio_indexes[ absint( $file['track'] ) ] = true;
+	if ( ! $tracks || count( $audio_indexes ) !== count( $tracks ) ) return new WP_Error( 'release_audio_incomplete', 'Il numero dei WAV acquisiti non corrisponde ai brani della release.' );
 	$master_folder = trb_release_pcloud_master_folder( $release_id, $profile, $artist_name, $release->post_title );
 	$mastering_folder = trb_release_pcloud_mastering_folder( $artist_name, $release->post_title, $release_id );
 	$total_bytes = 0;
@@ -258,7 +263,9 @@ function trb_release_pcloud_sync( $release_id ) {
 			$base = 'cover' === $file['kind'] ? '00)_Copertina' : ( 'cover_reference' === $file['kind'] ? '00)_Reference_copertina' : ( 'presentation' === $file['kind'] ? '00)_Presentazione_release' : sprintf( '%02d)_Testo_-_%s', $track_index + 1, trb_portal_release_audio_name_segment( $track_title, 'Brano' ) ) ) );
 			$remote = $master_folder . '/' . sanitize_file_name( $base . ( $extension ? '.' . $extension : '' ) );
 			$result = trb_release_pcloud_publish_file( $remote, $local, $file['type'] ?? 'application/octet-stream' ); if ( is_wp_error( $result ) ) return $result;
-			$uploaded[] = $remote; $materials[] = $remote; continue;
+			$uploaded[] = $remote; $materials[] = $remote;
+			update_post_meta( $release_id, '_trb_release_pcloud_archive', array( 'status' => 'uploading', 'time' => time(), 'files' => $uploaded, 'materials' => $materials, 'folders' => $folders, 'verified' => false ) );
+			continue;
 		}
 		$status = 'dds' === $profile ? 'mastered' : ( isset( $file['audio_status'] ) ? sanitize_key( $file['audio_status'] ) : '' );
 		if ( ! in_array( $status, array( 'mastered', 'mastering' ), true ) ) return new WP_Error( 'audio_status_missing' );
@@ -274,6 +281,7 @@ function trb_release_pcloud_sync( $release_id ) {
 		if ( is_wp_error( $result ) ) return $result;
 		$uploaded[] = $folder . '/' . $remote_name;
 		$folders[ $track_index ] = $folder;
+		update_post_meta( $release_id, '_trb_release_pcloud_archive', array( 'status' => 'uploading', 'time' => time(), 'files' => $uploaded, 'materials' => $materials, 'folders' => $folders, 'verified' => false ) );
 	}
 	$archive = array( 'status' => 'synced', 'time' => time(), 'files' => $uploaded, 'materials' => $materials, 'folders' => $folders, 'verified' => true );
 	update_post_meta( $release_id, '_trb_release_pcloud_archive', $archive );
