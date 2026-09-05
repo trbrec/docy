@@ -120,3 +120,5 @@ function trb_intake_protect_pipeline( $check, $post_id, $key, $value ) {
 }
 add_filter( 'update_post_metadata', 'trb_intake_protect_pipeline', 10, 4 );
 add_filter( 'add_post_metadata', 'trb_intake_protect_pipeline', 10, 4 );
+
+require_once __DIR__ . '/trb-release-recovery.php';
