@@ -14,6 +14,7 @@ jobs:
         run: |
           find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
           php tools/test-submission-diagnostics.php
+          php tools/test-release-credit-roles.php
           php tools/test-release-draft-normalizer.php
           php tools/test-release-staging-cleanup.php
           node tests/release-draft-restore.test.js
