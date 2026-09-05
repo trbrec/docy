@@ -141,7 +141,7 @@ function trb_crm_connector_demo_payload( $request_id ) {
 		'has_audio' => ! empty( $payload['audio_file'] ),
 		'submitted_at' => isset( $payload['submitted_at'] ) ? (int) $payload['submitted_at'] : strtotime( $post->post_date_gmt . ' UTC' ),
 		'earliest_delivery' => (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true ),
-		'pcloud' => array_intersect_key( $remote, array_flip( array( 'folder', 'files', 'manifest', 'uploaded_at' ) ) ),
+		'pcloud' => array_intersect_key( $remote, array_flip( array( 'folder', 'files', 'manifest', 'uploaded_at', 'verification' ) ) ),
 		'sheet_synced' => (bool) get_post_meta( $request_id, '_trb_demo_sheet_synced', true ),
 		'review_ready' => (bool) get_post_meta( $request_id, '_trb_demo_review', true ),
 		'email_sent' => 'sent' === ( isset( $payload['status'] ) ? $payload['status'] : '' ),
@@ -181,6 +181,26 @@ function trb_crm_connector_profile_saved( $user_id ) { trb_crm_connector_queue( 
 add_action( 'trb_portal_artist_profile_saved', 'trb_crm_connector_profile_saved', 50 );
 add_action( 'user_register', 'trb_crm_connector_profile_saved', 50 );
 add_action( 'profile_update', 'trb_crm_connector_profile_saved', 50 );
+
+/** Queue the final profile once when a save changes individual user-meta fields. */
+function trb_crm_connector_user_meta_change( $meta_id, $user_id, $meta_key ) {
+	$meta_key = (string) $meta_key;
+	if ( 0 !== strpos( $meta_key, '_trb_artist_' ) && ! in_array( $meta_key, array( 'first_name', 'last_name' ), true ) ) return;
+	if ( preg_match( '/secret|token|password|nonce|session|private.?key|api.?key/i', $meta_key ) ) return;
+	$user_id = absint( $user_id );
+	if ( ! $user_id ) return;
+	$GLOBALS['trb_crm_connector_dirty_profiles'][ $user_id ] = true;
+}
+add_action( 'added_user_meta', 'trb_crm_connector_user_meta_change', 100, 3 );
+add_action( 'updated_user_meta', 'trb_crm_connector_user_meta_change', 100, 3 );
+add_action( 'deleted_user_meta', 'trb_crm_connector_user_meta_change', 100, 3 );
+
+function trb_crm_connector_flush_profiles() {
+	$ids = array_keys( isset( $GLOBALS['trb_crm_connector_dirty_profiles'] ) ? $GLOBALS['trb_crm_connector_dirty_profiles'] : array() );
+	$GLOBALS['trb_crm_connector_dirty_profiles'] = array();
+	foreach ( $ids as $user_id ) trb_crm_connector_queue( 'artist', $user_id );
+}
+add_action( 'shutdown', 'trb_crm_connector_flush_profiles', 100 );
 
 function trb_crm_connector_post_change( $post_id, $post ) {
 	if ( wp_is_post_revision( $post_id ) ) return;
