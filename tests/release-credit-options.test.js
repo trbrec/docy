@@ -1,0 +1,11 @@
+'use strict';
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync('assets/js/trb-release-form-ux.js','utf8');
+const fn=src.slice(src.indexOf('function seedRoles('),src.indexOf('\nfunction syncCreditRoles('));
+const list={querySelectorAll:()=>[{value:'Guitar'},{value:'Drums'},{value:'Guitar'},{value:''}]};
+const form={querySelector:()=>null};
+const context={form,document:{querySelector:(s)=>s==='#trb-credit-roles'?list:null}};
+vm.createContext(context);
+vm.runInContext("var ROLES=[]; function q(s,r){return(r||document).querySelector(s);} function qa(s,r){return Array.from(r.querySelectorAll(s));}"+fn+";seedRoles(form);result=ROLES;",context);
+assert.deepEqual(Array.from(context.result),['Guitar','Drums']);
+console.log('PASS: role options come from the actual server datalist outside the form');
