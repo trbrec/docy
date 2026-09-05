@@ -82,6 +82,7 @@ function trb_demo_upload_to_pcloud( $payload ) {
 	$ready = trb_demo_ensure_remote_folder( $folder );
 	if ( is_wp_error( $ready ) ) return $ready;
 	$remote_files = array();
+	$verification = array();
 	foreach ( array( 'text_file', 'audio_file' ) as $key ) {
 		if ( empty( $payload[ $key ] ) ) continue;
 		$local = trb_demo_local_path( $payload[ $key ] );
@@ -89,9 +90,20 @@ function trb_demo_upload_to_pcloud( $payload ) {
 		$remote = $folder . '/' . sanitize_file_name( $payload[ $key ]['name'] );
 		$response = trb_demo_webdav_request( 'PUT', $remote, file_get_contents( $local ), array( 'Content-Type' => $payload[ $key ]['type'] ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 		if ( is_wp_error( $response ) || ! in_array( wp_remote_retrieve_response_code( $response ), array( 200, 201, 204 ), true ) ) return new WP_Error( 'webdav_upload_failed' );
+		// Confirm the stored bytes before recording a successful transfer.
+		$local_size = filesize( $local );
+		$local_hash = hash_file( 'sha256', $local );
+		if ( false === $local_size || false === $local_hash ) return new WP_Error( 'webdav_local_hash_failed', 'Impossibile verificare il file locale.' );
+		unset( $response );
+		$verified_response = trb_demo_webdav_request( 'GET', $remote, null, array( 'Cache-Control' => 'no-cache' ) );
+		if ( is_wp_error( $verified_response ) || 200 !== wp_remote_retrieve_response_code( $verified_response ) ) return new WP_Error( 'webdav_verify_read_failed', 'Rilettura pCloud non riuscita: trasferimento non verificato.' );
+		$verified_body = wp_remote_retrieve_body( $verified_response );
+		if ( strlen( $verified_body ) !== $local_size || ! hash_equals( $local_hash, hash( 'sha256', $verified_body ) ) ) return new WP_Error( 'webdav_verify_mismatch', 'Dimensione o SHA-256 pCloud non corrispondenti al file originale.' );
+		unset( $verified_response, $verified_body );
+		$verification[ $key ] = array( 'size' => $local_size, 'sha256' => $local_hash, 'verified_at' => gmdate( 'c' ) );
 		$remote_files[ $key ] = $remote;
 	}
-	return array( 'folder' => $folder, 'files' => $remote_files );
+	return array( 'folder' => $folder, 'files' => $remote_files, 'verification' => $verification );
 }
 
 function trb_demo_review_prompt( $payload, $has_audio, $has_text ) {
