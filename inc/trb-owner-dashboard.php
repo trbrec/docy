@@ -347,7 +347,7 @@ function trb_owner_dashboard_render_submission_diagnostics( $user_id ) {
 		$allowed = array( 'trb_release_title', 'trb_release_type', 'trb_release_state', 'trb_release_date', 'trb_release_original_date', 'trb_release_cover_mode', 'trb_release_cover_300dpi' );
 		foreach ( array_slice( $draft['pairs'], 0, 4000 ) as $pair ) {
 			if ( ! is_array( $pair ) || ! isset( $pair[0], $pair[1] ) || ! is_string( $pair[0] ) || ! is_scalar( $pair[1] ) ) continue;
-			if ( ! in_array( $pair[0], $allowed, true ) && ! preg_match( '/^trb_tracks\\[[0-9]+\\]\\[(title|duration_minutes|duration_seconds|audio_status|content_nature|rights_basis)\\]$/', $pair[0] ) ) continue;
+			if ( ! in_array( $pair[0], $allowed, true ) && ! preg_match( '/^trb_tracks\\[[0-9]+\\]\\[(title|duration_minutes|duration_seconds|audio_status|content_nature|rights_basis|primary_genre|secondary_genre|advisory)\\]$/', $pair[0] ) && ! preg_match( '/^trb_tracks\\[[0-9]+\\]\\[credits\\]\\[(writers|credits)\\]\\[[0-9]+\\]\\[(name|role|roles|roles_json)\\](?:\\[\\])?$/', $pair[0] ) ) continue;
 			echo '<tr><th>' . esc_html( $pair[0] ) . '</th><td>' . esc_html( (string) $pair[1] ) . '</td></tr>';
 		}
 		echo '</tbody></table>';
