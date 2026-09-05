@@ -16,6 +16,7 @@ jobs:
           php tools/test-submission-diagnostics.php
           php tools/test-release-credit-roles.php
           php tools/test-release-intake.php
+          php tools/test-crm-transfer-health.php
           node tests/release-credit-options.test.js
           php tools/test-release-draft-normalizer.php
           php tools/test-release-staging-cleanup.php
