@@ -71,6 +71,8 @@ function trb_portal_release_audio_filename($id,$index,...$args){return $index.'.
 $publishedFiles=0;$failAt=7;
 function trb_release_pcloud_publish_file(...$args){global $publishedFiles,$failAt;$publishedFiles++;return $publishedFiles===$failAt?new WP_Error('network_error'):true;}
 function do_action(...$args){}
+function trb_portal_delete_release_files($files){}
+function delete_post_meta($id,$key){global $posts;unset($posts[$id]['meta_input'][$key]);}
 $cloudSource=file_get_contents(__DIR__.'/../inc/trb-release-pcloud-archive.php');
 $cloudStart=strpos($cloudSource,'function trb_release_pcloud_sync( $release_id ) {');
 $cloudEnd=strpos($cloudSource,'function trb_release_pcloud_run_sync(', $cloudStart);
