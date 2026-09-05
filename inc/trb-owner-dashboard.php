@@ -325,6 +325,38 @@ function trb_owner_dashboard_reconcile_ruggia_contract( $release_id ) {
 }
 add_action( 'trb_owner_dashboard_reconcile_ruggia_contract', 'trb_owner_dashboard_reconcile_ruggia_contract', 10, 1 );
 
+
+/** Read-only diagnostics for submissions that never became release posts. */
+function trb_owner_dashboard_render_submission_diagnostics( $user_id ) {
+	if ( ! current_user_can( 'manage_options' ) ) return;
+	$user_id = absint( $user_id );
+	$error = get_user_meta( $user_id, '_trb_release_last_submission_error', true );
+	$draft = get_user_meta( $user_id, '_trb_release_form_draft', true );
+	echo '<section class="trb-owner-card"><h3>Invii incompleti e ultima risposta del server</h3>';
+	if ( is_array( $error ) && $error ) {
+		echo '<table><tbody>';
+		foreach ( array( 'code' => 'Codice', 'message' => 'Messaggio', 'http_status' => 'HTTP', 'content_length' => 'Dimensione richiesta (byte)' ) as $key => $label ) {
+			echo '<tr><th>' . esc_html( $label ) . '</th><td>' . esc_html( is_scalar( $error[ $key ] ?? null ) ? (string) $error[ $key ] : '—' ) . '</td></tr>';
+		}
+		echo '<tr><th>Registrato</th><td>' . esc_html( ! empty( $error['at'] ) ? wp_date( 'Y-m-d H:i:s T', absint( $error['at'] ) ) : '—' ) . '</td></tr></tbody></table>';
+	} else {
+		echo '<p>Nessun errore finale registrato. Questo non dimostra che il caricamento sia riuscito: le interruzioni precedenti alla registrazione finale potrebbero non essere presenti.</p>';
+	}
+	if ( is_array( $draft ) && ! empty( $draft['pairs'] ) && is_array( $draft['pairs'] ) ) {
+		echo '<h4>Dati della bozza conservata</h4><p>La bozza non equivale a una release inviata.</p><table><tbody>';
+		$allowed = array( 'trb_release_title', 'trb_release_type', 'trb_release_state', 'trb_release_date', 'trb_release_original_date', 'trb_release_cover_mode', 'trb_release_cover_300dpi' );
+		foreach ( array_slice( $draft['pairs'], 0, 4000 ) as $pair ) {
+			if ( ! is_array( $pair ) || ! isset( $pair[0], $pair[1] ) || ! is_string( $pair[0] ) || ! is_scalar( $pair[1] ) ) continue;
+			if ( ! in_array( $pair[0], $allowed, true ) && ! preg_match( '/^trb_tracks\\[[0-9]+\\]\\[(title|duration_minutes|duration_seconds|audio_status|content_nature|rights_basis)\\]$/', $pair[0] ) ) continue;
+			echo '<tr><th>' . esc_html( $pair[0] ) . '</th><td>' . esc_html( (string) $pair[1] ) . '</td></tr>';
+		}
+		echo '</tbody></table>';
+	} else {
+		echo '<p>Nessuna bozza testuale conservata per questo account.</p>';
+	}
+	echo '</section>';
+}
+
 function trb_owner_dashboard_render() {
 	global $wpdb;
 	if ( ! current_user_can( TRB_OWNER_DASHBOARD_CAPABILITY ) ) wp_die( 'Accesso non consentito.' );
@@ -387,6 +419,7 @@ function trb_owner_dashboard_render() {
 			<?php if ( $selected_artist ) : ?>
 				<h3><?php echo esc_html( ( function_exists( 'trb_portal_artist_profile_value' ) ? trb_portal_artist_profile_value( 'artist_name', $selected_artist->ID ) : '' ) ?: $selected_artist->display_name ); ?></h3>
 				<table><tbody><tr><th>ID account</th><td><?php echo esc_html( $selected_artist->ID ); ?></td><th>Profilo</th><td><?php echo esc_html( function_exists( 'trb_portal_user_profile' ) ? trb_portal_user_profile( $selected_artist ) : implode( ', ', $selected_artist->roles ) ); ?></td></tr><tr><th>Nome e cognome</th><td><?php echo esc_html( trim( $selected_artist->first_name . ' ' . $selected_artist->last_name ) ); ?></td><th>Email</th><td><?php echo esc_html( $selected_artist->user_email ); ?></td></tr><tr><th>Contratto preliminare</th><td><?php echo esc_html( get_user_meta( $selected_artist->ID, '_trb_artist_preliminary_contract', true ) ?: '—' ); ?></td><th>Validità</th><td><?php echo esc_html( get_user_meta( $selected_artist->ID, '_trb_artist_contract_term', true ) ?: '—' ); ?></td></tr></tbody></table>
+				<?php trb_owner_dashboard_render_submission_diagnostics( $selected_artist->ID ); ?>
 				<details><summary><strong>Dati anagrafici, fiscali, documento e contatti</strong></summary><table><tbody><?php foreach ( function_exists( 'trb_portal_artist_profile_fields' ) ? trb_portal_artist_profile_fields() : array() as $key => $label ) : $value = trb_portal_artist_profile_value( $key, $selected_artist->ID ); ?><tr><th><?php echo esc_html( $label ); ?></th><td><?php echo $value ? esc_html( $value ) : '<span class="trb-owner-muted">—</span>'; ?></td></tr><?php endforeach; ?></tbody></table></details>
 			<?php endif; ?>
 		</div><?php endif; ?>
