@@ -19,6 +19,7 @@ jobs:
           php tools/test-release-recovery.php
           php tools/test-crm-transfer-health.php
           php tools/test-acr-budget-notices.php
+          php tools/test-pcm-full-scale.php
           node tests/release-credit-options.test.js
           node tests/release-single-title.test.js
           php tools/test-release-draft-normalizer.php
