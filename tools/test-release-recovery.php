@@ -23,3 +23,22 @@ try{
 }finally{
  foreach([7,8] as $id){foreach(glob($root.'/'.$id.'/session/*') as $p)unlink($p);rmdir($root.'/'.$id.'/session');rmdir($root.'/'.$id);}rmdir($root);
 }
+
+class WP_Error { public $code; function __construct($code){$this->code=$code;} }
+function trb_release_pcloud_local_file($file){return $file['local']??'';}
+$local=tempnam(sys_get_temp_dir(),'recovery-private');
+$stage=tempnam(sys_get_temp_dir(),'recovery-stage');
+file_put_contents($local,'verified-pcm');file_put_contents($stage,'verified-pcm');
+$stored=['kind'=>'audio','track'=>0,'local'=>$local,'sha256'=>hash_file('sha256',$local)];
+try {
+ verify(trb_recovery_reuse_file(12,['tmp_name'=>$stage],'audio',0)===null,'Normal submissions affected');
+ $GLOBALS['trb_recovery_resume_context']=['id'=>12,'files'=>[$stored]];
+ verify(trb_recovery_reuse_file(13,['tmp_name'=>$stage],'audio',0)===null,'Cross-release reuse allowed');
+ verify(trb_recovery_reuse_file(12,['tmp_name'=>$stage],'audio',0)===$stored,'Verified file not reused');
+ verify(trb_recovery_reuse_file(12,['tmp_name'=>$stage],'audio',1) instanceof WP_Error,'Wrong track accepted');
+ file_put_contents($stage,'changed');
+ verify(trb_recovery_reuse_file(12,['tmp_name'=>$stage],'audio',0) instanceof WP_Error,'Changed staging accepted');
+ file_put_contents($stage,'verified-pcm');file_put_contents($local,'changed');
+ verify(trb_recovery_reuse_file(12,['tmp_name'=>$stage],'audio',0) instanceof WP_Error,'Changed private file accepted');
+ echo "PASS recovered file reuse, release isolation and integrity checks\n";
+} finally { unlink($local);unlink($stage);unset($GLOBALS['trb_recovery_resume_context']); }
