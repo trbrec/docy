@@ -122,3 +122,19 @@ add_filter( 'update_post_metadata', 'trb_intake_protect_pipeline', 10, 4 );
 add_filter( 'add_post_metadata', 'trb_intake_protect_pipeline', 10, 4 );
 
 require_once __DIR__ . '/trb-release-recovery.php';
+
+/** Completing intake ends the upload wait, without authorizing any contract. */
+function trb_intake_complete_contract_status( $meta_id, $post_id, $key, $value ) {
+	if ( '_trb_release_intake_phase' !== $key || 'complete' !== $value ) return;
+	if ( 'waiting_upload' === get_post_meta( $post_id, '_trb_contract_state', true ) ) update_post_meta( $post_id, '_trb_contract_state', 'waiting_analysis' );
+}
+add_action( 'updated_post_meta', 'trb_intake_complete_contract_status', 10, 4 );
+add_action( 'added_post_meta', 'trb_intake_complete_contract_status', 10, 4 );
+/** Repair the same obsolete label when an administrator opens a completed receipt. */
+add_action( 'load-post.php', static function() {
+	if ( ! current_user_can( 'manage_options' ) ) return;
+	$id = absint( $_GET['post'] ?? 0 );
+	if ( $id && 'trb_release' === get_post_type( $id ) && 'complete' === get_post_meta( $id, '_trb_release_intake_phase', true ) ) {
+		trb_intake_complete_contract_status( 0, $id, '_trb_release_intake_phase', 'complete' );
+	}
+} );
