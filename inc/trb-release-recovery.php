@@ -31,6 +31,11 @@ function trb_recovery_page() {
 	echo '<div class="wrap"><h1>Recupero materiali release</h1><form method="get"><input type="hidden" name="page" value="trb-release-recovery"><label>Numero pratica <input type="number" name="release_id" min="1" value="' . $id . '"></label> <button class="button">Apri materiali ricevuti</button></form>';
 	$post = trb_recovery_release( $id );
 	if ( ! $post ) { echo '<p>Seleziona una pratica incompleta. Le release già completate non vengono modificate da questo strumento.</p></div>'; return; }
+	if ( 'recovery_review' === get_post_meta( $id, '_trb_release_intake_phase', true ) ) {
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="trb_recovery_resume"><input type="hidden" name="release_id" value="' . $id . '">';
+		wp_nonce_field( 'trb_recovery_resume_' . $id );
+		echo '<p>La verifica usa i dati salvati e tutti i controlli ordinari. Se validi, avvia archiviazione e analisi; i contratti seguono le regole della pipeline.</p><button class="button button-primary">Riprendi la verifica standard della pratica</button></form>';
+	}
 	$tracks = (array) get_post_meta( $id, '_trb_release_tracks', true );
 	$files = trb_recovery_file_candidates( $post->post_author );
 	echo '<h2>' . esc_html( $post->post_title ) . ' · #' . $id . '</h2><p>Associa soltanto i materiali corretti. Le copie originali restano conservate; il recupero non avvia contratti, analisi o distribuzione.</p><form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="trb_recovery_attach"><input type="hidden" name="release_id" value="' . $id . '">';
@@ -157,3 +162,92 @@ function trb_recovery_preview() {
 	exit;
 }
 add_action( 'admin_post_trb_recovery_preview', 'trb_recovery_preview' );
+
+/** Resume a recovered submission through the ordinary artist validator. */
+function trb_recovery_resume() {
+	if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Accesso non consentito.' );
+	$id = absint( $_POST['release_id'] ?? 0 );
+	check_admin_referer( 'trb_recovery_resume_' . $id );
+	$post = trb_recovery_release( $id );
+	if ( ! $post || 'recovery_review' !== get_post_meta( $id, '_trb_release_intake_phase', true ) ) wp_die( 'Pratica non pronta per la verifica.' );
+	$pairs = get_post_meta( $id, '_trb_release_intake_draft', true );
+	$files = get_post_meta( $id, '_trb_release_files', true );
+	$token = (string) get_post_meta( $id, '_trb_release_submission_token', true );
+	if ( ! is_array( $pairs ) || ! $pairs || ! is_array( $files ) || ! $files || ! preg_match( '/^[a-f0-9-]{36}$/i', $token ) ) wp_die( 'Dati di recupero insufficienti.' );
+	$lock = 'trb_recovery_release_' . $id;
+	if ( ! add_option( $lock, time(), '', false ) ) wp_die( 'Recupero già in corso.' );
+	$admin = get_current_user_id();
+	$GLOBALS['trb_recovery_resume_context'] = array( 'id' => $id, 'admin' => $admin, 'lock' => $lock, 'token' => $token, 'files' => $files );
+	register_shutdown_function( static function() use ( $lock ) { delete_option( $lock ); } );
+	try {
+		// The administrator authorizes recovery, while normal profile/contract checks run as the owner.
+		wp_set_current_user( $post->post_author );
+		$_POST = array(); $_FILES = array();
+		foreach ( trb_portal_normalize_release_draft_pairs( $pairs ) as $pair ) trb_portal_set_nested_post_value( $pair[0], $pair[1] );
+		$_POST['trb_release_title'] = $post->post_title;
+		$_POST['trb_release_submission_token'] = $token;
+		unset( $_POST['trb_release_intake_only'], $_POST['trb_release_ajax'] );
+		$_POST['trb_portal_release_nonce'] = wp_create_nonce( 'trb_portal_start_release' );
+		$directory = trb_portal_release_staging_session_dir( $token, true );
+		if ( ! $directory ) throw new RuntimeException( 'Storage temporaneo non disponibile.' );
+		$map = array();
+		foreach ( $files as $i => $file ) {
+			$kind = $file['kind'] ?? '';
+			$fields = array( 'cover' => 'trb_release_cover', 'cover_reference' => 'trb_release_cover_reference', 'presentation' => 'trb_release_presentation', 'audio' => 'trb_track_audio', 'lyrics' => 'trb_track_lyrics', 'rights_document' => 'trb_track_rights_document' );
+			if ( ! isset( $fields[ $kind ] ) ) throw new RuntimeException( 'Tipo allegato non riconosciuto.' );
+			$field = $fields[ $kind ];
+			if ( in_array( $kind, array( 'audio', 'lyrics', 'rights_document' ), true ) ) $field .= '[' . absint( $file['track'] ) . ']';
+			if ( isset( $map[ $field ] ) ) throw new RuntimeException( 'Allegati duplicati per lo stesso campo.' );
+			$local = trb_release_pcloud_local_file( $file );
+			$root = realpath( trailingslashit( wp_upload_dir()['basedir'] ) . 'trb-release-private/' . $id );
+			$real = $local ? realpath( $local ) : false;
+			if ( ! $root || ! $real || 0 !== strpos( $real, $root . DIRECTORY_SEPARATOR ) || ! is_file( $real ) || empty( $file['sha256'] ) || ! hash_equals( $file['sha256'], hash_file( 'sha256', $real ) ) ) throw new RuntimeException( 'Integrità degli allegati non confermata.' );
+			$key = 'f' . ( 9000 + $i );
+			$part = trailingslashit( $directory ) . $key . '.part';
+			if ( ! copy( $real, $part ) || ! hash_equals( $file['sha256'], hash_file( 'sha256', $part ) ) ) throw new RuntimeException( 'Copia di verifica non riuscita.' );
+			$meta = array( 'complete' => true, 'size' => filesize( $part ), 'name' => $file['original_name'] ?? $file['name'], 'type' => $file['mime'] ?? '' );
+			if ( false === file_put_contents( trailingslashit( $directory ) . $key . '.json', wp_json_encode( $meta ), LOCK_EX ) ) throw new RuntimeException( 'Manifest di verifica non salvato.' );
+			$map[ $field ] = array( 'session' => $token, 'key' => $key );
+		}
+		$_POST['trb_staged_uploads_json'] = wp_json_encode( $map );
+		$_POST = wp_slash( $_POST );
+		update_post_meta( $id, '_trb_release_recovery_resumed_by', $admin );
+		update_post_meta( $id, '_trb_release_recovery_resumed_at', time() );
+		update_post_meta( $id, '_trb_release_intake_phase', 'validation_failed' );
+		trb_portal_start_release();
+	} catch ( Throwable $error ) {
+		trb_recovery_resume_response( 'error', $error->getMessage() );
+	}
+}
+add_action( 'admin_post_trb_recovery_resume', 'trb_recovery_resume' );
+
+/** Reuse only the exact verified private file; validation still runs before this. */
+function trb_recovery_reuse_file( $id, $file, $kind, $index ) {
+	$context = $GLOBALS['trb_recovery_resume_context'] ?? array();
+	if ( empty( $context ) || (int) $context['id'] !== (int) $id ) return null;
+	foreach ( $context['files'] as $stored ) {
+		if ( ( $stored['kind'] ?? '' ) !== $kind || ( $stored['track'] ?? null ) !== $index ) continue;
+		$local = trb_release_pcloud_local_file( $stored );
+		if ( ! $local || ! is_file( $local ) || ! hash_equals( $stored['sha256'], hash_file( 'sha256', $local ) ) || ! hash_equals( $stored['sha256'], hash_file( 'sha256', $file['tmp_name'] ) ) ) return new WP_Error( 'recovery_integrity_failed' );
+		return $stored;
+	}
+	return new WP_Error( 'recovery_file_missing' );
+}
+
+function trb_recovery_resume_response( $status, $message ) {
+	$context = $GLOBALS['trb_recovery_resume_context'] ?? array();
+	if ( ! $context ) return;
+	$id = $context['id'];
+	if ( 'created' !== $status ) {
+		update_post_meta( $id, '_trb_release_intake_phase', 'recovery_review' );
+		update_post_meta( $id, '_trb_release_intake_error', sanitize_text_field( $message ) );
+		update_post_meta( $id, '_trb_release_pipeline_status', 'upload_incomplete' );
+	}
+	update_post_meta( $id, '_trb_release_recovery_result', array( 'status' => sanitize_key( $status ), 'message' => sanitize_text_field( $message ), 'time' => time() ) );
+	trb_intake_sync( $id );
+	trb_portal_cleanup_release_staging_session( $context['token'] );
+	delete_option( $context['lock'] );
+	wp_set_current_user( $context['admin'] );
+	wp_safe_redirect( admin_url( 'post.php?post=' . $id . '&action=edit' ) );
+	exit;
+}
