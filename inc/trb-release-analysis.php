@@ -3,7 +3,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 require_once __DIR__ . '/trb-rights-owner-review.php';
 
-define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.6' );
+define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.7' );
 
 function trb_analysis_public_version_marker() { echo '<meta name="trb-release-analysis" content="' . esc_attr( TRB_RELEASE_ANALYSIS_VERSION ) . '">'; }
 add_action( 'wp_head', 'trb_analysis_public_version_marker', 2 );
@@ -374,18 +374,35 @@ function trb_analysis_excerpt_window( $path, $maximum_seconds = 90 ) {
 }
 
 /** Enforce album-wide delivery coherence and persist an auditable technical result. */
-function trb_analysis_run_technical( $release_id ) {
+function trb_analysis_audio_inventory_errors( $tracks, $files ) {
+	$errors = array(); $seen = array();
+	if ( ! $tracks ) $errors[] = 'RELEASE_TRACKS_MISSING';
+	foreach ( $files as $file ) {
+		if ( ! is_array( $file ) || 'audio' !== ( $file['kind'] ?? '' ) ) continue;
+		$index = $file['track'] ?? null;
+		if ( ! is_int( $index ) && ! ( is_string( $index ) && ctype_digit( $index ) ) ) { $errors[] = 'AUDIO_TRACK_INDEX_INVALID'; continue; }
+		$index = (int) $index;
+		if ( ! array_key_exists( $index, $tracks ) ) $errors[] = 'AUDIO_TRACK_INDEX_INVALID';
+		if ( isset( $seen[$index] ) ) $errors[] = 'AUDIO_TRACK_DUPLICATED';
+		$seen[$index] = true;
+	}
+	foreach ( array_keys( $tracks ) as $index ) if ( ! isset( $seen[$index] ) ) $errors[] = 'AUDIO_TRACK_MISSING';
+	return array_values( array_unique( $errors ) );
+}
+
+function trb_analysis_run_technical( $release_id, $audit_only = false ) {
 	$tracks = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
 	$files = (array) get_post_meta( $release_id, '_trb_release_files', true );
 	$release_state = sanitize_key( get_post_meta( $release_id, '_trb_release_state', true ) );
 	$uniformity_required = 'previously_released' !== $release_state;
-	$results = array(); $reference = null; $release_errors = array(); $release_warnings = array();
-	update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_analysis_running' );
+	$results = array(); $reference = null; $release_errors = trb_analysis_audio_inventory_errors( $tracks, $files ); $release_warnings = array();
+	if ( ! $audit_only ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_analysis_running' );
 	foreach ( $files as $file ) {
 		if ( 'audio' !== ( $file['kind'] ?? '' ) ) continue;
 		$index = absint( $file['track'] ?? count( $results ) );
 		$path = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $file ) : '';
 		if ( ! $path ) { $release_errors[] = 'LOCAL_ARCHIVE_MISSING'; continue; }
+		if ( ! empty( $file['sha256'] ) && ! hash_equals( (string) $file['sha256'], (string) hash_file( 'sha256', $path ) ) ) { $release_errors[] = 'AUDIO_HASH_MISMATCH'; continue; }
 		$spec = trb_analysis_inspect_wav( $path );
 		if ( is_wp_error( $spec ) ) {
 			$results[ $index ] = array( 'status' => 'error', 'code' => $spec->get_error_code(), 'message' => $spec->get_error_message() );
@@ -402,6 +419,7 @@ function trb_analysis_run_technical( $release_id ) {
 	$status = $release_errors ? 'failed' : ( $release_warnings ? 'warning' : 'passed' );
 	$payload = array( 'version' => TRB_RELEASE_ANALYSIS_VERSION, 'status' => $status, 'release_state' => $release_state, 'uniformity_required' => $uniformity_required, 'tracks' => $results, 'errors' => array_values( array_unique( $release_errors ) ), 'warnings' => array_values( array_unique( $release_warnings ) ), 'completed_at' => time() );
 	update_post_meta( $release_id, '_trb_release_technical_analysis', $payload );
+	if ( $audit_only ) return $payload;
 	if ( 'failed' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_error' );
 	elseif ( 'warning' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_review' );
 	else update_post_meta( $release_id, '_trb_release_pipeline_status', 'copyright_queued' );
@@ -950,6 +968,19 @@ function trb_analysis_admin_page() {
 		$s['clamav_binary'] = isset( $_POST['clamav_binary'] ) ? sanitize_text_field( wp_unslash( $_POST['clamav_binary'] ) ) : '';
 		update_option( 'trb_release_analysis_settings', $s, false ); $message = 'Configurazione salvata.';
 	}
+	if ( isset( $_POST['trb_analysis_technical_audit'] ) ) {
+		check_admin_referer( 'trb_analysis_technical_audit' );
+		$audit_id = absint( $_POST['technical_release_id'] ?? 0 );
+		$audit_post = get_post( $audit_id );
+		if ( ! $audit_post || 'trb_release' !== $audit_post->post_type || 'trash' === $audit_post->post_status ) {
+			$message_error = true; $message = 'Pratica non valida.';
+		} else {
+			if ( function_exists( 'set_time_limit' ) ) @set_time_limit( 300 );
+			$audit_result = trb_analysis_run_technical( $audit_id, true );
+			trb_analysis_generate_report( $audit_id );
+			$message = 'Verifica tecnica completata per #' . $audit_id . ': ' . $audit_result['status'] . ' · ' . count( $audit_result['tracks'] ) . ' WAV analizzati. Nessuna nuova scansione ACRCloud, email o approvazione automatica.';
+		}
+	}
 	if ( isset( $_POST['trb_analysis_benchmark_add'] ) ) {
 		check_admin_referer( 'trb_analysis_benchmark_add' ); $cases = (array) get_option( 'trb_analysis_benchmark_cases', array() );
 		$cases[] = array( 'label' => sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) ), 'expected' => sanitize_key( wp_unslash( $_POST['expected'] ?? '' ) ), 'actual' => sanitize_key( wp_unslash( $_POST['actual'] ?? '' ) ), 'duration_ms' => absint( $_POST['duration_ms'] ?? 0 ), 'cost' => (float) ( $_POST['cost'] ?? 0 ), 'created_at' => time() );
@@ -959,6 +990,7 @@ function trb_analysis_admin_page() {
 	?>
 	<div class="wrap"><h1>Analisi release TRB</h1><?php if ( $message ) : ?><div class="notice notice-<?php echo $message_error ? 'error' : 'success'; ?>"><p><?php echo esc_html( $message ); ?></p></div><?php endif; ?>
 	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili · WAV PCM verificati e decodificati integralmente' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Sicurezza caricamenti</th><td><?php echo esc_html( 'Controlli rigorosi sul formato' . ( trb_analysis_wordfence_active() ? ' · Wordfence attivo' : '' ) . ( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? ' · ClamAV aggiuntivo disponibile' : '' ) ); ?></td></tr><tr><th>Politica contratti</th><td>Copyright verde: approvazione e contratto automatici · giallo/rosso: revisione nel CRM; email all’artista solo dopo selezione esplicita dei brani</td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · validato' : ' · controllo qualità in corso; non blocca i contratti con copyright verde' ) ); ?></td></tr></tbody></table>
+	<h2>Ricalcolo tecnico sui file originali</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_technical_audit' ); ?><label>Numero pratica <input type="number" min="1" name="technical_release_id" required></label> <button class="button" name="trb_analysis_technical_audit" value="1">Ricalcola analisi tecnica</button><p>Aggiorna misure e report sui WAV originali conservati, verificandone l’integrità. Non invia email, non avvia scansioni ACRCloud e non approva la release.</p></form>
 	<h2>Configurazione copyright ACRCloud</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_configure_acr' ); ?><p>Conserva nome, bucket, callback e politica del container; imposta il motore combinato 3, DeepRight, audio line-in e disattiva i servizi non necessari.</p><button class="button" name="trb_analysis_configure_acr" value="1">Configura e verifica il container</button></form>
 	<form method="post" style="margin-top:10px"><?php wp_nonce_field( 'trb_analysis_replace_acr' ); ?><p>Usa un nuovo container solo se il nodo regionale continua a elaborare con un motore diverso da quello verificato. Il container precedente non viene eliminato.</p><button class="button" name="trb_analysis_replace_acr" value="1">Crea e attiva container combinato sostitutivo</button></form>
 	<form method="post" style="margin-top:10px"><?php wp_nonce_field( 'trb_analysis_enable_dual_acr' ); ?><p>Fallback sicuro per account in cui il provider forza il motore combinato al solo Cover Song: esegue due scansioni indipendenti e ne unisce i risultati prima della decisione.</p><button class="button button-primary" name="trb_analysis_enable_dual_acr" value="1">Attiva doppia analisi fingerprint + Cover Song</button></form>
