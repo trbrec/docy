@@ -178,6 +178,9 @@ function trb_resource_process_notifications() {
 	$sent_today = (int) get_option( 'trb_resource_email_sent_' . wp_date( 'Ymd' ), 0 );
 	$rows = $wpdb->get_results( "SELECT * FROM $table WHERE status IN ('pending','retry') AND attempts<5 ORDER BY id ASC LIMIT 20" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	foreach ( $rows as $row ) {
+		if ( strpos( (string) $row->event_key, 'artist-copyright-' ) === 0 && strpos( (string) $row->event_key, 'artist-copyright-reviewed-' ) !== 0 ) {
+			$wpdb->update( $table, array( 'status' => 'cancelled_review', 'last_error' => 'owner_review_required', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) ); continue;
+		}
 		if ( $sent_today >= (int) $settings['email_daily_limit'] ) {
 			trb_resource_event( 'daily-limit-' . wp_date( 'Ymd' ), 'email', 'warning', 'Raggiunto il limite giornaliero interno del provider email.' );
 			break;
@@ -329,6 +332,7 @@ function trb_resource_pcloud_userinfo() {
 		$response = wp_remote_post( $host . '/userinfo', array( 'timeout' => 30, 'body' => array( 'auth' => $settings['pcloud_auth_token'] ) ) );
 		if ( ! is_wp_error( $response ) ) $data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $data ) || ! empty( $data['result'] ) || empty( $data['quota'] ) || ! isset( $data['usedquota'] ) ) {
+			update_option( 'trb_resource_pcloud_api_diagnostic', array( 'shape' => trb_resource_provider_shape( $data ) ), false );
 			$data = trb_resource_pcloud_webdav_userinfo();
 			if ( is_wp_error( $data ) ) return new WP_Error( 'PCLOUD_API_AND_WEBDAV_QUOTA_UNAVAILABLE', $data->get_error_message() );
 		} else {
@@ -346,6 +350,7 @@ function trb_resource_pcloud_userinfo() {
 		) );
 		if ( ! is_wp_error( $response ) ) $data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $data ) || ! empty( $data['result'] ) || empty( $data['quota'] ) || ! isset( $data['usedquota'] ) ) {
+			update_option( 'trb_resource_pcloud_api_diagnostic', array( 'shape' => trb_resource_provider_shape( $data ) ), false );
 			$data = trb_resource_pcloud_webdav_userinfo();
 			if ( is_wp_error( $data ) ) return $data;
 		} else {
@@ -383,6 +388,19 @@ function trb_resource_pcloud_guard( $incoming_bytes ) {
 }
 
 
+
+/** Diagnostic types and allowlisted amounts only; never credentials or account identifiers. */
+function trb_resource_provider_shape( $value, $depth = 0 ) {
+	if ( $depth > 4 ) return gettype( $value );
+	if ( ! is_array( $value ) ) return gettype( $value );
+	$out = array();
+	foreach ( array_slice( $value, 0, 30, true ) as $key => $item ) {
+		if ( preg_match( '/token|secret|password|email|card|address|name|auth/i', (string) $key ) ) continue;
+		$out[$key] = is_array( $item ) ? trb_resource_provider_shape( $item, $depth + 1 ) : ( in_array( (string) $key, array( 'amount', 'credit', 'balance', 'quota', 'usedquota', 'result', 'code' ), true ) && is_numeric( $item ) ? $item : gettype( $item ) );
+	}
+	return $out;
+}
+
 /** Read the current billed amount through ACRCloud's bearer-token Console API. */
 function trb_resource_acr_current_bill() {
 	$settings = trb_resource_settings();
@@ -395,7 +413,10 @@ function trb_resource_acr_current_bill() {
 	$code = (int) wp_remote_retrieve_response_code( $response );
 	$payload = json_decode( wp_remote_retrieve_body( $response ), true );
 	$bill = is_array( $payload ) && isset( $payload['data'] ) && is_array( $payload['data'] ) ? $payload['data'] : array();
-	if ( $code < 200 || $code >= 300 || ! isset( $bill['amount'] ) || ! is_numeric( $bill['amount'] ) ) return new WP_Error( 'ACR_BILLING_RESPONSE_INVALID', 'HTTP ' . $code );
+	if ( $code < 200 || $code >= 300 || ! isset( $bill['amount'] ) || ! is_numeric( $bill['amount'] ) ) {
+		update_option( 'trb_resource_acr_bill_diagnostic', array( 'http' => $code, 'shape' => trb_resource_provider_shape( $payload ) ), false );
+		return new WP_Error( 'ACR_BILLING_RESPONSE_INVALID', 'HTTP ' . $code );
+	}
 	$snapshot = array(
 		'checked_at' => time(),
 		'amount' => max( 0, (float) $bill['amount'] ),
@@ -1517,6 +1538,10 @@ add_action( 'admin_menu', 'trb_resource_admin_menu' );
 
 function trb_resource_render_admin() {
 	if ( ! current_user_can( 'manage_options' ) ) return;
+	if ( isset( $_POST['trb_provider_check'] ) ) {
+		check_admin_referer( 'trb_provider_check' );
+		trb_resource_acr_current_bill(); trb_resource_pcloud_userinfo();
+	}
 	$settings = trb_resource_settings();
 	if ( isset( $_POST['trb_resource_reconcile'] ) ) {
 		check_admin_referer( 'trb_resource_reconcile' );
@@ -1594,6 +1619,7 @@ function trb_resource_render_admin() {
 	?>
 	<div class="wrap"><h1>Monitoraggio risorse TRB</h1><p>Sistema indipendente di prevenzione per costi, crediti, spazio e notifiche.</p>
 	<?php if ( trb_resource_acr_budget_alert_required( $spent, $budget ) ) : ?><div class="notice notice-warning"><p><strong>Impegno massimo prudenziale ACRCloud oltre l’80%.</strong> <?php echo esc_html( trb_resource_acr_budget_notice( $spent, $budget ) ); ?></p></div><?php endif; ?>
+	<form method="post"><?php wp_nonce_field( 'trb_provider_check' ); ?><button class="button" name="trb_provider_check" value="1">Verifica collegamenti provider</button></form><details><summary>Diagnostica collegamenti</summary><pre><?php echo esc_html( wp_json_encode( array( 'acrcloud' => get_option( 'trb_resource_acr_bill_diagnostic', array() ), 'pcloud' => get_option( 'trb_resource_pcloud_api_diagnostic', array() ) ), JSON_PRETTY_PRINT ) ); ?></pre></details>
 	<h2>Quadro corrente</h2><table class="widefat striped"><tbody>
 	<tr><th>Impegno massimo prudenziale ACRCloud</th><td><?php echo esc_html( number_format_i18n( $spent, 4 ) . ' / ' . number_format_i18n( $budget, 2 ) . ' USD (' . number_format_i18n( $percent, 1 ) . '%)' ); ?></td></tr>
 	<tr><th>Budget residuo ACRCloud</th><td><?php echo esc_html( trb_resource_acr_budget_notice( $spent, $budget ) ?: 'Budget non configurato; credito effettivo non verificato.' ); ?></td></tr>
