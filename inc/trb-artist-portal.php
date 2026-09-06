@@ -2173,6 +2173,8 @@ function trb_portal_release_track_duration_seconds( $track ) {
 function trb_portal_store_release_upload( $release_id, $file, $kind, $track_index = null, $metadata = array() ) {
 	$valid = trb_portal_validate_release_upload( $file, $kind );
 	if ( is_wp_error( $valid ) ) return $valid;
+	$recovered = function_exists( 'trb_recovery_reuse_file' ) ? trb_recovery_reuse_file( $release_id, $file, $kind, $track_index ) : null;
+	if ( null !== $recovered ) return $recovered;
 	$uploads = wp_upload_dir();
 	$relative_dir = 'trb-release-private/' . absint( $release_id );
 	$directory = trailingslashit( $uploads['basedir'] ) . $relative_dir;
@@ -2423,6 +2425,7 @@ add_action( 'admin_post_trb_portal_replace_release_file', 'trb_portal_replace_re
  * local file available for a corrected retry.
  */
 function trb_portal_release_submission_response( $status, $message = '', $http_status = 422, $release_id = 0 ) {
+	if ( ! empty( $GLOBALS['trb_recovery_resume_context'] ) ) trb_recovery_resume_response( $status, $message );
 	$status     = sanitize_key( $status );
 	$release_id = absint( $release_id );
 	$is_success = 'created' === $status;
