@@ -1,7 +1,7 @@
 <?php
 /** Technical, rights and decision pipeline for release audio. */
-
 if ( ! defined( 'ABSPATH' ) ) exit;
+require_once __DIR__ . '/trb-rights-owner-review.php';
 
 define( 'TRB_RELEASE_ANALYSIS_VERSION', '1.2.6' );
 
@@ -106,6 +106,9 @@ function trb_analysis_last_float( $pattern, $text ) {
 
 /** Decode the complete WAV and calculate measurements from actual audio samples. */
 function trb_analysis_inspect_wav( $path ) {
+	require_once __DIR__ . '/trb-pcm-full-scale.php';
+	try { $pcm = trb_pcm_full_scale( $path ); }
+	catch ( RuntimeException $e ) { return new WP_Error( 'PCM_PEAK_VERIFICATION_UNAVAILABLE', $e->getMessage() ); }
 	$ffprobe = trb_analysis_binary( 'ffprobe' );
 	$ffmpeg  = trb_analysis_binary( 'ffmpeg' );
 	if ( ! $ffprobe || ! $ffmpeg ) return new WP_Error( 'TECHNICAL_ANALYSIS_UNAVAILABLE', 'FFmpeg/ffprobe non disponibili sul server.' );
@@ -130,7 +133,7 @@ function trb_analysis_inspect_wav( $path ) {
 	$integrated = trb_analysis_last_float( '/\bI:\s*(-?[0-9.]+)\s*LUFS/', $text );
 	$lra = trb_analysis_last_float( '/\bLRA:\s*([0-9.]+)\s*LU/', $text );
 	$true_peak = trb_analysis_last_float( '/\bPeak:\s*(-?[0-9.]+)\s*dBFS/', $text );
-	$peak_level = trb_analysis_float( '/Peak level dB:\s*(-?[0-9.]+)/', $text );
+	$peak_level = $pcm['peak_level_dbfs'];
 	$rms_level = trb_analysis_float( '/RMS level dB:\s*(-?[0-9.]+)/', $text );
 	$nans = trb_analysis_float( '/Number of NaNs:\s*([0-9.]+)/', $text );
 	$infs = trb_analysis_float( '/Number of Infs:\s*([0-9.]+)/', $text );
@@ -148,7 +151,8 @@ function trb_analysis_inspect_wav( $path ) {
 		'duration_seconds' => round( $duration, 6 ),
 		'integrated_lufs' => $integrated,
 		'loudness_range_lu' => $lra,
-		'true_peak_dbtp' => null !== $true_peak ? $true_peak : $peak_level,
+		'true_peak_dbtp' => $true_peak,
+		'pcm_full_scale' => $pcm,
 		'peak_level_dbfs' => $peak_level,
 		'rms_level_dbfs' => $rms_level,
 		'crest_factor_db' => null !== $peak_level && null !== $rms_level ? round( $peak_level - $rms_level, 3 ) : null,
@@ -157,7 +161,7 @@ function trb_analysis_inspect_wav( $path ) {
 		'number_of_infs' => null === $infs ? 0 : absint( $infs ),
 		'boundary_start_rms_dbfs' => trb_analysis_float( '/RMS level dB:\s*(-?[0-9.]+)/', $head['output'] ),
 		'boundary_end_rms_dbfs' => trb_analysis_float( '/RMS level dB:\s*(-?[0-9.]+)/', $tail['output'] ),
-		'clipping_suspected' => null !== $peak_level && $peak_level >= -0.01,
+		'clipping_suspected' => false,
 		'silences' => $silences,
 		'complete_decode' => true,
 		'analyzed_at' => time(),
@@ -173,8 +177,8 @@ function trb_analysis_track_findings( $spec, $track, $declared_seconds ) {
 	if ( ! empty( $spec['number_of_nans'] ) || ! empty( $spec['number_of_infs'] ) ) $errors[] = 'INVALID_AUDIO_SAMPLES';
 	if ( null !== $spec['integrated_lufs'] && null !== $spec['true_peak_dbtp'] && $spec['integrated_lufs'] < (float) $s['master_lufs_extreme_min'] && $spec['true_peak_dbtp'] < (float) $s['master_silence_peak_max'] ) $errors[] = 'AUDIO_LEVEL_EFFECTIVELY_SILENT';
 	if ( $spec['duration_seconds'] < 15.0 ) $warnings[] = 'AUDIO_TOO_SHORT_FOR_RELIABLE_RECOGNITION';
-	if ( null !== $spec['true_peak_dbtp'] && $spec['true_peak_dbtp'] > (float) $s['true_peak_warning'] ) $warnings[] = 'TRUE_PEAK_HIGH';
-	if ( ! empty( $spec['clipping_suspected'] ) ) $warnings[] = 'CLIPPING_SUSPECTED';
+	// Only exact original PCM rail hits reject for peaks; interpolated peaks remain measurements.
+	if ( ! empty( $spec['pcm_full_scale']['verified'] ) && (int) ( $spec['pcm_full_scale']['full_scale_samples'] ?? 0 ) > 0 ) $errors[] = 'PCM_FULL_SCALE_CONFIRMED';
 	if ( null !== $spec['boundary_end_rms_dbfs'] && $spec['boundary_end_rms_dbfs'] > -25.0 ) $warnings[] = 'ABRUPT_END_REVIEW';
 	if ( null !== $spec['boundary_start_rms_dbfs'] && $spec['boundary_start_rms_dbfs'] > -3.0 ) $warnings[] = 'ABRUPT_START_REVIEW';
 	foreach ( $spec['silences'] as $silence ) if ( $silence['duration'] >= (float) $s['silence_warning_seconds'] ) { $warnings[] = 'LONG_SILENCE'; break; }
@@ -261,7 +265,9 @@ function trb_analysis_queue_artist_correction_email( $release_id, $payload ) {
 }
 
 /** Notify the artist, with Andrea in CC, only after a real rights finding. */
-function trb_analysis_queue_artist_copyright_email( $release_id, $decision ) {
+function trb_analysis_queue_artist_copyright_email( $release_id, $decision, $review_token = '' ) {
+	$review = (array) get_post_meta( $release_id, '_trb_release_owner_rights_review', true );
+	if ( ! $review_token || ! hash_equals( (string) ( $review['token'] ?? '' ), (string) $review_token ) || empty( $review['selected_tracks'] ) ) return;
 	if ( function_exists( 'trb_portal_release_is_qa' ) && trb_portal_release_is_qa( $release_id ) ) {
 		update_post_meta( $release_id, '_trb_qa_artist_email_suppressed', 'copyright' );
 		return;
@@ -286,9 +292,10 @@ function trb_analysis_queue_artist_copyright_email( $release_id, $decision ) {
 	if ( function_exists( 'trb_resource_artist_email_signature' ) ) $body .= trb_resource_artist_email_signature();
 
 	$hashes = array_values( array_filter( array_map( static function( $track ) { return sanitize_text_field( $track['sha256'] ?? '' ); }, (array) get_post_meta( $release_id, '_trb_release_files', true ) ) ) );
-	$key = 'artist-copyright-' . absint( $release_id ) . '-' . substr( hash( 'sha256', wp_json_encode( array( $semaphore, $decision['state'] ?? '', $findings, $hashes ) ) ), 0, 20 );
+	$key = 'artist-copyright-reviewed-' . absint( $release_id ) . '-' . substr( hash( 'sha256', wp_json_encode( array( $semaphore, $decision['state'] ?? '', $findings, $hashes ) ) ), 0, 20 );
 	$headers = function_exists( 'trb_resource_artist_recovery_cc_headers' ) ? trb_resource_artist_recovery_cc_headers() : array( 'Cc: andrea.tognassi@trbrec.com' );
 	trb_resource_queue_recipient_email( $key, $user->user_email, 'Verifica dei diritti per la release ' . $release->post_title, $body, true, $headers );
+	return $key;
 }
 
 /** Queue one consolidated, idempotent administrator email for a release requiring attention. */
@@ -951,11 +958,11 @@ function trb_analysis_admin_page() {
 	$cases = (array) get_option( 'trb_analysis_benchmark_cases', array() ); $count = count( $cases ); $ready = ! empty( $s['benchmark_complete'] ) && $count >= absint( $s['benchmark_required'] );
 	?>
 	<div class="wrap"><h1>Analisi release TRB</h1><?php if ( $message ) : ?><div class="notice notice-<?php echo $message_error ? 'error' : 'success'; ?>"><p><?php echo esc_html( $message ); ?></p></div><?php endif; ?>
-	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili · WAV PCM verificati e decodificati integralmente' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Sicurezza caricamenti</th><td><?php echo esc_html( 'Controlli rigorosi sul formato' . ( trb_analysis_wordfence_active() ? ' · Wordfence attivo' : '' ) . ( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? ' · ClamAV aggiuntivo disponibile' : '' ) ); ?></td></tr><tr><th>Politica contratti</th><td>Copyright verde: approvazione e contratto automatici · giallo/rosso: contratto sospeso ed email all’artista con Andrea in CC</td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · validato' : ' · controllo qualità in corso; non blocca i contratti con copyright verde' ) ); ?></td></tr></tbody></table>
+	<table class="widefat striped"><tbody><tr><th>FFmpeg / ffprobe</th><td><?php echo esc_html( trb_analysis_binary( 'ffmpeg' ) && trb_analysis_binary( 'ffprobe' ) ? 'Disponibili · WAV PCM verificati e decodificati integralmente' : 'NON disponibili: analisi bloccata in sicurezza' ); ?></td></tr><tr><th>Sicurezza caricamenti</th><td><?php echo esc_html( 'Controlli rigorosi sul formato' . ( trb_analysis_wordfence_active() ? ' · Wordfence attivo' : '' ) . ( trb_analysis_binary( 'clamdscan', $s['clamav_binary'] ) || trb_analysis_binary( 'clamscan', $s['clamav_binary'] ) ? ' · ClamAV aggiuntivo disponibile' : '' ) ); ?></td></tr><tr><th>Politica contratti</th><td>Copyright verde: approvazione e contratto automatici · giallo/rosso: revisione nel CRM; email all’artista solo dopo selezione esplicita dei brani</td></tr><tr><th>Benchmark</th><td><?php echo esc_html( $count . ' / ' . absint( $s['benchmark_required'] ) . ( $ready ? ' · validato' : ' · controllo qualità in corso; non blocca i contratti con copyright verde' ) ); ?></td></tr></tbody></table>
 	<h2>Configurazione copyright ACRCloud</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_configure_acr' ); ?><p>Conserva nome, bucket, callback e politica del container; imposta il motore combinato 3, DeepRight, audio line-in e disattiva i servizi non necessari.</p><button class="button" name="trb_analysis_configure_acr" value="1">Configura e verifica il container</button></form>
 	<form method="post" style="margin-top:10px"><?php wp_nonce_field( 'trb_analysis_replace_acr' ); ?><p>Usa un nuovo container solo se il nodo regionale continua a elaborare con un motore diverso da quello verificato. Il container precedente non viene eliminato.</p><button class="button" name="trb_analysis_replace_acr" value="1">Crea e attiva container combinato sostitutivo</button></form>
 	<form method="post" style="margin-top:10px"><?php wp_nonce_field( 'trb_analysis_enable_dual_acr' ); ?><p>Fallback sicuro per account in cui il provider forza il motore combinato al solo Cover Song: esegue due scansioni indipendenti e ne unisce i risultati prima della decisione.</p><button class="button button-primary" name="trb_analysis_enable_dual_acr" value="1">Attiva doppia analisi fingerprint + Cover Song</button></form>
-	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak: soglia di avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"><p class="description">Genera un avviso da ascoltare; da solo non rifiuta il master.</p></td></tr><tr><th>Livelli master estremi</th><td>Avviso master molto alto: <input name="master_lufs_extreme_max" value="<?php echo esc_attr( $s['master_lufs_extreme_max'] ); ?>"> LUFS · audio sostanzialmente muto sotto <input name="master_lufs_extreme_min" value="<?php echo esc_attr( $s['master_lufs_extreme_min'] ); ?>"> LUFS con true peak sotto <input name="master_silence_peak_max" value="<?php echo esc_attr( $s['master_silence_peak_max'] ); ?>"> dBTP<p class="description">Gli avvisi tecnici restano visibili per il controllo qualità, ma non vengono trattati come problemi di copyright. Solo un errore tecnico bloccante impedisce la prosecuzione.</p></td></tr><tr><th>Pre-master: picco consigliato</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"><p class="description">Un superamento genera un avviso, non un rifiuto automatico.</p></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label><p class="description">Il benchmark misura la qualità del sistema ma non blocca l’approvazione automatica quando il controllo copyright è verde.</p></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
+	<h2>Regole tecniche</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_save' ); ?><table class="form-table"><tbody><tr><th>True peak: soglia di avviso dBTP</th><td><input name="true_peak_warning" value="<?php echo esc_attr( $s['true_peak_warning'] ); ?>"><p class="description">Il true peak resta informativo. Il blocco per picchi richiede campioni PCM originali a fondo scala, verificati senza arrotondamenti.</p></td></tr><tr><th>Livelli master estremi</th><td>Avviso master molto alto: <input name="master_lufs_extreme_max" value="<?php echo esc_attr( $s['master_lufs_extreme_max'] ); ?>"> LUFS · audio sostanzialmente muto sotto <input name="master_lufs_extreme_min" value="<?php echo esc_attr( $s['master_lufs_extreme_min'] ); ?>"> LUFS con true peak sotto <input name="master_silence_peak_max" value="<?php echo esc_attr( $s['master_silence_peak_max'] ); ?>"> dBTP<p class="description">Gli avvisi tecnici restano visibili per il controllo qualità, ma non vengono trattati come problemi di copyright. Solo un errore tecnico bloccante impedisce la prosecuzione.</p></td></tr><tr><th>Pre-master: picco consigliato</th><td><input name="premaster_peak_max" value="<?php echo esc_attr( $s['premaster_peak_max'] ); ?>"><p class="description">Un superamento genera un avviso, non un rifiuto automatico.</p></td></tr><tr><th>Silenzio lungo (secondi)</th><td><input name="silence_warning_seconds" value="<?php echo esc_attr( $s['silence_warning_seconds'] ); ?>"></td></tr><tr><th>Soglie match configurabili</th><td>Rosso fingerprint ≥ <input name="fingerprint_red_score" value="<?php echo esc_attr( $s['fingerprint_red_score'] ); ?>" size="6"> · Revisione ≥ <input name="match_review_score" value="<?php echo esc_attr( $s['match_review_score'] ); ?>" size="6"></td></tr><tr><th>Benchmark minimo</th><td><input type="number" min="15" name="benchmark_required" value="<?php echo esc_attr( $s['benchmark_required'] ); ?>"> <label><input type="checkbox" name="benchmark_complete" <?php checked( $s['benchmark_complete'] ); ?>> Validato da TRB</label><p class="description">Il benchmark misura la qualità del sistema ma non blocca l’approvazione automatica quando il controllo copyright è verde.</p></td></tr></tbody></table><button class="button button-primary" name="trb_analysis_save" value="1">Salva</button></form>
 	<h2>Registra caso benchmark</h2><form method="post"><?php wp_nonce_field( 'trb_analysis_benchmark_add' ); ?><input required name="label" placeholder="Caso / hash"> <select name="expected"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <select name="actual"><option value="green">Verde</option><option value="yellow">Giallo</option><option value="red">Rosso</option></select> <input type="number" name="duration_ms" placeholder="ms"> <input type="number" step="0.000001" name="cost" placeholder="USD"> <button class="button" name="trb_analysis_benchmark_add" value="1">Registra</button></form>
 	<?php if ( $cases ) : ?><table class="widefat striped" style="margin-top:12px"><thead><tr><th>Caso</th><th>Atteso</th><th>Risultato</th><th>Tempo</th><th>Costo</th></tr></thead><tbody><?php foreach ( array_reverse( $cases ) as $case ) : ?><tr><td><?php echo esc_html( $case['label'] ); ?></td><td><?php echo esc_html( $case['expected'] ); ?></td><td><?php echo esc_html( $case['actual'] ); ?></td><td><?php echo esc_html( $case['duration_ms'] . ' ms' ); ?></td><td><?php echo esc_html( $case['cost'] . ' USD' ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?></div><?php
 }
