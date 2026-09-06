@@ -167,7 +167,7 @@ check("email artista su errore tecnico oggettivo", "trb_analysis_queue_artist_co
 check("email amministratore su verifica copyright", "trb_analysis_queue_admin_review_email" in ANALYSIS)
 check("coda email riprogrammata se restano notifiche", "$remaining" in RESOURCE and "trb_resource_process_notifications" in RESOURCE)
 check("monitor giornaliero per blocchi e ruoli ambigui", "account hanno più gruppi contrattuali" in RESOURCE)
-check("monitor giornaliero copre capacità reale, budget e quota non verificabile", "pcloud_warning_1" in RESOURCE and "temp_min_free_bytes" in RESOURCE and "$acr_percent >= 50" in RESOURCE and "Quota pCloud non verificabile automaticamente" in RESOURCE)
+check("monitor giornaliero copre capacità reale, budget e quota non verificabile", "pcloud_warning_1" in RESOURCE and "temp_min_free_bytes" in RESOURCE and "trb_resource_acr_budget_alert_required( $acr_spent, $acr_budget )" in RESOURCE and "Quota pCloud non verificabile automaticamente" in RESOURCE)
 check("filesystem condiviso non blocca per percentuale estranea all'account", "$snapshot['free'] < $required" in RESOURCE and "$snapshot['used_percent'] >= (float) $settings['temp_block']" not in RESOURCE and "Le percentuali del volume condiviso sono solo informative" in RESOURCE)
 check("fattura ACRCloud sincronizzata dal provider senza doppio conteggio", "/billing/current-bill" in RESOURCE and "trb_resource_acr_bill_snapshot" in RESOURCE and "MAX(CASE WHEN service='reconciliation'" in RESOURCE)
 check("pCloud prova WebDAV dopo API e mostra codice diagnostico", "PCLOUD_API_AND_WEBDAV_QUOTA_UNAVAILABLE" in RESOURCE and "trb_resource_pcloud_diagnostic" in RESOURCE and "strtoupper( $pcloud_code )" in RESOURCE)

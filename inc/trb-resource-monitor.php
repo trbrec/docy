@@ -237,13 +237,21 @@ function trb_resource_storage_snapshot() {
 }
 
 
-function trb_resource_acr_thresholds( $current, $budget ) {
-	if ( $budget <= 0 ) return;
+/** The ledger is a spending budget estimate, never a prepaid wallet balance. */
+function trb_resource_acr_budget_notice( $current, $budget ) {
+	if ( $budget <= 0 ) return '';
 	$percent = (float) $current / (float) $budget * 100;
+	return 'Budget residuo prudenziale: ' . number_format_i18n( max( 0, $budget - $current ), 2 ) . ' USD su ' . number_format_i18n( $budget, 2 ) . ' USD. Utilizzo: ' . number_format_i18n( $percent, 1 ) . '%. Il credito effettivo del conto ACRCloud non è verificato.';
+}
+
+function trb_resource_acr_budget_alert_required( $current, $budget ) {
+	return $budget > 0 && (float) $current > (float) $budget * 0.8;
+}
+
+function trb_resource_acr_thresholds( $current, $budget ) {
+	if ( ! trb_resource_acr_budget_alert_required( $current, $budget ) ) return;
 	$period = trb_resource_period_key();
-	if ( $percent >= 50 ) trb_resource_event( 'budget-50-' . $period, 'acrcloud', 'info', 'Budget ACRCloud oltre il 50%.', compact( 'percent', 'current', 'budget' ) );
-	if ( $percent >= 75 ) trb_resource_queue_email( 'acr-budget-75-' . $period, 'Budget ACRCloud oltre il 75%', 'Il registro prudenziale ha raggiunto il ' . number_format_i18n( $percent, 1 ) . '% del budget mensile.' );
-	if ( $percent >= 90 ) trb_resource_queue_email( 'acr-budget-90-' . $period, 'Budget ACRCloud oltre il 90%', 'Il registro prudenziale ha raggiunto il ' . number_format_i18n( $percent, 1 ) . '%. Verificare il pannello prima delle prossime analisi.', true );
+	trb_resource_queue_email( 'acr-budget-80-' . $period, 'Budget ACRCloud oltre l’80%', trb_resource_acr_budget_notice( $current, $budget ) );
 }
 
 
@@ -1288,9 +1296,9 @@ function trb_resource_daily_health() {
 	$acr_budget = (float) $settings['acr_monthly_budget'];
 	$acr_spent = isset( $acr_stats['cost_max'] ) ? (float) $acr_stats['cost_max'] : 0;
 	$acr_percent = $acr_budget > 0 ? min( 100, $acr_spent / $acr_budget * 100 ) : 100;
-	if ( $acr_percent >= 50 ) {
+	if ( trb_resource_acr_budget_alert_required( $acr_spent, $acr_budget ) ) {
 		$acr_actual_text = $acr_bill_verified ? ' Spesa effettiva sincronizzata: ' . number_format_i18n( $acr_bill['amount'], 4 ) . ' USD.' : ' Spesa effettiva non sincronizzata (' . strtoupper( sanitize_key( $acr_bill->get_error_code() ) ) . ').';
-		$add_anomaly( 'acr-budget', 'Impegno massimo prudenziale ACRCloud al ' . number_format_i18n( $acr_percent, 1 ) . '% (' . number_format_i18n( $acr_spent, 4 ) . ' / ' . number_format_i18n( $acr_budget, 2 ) . ' USD).' . $acr_actual_text, 'acrcloud' );
+		$add_anomaly( 'acr-budget', trb_resource_acr_budget_notice( $acr_spent, $acr_budget ) . $acr_actual_text, 'acrcloud' );
 	}
 	global $wpdb; $tables = trb_resource_tables();
 	// Manual review and active processing are expected workflow states. Notify
@@ -1585,9 +1593,10 @@ function trb_resource_render_admin() {
 	$queue = get_posts( array( 'post_type' => 'trb_release', 'post_status' => 'publish', 'posts_per_page' => 50, 'meta_query' => array( array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'approved' ), 'compare' => 'NOT IN' ) ) ) );
 	?>
 	<div class="wrap"><h1>Monitoraggio risorse TRB</h1><p>Sistema indipendente di prevenzione per costi, crediti, spazio e notifiche.</p>
-	<?php if ( $percent >= 90 ) : ?><div class="notice notice-error"><p><strong>Impegno massimo prudenziale ACRCloud oltre il 90%.</strong> Le nuove analisi saranno bloccate prima di superare il limite.</p></div><?php elseif ( $percent >= 75 ) : ?><div class="notice notice-warning"><p>Impegno massimo prudenziale ACRCloud oltre il 75%.</p></div><?php elseif ( $percent >= 50 ) : ?><div class="notice notice-info"><p>Impegno massimo prudenziale ACRCloud oltre il 50%.</p></div><?php endif; ?>
+	<?php if ( trb_resource_acr_budget_alert_required( $spent, $budget ) ) : ?><div class="notice notice-warning"><p><strong>Impegno massimo prudenziale ACRCloud oltre l’80%.</strong> <?php echo esc_html( trb_resource_acr_budget_notice( $spent, $budget ) ); ?></p></div><?php endif; ?>
 	<h2>Quadro corrente</h2><table class="widefat striped"><tbody>
 	<tr><th>Impegno massimo prudenziale ACRCloud</th><td><?php echo esc_html( number_format_i18n( $spent, 4 ) . ' / ' . number_format_i18n( $budget, 2 ) . ' USD (' . number_format_i18n( $percent, 1 ) . '%)' ); ?></td></tr>
+	<tr><th>Budget residuo ACRCloud</th><td><?php echo esc_html( trb_resource_acr_budget_notice( $spent, $budget ) ?: 'Budget non configurato; credito effettivo non verificato.' ); ?></td></tr>
 	<tr><th>Tracce / richieste</th><td><?php echo esc_html( absint( isset( $stats['tracks'] ) ? $stats['tracks'] : 0 ) . ' / ' . absint( isset( $stats['requests'] ) ? $stats['requests'] : 0 ) ); ?></td></tr>
 	<tr><th>Costo medio / proiezione fine mese</th><td><?php echo esc_html( number_format_i18n( $average, 4 ) . ' USD / ' . number_format_i18n( $projection, 4 ) . ' USD' ); ?></td></tr>
 	<tr><th>Spesa stimata / effettiva sincronizzata</th><td><?php echo esc_html( number_format_i18n( isset( $stats['cost_estimated'] ) ? $stats['cost_estimated'] : 0, 4 ) . ' USD / ' . number_format_i18n( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0, 4 ) . ' USD' ); ?></td></tr>
