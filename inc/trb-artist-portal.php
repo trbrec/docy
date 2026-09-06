@@ -4633,6 +4633,7 @@ function trb_portal_render_release_files( $release_id ) {
 						<?php wp_nonce_field( 'trb_portal_attach_release_cover_' . $release_id, 'trb_release_cover_nonce' ); ?>
 						<label><strong>Copertina definitiva ricevuta</strong><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /></label>
 						<label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che il file è quadrato, almeno 1500×1500 px e a 300 DPI.</label>
+						<?php trb_portal_render_cover_guidance(); ?>
 						<button class="trb-button trb-button--compact" type="submit">Collega la copertina definitiva</button>
 					</form>
 				<?php endif; ?>
@@ -4863,11 +4864,31 @@ function trb_portal_render_release_status( $release_id ) {
 	<?php
 }
 
+
+/** Editorial guidance only: never blocks submission or performs OCR matching. */
+function trb_portal_render_cover_guidance() {
+	?>
+	<div class="trb-cover-guidance" style="margin-top:12px;padding:12px 14px;border-left:3px solid #78909c;background:#f5f7f9;font-size:14px;line-height:1.55">
+		<p style="margin:0"><strong>Testi e informazioni sulla copertina</strong><br>Il testo non è obbligatorio. Se presente, titolo (incluse eventuali versioni), nome artista e featuring devono corrispondere ai dati della release. Usa solo immagini e contenuti di cui possiedi i diritti.</p>
+		<details style="margin-top:8px">
+			<summary style="cursor:pointer;font-weight:600">Leggi le regole e cosa evitare</summary>
+			<ul style="margin:10px 0 0;padding-left:20px">
+				<li><strong>Titolo e artisti:</strong> riporta esattamente i metadati, comprese diciture come “Acoustic Version”. Gli eventuali featuring devono essere indicati anche nei crediti della release.</li>
+				<li><strong>Parental Advisory:</strong> è facoltativo e va usato soltanto se il contenuto è contrassegnato come esplicito nel modulo.</li>
+				<li><strong>Niente promozioni o contatti:</strong> evita loghi e nomi delle piattaforme, “Out Now”, date d’uscita, offerte, prezzi, social, siti, email, telefoni, QR e codici a barre.</li>
+				<li><strong>Niente confezioni simulate:</strong> evita CD o custodie in 3D, finti adesivi e diciture “CD”, “DVD” o “Cassette”.</li>
+				<li><strong>Diritti e contenuti:</strong> niente marchi, personaggi o immagini senza autorizzazione, pornografia, incitamento all’odio, apologia del nazismo o violenza estrema e gratuita.</li>
+			</ul>
+		</details>
+	</div>
+	<?php
+}
+
 /** Render the correct artwork path for the artist's contractual group. */
 function trb_portal_render_release_cover_input( $profile ) {
 	$included = trb_portal_profile_has_service( 'cover_artwork', $profile );
 	if ( ! $included ) {
-		?><div class="trb-release-upload trb-release-upload--cover"><strong>Copertina della release <span>*</span></strong><p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px. Il sistema verifica formato, proporzioni e dimensioni.</p><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /><label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che la copertina è stata esportata a 300 DPI.</label></div><?php
+		?><div class="trb-release-upload trb-release-upload--cover"><strong>Copertina della release <span>*</span></strong><p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px. Il sistema verifica formato, proporzioni e dimensioni.</p><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /><label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che la copertina è stata esportata a 300 DPI.</label><?php trb_portal_render_cover_guidance(); ?></div><?php
 		return;
 	}
 	?>
@@ -4883,6 +4904,7 @@ function trb_portal_render_release_cover_input( $profile ) {
 			<p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px.</p>
 			<input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" disabled />
 			<label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" disabled /> Confermo che la copertina è stata esportata a 300 DPI.</label>
+			<?php trb_portal_render_cover_guidance(); ?>
 		</div>
 		<div class="trb-release-cover-brief" data-cover-request hidden>
 			<label><strong>Brief creativo <span>*</span></strong><small>Descrivi concept, atmosfera, messaggio, colori, elementi obbligatori e ciò che vuoi evitare. Minimo 40 caratteri.</small><textarea name="trb_release_cover_brief" rows="7" minlength="40" maxlength="5000" disabled></textarea></label>
