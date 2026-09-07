@@ -1232,3 +1232,6 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
 
 /* Progressive demo controls must override portal label/grid display rules. */
 [data-demo-form] [hidden] { display: none !important; }
+
+/* Account benefit: quiet information, separate from the artist workflow. */
+.trb-portal__store-benefits{display:flex;align-items:center;gap:24px;margin:24px 0;padding:22px 26px;border:1px solid #dce2e9;border-radius:14px;background:#f8fafc;color:#20263b}.trb-portal__store-benefits h2{font-size:18px;margin:0 0 8px}.trb-portal__store-benefits p{font-size:14px;line-height:1.7;margin:0;overflow-wrap:anywhere}.trb-portal__store-benefits a{flex-shrink:0;color:#243e63;font-weight:600}@media(max-width:640px){.trb-portal__store-benefits{align-items:flex-start;flex-direction:column;gap:14px;padding:18px}}
