@@ -8,6 +8,29 @@ function trb_demo_focus_options() {
 function trb_demo_origin_options() {
  return array( 'own' => 'Realizzato da me', 'collaboration' => 'Realizzato con collaboratori', 'third_party' => 'Realizzato da altri', 'ai_assisted' => 'Realizzato con assistenza IA', 'ai_generated' => 'Generato con IA', 'absent' => 'Non presente' );
 }
+
+/** Resolve a previous review only within the authenticated artist's history. */
+function trb_demo_revision_snapshot( $parent_id, $user_id, $notes = '' ) {
+ $parent_id = absint($parent_id);
+ $post = get_post($parent_id);
+ if (!$parent_id || !$post || 'trb_request' !== $post->post_type || 'trash' === $post->post_status || (int)$post->post_author !== (int)$user_id) return new WP_Error('invalid_revision','Seleziona un tuo provino già valutato.');
+ $payload = get_post_meta($parent_id,'_trb_demo_payload',true);
+ $review = get_post_meta($parent_id,'_trb_demo_review',true);
+ if (!is_array($payload) || 'sent' !== ($payload['status'] ?? '') || !is_string($review) || '' === trim($review)) return new WP_Error('invalid_revision','La valutazione precedente non è disponibile o non è ancora stata inviata.');
+ $previous = $payload['revision'] ?? array();
+ return array('parent_id'=>$parent_id,'root_id'=>absint($previous['root_id'] ?? $parent_id),'version'=>max(1,(int)($previous['version'] ?? 1))+1,'owner_id'=>absint($user_id),'title'=>$payload['title'] ?? '', 'submitted_at'=>$payload['submitted_at'] ?? '', 'focus'=>$payload['review_context']['focus'] ?? 'overall','review'=>$review,'changes'=>$notes);
+}
+
+function trb_demo_revision_options( $user_id ) {
+ $options = array();
+ if (!$user_id) return $options;
+ foreach(get_posts(array('post_type'=>'trb_request','post_status'=>array('private','publish','draft','pending'),'author'=>absint($user_id),'numberposts'=>-1,'meta_key'=>'_trb_demo_payload','orderby'=>'date','order'=>'DESC')) as $post) {
+  $snapshot = trb_demo_revision_snapshot($post->ID,$user_id);
+  if (is_wp_error($snapshot)) continue;
+  $options[$post->ID] = $snapshot['title'].' · versione '.($snapshot['version']-1).' · '.get_post_time('d/m/Y',false,$post);
+ }
+ return $options;
+}
 function trb_demo_scope_parts( $focus ) {
  return array( 'lyrics' => array('lyrics'), 'composition' => array('music'), 'performance' => array('performance'), 'overall' => array('lyrics','music','performance') )[$focus] ?? array();
 }
@@ -62,7 +85,7 @@ function trb_demo_review_prompt( $payload, $has_audio, $has_text ) {
  'overall' => "Copri gli aspetti effettivamente verificabili del testo, composizione/arrangiamento, interpretazione e produzione sonora, dando priorità ai contributi dichiarati del mittente. Se mancano audio, testo o una esecuzione umana, spiega il limite nella sezione pertinente senza inventare giudizi. Le osservazioni tecniche sono percettive, non misurazioni strumentali."
  );
  $prompt .= ( $rubrics[$focus] ?? $rubrics['overall'] ) . "\n";
- $prompt .= "PROFONDITÀ E FORMATO:\nUna valutazione normalmente di 1000-1800 parole, commisurata al materiale: meno se il materiale non sostiene osservazioni utili. Non ripetere né inventare criticità per raggiungere una lunghezza o un numero. Usa SOLO questi sei titoli Markdown, scritti esattamente:\n## Obiettivo e materiale\n## Punti riusciti\n## Analisi approfondita\n## Proposte di revisione\n## Piano di lavoro\n## Limiti della valutazione\nNella prima sezione dichiara obiettivo e contributo del mittente. Individua i punti riusciti con prove concrete e spiega cosa conservare. Nell'analisi tratta separatamente ogni aspetto pertinente della rubrica, inclusi quelli senza criticità. Nelle proposte privilegia 3-6 interventi motivati quando sostenibili, con alternative e relativi compromessi. Nel piano ordina 3-5 azioni realizzabili ed esercizi con un criterio pratico per verificare il miglioramento. Nei limiti elenca solo ciò che non puoi stabilire dal materiale. Usa elenchi per le azioni, non titoli numerati ripetitivi. Non presentare la revisione come infallibile.\n";
+ $prompt .= "PROFONDITÀ E FORMATO:\nPunta a circa 1500 parole utili (indicativamente 1200-2000), commisurate al materiale: scrivi meno se il materiale non sostiene osservazioni utili. Lo spazio aggiuntivo deve approfondire prove, effetti, alternative motivate ed esercizi specifici, mai parafrasare le stesse osservazioni. Non ripetere né inventare criticità per raggiungere una lunghezza o un numero. Usa SOLO questi sei titoli Markdown, scritti esattamente:\n## Obiettivo e materiale\n## Punti riusciti\n## Analisi approfondita\n## Proposte di revisione\n## Piano di lavoro\n## Limiti della valutazione\nNella prima sezione dichiara obiettivo e contributo del mittente. Individua i punti riusciti con prove concrete e spiega cosa conservare. Nell'analisi tratta separatamente ogni aspetto pertinente della rubrica, inclusi quelli senza criticità. Nelle proposte privilegia 3-6 interventi motivati quando sostenibili, con alternative e relativi compromessi. Nel piano ordina 3-5 azioni realizzabili ed esercizi con un criterio pratico per verificare il miglioramento. Nei limiti elenca solo ciò che non puoi stabilire dal materiale. Usa elenchi per le azioni, non titoli numerati ripetitivi. Non presentare la revisione come infallibile.\n";
  return $prompt;
 }
 
