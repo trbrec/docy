@@ -1,5 +1,5 @@
 <?php
-/** Owner-only presentation QA from an already reviewed evaluation. No new model call. */
+/** Owner-only presentation QA from an already reviewed evaluation. No new model call. Deployment checks the first-parent diff. */
 if(PHP_SAPI!=='cli') {http_response_code(404);exit;}
 $revision=$argv[1]??'';if(!preg_match('/^[a-f0-9]{40}$/D',$revision))exit(2);
 $_SERVER['HTTP_HOST']='artist.trbrec.com';$_SERVER['REQUEST_URI']='/';$_SERVER['HTTPS']='on';define('DISABLE_WP_CRON',true);

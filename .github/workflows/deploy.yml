@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Check out the exact main revision
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Validate PHP and portal regressions
         shell: bash
@@ -76,7 +78,7 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" \
             "php -l '${DEPLOY_PATH}/functions.php' && php -l '${DEPLOY_PATH}/inc/trb-resource-monitor.php'"
           echo "Successfully deployed and verified ${deployed_sha}."
-          if git diff-tree --no-commit-id --name-only -r -m "${GITHUB_SHA}" | grep -qx 'tools/qa-demo-footer.php'; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/qa-demo-footer.php' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/qa-demo-footer.php' '${GITHUB_SHA}'"
           fi
 
