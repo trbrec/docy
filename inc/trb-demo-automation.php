@@ -79,7 +79,7 @@ function trb_demo_ensure_remote_folder( $relative_path ) {
 function trb_demo_upload_to_pcloud( $payload ) {
 	$folder_name = sanitize_file_name( trim( implode( ' ', array_filter( array( $payload['first_name'], $payload['last_name'], $payload['artist_name'], $payload['title'] ) ) ) ) );
 	if ( '' === $folder_name ) $folder_name = $payload['uuid'];
-	$folder = '/Upload files - TRB rec/Audio/Demo files/' . $folder_name . '/' . sanitize_file_name($payload['uuid']);
+	$folder = '/Upload files - TRB rec/Audio/Demo files/' . $folder_name . ' - ' . sanitize_file_name($payload['uuid']);
 	$ready = trb_demo_ensure_remote_folder( $folder );
 	if ( is_wp_error( $ready ) ) return $ready;
 	$remote_files = array();
