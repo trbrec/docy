@@ -22,13 +22,13 @@ try{
         tp_assert(abs($result['channels_dbtp'][1]-.2)<.002,'Above-zero intersample peak was missed');
         tp_assert($result['maximum_dbtp']===$result['channels_dbtp'][1],'Wrong global/channel maximum');
         tp_assert($hash===hash_file('sha256',$path),'Original was modified');
-        tp_assert(trb_true_peak_findings($result)===['errors'=>[],'warnings'=>[]],'A clean intersample overshoot must not be rejected as clipping');
+        tp_assert(trb_true_peak_findings($result)['errors']===['MASTER_TRUE_PEAK_AT_ZERO'],'Above-zero true peak passed acceptance');
         echo $rate.' Hz true peaks: '.json_encode($result['channels_dbtp'])."\n";
     }
-    foreach([-.2,-.000001,0,.2,1.468] as $peak){
+    foreach([-.2,-.000001] as $peak){
         tp_assert(trb_true_peak_findings(['verified'=>true,'complete_file'=>true,'maximum_dbtp'=>$peak])['errors']===[],'Negative true peak rejected');
     }
-    tp_assert(trb_true_peak_findings(['verified'=>true,'complete_file'=>true,'maximum_dbtp'=>0])['warnings']===[],'Zero peak was reported as clipping');
+    foreach([0,.2,1.468] as $peak) tp_assert(trb_true_peak_findings(['verified'=>true,'complete_file'=>true,'maximum_dbtp'=>$peak])['errors']===['MASTER_TRUE_PEAK_AT_ZERO'],'Zero/positive true peak accepted');
     tp_assert(trb_true_peak_findings([])['errors']===['TRUE_PEAK_MEASUREMENT_UNAVAILABLE'],'Missing measurement passed');
     $silence=trb_true_peak_parse("[Parsed_astats_1 @ x] Channel: 1\n[Parsed_astats_1 @ x] Peak level dB: -inf\n",1);
     tp_assert($silence['silent']&&$silence['maximum_dbtp']===null,'Silence became zero dBTP');

@@ -31,5 +31,5 @@ function trb_true_peak_findings($measurement) {
     $peak=$measurement['maximum_dbtp']??null;
     if($peak===null)return ['errors'=>empty($measurement['silent'])?['TRUE_PEAK_MEASUREMENT_UNAVAILABLE']:[],'warnings'=>[]];
     if(!is_numeric($peak)||!is_finite((float)$peak))return ['errors'=>['TRUE_PEAK_MEASUREMENT_UNAVAILABLE'],'warnings'=>[]];
-    return ['errors'=>[],'warnings'=>[]];
+    return ['errors'=>(float)$peak>=0 ? ['MASTER_TRUE_PEAK_AT_ZERO'] : [],'warnings'=>[]];
 }

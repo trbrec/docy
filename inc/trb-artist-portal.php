@@ -1929,6 +1929,10 @@ function trb_portal_stage_release_chunk() {
 		$meta = $signature + array( 'next_chunk' => 0, 'complete' => false );
 	}
 	$next_chunk = isset( $meta['next_chunk'] ) ? absint( $meta['next_chunk'] ) : 0;
+	if ( ! empty($meta['complete']) && strtolower(pathinfo($file_name, PATHINFO_EXTENSION)) === 'wav' ) {
+		$check=trb_master_upload_check($part_path,$file_name,sanitize_key($_POST['audio_status']??'mastered'));
+		if(is_wp_error($check)) wp_send_json_error(array('message'=>$check->get_error_message()?:trb_portal_release_upload_error_message($check->get_error_code())),422);
+	}
 	if ( $chunk_index < $next_chunk ) wp_send_json_success( array( 'next_chunk' => $next_chunk, 'complete' => ! empty( $meta['complete'] ) ) );
 	if ( $chunk_index > $next_chunk ) wp_send_json_error( array( 'message' => 'È arrivato un blocco fuori sequenza. Riprova senza ricaricare la pagina.' ), 409 );
 	$source = fopen( $chunk['tmp_name'], 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
@@ -1958,6 +1962,10 @@ function trb_portal_stage_release_chunk() {
 	if ( false === file_put_contents( $meta_path, wp_json_encode( $meta ), LOCK_EX ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 		wp_delete_file( $part_path );
 		wp_send_json_error( array( 'message' => 'Il server non riesce a registrare l’avanzamento del caricamento. Il file temporaneo è stato annullato.' ), 500 );
+	}
+	if ( $meta['complete'] && strtolower(pathinfo($file_name, PATHINFO_EXTENSION)) === 'wav' ) {
+		$check=trb_master_upload_check($part_path,$file_name,sanitize_key($_POST['audio_status']??'mastered'));
+		if(is_wp_error($check)) wp_send_json_error(array('message'=>$check->get_error_message()?:trb_portal_release_upload_error_message($check->get_error_code())),422);
 	}
 	wp_send_json_success( array( 'next_chunk' => $meta['next_chunk'], 'complete' => $meta['complete'] ) );
 }
@@ -2111,7 +2119,8 @@ function trb_portal_validate_release_document( $path, $extension ) {
 	return $valid;
 }
 
-function trb_portal_validate_release_upload( $file, $kind ) {
+require_once __DIR__ . '/trb-master-acceptance.php';
+function trb_portal_validate_release_upload( $file, $kind, $audio_status = 'mastered' ) {
 	$is_staged = ! empty( $file['_trb_staged'] ) && ! empty( $file['tmp_name'] ) && trb_portal_release_is_staged_path( $file['tmp_name'] );
 	if ( empty( $file['name'] ) || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || empty( $file['tmp_name'] ) || ( ! $is_staged && ! is_uploaded_file( $file['tmp_name'] ) ) ) return new WP_Error( 'missing_' . $kind );
 	if ( ! $is_staged && function_exists( 'trb_resource_temp_storage_guard' ) ) {
@@ -2137,6 +2146,8 @@ function trb_portal_validate_release_upload( $file, $kind ) {
 		if ( 'wav' !== $extension || (int) $file['size'] > trb_portal_release_max_file_bytes() ) return new WP_Error( 'invalid_audio' );
 		$spec = trb_portal_wav_spec( $file['tmp_name'] );
 		if ( is_wp_error( $spec ) || 2 !== (int) $spec['channels'] || $spec['sample_rate'] < 44100 || $spec['sample_rate'] > 96000 || $spec['bit_depth'] < 16 || $spec['bit_depth'] > 24 ) return new WP_Error( 'invalid_audio' );
+		$master_check = trb_master_upload_check( $file['tmp_name'], $name, $audio_status );
+		if ( is_wp_error( $master_check ) ) return $master_check;
 	} elseif ( 'rights_document' === $kind ) {
 		if ( 'pdf' !== $extension || (int) $file['size'] > 10 * MB_IN_BYTES ) return new WP_Error( 'invalid_rights_document' );
 		$head = file_get_contents( $file['tmp_name'], false, null, 0, 8 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
@@ -2172,7 +2183,7 @@ function trb_portal_release_track_duration_seconds( $track ) {
 }
 
 function trb_portal_store_release_upload( $release_id, $file, $kind, $track_index = null, $metadata = array() ) {
-	$valid = trb_portal_validate_release_upload( $file, $kind );
+	$valid = trb_portal_validate_release_upload( $file, $kind, $metadata['audio_status'] ?? 'mastered' );
 	if ( is_wp_error( $valid ) ) return $valid;
 	$recovered = function_exists( 'trb_recovery_reuse_file' ) ? trb_recovery_reuse_file( $release_id, $file, $kind, $track_index ) : null;
 	if ( null !== $recovered ) return $recovered;
@@ -2351,7 +2362,7 @@ function trb_portal_replace_release_file() {
 	$old_file = is_array( $files ) && isset( $files[ $file_index ] ) ? $files[ $file_index ] : array();
 	$new_upload = trb_portal_release_upload_item( 'trb_release_replacement' );
 	$kind = isset( $old_file['kind'] ) ? $old_file['kind'] : '';
-	$valid = in_array( $kind, array( 'cover', 'cover_reference', 'presentation', 'lyrics', 'audio', 'rights_document' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind ) : new WP_Error( 'invalid_file' );
+	$valid = in_array( $kind, array( 'cover', 'cover_reference', 'presentation', 'lyrics', 'audio', 'rights_document' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind, $old_file['audio_status'] ?? 'mastered' ) : new WP_Error( 'invalid_file' );
 	if ( 'cover' === $kind && empty( $_POST['trb_release_cover_300dpi'] ) ) $valid = new WP_Error( 'invalid_cover' );
 	if ( 'audio' === $kind && ! is_wp_error( $valid ) ) {
 		$release_tracks    = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
@@ -2656,6 +2667,8 @@ function trb_portal_release_upload_error_message( $code ) {
 		'invalid_cover_request'      => 'Per richiedere la copertina inclusa devi compilare un brief grafico di almeno 40 caratteri.',
 		'missing_presentation'       => 'La presentazione della release non è arrivata al server.',
 		'invalid_presentation'       => 'La presentazione deve essere un file TXT, DOCX, ODT o RTF valido fino a 5 MB.',
+		'MASTER_PEAK_REJECTED' => 'Master rifiutato: il picco campione deve restare sotto 0 dBFS e il true peak sotto 0 dBTP. Sostituisci il WAV. Riceverai una email con i dettagli.',
+		'MASTER_CHECK_UNAVAILABLE' => 'Controllo completo dei picchi non disponibile: invio bloccato. Riprova senza modificare il file.',
 		'missing_audio'              => 'Il file WAV non è arrivato al server. Controlla dimensione e connessione.',
 		'invalid_audio'              => 'Il file audio deve essere un WAV stereo PCM tra 44.100 e 96.000 Hz e tra 16 e 24 bit.',
 		'missing_lyrics'             => 'Il testo obbligatorio del brano non è arrivato al server.',
@@ -2769,7 +2782,7 @@ function trb_portal_start_release() {
 		$audio_status = isset( $posted_track['audio_status'] ) ? sanitize_key( $posted_track['audio_status'] ) : '';
 		if ( '' === $audio_status && ! trb_portal_profile_has_service( 'mastering', $profile ) ) $audio_status = 'mastered';
 		$audio = trb_portal_release_upload_item( 'trb_track_audio', $track_index );
-		$audio_valid = trb_portal_validate_release_upload( $audio, 'audio' );
+		$audio_valid = trb_portal_validate_release_upload( $audio, 'audio', $audio_status );
 		if ( is_wp_error( $audio_valid ) || ! in_array( $audio_status, array( 'mastered', 'mastering' ), true ) || ( ! trb_portal_profile_has_service( 'mastering', $profile ) && 'mastered' !== $audio_status ) ) $uploads_valid = is_wp_error( $audio_valid ) ? $audio_valid : new WP_Error( 'invalid_audio' );
 		if ( ! is_wp_error( $audio_valid ) ) {
 			$wav_spec = trb_portal_wav_spec( $audio['tmp_name'] );
