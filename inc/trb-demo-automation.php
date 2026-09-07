@@ -290,7 +290,7 @@ function trb_demo_openai_review( $payload ) {
 	if ( $audio_path && !trb_demo_audio_evidence_valid($review_text,(bool)$text) ) return new WP_Error('demo_audio_evidence','Citazioni o timestamp audio non verificati: invio bloccato.',array('review'=>$review_text,'stage'=>'editorial_check'));
 	if ( ! trb_demo_team_voice_valid($review_text) ) return new WP_Error('demo_team_voice','La valutazione non usa coerentemente la voce del team: invio bloccato.',array('review'=>$review_text,'stage'=>'editorial_check'));
 	if ($text && !trb_demo_source_quotes_valid($review_text, array($text, $previous['text'] ?? ''))) return new WP_Error('demo_source_quote_mismatch', 'Una citazione non corrisponde ai testi originali: valutazione non inviata.');
-	if (!empty($payload['request_id'])) update_post_meta($payload['request_id'],'_trb_demo_editorial_check',array('version'=>'20260907.8','status'=>'completed','checked_at'=>gmdate('c')));
+	if (!empty($payload['request_id'])) update_post_meta($payload['request_id'],'_trb_demo_editorial_check',array('version'=>'20260907.9','status'=>'completed','checked_at'=>gmdate('c')));
 	return array(
 		'review' => $review_text,
 		'usage' => $usage,
@@ -1011,7 +1011,7 @@ function trb_demo_render_settings_page() {
 	?>
 	<div class="wrap">
 		<h1>Automazione valutazione demo</h1>
-		<p>Protocollo editoriale 20260907.8: analisi e controllo finale sui materiali; i costi includono entrambi i passaggi e gli eventuali tentativi.</p>
+		<p>Protocollo editoriale 20260907.9: analisi e controllo finale sui materiali; i costi includono entrambi i passaggi e gli eventuali tentativi.</p>
 		<p>Configurazione privata del trasferimento file, dell'analisi e della registrazione dei provini.</p>
 		<?php if ( $test_results ) : ?>
 			<div class="notice <?php echo ! in_array( false, $test_results, true ) ? 'notice-success' : 'notice-error'; ?>"><p>
