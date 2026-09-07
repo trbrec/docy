@@ -383,6 +383,10 @@ function trb_demo_send_review( $request_id ) {
 		'From: TRB rec - Music Publishing <info@trbrec.com>',
 		'Reply-To: TRB rec - Music Publishing <info@trbrec.com>',
 	);
+	// Owner must receive real artist evaluations; QA remains isolated.
+	if ( ! trb_demo_is_test_payload( $payload ) && 0 !== strcasecmp( trim( $payload['email'] ), 'andrea.tognassi@trbrec.com' ) ) {
+		$headers[] = 'Cc: Andrea Tognassi <andrea.tognassi@trbrec.com>';
+	}
 	$attempts = (int) get_post_meta( $request_id, '_trb_demo_email_attempts', true ) + 1;
 	update_post_meta( $request_id, '_trb_demo_email_attempts', $attempts );
 	$sent = wp_mail( $payload['email'], $subject, $body, $headers );
