@@ -37,6 +37,8 @@ check(str_contains(trb_demo_review_prompt([],true,false),'Non dichiarato'),'lega
 $titles=['Obiettivo e materiale','Punti riusciti','Analisi approfondita','Proposte di revisione','Piano di lavoro','Limiti della valutazione'];
 $complete=implode("\n",array_map(fn($t)=>"## ".$t."\nContenuto di prova sufficientemente dettagliato.",$titles));
 check(trb_demo_review_structure_valid($complete),'complete structure accepted');
+check(trb_demo_review_structure_valid(str_replace('## ', '### ', $complete)),'heading depth tolerated');
+check(trb_demo_review_structure_valid(str_replace('Contenuto di prova', "### Dettaglio\nContenuto di prova", $complete)),'subheading is not an empty root section');
 check(!trb_demo_review_structure_valid('Recensione generica.'),'unstructured answer rejected');
 check(!trb_demo_review_structure_valid(str_replace('## Piano di lavoro','## Altro',$complete)),'missing section rejected');
 class WP_Error {public $code;function __construct($code,$message=''){$this->code=$code;}}
