@@ -166,8 +166,8 @@ function trb_demo_openai_review( $payload ) {
 	$data = json_decode( wp_remote_retrieve_body( $response ), true );
 	if ( wp_remote_retrieve_response_code( $response ) >= 300 || empty( $data['choices'][0]['message']['content'] ) ) return new WP_Error( 'openai_failed', isset( $data['error']['message'] ) ? sanitize_text_field( $data['error']['message'] ) : 'OpenAI error' );
 	if ( 'length' === ( $data['choices'][0]['finish_reason'] ?? '' ) ) return new WP_Error( 'openai_truncated', 'La valutazione OpenAI è stata troncata e non verrà inviata.' );
-	$review_text = trim( wp_kses_post( $data['choices'][0]['message']['content'] ) );
-	if ( ! trb_demo_review_structure_valid( $review_text ) ) return new WP_Error( 'demo_review_incomplete', 'La valutazione non contiene tutte le sezioni richieste: non inviata.' );
+	$review_text = trb_demo_normalize_review( trim( wp_kses_post( $data['choices'][0]['message']['content'] ) ) );
+	if ( ! trb_demo_review_structure_valid( $review_text ) ) return new WP_Error( 'demo_review_incomplete', 'La valutazione non contiene tutte le sezioni richieste: non inviata.', array('review'=>$review_text) );
 	return array(
 		'review' => $review_text,
 		'usage' => trb_demo_usage_and_cost( $model, isset( $data['usage'] ) ? $data['usage'] : array() ),
@@ -286,12 +286,13 @@ function trb_demo_process_request( $request_id ) {
 		update_post_meta( $request_id, '_trb_demo_openai_usage', $review_result['usage'] );
 		update_post_meta( $request_id, '_trb_demo_cost_usd', (float) ( $review_result['usage']['estimated_cost_usd'] ?? 0 ) );
 	}
+	if ( is_wp_error($review_result) && 'demo_review_incomplete' === $review_result->get_error_code() ) update_post_meta($request_id,'_trb_demo_rejected_review',$review_result->get_error_data());
 	if ( is_wp_error( $remote ) || is_wp_error( $review_result ) ) {
 		$attempts = (int) get_post_meta( $request_id, '_trb_demo_attempts', true ) + 1;
 		update_post_meta( $request_id, '_trb_demo_attempts', $attempts );
 		update_post_meta( $request_id, '_trb_demo_last_error', is_wp_error( $remote ) ? $remote->get_error_message() : $review_result->get_error_message() );
 		if ( $attempts < 3 ) { $payload['status'] = 'retry'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_process_demo', array( $request_id ) ); }
-		else { $payload['status'] = 'manual_review'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_mail( 'info@trbrec.com', 'Provino da verificare manualmente: ' . $payload['title'], 'La procedura automatica non è riuscita dopo tre tentativi. Richiesta #' . $request_id ); }
+		else { $payload['status'] = 'manual_review'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_mail( ! empty($payload['owner_qa']) ? 'andrea.tognassi@trbrec.com' : 'info@trbrec.com', 'Provino da verificare manualmente: ' . $payload['title'], 'La procedura automatica non è riuscita dopo tre tentativi. Richiesta #' . $request_id ); }
 		return;
 	}
 	$review = $review_result['review'];
@@ -681,12 +682,60 @@ function trb_demo_cost_report() {
 	return array( 'count' => $count, 'total_cost' => $total_cost, 'average_cost' => $count ? $total_cost / $count : 0, 'rows' => $rows );
 }
 
+/** Owner-only rehearsal of the worker using independent copies of archived materials. */
+function trb_demo_owner_qa_replay() {
+ if (!current_user_can('manage_options')) wp_die('Accesso riservato.');
+ check_admin_referer('trb_demo_owner_qa_replay');
+ $source_id=absint($_POST['qa_source'] ?? 0);
+ $source=get_post_meta($source_id,'_trb_demo_payload',true);
+ $focus=sanitize_key($_POST['qa_focus'] ?? '');
+ if (!is_array($source) || !trb_demo_scope_parts($focus)) return new WP_Error('qa_source','Seleziona un provino e un tipo di valutazione.');
+ $payload=$source;
+ $payload['uuid']=wp_generate_uuid4();
+ $payload['owner_qa']=true;
+ $payload['email']='andrea.tognassi@trbrec.com';
+ $payload['first_name']='Andrea'; $payload['last_name']='Tognassi'; $payload['artist_name']='QA TRB rec';
+ $payload['title']='[QA '.strtoupper($focus).'] '.$source['title'];
+ $payload['status']='queued'; $payload['submitted_at']=gmdate('c');
+ $payload['earliest_delivery_at']=gmdate('c',time()+60);
+ $payload['review_context']=array('version'=>2,'focus'=>$focus,'notes'=>sanitize_textarea_field(wp_unslash($_POST['qa_notes'] ?? '')));
+ $need_text='lyrics'===$focus || ('overall'===$focus && !empty($source['text_file']));
+ $need_audio='lyrics'!==$focus && !empty($source['audio_file']);
+ foreach(trb_demo_scope_parts($focus) as $part) $payload['review_context'][$part]= ('lyrics'===$part ? $need_text : $need_audio) ? 'third_party' : 'absent';
+ $payload['no_lyrics']=!$need_text; $payload['text_only']=!$need_audio;
+ $error=trb_demo_context_error($payload['review_context'],$need_text,$need_audio,$payload['no_lyrics'],$payload['text_only']);
+ if($error) return new WP_Error('qa_material',$error);
+ $copies=array();
+ foreach(array('text_file'=>$need_text,'audio_file'=>$need_audio) as $key=>$needed) {
+  $payload[$key]=array();
+  if(!$needed) continue;
+  $file=$source[$key] ?? array(); $path=$file ? trb_demo_local_path($file) : '';
+  if(!$path || !is_file($path)) { foreach($copies as $copy) wp_delete_file($copy); return new WP_Error('qa_missing','Il materiale originale non è disponibile sul server.'); }
+  $uploads=wp_upload_dir(); $relative='trb-demo-private/qa-'.$payload['uuid'].'-'.basename($path);
+  $destination=trailingslashit($uploads['basedir']).$relative;
+  if(!copy($path,$destination)) { foreach($copies as $copy) wp_delete_file($copy); return new WP_Error('qa_copy','Copia QA non riuscita.'); }
+  $copies[]=$destination; $file['path']=$relative; $file['url']=trailingslashit($uploads['baseurl']).$relative; $payload[$key]=$file;
+ }
+ $id=wp_insert_post(array('post_type'=>'trb_request','post_status'=>'private','post_title'=>$payload['title'],'post_author'=>get_current_user_id()),true);
+ if(is_wp_error($id)||!$id) { foreach($copies as $copy) wp_delete_file($copy); return new WP_Error('qa_save','Salvataggio QA non riuscito.'); }
+ update_post_meta($id,'_trb_demo_payload',$payload);
+ update_post_meta($id,'_trb_demo_earliest_delivery',time()+60);
+ update_post_meta($id,'_trb_demo_delete_after',time()+60*DAY_IN_SECONDS);
+ update_post_meta($id,'_trb_demo_qa_source',$source_id);
+ wp_schedule_single_event(time()+10,'trb_portal_process_demo',array($id));
+ return $id;
+}
+
 function trb_demo_render_settings_page() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		wp_die( esc_html__( 'Non sei autorizzato ad accedere a questa pagina.', 'docy' ) );
 	}
 
 	$settings = trb_demo_settings();
+ if (isset($_POST['trb_demo_owner_qa_replay'])) {
+  $qa_result=trb_demo_owner_qa_replay();
+  echo '<div class="notice"><p>'.esc_html(is_wp_error($qa_result)?$qa_result->get_error_message():'Test QA registrato #'.$qa_result.'. Destinatario unico: andrea.tognassi@trbrec.com').'</p></div>';
+ }
 	$test_results = array();
 	if ( isset( $_POST['trb_demo_audit_queue'] ) ) {
 		check_admin_referer( 'trb_demo_audit_queue' );
@@ -806,7 +855,24 @@ function trb_demo_render_settings_page() {
 			<div class="notice notice-info inline"><p>Il monitoraggio partirà dalla prossima valutazione elaborata dopo questo aggiornamento; le valutazioni precedenti non contengono il dettaglio token.</p></div>
 		<?php endif; ?>
 		<hr style="margin:28px 0;">
-		<h2>Configurazione collegamenti</h2>
+		<h2>Collaudo valutazioni — solo titolare</h2>
+  <p>Crea una nuova valutazione di prova usando copie indipendenti dei materiali di un provino esistente. Ogni email del test arriva esclusivamente ad andrea.tognassi@trbrec.com. Le pratiche originali restano invariate.</p>
+  <form method="post">
+  <?php wp_nonce_field('trb_demo_owner_qa_replay'); ?>
+  <p><label>Provino di origine <select name="qa_source" required><option value="">Seleziona il provino</option>
+  <?php foreach(get_posts(array('post_type'=>'trb_request','post_status'=>array('private','publish','draft'),'numberposts'=>-1,'meta_key'=>'_trb_demo_payload')) as $qa_post): $qa_payload=get_post_meta($qa_post->ID,'_trb_demo_payload',true); ?>
+  <option value="<?php echo esc_attr($qa_post->ID); ?>"><?php echo esc_html('#'.$qa_post->ID.' — '.($qa_payload['title'] ?? $qa_post->post_title)); ?></option>
+  <?php endforeach; ?></select></label></p>
+  <p><label>Tipo di valutazione QA <select name="qa_focus" required><?php foreach(trb_demo_focus_options() as $key=>$label): ?><option value="<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?></option><?php endforeach; ?></select></label></p>
+  <p><label>Contesto del collaudo <textarea name="qa_notes" rows="3" cols="85" maxlength="1500" required></textarea></label></p>
+  <?php submit_button('Avvia valutazione QA solo al titolare','secondary','trb_demo_owner_qa_replay'); ?>
+  </form>
+  <h2>Diagnostica QA</h2>
+  <?php foreach(get_posts(array('post_type'=>'trb_request','post_status'=>array('private','publish'),'numberposts'=>10,'meta_key'=>'_trb_demo_rejected_review')) as $qa_post): $rejected=get_post_meta($qa_post->ID,'_trb_demo_rejected_review',true); ?>
+  <details><summary><?php echo esc_html('#'.$qa_post->ID.' — Risposta non inviata'); ?></summary><pre style="white-space:pre-wrap"><?php echo esc_html($rejected['review'] ?? ''); ?></pre></details>
+  <?php endforeach; ?>
+  <hr>
+  <h2>Configurazione collegamenti</h2>
 		<form method="post">
 			<?php wp_nonce_field( 'trb_demo_save_settings' ); ?>
 			<table class="form-table" role="presentation"><tbody>

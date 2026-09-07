@@ -66,18 +66,29 @@ function trb_demo_review_prompt( $payload, $has_audio, $has_text ) {
  return $prompt;
 }
 
+/** Normalize presentation only; all six substantive sections remain mandatory. */
+function trb_demo_normalize_review( $review ) {
+ $titles = array('Obiettivo e materiale','Punti riusciti','Analisi approfondita','Proposte di revisione','Piano di lavoro','Limiti della valutazione');
+ $review = str_replace(array("\r\n","\r"),"\n",(string)$review);
+ foreach ($titles as $title) {
+  $pattern = '/^[ \\t]*(?:#{1,6}[ \\t]*|[0-9]+[.)][ \\t]*)?(?:\\*\\*)?' . preg_quote($title,'/') . '(?:\\*\\*)?[ \\t]*:?[ \\t]*$/miu';
+  $review = preg_replace($pattern,'## '.$title,$review);
+ }
+ return $review;
+}
 /** A completeness check, not a claim that the artistic judgements are correct. */
 function trb_demo_review_structure_valid( $review ) {
- $titles = array( 'Obiettivo e materiale', 'Punti riusciti', 'Analisi approfondita', 'Proposte di revisione', 'Piano di lavoro', 'Limiti della valutazione' );
- $position = 0;
- foreach ( $titles as $index => $title ) {
-  $marker = '## ' . $title;
-  $found = strpos( $review, $marker, $position );
-  if ( false === $found ) return false;
-  $start = $found + strlen( $marker );
-  $end = strpos( $review, '## ', $start );
-  if ( strlen( trim( substr( $review, $start, false === $end ? null : $end - $start ) ) ) < 20 ) return false;
-  $position = $start;
+ $review = trb_demo_normalize_review($review);
+ $titles = array('Obiettivo e materiale','Punti riusciti','Analisi approfondita','Proposte di revisione','Piano di lavoro','Limiti della valutazione');
+ $offset = 0;
+ foreach ($titles as $index=>$title) {
+  $marker='## '.$title;
+  $found=strpos($review,$marker,$offset);
+  if (false===$found) return false;
+  $start=$found+strlen($marker);
+  $end=isset($titles[$index+1]) ? strpos($review,'## '.$titles[$index+1],$start) : strlen($review);
+  if (false===$end || strlen(trim(substr($review,$start,$end-$start)))<20) return false;
+  $offset=$end;
  }
  return true;
 }
