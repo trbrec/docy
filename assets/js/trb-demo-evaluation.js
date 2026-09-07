@@ -13,6 +13,16 @@ document.addEventListener('DOMContentLoaded', function () {
     var origin = function(part) { return form.querySelector('[name="trb_demo_origin_' + part + '"]'); };
     var scopes = {lyrics:['lyrics'], composition:['music'], performance:['performance'], overall:['lyrics','music','performance']};
     var needsText = false, needsAudio = false, ready = false;
+    var submissionKind = form.querySelector('[data-demo-submission-kind]');
+    var parent = form.querySelector('[data-demo-parent]');
+    function syncRevision() {
+      var active = submissionKind.value === 'revision';
+      form.querySelector('[data-demo-revision-block]').hidden = !active;
+      parent.disabled = !active; parent.required = active;
+      form.querySelector('[data-demo-changes]').disabled = !active;
+    }
+    submissionKind.addEventListener('change', syncRevision);
+    syncRevision();
     function sync() {
       var parts = scopes[focus.value] || [];
       form.querySelector('[data-demo-origins]').hidden = !parts.length;
@@ -76,7 +86,8 @@ document.addEventListener('DOMContentLoaded', function () {
       var hasText = !text.disabled && text.files.length === 1;
       var hasAudio = !audio.disabled && audio.files.length === 1;
       var message = '';
-      if (!ready) message = 'Seleziona il tipo di valutazione e le provenienze richieste.';
+      if (submissionKind.value === 'revision' && !parent.value) message = 'Seleziona il provino precedente già valutato.';
+      else if (!ready) message = 'Seleziona il tipo di valutazione e le provenienze richieste.';
       else if (!needsText && !needsAudio) message = 'Indica almeno un contributo presente.';
       else if (needsText !== hasText || needsAudio !== hasAudio) message = 'Allega i materiali richiesti per questa valutazione.';
       if (message) {
@@ -124,6 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
           return;
         }
         var messages = {
+          invalid_revision: 'Seleziona un tuo provino con valutazione già inviata e ancora disponibile.',
           invalid: 'Controlla titolo, dichiarazioni e allegati prima di riprovare.',
           upload_error: 'Uno degli allegati non è valido. Usa TXT o DOCX per il testo e un solo file MP3 per l’audio.',
           processing: 'Un invio dello stesso account è già in corso. Attendi il completamento.',
@@ -151,3 +163,4 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 });
+
