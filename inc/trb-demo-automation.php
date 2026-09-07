@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/trb-demo-context.php';
 /**
  * Automated demo evaluation pipeline.
  *
@@ -106,36 +107,6 @@ function trb_demo_upload_to_pcloud( $payload ) {
 	return array( 'folder' => $folder, 'files' => $remote_files, 'verification' => $verification );
 }
 
-function trb_demo_review_prompt( $payload, $has_audio, $has_text ) {
-	$scope = $has_audio && $has_text ? 'audio e testo autoriale' : ( $has_audio ? 'solo audio' : 'solo testo autoriale' );
-	$profile = strtoupper( str_replace( '_', '-', (string) $payload['profile'] ) );
-	$genre = ! empty( $payload['genre'] ) ? sanitize_text_field( (string) $payload['genre'] ) : 'non dichiarato';
-	$prompt = "Agisci come A&R, producer e consulente editoriale senior di TRB rec - Music Publishing. Scrivi in italiano una valutazione utile a un artista che deve capire esattamente cosa conservare, cosa correggere e con quale priorità nel provino \"{$payload['title']}\". Materiale disponibile: {$scope}. Genere musicale dichiarato dall'artista: {$genre}. Profilo contrattuale: {$profile}.\n\n";
-	$prompt .= "REGOLE INDEROGABILI:\n";
-	$prompt .= "- Ogni osservazione deve derivare da un elemento realmente udibile o leggibile. Non indovinare strumenti, tecniche, tonalità, effetti, intenzioni o dettagli di produzione; non usare formule come «presumibilmente», «sembra», «potrebbe esserci» per riempire lacune. Se un dato non è verificabile, omettilo.\n";
-	$prompt .= "- Usa il genere dichiarato soltanto come contesto per criteri, convenzioni e aspettative pertinenti. Non forzare il materiale dentro uno stereotipo di genere e non considerare il genere dichiarato una caratteristica verificata dell'audio. Se il materiale disponibile contraddice chiaramente tale indicazione, descrivi la discrepanza in modo neutro e concreto.\n";
-	$prompt .= "- Riduci al minimo introduzioni, parafrasi e complimenti generici. Massimo 750 parole. Niente voti numerici, promesse, diagnosi, giudizi sulla persona o tabelle.\n";
-	$prompt .= "- Per ogni criticità indica: il problema concreto, l'effetto sull'ascolto o sulla comprensione e un intervento preciso da provare. Quando l'audio lo consente, localizza il passaggio con sezione o intervallo temporale; non inventare timestamp.\n";
-	$prompt .= "- Distingui ciò che richiede una scelta artistica da ciò che costituisce una correzione tecnica. Ordina gli interventi per impatto e chiudi con non più di 4 priorità, formulate come azioni eseguibili.\n";
-	if ( $has_audio ) $prompt .= "- Valuta soltanto quando chiaramente percepibili: efficacia di struttura e transizioni, sviluppo dell'arrangiamento, intonazione e timing, intelligibilità e dinamica vocale, bilanciamento, mascheramenti, eccessi o carenze timbriche, transienti, ambiente, distorsioni e tenuta complessiva del mix. Evita consigli vaghi come «dare più dinamismo»: specifica cosa cambiare, dove e perché.\n";
-	if ( $has_text && $has_audio ) $prompt .= "- Valuta testo, metrica, accenti prosodici, immagini, coerenza narrativa, cantabilità, originalità e sviluppo. Cita solo brevi parole o frammenti necessari a identificare il punto e proponi correzioni mirate senza riscrivere integralmente il testo.\n";
-	if ( $has_text && ! $has_audio ) {
-		$prompt .= "- Poiché non è disponibile l'audio, non affermare che un verso sia o non sia cantabile, fuori tempo, accentato male rispetto alla musica o adatto a un genere: melodia, BPM, scansione e interpretazione non sono verificabili. Puoi svolgere soltanto una verifica metrica e prosodica preliminare sulla lingua scritta, segnalando dove versi molto diversi per lunghezza o accenti potrebbero richiedere adattamento musicale.\n";
-		$prompt .= "- Evita una recensione scolastica divisa in paragrafi generici. Organizza l'analisi in questi blocchi interni: «Nucleo e sviluppo del racconto», «Passaggi riusciti», «Passaggi da rivedere», «Revisione linguistica e metrica preliminare». Non ripetere lo stesso rilievo in blocchi diversi.\n";
-		$prompt .= "- Individua da 2 a 4 passaggi realmente riusciti e spiega in una frase perché funzionano. Individua da 3 a 6 passaggi deboli citando il frammento esatto; per ciascuno indica il problema e proponi una o due alternative brevi che conservino significato, tono e identità dell'autore. Non riscrivere l'intero testo e non trasformarlo in uno stile estraneo.\n";
-		$prompt .= "- Separa refusi ed errori grammaticali oggettivi dalle scelte artistiche. Per immagini, metafore o parole ambigue, spiega le possibili letture e formula una domanda utile all'autore prima di suggerire una correzione definitiva. Valuta anche se titolo, apertura, ritornello e chiusura hanno una funzione chiara e se il racconto evolve davvero.\n";
-		$prompt .= "- Se il materiale è poesia, prosa o appunto ancora lontano da una canzone, indica i passaggi concreti per trasformarlo in una struttura autoriale completa.\n";
-	}
-	if ( ! $has_text ) $prompt .= "Non formulare osservazioni sul testo autoriale. ";
-	if ( ! $has_audio ) $prompt .= "Non formulare osservazioni su musica, arrangiamento, interpretazione, registrazione o missaggio. ";
-	if ( in_array( $payload['profile'], array( 'ddb', 'ddb12', 'ddb_trb' ), true ) ) $prompt .= "Soltanto se emerge un bisogno concreto, inserisci nei prossimi passaggi una breve indicazione sui servizi TRB pertinenti (strumentale, intonazione, registrazione o missaggio), senza tono commerciale aggressivo. ";
-	if ( $has_audio ) $prompt .= "Apri con il titolo esatto «1. Analisi compositiva e dell’arrangiamento». ";
-	if ( $has_text ) $prompt .= "Inserisci poi il titolo numerato «" . ( $has_audio ? "2" : "1" ) . ". Analisi autoriale». ";
-	if ( $has_audio ) $prompt .= "Inserisci poi il titolo numerato «" . ( $has_text ? "3" : "2" ) . ". Analisi interpretativa e tecnica». ";
-	$prompt .= "Chiudi con il titolo numerato «" . ( $has_audio && $has_text ? "4" : ( $has_audio || $has_text ? "2" : "1" ) ) . ". Prossimi passaggi». Ogni titolo deve essere su una riga autonoma; sotto usa paragrafi brevi ed eventuali elenchi puntati.";
-	return $prompt;
-}
-
 function trb_demo_model_rates( $model ) {
 	$rates = array(
 		'gpt-audio-mini' => array( 'text_input' => 0.60, 'text_output' => 2.40, 'audio_input' => 10.00, 'audio_output' => 20.00 ),
@@ -178,23 +149,27 @@ function trb_demo_openai_review( $payload ) {
 	if ( empty( $settings['openai_key'] ) ) return new WP_Error( 'missing_openai_key' );
 	$text = ! empty( $payload['text_file'] ) ? trb_demo_extract_text( $payload['text_file'] ) : '';
 	$audio_path = ! empty( $payload['audio_file'] ) ? trb_demo_local_path( $payload['audio_file'] ) : '';
+	// A lyrics-only consultation uses the supplied text, never an AI performance as evidence.
+	if ( 'lyrics' === ( $payload['review_context']['focus'] ?? '' ) ) $audio_path = '';
+	if ( ! empty( $payload['text_file'] ) && '' === trim( $text ) ) return new WP_Error( 'demo_text_unreadable', 'Il testo allegato non è leggibile: valutazione da verificare.' );
 	if ( empty( $text ) && ! $audio_path ) return new WP_Error( 'empty_demo' );
 	$prompt = trb_demo_review_prompt( $payload, (bool) $audio_path, (bool) $text );
-	if ( $text ) $prompt .= "\n\nTESTO AUTORIALE:\n" . $text;
-	$content = array( array( 'type' => 'text', 'text' => $prompt ) );
+	$content = array( array( 'type' => 'text', 'text' => $text ? "TESTO AUTORIALE DA ANALIZZARE:\n" . $text : 'Analizza il provino audio allegato secondo il percorso dichiarato.' ) );
 	$model = ! empty( $settings['text_model'] ) ? $settings['text_model'] : 'gpt-4.1-mini';
 	if ( $audio_path ) {
 		$model = ! empty( $settings['audio_model'] ) ? $settings['audio_model'] : 'gpt-audio-mini';
 		$content[] = array( 'type' => 'input_audio', 'input_audio' => array( 'data' => base64_encode( file_get_contents( $audio_path ) ), 'format' => 'mp3' ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode,WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	}
-	$body = array( 'model' => $model, 'modalities' => array( 'text' ), 'messages' => array( array( 'role' => 'user', 'content' => $content ) ), 'max_tokens' => 3200, 'temperature' => 0.25 );
+	$body = array( 'model' => $model, 'modalities' => array( 'text' ), 'messages' => array( array( 'role' => 'system', 'content' => $prompt ), array( 'role' => 'user', 'content' => $content ) ), 'max_tokens' => 7000, 'temperature' => 0.25 );
 	$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', array( 'timeout' => 180, 'headers' => array( 'Authorization' => 'Bearer ' . $settings['openai_key'], 'Content-Type' => 'application/json' ), 'body' => wp_json_encode( $body ) ) );
 	if ( is_wp_error( $response ) ) return $response;
 	$data = json_decode( wp_remote_retrieve_body( $response ), true );
 	if ( wp_remote_retrieve_response_code( $response ) >= 300 || empty( $data['choices'][0]['message']['content'] ) ) return new WP_Error( 'openai_failed', isset( $data['error']['message'] ) ? sanitize_text_field( $data['error']['message'] ) : 'OpenAI error' );
 	if ( 'length' === ( $data['choices'][0]['finish_reason'] ?? '' ) ) return new WP_Error( 'openai_truncated', 'La valutazione OpenAI è stata troncata e non verrà inviata.' );
+	$review_text = trim( wp_kses_post( $data['choices'][0]['message']['content'] ) );
+	if ( ! trb_demo_review_structure_valid( $review_text ) ) return new WP_Error( 'demo_review_incomplete', 'La valutazione non contiene tutte le sezioni richieste: non inviata.' );
 	return array(
-		'review' => trim( wp_kses_post( $data['choices'][0]['message']['content'] ) ),
+		'review' => $review_text,
 		'usage' => trb_demo_usage_and_cost( $model, isset( $data['usage'] ) ? $data['usage'] : array() ),
 	);
 }
@@ -337,7 +312,7 @@ add_action( 'trb_portal_process_demo', 'trb_demo_process_request' );
 
 function trb_demo_review_html( $review ) {
 	$safe = esc_html( trim( (string) $review ) );
-	$safe = preg_replace( '/^(\\d+\\. [^\\n]+)$/mu', '<h2 style="margin:30px 0 12px;color:#101936;font-size:21px;line-height:1.3;">$1</h2>', $safe );
+	$safe = preg_replace( '/^(?:##[ \\t]+|\\d+\\. )([^\\n]{1,90})$/mu', '<h2 style="margin:30px 0 12px;color:#101936;font-size:21px;line-height:1.3;">$1</h2>', $safe );
 	$safe = preg_replace( '/^[\\-•]\\s+(.+)$/mu', '<div style="margin:7px 0 7px 18px;">• $1</div>', $safe );
 	return wpautop( $safe );
 }
@@ -361,7 +336,9 @@ function trb_demo_send_review( $request_id ) {
 	$artist_name = ! empty( $payload['artist_name'] ) ? $payload['artist_name'] : trim( $payload['first_name'] . ' ' . $payload['last_name'] );
 	$affiliation = function_exists( 'trb_portal_profile_affiliation' ) ? trb_portal_profile_affiliation( $payload['profile'] ) : ( 'trb' === $payload['profile'] ? 'TRB rec - Music Publishing' : 'Digital Distribution Bundle' );
 	$review_html = trb_demo_review_html( $review );
-	$genre_html = ! empty( $payload['genre'] ) ? '<span style="display:block;margin-top:5px;color:#66708a;"><strong style="color:#39415a;">Genere musicale:</strong> ' . esc_html( $payload['genre'] ) . '</span>' : '';
+	$focus_label = trb_demo_focus_options()[ $payload['review_context']['focus'] ?? 'overall' ] ?? 'Valutazione complessiva';
+	$genre_html = '<span style="display:block;margin-top:5px;"><strong>Approfondimento richiesto:</strong> ' . esc_html( $focus_label ) . '</span>';
+	$genre_html .= ! empty( $payload['genre'] ) ? '<span style="display:block;margin-top:5px;color:#66708a;"><strong style="color:#39415a;">Genere musicale:</strong> ' . esc_html( $payload['genre'] ) . '</span>' : '';
 	$service_note = '';
 	if ( in_array( $payload['profile'], array( 'ddb', 'ddb12', 'ddb_trb' ), true ) ) {
 		$service_note = '<div style="margin-top:28px;padding:18px 20px;background:#f4f5ff;border-left:4px solid #514cff;border-radius:8px;"><strong>Approfondimenti e interventi tecnici</strong><p style="margin:8px 0 0;">Quando la valutazione evidenzia una necessità concreta, puoi consultare i servizi riservati su <a style="color:#4038e8;" href="https://store.trbrec.com/">store.trbrec.com</a>. Le eventuali condizioni dedicate vengono applicate attraverso il codice comunicato da TRB rec.</p></div>';
