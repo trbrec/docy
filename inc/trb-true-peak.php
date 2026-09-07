@@ -17,7 +17,7 @@ function trb_true_peak_parse($text, $channels) {
 
 function trb_true_peak_measure($path, $ffmpeg, $sample_rate, $channels, callable $execute) {
     if($sample_rate<8000||$sample_rate>192000||$channels<1||$channels>64)throw new RuntimeException('Formato non supportato per il true peak.');
-    $filter='aresample='.($sample_rate*16).':resampler=swr:filter_size=128:phase_shift=10:cutoff=1:osf=dbl:dither_method=none,astats=reset=0:measure_perchannel=Peak_level:measure_overall=none';
+    $filter='aresample='.($sample_rate*16).':resampler=swr:filter_size=128:phase_shift=10:cutoff=1:tsf=dblp:osf=dbl:dither_method=none,astats=reset=0:measure_perchannel=Peak_level:measure_overall=none';
     $command='LC_ALL=C '.escapeshellarg($ffmpeg).' -hide_banner -nostats -nostdin -xerror -i '.escapeshellarg($path).' -map 0:a:0 -af '.escapeshellarg($filter).' -c:a pcm_f64le -f null -';
     $result=$execute($command);
     if(($result['code']??1)!==0)throw new RuntimeException('Scansione true peak non completata.');
