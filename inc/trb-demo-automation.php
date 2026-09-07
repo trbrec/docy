@@ -234,6 +234,7 @@ function trb_demo_sync_sheet_retry( $request_id ) {
 add_action( 'trb_portal_sync_demo_sheet', 'trb_demo_sync_sheet_retry' );
 
 function trb_demo_is_test_payload( $payload ) {
+	if ( ! empty( $payload['owner_qa'] ) && 'andrea.tognassi@trbrec.com' === ( $payload['email'] ?? '' ) ) return true;
 	$email = is_array( $payload ) && ! empty( $payload['email'] ) ? strtolower( (string) $payload['email'] ) : '';
 	return in_array( $email, array( 'spotify2@trbrec.com', 'spotify3@trbrec.com', 'spotify4@trbrec.com' ), true );
 }
