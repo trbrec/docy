@@ -26,6 +26,7 @@ jobs:
           php tools/test-demo-delivery-window.php
           php tools/test-demo-runtime-recovery.php
           php tools/test-demo-context.php
+          php tools/test-demo-email.php
           node --check assets/js/trb-demo-evaluation.js
           php tools/test-audio-inventory.php
           php tools/test-rights-owner-review.php

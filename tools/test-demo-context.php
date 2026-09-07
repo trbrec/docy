@@ -48,16 +48,28 @@ function trb_demo_extract_text($v){return $GLOBALS['fixture_text'];}
 function trb_demo_local_path($v){return __FILE__;}
 function wp_kses_post($v){return strip_tags($v);}
 function sanitize_text_field($v){return strip_tags($v);}
-function wp_remote_post($url,$args){$GLOBALS['api_request']=json_decode($args['body'],true);return ['code'=>200,'body'=>json_encode(['choices'=>[['message'=>['content'=>$GLOBALS['answer']],'finish_reason'=>$GLOBALS['finish']]],'usage'=>[]])];}
+function wp_remote_post($url,$args){
+ $req=json_decode($args['body'],true);
+ $editor=str_contains($req['messages'][0]['content'],'CONTROLLO EDITORIALE FINALE');
+ $GLOBALS[$editor ? 'editor_request' : 'api_request']=$req;
+ $GLOBALS['call_count']=($GLOBALS['call_count'] ?? 0)+1;
+ if($editor && !empty($GLOBALS['editor_failure'])) return new WP_Error('timeout');
+ return ['code'=>200,'body'=>json_encode(['choices'=>[['message'=>['content'=>$editor ? ($GLOBALS['editor_answer'] ?? $GLOBALS['answer']) : $GLOBALS['answer']],'finish_reason'=>$editor ? ($GLOBALS['editor_finish'] ?? $GLOBALS['finish']) : $GLOBALS['finish']]],'usage'=>['prompt_tokens'=>100,'completion_tokens'=>50,'total_tokens'=>150]])];
+}
 function wp_remote_retrieve_body($r){return $r['body'];}
 function wp_remote_retrieve_response_code($r){return $r['code'];}
-function trb_demo_usage_and_cost($m,$u){return ['model'=>$m];}
+
 function absint($v){return abs((int)$v);}
 function get_post($id){return $GLOBALS['posts'][$id] ?? null;}
 function get_post_meta($id,$key,$single=true){return $GLOBALS['meta'][$id][$key] ?? '';}
 function update_post_meta($id,$key,$value){$GLOBALS['meta'][$id][$key]=$value;}
 function trb_demo_previous_bytes($id,$key,$file){return $GLOBALS['old_bytes'][$key] ?? '';}
 $source=file_get_contents(__DIR__.'/../inc/trb-demo-automation.php');
+foreach(['trb_demo_model_rates','trb_demo_usage_and_cost','trb_demo_record_editorial_usage'] as $fn) {
+ check(1===preg_match('/function '.$fn.'\\(.*?(?=\\nfunction )/s',$source,$part),'extract '.$fn);
+ eval($part[0]);
+}
+
 check(1===preg_match('/function trb_demo_revision_materials\(.*?(?=\nfunction )/s',$source,$revision_match),'extract actual revision routine');
 eval($revision_match[0]);
 check(1===preg_match('/function trb_demo_openai_review\(.*?(?=\nfunction )/s',$source,$match),'extract actual API routine');
@@ -107,9 +119,36 @@ $old_bytes=['audio_file'=>'OLD AUDIO FIXTURE'];
 check(!is_wp_error(trb_demo_openai_review($payload)),'audio revision request succeeds');
 $audios=array_values(array_filter($api_request['messages'][1]['content'],fn($c)=>$c['type']==='input_audio'));
 check(count($audios)===2&&base64_decode($audios[0]['input_audio']['data'])==='OLD AUDIO FIXTURE','old audio and new audio separately supplied');
+$editor_audios=array_values(array_filter($editor_request['messages'][1]['content'],fn($c)=>$c['type']==='input_audio'));
+check($editor_audios===$audios,'editor rechecks the same old and new audio evidence');
 $old_bytes=[];
 check(!is_wp_error(trb_demo_openai_review($payload)),'missing old audio degrades to written history');
 $audios=array_filter($api_request['messages'][1]['content'],fn($c)=>$c['type']==='input_audio');
 check(count($audios)===1&&!$meta[11]['_trb_demo_revision_comparison']['previous_audio'],'missing old audio explicitly recorded');
 echo "PASS demo scope, provenance, evidence, model routing and completeness\n";
 echo "PASS revision ownership, legacy history, version chain, text/audio comparison and unavailable-material fallback\n";
+
+// The final text is the editor's output, not the draft; both passes see source evidence.
+$payload=['request_id'=>20,'review_context'=>$author,'text_file'=>['name'=>'new.txt']];
+$fixture_text='Testo attuale concreto';$answer=$complete;$editor_answer=str_replace('Contenuto di prova','Testo finale controllato',$complete);
+$call_count=0;
+$r=trb_demo_openai_review($payload);
+check(!is_wp_error($r) && $r['review']===$editor_answer,'only final editorial output returned');
+check($call_count===2 && count($r['usage']['passes'])===2,'exactly two charged passes');
+check($r['usage']['total_tokens']===300,'usage includes draft and editorial pass');
+check($editor_request['messages'][1]['content'][0]===$api_request['messages'][1]['content'][0],'editor receives original source');
+check(str_contains(end($editor_request['messages'][1]['content'])['text'],$complete),'draft clearly separated as data');
+check($meta[20]['_trb_demo_editorial_check']['status']==='completed','editor completion recorded');
+$editor_failure=true;$payload['request_id']=21;
+check(is_wp_error(trb_demo_openai_review($payload)),'editor network failure blocks output');
+check(empty($meta[21]['_trb_demo_editorial_check']),'failed editor never marked complete');
+check($meta[21]['_trb_demo_openai_usage']['total_tokens']===150,'billed draft retained after editor failure');
+$editor_failure=false;$editor_finish='length';$payload['request_id']=22;
+check(is_wp_error(trb_demo_openai_review($payload)),'truncated editor blocks output');
+check($meta[22]['_trb_demo_openai_usage']['total_tokens']===300,'truncated billed pass counted');
+$editor_finish='stop';$editor_answer='Risposta incompleta';
+check(is_wp_error(trb_demo_openai_review($payload)),'incomplete editor blocks output');
+check($meta[22]['_trb_demo_openai_usage']['total_tokens']===600,'retry costs accumulate');
+check(trb_demo_qa_title('[QA LYRICS] [QA LYRICS] [QA] Brano','lyrics')==='[QA LYRICS] Brano','QA prefixes deduplicated');
+check(trb_demo_qa_title('Brano [QA] nel titolo','lyrics')==='[QA LYRICS] Brano [QA] nel titolo','only leading QA markers removed');
+echo "PASS editorial evidence, output gate, retries, billed usage and QA naming\n";

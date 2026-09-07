@@ -36,6 +36,8 @@ jobs:
           php tools/test-release-draft-normalizer.php
           php tools/test-release-staging-cleanup.php
           php tools/test-demo-delivery-window.php
+          php tools/test-demo-context.php
+          php tools/test-demo-email.php
           python3 tools/portal-audit.py
 
       - name: Deploy and verify exact main revision over SSH
