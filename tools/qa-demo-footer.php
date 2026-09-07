@@ -16,7 +16,7 @@ if(!$id) {
  update_post_meta($id,'_trb_demo_revision_comparison',get_post_meta($source,'_trb_demo_revision_comparison',true));
  $selection=get_post_meta($source,'_trb_demo_service_selection',true);
  if(($selection['id']??'')!=='lyrics_revision')throw new RuntimeException('Unexpected service');
- $selection['reason']='Possiamo aiutarti a rendere più chiare le frasi sulla luce e sul telefono, mantenendo il significato che vuoi dare al brano.';
+ $selection['reason']='Per questo brano consigliamo una revisione autoriale mirata alla coerenza delle immagini e alla chiarezza dei passaggi narrativi. Il lavoro sul testo consentirebbe di risolvere le ambiguità evidenziate, rispettando il linguaggio e l’intenzione espressiva del brano.';
  update_post_meta($id,'_trb_demo_service_selection',$selection);update_post_meta($id,'_trb_demo_service_decision',array('status'=>'selected','diagnostic'=>'Owner-reviewed presentation preview'));
  update_post_meta($id,'_trb_demo_qa_source',$source);update_post_meta($id,'_trb_demo_presentation_only',true);
 }

@@ -111,7 +111,7 @@ check("richiesta copertina crea pratica collegata e avvisa TRB", "_trb_cover_rel
 check("copertina definitiva collegabile alla stessa release", "trb_portal_store_final_release_cover" in PORTAL and "trb_portal_attach_release_cover" in PORTAL and "_trb_release_cover_status" in PORTAL)
 check("approvazione bloccata finche manca la copertina definitiva", "approve_blocked_cover" in RESOURCE and "cover_creation_pending" in RESOURCE and "trb_portal_release_has_final_cover" in RESOURCE)
 check("reference copertina archiviata correttamente su pCloud", "00)_Reference_copertina" in PCLOUD)
-check("upload WAV validato lato server", "trb_portal_validate_release_upload( $audio, 'audio' )" in PORTAL)
+check("upload WAV validato lato server", "trb_portal_validate_release_upload( $audio, 'audio', $audio_status )" in PORTAL)
 check("durata WAV verificata con tolleranza di un secondo", "audio_duration_mismatch" in PORTAL and "> 1.0" in PORTAL)
 check("WAV validi con profondita diverse ammessi nella stessa release", "audio_standard_mismatch" not in PORTAL and "$release_audio_standard" not in PORTAL)
 check("trasferimento pCloud verificato prima dell'analisi", "archived_pending_analysis" in PCLOUD and "verified" in PCLOUD)
