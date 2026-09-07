@@ -1229,3 +1229,6 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
     transition-duration: .01ms !important;
   }
 }
+
+/* Progressive demo controls must override portal label/grid display rules. */
+[data-demo-form] [hidden] { display: none !important; }
