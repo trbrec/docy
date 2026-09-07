@@ -4317,33 +4317,28 @@ function trb_portal_render_demo_section() {
 					<input type="hidden" name="action" value="trb_portal_submit_demo" />
 					<?php wp_nonce_field( 'trb_portal_submit_demo', 'trb_demo_nonce' ); ?>
 					<div class="trb-portal__demo-intro"><strong>Dati trasmessi automaticamente</strong><p>Nome, cognome, nome d’arte ed e-mail vengono acquisiti dal profilo artista e non devono essere inseriti nuovamente.</p></div>
+					<label>Tipo di valutazione <span>*</span><select name="trb_demo_focus" required data-demo-focus><option value="">Seleziona l'obiettivo</option><?php foreach ( trb_demo_focus_options() as $key => $label ) : ?><option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></label>
 					<label>Titolo del provino <span>*</span><input type="text" name="trb_demo_title" maxlength="160" required /></label>
-					<label for="trb-demo-genre-search">Cerca un genere <small>Filtra l'elenco, poi scegli il genere qui sotto.</small></label>
-					<input id="trb-demo-genre-search" type="search" placeholder="Es. Pop, Rock, Hip-Hop" data-demo-genre-search autocomplete="off" />
 					<label for="trb-demo-genre">Genere musicale <span>*</span></label>
 					<select id="trb-demo-genre" name="trb_demo_genre" required data-demo-genre>
 						<option value="">Seleziona il genere musicale</option>
 						<?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( str_replace( '/', ' / ', $genre ) ); ?></option><?php endforeach; ?>
 					</select>
-					<p data-demo-genre-status role="status"></p>
-					<label>Cosa vuoi approfondire? <span>*</span><select name="trb_demo_focus" required data-demo-focus><option value="">Seleziona l'obiettivo</option><?php foreach ( trb_demo_focus_options() as $key => $label ) : ?><option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></label>
-					<fieldset style="min-width:0;border:1px solid #dce2ed;border-radius:12px;padding:16px;">
+					<fieldset data-demo-origins hidden style="min-width:0;border:1px solid #dce2ed;border-radius:12px;padding:16px;">
 						<legend>Chi ha realizzato questo provino?</legend>
 						<p>Queste informazioni riguardano il singolo provino: servono a concentrare i consigli sul tuo contributo. Non modificano il tuo profilo o i crediti della release.</p>
 						<?php foreach ( array( 'lyrics' => 'Testo', 'music' => 'Musica e arrangiamento', 'performance' => 'Voce o esecuzione strumentale' ) as $part => $label ) : ?>
-						<label><?php echo esc_html( $label ); ?> <span>*</span><select name="trb_demo_origin_<?php echo esc_attr( $part ); ?>" required><option value="">Seleziona la provenienza</option><?php foreach ( trb_demo_origin_options() as $key => $origin ) : ?><option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $origin ); ?></option><?php endforeach; ?></select></label>
+						<label data-demo-origin-row="<?php echo esc_attr( $part ); ?>"><?php echo esc_html( $label ); ?> <span>*</span><select name="trb_demo_origin_<?php echo esc_attr( $part ); ?>" required><option value="">Seleziona la provenienza</option><?php foreach ( trb_demo_origin_options() as $key => $origin ) : ?><option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $origin ); ?></option><?php endforeach; ?></select></label>
 						<?php endforeach; ?>
 					</fieldset>
-					<label>Cosa vuoi migliorare? <small>Facoltativo. Indica il tuo contributo, i dubbi, i passaggi da approfondire e l'eventuale uso dell'IA. Se voce e strumenti hanno provenienze diverse, specificalo qui.</small><textarea name="trb_demo_notes" maxlength="1500" rows="3" placeholder="Es. Ho scritto il testo; musica e voce sono una demo IA. Vorrei lavorare su immagini e metrica."></textarea></label>
-					<div class="trb-portal__demo-upload" data-demo-text-block>
-						<label>Caricamento testo autoriale <span>*</span><small>Obbligatorio quando il provino contiene un testo interpretato. Formati ammessi: TXT o DOCX. Il contenuto viene convertito in testo semplice per evitare elaborazioni e consumi inutili.</small><input type="file" name="trb_demo_text" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-demo-text /></label>
-						<label class="trb-portal__choice"><input type="checkbox" name="trb_demo_no_lyrics" value="1" data-demo-no-lyrics /> Il provino non contiene testo</label>
+					<label data-demo-notes-block hidden>Cosa vuoi migliorare? <small>Facoltativo. Indica il tuo contributo, i dubbi, i passaggi da approfondire e l'eventuale uso dell'IA. Se voce e strumenti hanno provenienze diverse, specificalo qui.</small><textarea name="trb_demo_notes" maxlength="1500" rows="3" placeholder="Es. Ho scritto il testo; musica e voce sono una demo IA. Vorrei lavorare su immagini e metrica."></textarea></label>
+					<div class="trb-portal__demo-upload" data-demo-text-block hidden>
+						<label>Caricamento testo autoriale <span>*</span><small>Allega il testo da valutare in formato TXT o DOCX.</small><input type="file" name="trb_demo_text" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-demo-text /></label>
 					</div>
-					<div class="trb-portal__demo-upload" data-demo-audio-block>
+					<div class="trb-portal__demo-upload" data-demo-audio-block hidden>
 						<label>Caricamento provino audio <span>*</span><small>È consentito un solo file, esclusivamente in formato <strong>MP3 (.mp3)</strong>.</small><input type="file" name="trb_demo_audio" accept=".mp3,audio/mpeg" data-demo-audio /></label>
-						<label class="trb-portal__choice"><input type="checkbox" name="trb_demo_text_only" value="1" data-demo-text-only /> Il provino è solo un testo autoriale</label>
 					</div>
-					<p class="trb-portal__demo-rule">Deve essere presente almeno un allegato. Se invii soltanto l’audio devi dichiarare che il brano non contiene testo; se invii soltanto il testo devi dichiarare che il provino è esclusivamente autoriale.</p>
+					<p class="trb-portal__demo-rule" data-demo-material-hint role="status">Scegli il tipo di valutazione per proseguire.</p>
 					<div class="trb-portal__message trb-portal__message--error" data-demo-error hidden></div>
 					<div class="trb-portal__upload-progress" data-demo-progress hidden aria-live="polite">
 						<div class="trb-portal__upload-progress-head"><strong>Caricamento del provino</strong><span data-demo-progress-value>0%</span></div>
@@ -4488,16 +4483,20 @@ function trb_portal_submit_demo() {
 	}
 	$title = isset( $_POST['trb_demo_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_title'] ) ) : '';
 	$genre = isset( $_POST['trb_demo_genre'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_genre'] ) ) : '';
-	$review_context = array( 'version' => 1 );
+	$review_context = array( 'version' => 2 );
 	foreach ( array( 'focus' => 'trb_demo_focus', 'lyrics' => 'trb_demo_origin_lyrics', 'music' => 'trb_demo_origin_music', 'performance' => 'trb_demo_origin_performance' ) as $key => $field ) {
 		$review_context[$key] = isset( $_POST[$field] ) && is_string( $_POST[$field] ) ? sanitize_key( wp_unslash( $_POST[$field] ) ) : '';
 	}
 	$review_context['notes'] = isset( $_POST['trb_demo_notes'] ) && is_string( $_POST['trb_demo_notes'] ) ? sanitize_textarea_field( wp_unslash( $_POST['trb_demo_notes'] ) ) : '';
-	$no_lyrics = isset( $_POST['trb_demo_no_lyrics'] );
-	$text_only = isset( $_POST['trb_demo_text_only'] );
+	// Discard irrelevant answers, including stale fields from a changed scope.
+	foreach ( array('lyrics','music','performance') as $part ) {
+		if ( ! in_array($part,trb_demo_scope_parts($review_context['focus']),true) ) unset($review_context[$part]);
+	}
+	$no_lyrics = 'overall' === $review_context['focus'] && 'absent' === ($review_context['lyrics'] ?? '');
+	$text_only = 'lyrics' === $review_context['focus'] || ( 'overall' === $review_context['focus'] && 'absent' === ($review_context['music'] ?? '') && 'absent' === ($review_context['performance'] ?? '') );
 	$has_text = ! empty( $_FILES['trb_demo_text']['name'] );
 	$has_audio = ! empty( $_FILES['trb_demo_audio']['name'] );
-	$valid = '' !== $title && in_array( $genre, trb_portal_genres(), true ) && ( $has_text || $has_audio ) && ! ( $no_lyrics && $text_only ) && ( $has_text || $no_lyrics ) && ( $has_audio || $text_only );
+	$valid = '' !== $title && in_array( $genre, trb_portal_genres(), true ) && ( $has_text || $has_audio );
 	if ( ! $valid || trb_demo_context_error( $review_context, $has_text, $has_audio, $no_lyrics, $text_only ) ) {
 		trb_portal_demo_finish( 'invalid', $dashboard );
 	}
