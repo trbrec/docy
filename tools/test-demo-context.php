@@ -52,7 +52,14 @@ function wp_remote_post($url,$args){$GLOBALS['api_request']=json_decode($args['b
 function wp_remote_retrieve_body($r){return $r['body'];}
 function wp_remote_retrieve_response_code($r){return $r['code'];}
 function trb_demo_usage_and_cost($m,$u){return ['model'=>$m];}
+function absint($v){return abs((int)$v);}
+function get_post($id){return $GLOBALS['posts'][$id] ?? null;}
+function get_post_meta($id,$key,$single=true){return $GLOBALS['meta'][$id][$key] ?? '';}
+function update_post_meta($id,$key,$value){$GLOBALS['meta'][$id][$key]=$value;}
+function trb_demo_previous_bytes($id,$key,$file){return $GLOBALS['old_bytes'][$key] ?? '';}
 $source=file_get_contents(__DIR__.'/../inc/trb-demo-automation.php');
+check(1===preg_match('/function trb_demo_revision_materials\(.*?(?=\nfunction )/s',$source,$revision_match),'extract actual revision routine');
+eval($revision_match[0]);
 check(1===preg_match('/function trb_demo_openai_review\(.*?(?=\nfunction )/s',$source,$match),'extract actual API routine');
 eval($match[0]);
 $fixture_text='Un testo originale da analizzare';$answer=$complete;$finish='stop';
@@ -70,4 +77,38 @@ check($api_request['messages'][1]['content'][1]['type']==='input_audio','composi
 $finish='length';check(is_wp_error(trb_demo_openai_review($payload)),'truncation prevents email');
 $finish='stop';$answer='Una valutazione incompleta';check(is_wp_error(trb_demo_openai_review($payload)),'incomplete response rejected');
 $answer=$complete;$fixture_text='';check(is_wp_error(trb_demo_openai_review($payload)),'unreadable text rejected');
+$posts=[10=>(object)['ID'=>10,'post_type'=>'trb_request','post_status'=>'private','post_author'=>7],11=>(object)['ID'=>11,'post_type'=>'trb_request','post_status'=>'private','post_author'=>7],12=>(object)['ID'=>12,'post_type'=>'trb_request','post_status'=>'private','post_author'=>8]];
+$meta=[10=>['_trb_demo_payload'=>['status'=>'sent','title'=>'Originale','audio_file'=>['name'=>'old.mp3']],'_trb_demo_review'=>$complete,'_trb_demo_text_snapshot'=>'Testo precedente esatto']];
+check(is_wp_error(trb_demo_revision_snapshot(10,8)),'cross-artist link rejected');
+check(is_wp_error(trb_demo_revision_snapshot(999,7)),'missing parent rejected');
+$meta[10]['_trb_demo_payload']['status']='queued';
+check(is_wp_error(trb_demo_revision_snapshot(10,7)),'unsent review rejected');
+$meta[10]['_trb_demo_payload']['status']='sent';
+$revision=trb_demo_revision_snapshot(10,7,'Ho modificato il finale');
+check(!is_wp_error($revision)&&$revision['version']===2&&$revision['root_id']===10,'legacy sent demo supports first revision');
+$meta[11]=['_trb_demo_payload'=>['status'=>'sent','revision'=>$revision],'_trb_demo_review'=>$complete];
+$third=trb_demo_revision_snapshot(11,7);
+check($third['version']===3&&$third['root_id']===10,'revision chain retains root and version');
+$payload=['request_id'=>11,'revision'=>$revision,'review_context'=>$author,'text_file'=>['name'=>'new.txt']];
+$fixture_text='Testo nuovo con finale modificato';$finish='stop';$answer=$complete;
+check(!is_wp_error(trb_demo_openai_review($payload)),'revision API request succeeds');
+$content=$api_request['messages'][1]['content'];
+check(str_contains($content[0]['text'],$complete),'previous review reaches model');
+check(str_contains($content[0]['text'],'Ho modificato il finale'),'declared changes reach model');
+check(str_contains($content[1]['text'],'Testo precedente esatto'),'previous text reaches model');
+check(str_contains($content[2]['text'],$fixture_text),'new text remains separate');
+check(str_contains($api_request['messages'][0]['content'],'non assumere che fossero tutti corretti'),'old review is not treated as unquestionable');
+check($meta[11]['_trb_demo_text_snapshot']===$fixture_text,'new text retained for future revisions');
+$payload['request_id']=12;
+check(is_wp_error(trb_demo_openai_review($payload)),'worker rechecks ownership');
+$payload['request_id']=11;$payload['review_context']=$composer;$payload['audio_file']=['name'=>'new.mp3'];
+$old_bytes=['audio_file'=>'OLD AUDIO FIXTURE'];
+check(!is_wp_error(trb_demo_openai_review($payload)),'audio revision request succeeds');
+$audios=array_values(array_filter($api_request['messages'][1]['content'],fn($c)=>$c['type']==='input_audio'));
+check(count($audios)===2&&base64_decode($audios[0]['input_audio']['data'])==='OLD AUDIO FIXTURE','old audio and new audio separately supplied');
+$old_bytes=[];
+check(!is_wp_error(trb_demo_openai_review($payload)),'missing old audio degrades to written history');
+$audios=array_filter($api_request['messages'][1]['content'],fn($c)=>$c['type']==='input_audio');
+check(count($audios)===1&&!$meta[11]['_trb_demo_revision_comparison']['previous_audio'],'missing old audio explicitly recorded');
 echo "PASS demo scope, provenance, evidence, model routing and completeness\n";
+echo "PASS revision ownership, legacy history, version chain, text/audio comparison and unavailable-material fallback\n";
