@@ -4307,6 +4307,7 @@ function trb_portal_render_demo_section() {
 			<p class="trb-portal__demo-lead"><?php if ( $is_test_account ) : ?>Account di collaudo: gli invii sono temporaneamente illimitati e le valutazioni vengono elaborate appena possibile.<?php else : ?>È un percorso facoltativo e resta sempre separato dalla pratica di pubblicazione: puoi richiedere la valutazione di <strong>un brano a settimana</strong>, in qualunque momento.<?php endif; ?></p>
 			<?php if ( $recent_requests ) : ?><div class="trb-portal__message"><strong>Stato delle valutazioni demo</strong><ul><?php foreach ( $recent_requests as $request ) : ?><li><strong><?php echo esc_html( $request['title'] ); ?></strong> · <?php echo esc_html( $request['status'] ); ?> <small>(<?php echo esc_html( $request['date'] ); ?>)</small></li><?php endforeach; ?></ul></div><?php endif; ?>
 			<?php if ( 'sent' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Provino ricevuto correttamente. La valutazione verrà inviata all’indirizzo e-mail associato al tuo account.</div><?php endif; ?>
+			<?php if ('invalid_revision' === $status): ?><div class="trb-portal__message trb-portal__message--error">Seleziona un tuo provino con valutazione già inviata e ancora disponibile.</div><?php endif; ?>
 			<?php if ( 'weekly_limit' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Hai già inviato un provino negli ultimi sette giorni. Potrai richiedere una nuova valutazione alla scadenza del limite settimanale.</div><?php endif; ?>
 			<?php if ( 'processing' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Il provino è già in caricamento. Attendi il completamento senza inviarlo nuovamente.</div><?php endif; ?>
 			<?php if ( 'duplicate' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Questo stesso provino è già stato ricevuto. Non è stato creato un invio duplicato.</div><?php endif; ?>
@@ -4318,6 +4319,12 @@ function trb_portal_render_demo_section() {
 					<?php wp_nonce_field( 'trb_portal_submit_demo', 'trb_demo_nonce' ); ?>
 					<div class="trb-portal__demo-intro"><strong>Dati trasmessi automaticamente</strong><p>Nome, cognome, nome d’arte ed e-mail vengono acquisiti dal profilo artista e non devono essere inseriti nuovamente.</p></div>
 					<?php if ( current_user_can( 'manage_options' ) ) : ?><label class="trb-portal__choice"><input type="checkbox" name="trb_demo_owner_qa" value="1" /> Invio QA esclusivamente ad andrea.tognassi@trbrec.com</label><?php endif; ?>
+                    <label>Cosa stai inviando? <span>*</span><select name="trb_demo_submission_kind" data-demo-submission-kind required><option value="new">Un nuovo provino</option><option value="revision">Una nuova versione di un provino già valutato</option></select></label>
+                    <div data-demo-revision-block hidden>
+                        <label>Provino precedente <span>*</span><select name="trb_demo_parent" data-demo-parent disabled><option value="">Seleziona la versione da cui proseguire</option><?php foreach(trb_demo_revision_options(get_current_user_id()) as $id=>$label): ?><option value="<?php echo esc_attr($id); ?>"><?php echo esc_html($label); ?></option><?php endforeach; ?></select></label>
+                        <label>Che cosa hai modificato? <small>Facoltativo: indica gli interventi fatti e cosa vuoi verificare rispetto alla valutazione precedente.</small><textarea name="trb_demo_changes" data-demo-changes maxlength="1500" rows="3" disabled></textarea></label>
+                        <p>La nuova valutazione riprende il precedente riscontro. Il confronto diretto usa i materiali precedenti se ancora disponibili; eventuali limiti saranno indicati. Ogni revisione conta come una nuova richiesta nel limite previsto.</p>
+                    </div>
 					<label>Tipo di valutazione <span>*</span><select name="trb_demo_focus" required data-demo-focus><option value="">Seleziona l'obiettivo</option><?php foreach ( trb_demo_focus_options() as $key => $label ) : ?><option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></label>
 					<label>Titolo del provino <span>*</span><input type="text" name="trb_demo_title" maxlength="160" required /></label>
 					<label for="trb-demo-genre">Genere musicale <span>*</span></label>
@@ -4485,6 +4492,15 @@ function trb_portal_submit_demo() {
 	}
 	$title = isset( $_POST['trb_demo_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_title'] ) ) : '';
 	$genre = isset( $_POST['trb_demo_genre'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_genre'] ) ) : '';
+	$kind = isset($_POST['trb_demo_submission_kind']) && is_string($_POST['trb_demo_submission_kind']) ? sanitize_key(wp_unslash($_POST['trb_demo_submission_kind'])) : 'new';
+	$revision = array();
+	if (!in_array($kind,array('new','revision'),true)) trb_portal_demo_finish('invalid_revision',$dashboard);
+	if ('revision' === $kind) {
+		$changes = isset($_POST['trb_demo_changes']) && is_string($_POST['trb_demo_changes']) ? sanitize_textarea_field(wp_unslash($_POST['trb_demo_changes'])) : '';
+		$parent_id = isset($_POST['trb_demo_parent']) && is_scalar($_POST['trb_demo_parent']) ? absint($_POST['trb_demo_parent']) : 0;
+		$revision = trb_demo_revision_snapshot($parent_id,$user_id,$changes);
+		if (is_wp_error($revision) || strlen($changes)>6000) trb_portal_demo_finish('invalid_revision',$dashboard);
+	}
 	$review_context = array( 'version' => 2 );
 	foreach ( array( 'focus' => 'trb_demo_focus', 'lyrics' => 'trb_demo_origin_lyrics', 'music' => 'trb_demo_origin_music', 'performance' => 'trb_demo_origin_performance' ) as $key => $field ) {
 		$review_context[$key] = isset( $_POST[$field] ) && is_string( $_POST[$field] ) ? sanitize_key( wp_unslash( $_POST[$field] ) ) : '';
@@ -4515,7 +4531,7 @@ function trb_portal_submit_demo() {
 		trb_portal_demo_finish( 'processing', $dashboard );
 	}
 
-	$fingerprint = hash( 'sha256', wp_json_encode( $review_context ) . '|' . strtolower( $title ) . '|' . strtolower( $genre ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_text']['name'] ) ) . ':' . (int) $_FILES['trb_demo_text']['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_audio']['name'] ) ) . ':' . (int) $_FILES['trb_demo_audio']['size'] : '-' ) );
+	$fingerprint = hash( 'sha256', wp_json_encode( $revision ) . '|' . wp_json_encode( $review_context ) . '|' . strtolower( $title ) . '|' . strtolower( $genre ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_text']['name'] ) ) . ':' . (int) $_FILES['trb_demo_text']['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_audio']['name'] ) ) . ':' . (int) $_FILES['trb_demo_audio']['size'] : '-' ) );
 	$previous = get_user_meta( $user_id, '_trb_demo_last_fingerprint', true );
 	if ( is_array( $previous ) && ! empty( $previous['hash'] ) && hash_equals( (string) $previous['hash'], $fingerprint ) && time() - (int) $previous['time'] < 10 * MINUTE_IN_SECONDS ) {
 		delete_user_meta( $user_id, $lock_key );
@@ -4542,7 +4558,7 @@ function trb_portal_submit_demo() {
 		'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
 		'first_name' => $user->first_name, 'last_name' => $user->last_name,
 		'artist_name' => trb_portal_artist_profile_value( 'artist_name', $user_id ), 'email' => $user->user_email,
-		'owner_qa' => $owner_qa,
+		'owner_qa' => $owner_qa, 'revision' => $revision,
 		'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'genre' => $genre, 'no_lyrics' => $no_lyrics, 'review_context' => $review_context,
 		'text_only' => $text_only, 'text_file' => $text, 'audio_file' => $audio,
 	);
@@ -6234,3 +6250,4 @@ function trb_portal_document_title( $title ) {
 	return $title;
 }
 add_filter( 'pre_get_document_title', 'trb_portal_document_title', 99 );
+
