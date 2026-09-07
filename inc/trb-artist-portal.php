@@ -3929,6 +3929,8 @@ function trb_portal_dashboard_shortcode() {
 			<a href="#video">Video</a>
 		</nav>
 
+		<?php trb_store_benefits_panel( $user ); ?>
+
 		<section class="trb-portal__search-panel" aria-labelledby="trb-portal-search-title">
 			<div><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2 id="trb-portal-search-title">Trova subito la risposta che ti serve</h2><p>Cerca fra guide aggiornate, procedure e materiali disponibili per il tuo profilo. Le risposte si aprono qui, senza uscire dalla pagina.</p></div>
 			<form class="trb-portal__search" method="get" action="<?php echo esc_url( get_permalink() ); ?>">

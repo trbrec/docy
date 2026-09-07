@@ -9,6 +9,7 @@ function get_post_meta($id,$key,$single=true){return $GLOBALS['meta'][$id][$key]
 function update_post_meta($id,$key,$v){$GLOBALS['meta'][$id][$key]=$v;}
 function delete_post_meta($id,$key){unset($GLOBALS['meta'][$id][$key]);}
 function trb_demo_defer_review_if_needed($id,$payload){return false;}
+function trb_store_benefits_live(){return $GLOBALS['benefits_live'] ?? true;}
 function trb_demo_settings(){return ['artist_discount_code'=>'TEST50'];}
 function trb_demo_is_test_payload($p){return !empty($p['owner_qa']);}
 function wp_mail($to,$subject,$body,$headers){$GLOBALS['mail']=compact('to','subject','body','headers');return true;}
@@ -28,7 +29,8 @@ trb_demo_send_review(11);
 check($mail['to']==='andrea.tognassi@trbrec.com'&&!str_contains(implode(' ',$mail['headers']),'Cc:'),'QA remains owner-only');
 check(str_contains($mail['subject'],'revisione v2'),'revision subject explicit');
 check(str_contains($mail['body'],'testo precedente')&&!str_contains($mail['body'],'audio precedente'),'comparison reflects actual materials');
-check(str_contains($mail['body'],'TEST50'),'DDB receives configured discount');
+check(!str_contains($mail['body'],'TEST50')&&str_contains($mail['body'],'50%')&&str_contains($mail['body'],'stessa email'),'DDB receives account benefit without coupon');
+$benefits_live=false;check(trb_demo_services_note('ddb','TEST50',['owner_qa'=>true])==='','no announcement before bridge activation');$benefits_live=true;
 check($meta[11]['_trb_demo_payload']['status']==='sent','successful send recorded');
 $mail=null;trb_demo_send_review(11);check($mail===null,'sent review cannot be sent twice');
 $payload['owner_qa']=false;$payload['email']='artist@example.test';$payload['profile']='trb';unset($payload['revision']);
