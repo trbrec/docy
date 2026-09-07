@@ -811,6 +811,8 @@ function trb_demo_owner_qa_replay() {
   $relative='trb-demo-private/qa-'.$payload['uuid'].'-revised.txt';
   $destination=trailingslashit(wp_upload_dir()['basedir']).$relative;
   if(false===file_put_contents($destination,$qa_text)) { foreach($copies as $copy) wp_delete_file($copy); return new WP_Error('qa_copy','Testo QA non salvato.'); }
+  $unused_copy=trb_demo_local_path($payload['text_file']);
+  if($unused_copy) wp_delete_file($unused_copy);
   $copies[]=$destination;
   $payload['text_file']=array('name'=>'revisione-qa.txt','path'=>$relative,'type'=>'text/plain','size'=>strlen($qa_text));
  }
