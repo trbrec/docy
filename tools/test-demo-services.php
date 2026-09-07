@@ -20,3 +20,6 @@ check(trb_demo_extract_service_selection($review."\nTRB_SERVICE_JSON: broken",fa
 function esc_html($s){return htmlspecialchars($s,ENT_QUOTES,'UTF-8');}function esc_url($s){return $s;}
 check(str_contains(trb_demo_service_recommendation_html($r['selection']),'telefono'),'no recommendation is explained, not silently omitted');
 echo "PASS decision observability and honest no-service explanation\n";
+$r=trb_demo_extract_service_selection($review."\n```json\nTRB_SERVICE_JSON: ".json_encode($data)."\n```",false);check(!str_contains($r['review'],'```')&&$r['status']==='none','metadata fences never leak into body');
+$data['evidence']='Questo frammento non esiste nella valutazione';$r=trb_demo_extract_service_selection(output_for($review,$data),false);check($r['status']==='invalid'&&str_contains($r['diagnostic'],'letteralmente')&&$r['candidate']!=='','rejected decision retains exact diagnostic and candidate');
+echo "PASS rejection diagnostics and metadata fencing\n";

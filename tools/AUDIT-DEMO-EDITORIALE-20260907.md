@@ -36,3 +36,13 @@ Il riconoscimento automatico Store, il 50% e il banner non sono ancora attivi. I
 Il catalogo editoriale è una selezione verificata di tre servizi (revisione testo, mastering stereo, produzione Essential), non l’intero Store. Non viene aggiunto un servizio dal solo nome o da una ricerca incompleta. Per un bisogno non coperto deve comparire una motivazione di mancata proposta, non un’offerta inventata.
 
 Il controllo lessicale della voce intercetta le regressioni note e numerose formule editoriali singolari, ma non è un analizzatore linguistico universale. La revisione reale dell’email finale resta necessaria nel QA.
+
+## Estensione emersa dal collaudo audio — protocollo 20260907.7
+
+La prima risposta audio di collaudo è stata bloccata dalla decisione sui servizi non valida. Esaminando il testo respinto sono emerse anche citazioni di versi senza testo allegato e localizzazioni numeriche non verificate. Il precedente gate verificava le citazioni soltanto quando esisteva un testo sorgente: questo lasciava scoperto il ramo senza testo.
+
+Ora il ramo audio rifiuta citazioni di versi senza sorgente testuale e timestamp numerici privi di una localizzazione strumentale verificata. Il controllo è ripetuto prima dell’invio e prima del riuso di risultati conservati. Le citazioni di un testo effettivamente allegato restano ammesse, con il relativo controllo di corrispondenza.
+
+Il controllo finale audio usa `gpt-audio`, mantenendo `gpt-audio-mini` per la prima lettura e fornendo nuovamente l’audio originale al controllo. Non si affida a un modello solo testuale per decidere fatti sonori. Sono registrati separatamente i consumi di ogni passaggio, compresi i tentativi respinti. Compatibilità Chat Completions, input audio e tariffe verificate nella [documentazione ufficiale OpenAI](https://developers.openai.com/api/docs/models/gpt-audio). Il cambio di modello non costituisce da solo una prova di maggiore correttezza: l’esito reale va letto.
+
+Le decisioni respinte conservano anche il contenuto candidato e un errore specifico (schema, lunghezza, catalogo/materiali, evidenza, condizioni economiche o voce), per evitare una nuova diagnosi basata soltanto su un array vuoto. Il parser elimina le delimitazioni tecniche dei metadati; l’anteprima amministrativa usa una valutazione QA effettivamente inviata.

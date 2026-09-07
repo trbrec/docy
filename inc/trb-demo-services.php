@@ -16,19 +16,22 @@ function trb_demo_service_selection_prompt() {
 }
 function trb_demo_extract_service_selection( $raw, $has_audio ) {
     $parts = preg_split( '/\n[ \t]*TRB_SERVICE_JSON:\s*/', str_replace("\r\n", "\n", $raw), 2 );
-    $review = trim( $parts[0] );
-    $result = array( 'review' => $review, 'selection' => array(), 'status' => 'missing', 'diagnostic' => 'Decisione sui servizi mancante.' );
+    $review = trim(preg_replace('/\n```(?:json)?\s*$/u', '', $parts[0]));
+    $result = array( 'review' => $review, 'selection' => array(), 'status' => 'missing', 'diagnostic' => 'Decisione sui servizi mancante.', 'candidate' => '' );
     if ( ! isset( $parts[1] ) ) return $result;
     $json = trim( $parts[1] );
     $json = preg_replace( '/^```(?:json)?\s*|\s*```$/u', '', $json );
+    $result['candidate'] = substr($json,0,5000);
     $data = json_decode( $json, true );
     $result['status'] = 'invalid';
-    $result['diagnostic'] = 'Decisione sui servizi non valida o non sostenuta dalla valutazione.';
+    $result['diagnostic'] = 'JSON non valido o campi id/reason/evidence mancanti.';
     if ( ! is_array( $data ) || ! is_string( $data['id'] ?? null ) || ! is_string( $data['reason'] ?? null ) || ! is_string( $data['evidence'] ?? null ) ) return $result;
     $id = $data['id']; $reason = trim( $data['reason'] ); $evidence = trim( $data['evidence'] );
     $catalog = trb_demo_service_catalog();
-    if ( '' !== $id && ( ! isset( $catalog[$id] ) || ( ! $has_audio && $catalog[$id]['audio'] ) ) ) return $result;
-    if ( strlen($reason) < 20 || strlen($reason) > 1280 || strlen($evidence) < 20 || strlen($evidence) > 1280 || false === strpos($review,$evidence) || preg_match('/https?:|www\.|[<>]|\b(?:sconto|coupon)\b|[%€]/iu',$reason) ) return $result;
+    if ( '' !== $id && ( ! isset( $catalog[$id] ) || ( ! $has_audio && $catalog[$id]['audio'] ) ) ) { $result['diagnostic']='Servizio sconosciuto o incompatibile con i materiali.'; return $result; }
+    if ( preg_match_all('/./us',$reason)<20 || preg_match_all('/./us',$reason)>320 || strlen($evidence)<20 || strlen($evidence)>1280 ) { $result['diagnostic']='Motivazione o evidenza fuori dai limiti richiesti.'; return $result; }
+    if ( false===strpos($review,$evidence) ) { $result['diagnostic']='Il frammento di prova non compare letteralmente nella valutazione.'; return $result; }
+    if ( preg_match('/https?:|www\.|[<>]|\b(?:sconto|coupon)\b|[%€]/iu',$reason) ) { $result['diagnostic']='La motivazione contiene condizioni economiche o contenuti non consentiti.'; return $result; }
     if ( function_exists('trb_demo_team_voice_valid') && ! trb_demo_team_voice_valid($reason) ) { $result['diagnostic'] = 'La proposta di supporto non usa la voce del team.'; return $result; }
     $result['selection'] = array( 'id' => $id, 'reason' => $reason, 'evidence' => $evidence );
     $result['status'] = '' === $id ? 'none' : 'selected';
