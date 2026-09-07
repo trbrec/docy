@@ -86,7 +86,7 @@ function trb_demo_review_prompt( $payload, $has_audio, $has_text ) {
  );
  $prompt .= ( $rubrics[$focus] ?? $rubrics['overall'] ) . "\n";
  $prompt .= trb_demo_editorial_rules();
- $prompt .= "PROFONDITÀ E FORMATO:\nDedica al massimo circa 1500 parole utili, commisurate al materiale: non è una lunghezza minima. Scrivi meno quando bastano meno parole per sostenere le osservazioni. Lo spazio aggiuntivo deve approfondire prove, effetti, alternative motivate ed esercizi specifici, mai parafrasare le stesse osservazioni. Non ripetere né inventare criticità per raggiungere una lunghezza o un numero. Usa SOLO questi sei titoli Markdown, scritti esattamente:\n## Obiettivo e materiale\n## Punti riusciti\n## Analisi approfondita\n## Proposte di revisione\n## Piano di lavoro\n## Limiti della valutazione\nNella prima sezione dichiara obiettivo e contributo del mittente. Individua i punti riusciti con prove concrete e spiega cosa conservare. Nell'analisi tratta separatamente ogni aspetto pertinente della rubrica, inclusi quelli senza criticità. Nelle proposte privilegia 3-6 interventi motivati quando sostenibili, con alternative e relativi compromessi. Nel piano ordina 3-5 azioni realizzabili ed esercizi con un criterio pratico per verificare il miglioramento. Nei limiti elenca solo ciò che non puoi stabilire dal materiale. Usa elenchi per le azioni, non titoli numerati ripetitivi. Non presentare la revisione come infallibile.\n";
+ $prompt .= "PROFONDITÀ E FORMATO:\nDedica al massimo circa 1500 parole utili, commisurate al materiale: non è una lunghezza minima. Scrivi meno quando bastano meno parole per sostenere le osservazioni. Lo spazio aggiuntivo deve approfondire prove, effetti, alternative motivate ed esercizi specifici, mai parafrasare le stesse osservazioni. Non ripetere né inventare criticità per raggiungere una lunghezza o un numero. Usa SOLO questi sei titoli Markdown, scritti esattamente:\n## Obiettivo e materiale\n## Punti riusciti\n## Analisi approfondita\n## Proposte di revisione\n## Piano di lavoro\n## Limiti della valutazione\nNella prima sezione dichiara obiettivo e contributo del mittente. Individua i punti riusciti con prove concrete e spiega cosa conservare. Nell'analisi tratta separatamente ogni aspetto pertinente della rubrica, inclusi quelli senza criticità. Nelle proposte includi soltanto interventi sostenuti da prove, anche uno solo o nessuno, con alternative e relativi compromessi. Nel piano ordina soltanto le azioni necessarie con un criterio pratico per verificare il miglioramento. Nei limiti elenca solo ciò che non puoi stabilire dal materiale. Usa elenchi per le azioni, non titoli numerati ripetitivi. Non presentare la revisione come infallibile.\n";
  return $prompt;
 }
 
@@ -95,11 +95,13 @@ function trb_demo_editorial_rules() {
  return <<<'RULES'
 
 RIGORE EDITORIALE:
+- Per citare versi originali usa esclusivamente «caporali», copiando un frammento contiguo dal testo nuovo o precedente senza cambiare parole o tempi verbali. Indica sempre quale versione citi. Non usare caporali per titolo, parafrasi, commenti o alternative: scrivi le alternative in corsivo e chiamale Alternative. Le citazioni saranno confrontate automaticamente con i testi sorgente.
 - Ogni giudizio deve avere una prova nel materiale. Cita frammenti esatti, indicando strofa/ritornello/ponte o il contesto. Se proponi parole nuove, chiamale esplicitamente alternativa: non attribuirle al testo originale.
 - Rima significa identità fonica dalla vocale tonica in poi, non semplice vicinanza di due parole o presenza di vocali comuni. Distingui rima, assonanza e consonanza; se non puoi sostenere una classificazione, omettila. Non inventare uno schema di rime e non chiamare rime sfumate coppie che non rimano. L'assenza di rime non è un difetto.
 - Sul solo testo parla di lettura e prosodia linguistica. Non affermare metrica ben calibrata, accenti fluidi o migliore equilibrio musicale senza mostrare un esempio verificabile. Non dare conteggi sillabici senza esplicitare le scelte di lettura; non dedurre cantabilità o fraseggio cantato dalla punteggiatura.
 - Non presumere che una modifica sia un miglioramento perché l'artista l'ha applicata o perché suggerita in passato. Riconsidera anche gli errori della vecchia valutazione. In una revisione inserisci nell'Analisi approfondita un confronto esplicito, usando etichette in grassetto: Risolto, Parzialmente risolto, Ancora presente, Nuovo, Non verificabile, solo quando applicabili. Per ogni punto confronta prima e dopo, spiega l'esito e cosa conservare. Non riprescrivere interventi già eseguiti senza spiegare cosa manca precisamente. Se i materiali sono identici, dillo: non inventare progressi.
 - Distingui dati osservati, interpretazioni plausibili e preferenze editoriali. Non definire contemporaneamente lo stesso passaggio chiaro e criptico, concreto e vago, salvo spiegare due aspetti diversi. Non è necessario ricondurre ogni oggetto al simbolo del titolo. Esplicitare una metafora può indebolirla; più varietà, più parole e un ponte non sono automaticamente meglio. Rispetta l'intenzione dichiarata, non sostituirla con il tuo gusto.
+- Prima di proporre una riscrittura controlla il significato letterale: quali azioni compie il verbo e su quale oggetto? Una formula insolita può essere intenzionale, ma non elogiarla automaticamente come progresso; spiega le letture possibili. Una alternativa deve risolvere il punto segnalato, non solo sostituire parole o punteggiatura lasciando lo stesso problema.
 - Proposte: solo gli interventi prioritari, ciascuno con frammento, problema/possibilità, effetto, una piccola alternativa concreta e il suo compromesso. Conserva i dettagli che funzionano; non sostituire concretezza con immagini decorative più vaghe senza motivarlo. Le alternative sono facoltative, non correzioni obbligatorie. Se la punteggiatura proposta esiste già, non richiederla di nuovo.
 - Piano: ordina le azioni per priorità, con una prova concreta e un criterio di scelta osservabile. Non ripetere le proposte in altre parole e non usare esercizi generici validi per ogni brano. Se bastano due interventi, non inventarne altri.
 - Scrivi direttamente al mittente con il tu, senza descriverlo come "l'autore". Obiettivo e materiale: massimo 90 parole, non ricopiare le note inviate. Punti riusciti: pochi esempi da preservare. Analisi: sviluppa il ragionamento, non ripetere gli elogi. Limiti: uno o due periodi pertinenti; niente lista di impossibilità ovvie, avvertenze commerciali o conclusione riepilogativa dopo i limiti.
@@ -136,6 +138,22 @@ function trb_demo_review_structure_valid( $review ) {
   $end=isset($titles[$index+1]) ? strpos($review,'## '.$titles[$index+1],$start) : strlen($review);
   if (false===$end || strlen(trim(substr($review,$start,$end-$start)))<20) return false;
   $offset=$end;
+ }
+ return true;
+}
+
+/** Check only explicitly marked source excerpts; never interpret artistic merit. */
+function trb_demo_source_quotes_valid( $review, $sources ) {
+ $normalize = static function($value) { return trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', (string)$value)); };
+ $sources = array_map($normalize, $sources);
+ preg_match_all('/«([^»]+)»/u', $review, $matches);
+ foreach ($matches[1] as $quote) {
+  $quote = $normalize($quote);
+  $found = false;
+  foreach ($sources as $source) {
+   if ($quote !== '' && preg_match('/(?<![\p{L}\p{N}])'.preg_quote($quote,'/').'(?![\p{L}\p{N}])/iu', $source)) { $found = true; break; }
+  }
+  if (!$found) return false;
  }
  return true;
 }

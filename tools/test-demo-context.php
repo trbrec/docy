@@ -152,3 +152,15 @@ check($meta[22]['_trb_demo_openai_usage']['total_tokens']===600,'retry costs acc
 check(trb_demo_qa_title('[QA LYRICS] [QA LYRICS] [QA] Brano','lyrics')==='[QA LYRICS] Brano','QA prefixes deduplicated');
 check(trb_demo_qa_title('Brano [QA] nel titolo','lyrics')==='[QA LYRICS] Brano [QA] nel titolo','only leading QA markers removed');
 echo "PASS editorial evidence, output gate, retries, billed usage and QA naming\n";
+
+check($editor_request['model']==='gpt-4.1','text editor uses full model');
+check(trb_demo_source_quotes_valid('«Ho spostato la sedia / verso il sole.»',["Ho spostato la sedia\nverso il sole."]),'quotes tolerate typography and line breaks');
+check(!trb_demo_source_quotes_valid('«sposto la sedia verso il sole»',['Ho spostato la sedia verso il sole.']),'changed verb rejected');
+check(!trb_demo_source_quotes_valid('«non per farti tornare»',['non per farti ritornare']),'changed lyric rejected');
+check(trb_demo_source_quotes_valid('«Testo precedente esatto»',['nuovo','Testo precedente esatto']),'previous source quotes accepted');
+$editor_answer=$complete."\n«Testo inventato»";$payload['request_id']=23;
+check(is_wp_error(trb_demo_openai_review($payload)),'source mismatch blocks final output');
+check(empty($meta[23]['_trb_demo_editorial_check']),'invalid quotes never marked complete');
+check(trb_demo_model_rates('gpt-4.1-mini')['text_input']===0.40,'mini pricing not shadowed by full model');
+check(trb_demo_model_rates('gpt-4.1')['text_input']===2.00,'editor costs priced separately');
+echo "PASS source quotation gate and separate editorial model\n";
