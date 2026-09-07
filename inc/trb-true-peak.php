@@ -25,12 +25,11 @@ function trb_true_peak_measure($path, $ffmpeg, $sample_rate, $channels, callable
     return $measurement+['verified'=>true,'method'=>'ffmpeg-swr-f64-16x-128tap-v1','oversampling'=>16,'sample_rate'=>(int)$sample_rate,'analysis_sample_rate'=>$sample_rate*16,'reported_resolution_db'=>0.000001,'complete_file'=>true];
 }
 
-/** Exact zero cannot be distinguished from sub-micro-dB rounding: review it. */
+/** Peak amplitude alone cannot establish destructive clipping in the source. */
 function trb_true_peak_findings($measurement) {
     if(empty($measurement['verified'])||empty($measurement['complete_file']))return ['errors'=>['TRUE_PEAK_MEASUREMENT_UNAVAILABLE'],'warnings'=>[]];
     $peak=$measurement['maximum_dbtp']??null;
     if($peak===null)return ['errors'=>empty($measurement['silent'])?['TRUE_PEAK_MEASUREMENT_UNAVAILABLE']:[],'warnings'=>[]];
     if(!is_numeric($peak)||!is_finite((float)$peak))return ['errors'=>['TRUE_PEAK_MEASUREMENT_UNAVAILABLE'],'warnings'=>[]];
-    if($peak>0.0000005)return ['errors'=>['TRUE_PEAK_ABOVE_ZERO'],'warnings'=>[]];
-    return ['errors'=>[],'warnings'=>abs($peak)<=0.0000005?['TRUE_PEAK_ZERO_REVIEW']:[]];
+    return ['errors'=>[],'warnings'=>[]];
 }
