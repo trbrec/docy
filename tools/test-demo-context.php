@@ -3,6 +3,17 @@ define('ABSPATH', __DIR__);
 require __DIR__ . '/../inc/trb-demo-context.php';
 function wp_json_encode($v,$flags=0){return json_encode($v,$flags);}
 function check($v,$message){if(!$v)throw new RuntimeException($message);}
+// Progressive v2 submissions require only the selected contribution.
+foreach (array('lyrics'=>'lyrics','composition'=>'music','performance'=>'performance') as $scope=>$part) {
+ $ctx=['version'=>2,'focus'=>$scope,$part=>'own'];
+ check(''===trb_demo_context_error($ctx,$scope==='lyrics',$scope!=='lyrics',false,false),'minimal scope accepted: '.$scope);
+ check(''!==trb_demo_context_error($ctx,false,false,false,false),'missing material rejected: '.$scope);
+ check(''!==trb_demo_context_error($ctx,true,true,false,false),'irrelevant attachment rejected: '.$scope);
+ unset($ctx[$part]);check(''!==trb_demo_context_error($ctx,true,true,false,false),'missing relevant provenance rejected');
+}
+check(''!==trb_demo_context_error(['version'=>2,'focus'=>'performance','performance'=>'ai_generated'],false,true,false,false),'v2 AI performance rejected');
+check(''===trb_demo_context_error(['version'=>2,'focus'=>'overall','lyrics'=>'absent','music'=>'own','performance'=>'third_party'],false,true,true,false),'overall instrumental accepted');
+check(''!==trb_demo_context_error(['version'=>2,'focus'=>'overall','lyrics'=>'absent','music'=>'absent','performance'=>'absent'],false,false,true,true),'empty overall rejected');
 $author=['focus'=>'lyrics','lyrics'=>'own','music'=>'ai_generated','performance'=>'ai_generated','notes'=>'Voglio migliorare immagini e metrica'];
 check(''===trb_demo_context_error($author,true,true,false,false),'author with AI demo accepted');
 $composer=['focus'=>'composition','lyrics'=>'third_party','music'=>'own','performance'=>'third_party'];

@@ -3,12 +3,31 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 function trb_demo_focus_options() {
- return array( 'lyrics' => 'Testo e scrittura autoriale', 'composition' => 'Composizione e arrangiamento', 'performance' => 'Interpretazione vocale o strumentale', 'overall' => 'Valutazione complessiva' );
+ return array( 'composition' => 'Analisi compositiva e dell’arrangiamento', 'lyrics' => 'Analisi autoriale', 'performance' => 'Analisi interpretativa e tecnica', 'overall' => 'Valutazione completa di ogni aspetto del provino' );
 }
 function trb_demo_origin_options() {
  return array( 'own' => 'Realizzato da me', 'collaboration' => 'Realizzato con collaboratori', 'third_party' => 'Realizzato da altri', 'ai_assisted' => 'Realizzato con assistenza IA', 'ai_generated' => 'Generato con IA', 'absent' => 'Non presente' );
 }
+function trb_demo_scope_parts( $focus ) {
+ return array( 'lyrics' => array('lyrics'), 'composition' => array('music'), 'performance' => array('performance'), 'overall' => array('lyrics','music','performance') )[$focus] ?? array();
+}
 function trb_demo_context_error( $context, $has_text, $has_audio, $no_lyrics, $text_only ) {
+ if ( 2 === ( $context['version'] ?? 0 ) ) {
+  $focus = $context['focus'] ?? '';
+  $parts = trb_demo_scope_parts( $focus );
+  if ( ! $parts ) return 'Seleziona il tipo di valutazione.';
+  foreach ( $parts as $part ) {
+   if ( ! isset( trb_demo_origin_options()[$context[$part] ?? ''] ) ) return 'Indica la provenienza dei contributi da valutare.';
+   if ( 'overall' !== $focus && 'absent' === $context[$part] ) return 'Il contributo scelto deve essere presente.';
+  }
+  if ( 'performance' === $focus && 'ai_generated' === $context['performance'] ) return 'Per questa analisi serve una esecuzione umana.';
+  $needs_text = 'lyrics' === $focus || ( 'overall' === $focus && 'absent' !== $context['lyrics'] );
+  $needs_audio = in_array($focus,array('composition','performance'),true) || ( 'overall' === $focus && ( 'absent' !== $context['music'] || 'absent' !== $context['performance'] ) );
+  if ( ! $needs_text && ! $needs_audio ) return 'Indica almeno un contributo presente.';
+  if ( $has_text !== $needs_text || $has_audio !== $needs_audio ) return 'Allega i materiali richiesti dal tipo di valutazione e dalle risposte.';
+  if ( strlen((string)($context['notes'] ?? '')) > 6000 ) return 'Riduci le indicazioni personali a 1500 caratteri.';
+  return '';
+ }
  if ( ! is_array( $context ) || ! isset( trb_demo_focus_options()[ $context['focus'] ?? '' ] ) ) return 'Seleziona cosa vuoi approfondire.';
  foreach ( array( 'lyrics', 'music', 'performance' ) as $part ) {
   if ( ! isset( trb_demo_origin_options()[ $context[ $part ] ?? '' ] ) ) return 'Indica chi ha realizzato testo, musica e interpretazione.';

@@ -2,8 +2,6 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-demo-form]').forEach(function (form) {
     var text = form.querySelector('[data-demo-text]');
     var audio = form.querySelector('[data-demo-audio]');
-    var noLyrics = form.querySelector('[data-demo-no-lyrics]');
-    var textOnly = form.querySelector('[data-demo-text-only]');
     var error = form.querySelector('[data-demo-error]');
     var submit = form.querySelector('[data-demo-submit]');
     var progress = form.querySelector('[data-demo-progress]');
@@ -11,53 +9,39 @@ document.addEventListener('DOMContentLoaded', function () {
     var progressValue = form.querySelector('[data-demo-progress-value]');
     var progressText = form.querySelector('[data-demo-progress-text]');
     var submitting = false;
-    var genreSearch = form.querySelector('[data-demo-genre-search]');
-    var genreSelect = form.querySelector('[data-demo-genre]');
-    var genreStatus = form.querySelector('[data-demo-genre-status]');
     var focus = form.querySelector('[data-demo-focus]');
-    var origin = function (part) { return form.elements['trb_demo_origin_' + part]; };
-    if (genreSearch && genreSelect) {
-      var genreOptions = Array.from(genreSelect.options).slice(1).map(function (o) { return {value:o.value, text:o.text}; });
-      genreSearch.addEventListener('input', function () {
-        var chosen = genreSelect.value;
-        var term = genreSearch.value.trim().toLocaleLowerCase();
-        var matches = genreOptions.filter(function (o) { return o.text.toLocaleLowerCase().includes(term); });
-        genreSelect.replaceChildren(new Option('Seleziona il genere musicale', ''));
-        matches.forEach(function (o) { genreSelect.add(new Option(o.text, o.value)); });
-        if (chosen && !matches.some(function (o) {return o.value === chosen;})) genreSelect.add(new Option(chosen + ' (selezionato)', chosen));
-        genreSelect.value = chosen;
-        genreStatus.textContent = matches.length ? matches.length + ' generi trovati. Scegli una voce nell’elenco.' : 'Nessun genere trovato. Prova un termine più generale.';
-      });
-    }
-
+    var origin = function(part) { return form.querySelector('[name="trb_demo_origin_' + part + '"]'); };
+    var scopes = {lyrics:['lyrics'], composition:['music'], performance:['performance'], overall:['lyrics','music','performance']};
+    var needsText = false, needsAudio = false, ready = false;
     function sync() {
-      if (noLyrics.checked) {
-        text.value = '';
-        text.disabled = true;
-        textOnly.checked = false;
-      } else {
-        text.disabled = false;
-      }
-      if (textOnly.checked) {
-        audio.value = '';
-        audio.disabled = true;
-        noLyrics.checked = false;
-      } else {
-        audio.disabled = false;
-      }
-      if (noLyrics.checked) origin('lyrics').value = 'absent';
-      if (textOnly.checked) {
-        origin('music').value = 'absent';
-        origin('performance').value = 'absent';
-      }
-      if (focus) {
-        Array.from(focus.options).forEach(function (o) {
-          o.disabled = (o.value === 'lyrics' && noLyrics.checked) ||
-            ((o.value === 'composition' || o.value === 'performance') && textOnly.checked) ||
-            (o.value === 'performance' && origin('performance').value === 'ai_generated');
+      var parts = scopes[focus.value] || [];
+      form.querySelector('[data-demo-origins]').hidden = !parts.length;
+      ['lyrics','music','performance'].forEach(function(part) {
+        var input = origin(part), active = parts.includes(part);
+        form.querySelector('[data-demo-origin-row="' + part + '"]').hidden = !active;
+        input.disabled = !active;
+        input.required = active;
+        Array.from(input.options).forEach(function(option) {
+          option.disabled = (option.value === 'absent' && focus.value !== 'overall') ||
+            (option.value === 'ai_generated' && focus.value === 'performance');
         });
-        if (focus.selectedOptions[0] && focus.selectedOptions[0].disabled) focus.value = '';
-      }
+        if (input.selectedOptions[0] && input.selectedOptions[0].disabled) input.value = '';
+      });
+      ready = parts.length > 0 && parts.every(function(part) { return !!origin(part).value; });
+      needsText = ready && (focus.value === 'lyrics' || (focus.value === 'overall' && origin('lyrics').value !== 'absent'));
+      needsAudio = ready && (['composition','performance'].includes(focus.value) || (focus.value === 'overall' && (origin('music').value !== 'absent' || origin('performance').value !== 'absent')));
+      [[text,needsText,'text'],[audio,needsAudio,'audio']].forEach(function(item) {
+        form.querySelector('[data-demo-' + item[2] + '-block]').hidden = !item[1];
+        item[0].disabled = !item[1]; item[0].required = item[1];
+        if (!item[1]) item[0].value = '';
+      });
+      form.querySelector('[data-demo-notes-block]').hidden = !parts.length;
+      form.querySelector('[data-demo-material-hint]').textContent = !parts.length ? 'Scegli il tipo di valutazione per proseguire.' :
+        !ready ? 'Indica la provenienza dei contributi: compariranno i materiali da allegare.' :
+        !needsText && !needsAudio ? 'Indica almeno un contributo presente.' :
+        needsText && needsAudio ? 'Materiali richiesti: testo TXT o DOCX e provino MP3.' :
+        needsText ? 'Materiale richiesto: testo TXT o DOCX.' : 'Materiale richiesto: provino MP3.';
+      if (!submitting) submit.disabled = !ready || (!needsText && !needsAudio);
     }
 
     function setProgress(percent, message) {
@@ -80,9 +64,8 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    noLyrics.addEventListener('change', function () { if (noLyrics.checked) textOnly.checked = false; sync(); });
-    textOnly.addEventListener('change', function () { if (textOnly.checked) noLyrics.checked = false; sync(); });
-    origin('performance').addEventListener('change', sync);
+    focus.addEventListener('change', sync);
+    ['lyrics','music','performance'].forEach(function(part) { origin(part).addEventListener('change', sync); });
     sync();
 
     form.addEventListener('submit', function (event) {
@@ -93,14 +76,9 @@ document.addEventListener('DOMContentLoaded', function () {
       var hasText = !text.disabled && text.files.length === 1;
       var hasAudio = !audio.disabled && audio.files.length === 1;
       var message = '';
-      if (!hasText && !hasAudio) message = 'Carica almeno il testo autoriale oppure il provino audio.';
-      else if (!hasText && !noLyrics.checked) message = 'Se non alleghi il testo, dichiara che il provino non contiene testo.';
-      else if (!hasAudio && !textOnly.checked) message = 'Se non alleghi l’audio, dichiara che il provino è soltanto un testo autoriale.';
-
-      if (!message && (!focus.value || !origin('lyrics').value || !origin('music').value || !origin('performance').value)) message = 'Seleziona obiettivo e provenienza dei materiali.';
-      if (!message && hasText && origin('lyrics').value === 'absent') message = 'Hai allegato un testo: indicane la provenienza.';
-      if (!message && focus.value === 'composition' && origin('music').value === 'absent') message = 'Per la composizione serve un audio con la musica.';
-      if (!message && focus.value === 'performance' && ['absent','ai_generated'].includes(origin('performance').value)) message = 'Per valutare l’interpretazione serve una esecuzione umana.';
+      if (!ready) message = 'Seleziona il tipo di valutazione e le provenienze richieste.';
+      else if (!needsText && !needsAudio) message = 'Indica almeno un contributo presente.';
+      else if (needsText !== hasText || needsAudio !== hasAudio) message = 'Allega i materiali richiesti per questa valutazione.';
       if (message) {
         error.textContent = message;
         error.hidden = false;
