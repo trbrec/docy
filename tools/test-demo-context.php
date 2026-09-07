@@ -153,7 +153,7 @@ check(trb_demo_qa_title('[QA LYRICS] [QA LYRICS] [QA] Brano','lyrics')==='[QA LY
 check(trb_demo_qa_title('Brano [QA] nel titolo','lyrics')==='[QA LYRICS] Brano [QA] nel titolo','only leading QA markers removed');
 echo "PASS editorial evidence, output gate, retries, billed usage and QA naming\n";
 
-check($editor_request['model']==='gpt-4.1','text editor uses full model');
+check($editor_request['model']==='gpt-5.6-sol','text editor uses full model');
 check(trb_demo_source_quotes_valid('«Ho spostato la sedia / verso il sole.»',["Ho spostato la sedia\nverso il sole."]),'quotes tolerate typography and line breaks');
 check(!trb_demo_source_quotes_valid('«sposto la sedia verso il sole»',['Ho spostato la sedia verso il sole.']),'changed verb rejected');
 check(!trb_demo_source_quotes_valid('«non per farti tornare»',['non per farti ritornare']),'changed lyric rejected');
@@ -164,3 +164,11 @@ check(empty($meta[23]['_trb_demo_editorial_check']),'invalid quotes never marked
 check(trb_demo_model_rates('gpt-4.1-mini')['text_input']===0.40,'mini pricing not shadowed by full model');
 check(trb_demo_model_rates('gpt-4.1')['text_input']===2.00,'editor costs priced separately');
 echo "PASS source quotation gate and separate editorial model\n";
+
+check($editor_request['reasoning_effort']==='medium','reasoning reserved for final text review');
+check(!isset($editor_request['max_tokens'],$editor_request['temperature']),'legacy sampling fields excluded from reasoning route');
+check($editor_request['max_completion_tokens']===12000,'reasoning and visible output have bounded budget');
+check($editor_request['messages'][0]['role']==='developer','reasoning instructions use developer role');
+check(!isset($api_request['reasoning_effort']),'first pass keeps existing request shape');
+check(trb_demo_model_rates('gpt-5.6-sol')['text_output']===20.00,'reasoning output priced');
+echo "PASS reasoning editor request compatibility\n";
