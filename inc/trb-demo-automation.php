@@ -329,6 +329,20 @@ function trb_demo_defer_review_if_needed( $request_id, $payload, $now = null ) {
 	return true;
 }
 
+/** Commercial information is deterministic and excluded for the TRB group. */
+function trb_demo_services_note( $profile, $code ) {
+ if ( ! in_array($profile,array('dds','ddb12','ddb','ddb_trb'),true) ) return '';
+ $code=trim((string)$code);
+ if ( '' === $code ) return '';
+ return '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:28px;border-top:1px solid #dce2e9;"><tr><td style="padding:22px 0 0;">'
+ . '<h2 style="margin:0 0 10px;font-size:18px;line-height:1.4;color:#20263b;">Servizi riservati agli artisti TRB rec</h2>'
+ . '<p style="margin:0 0 14px;line-height:1.7;">Per gli interventi che desideri affidare al nostro team, puoi consultare i servizi disponibili nello Store TRB rec e utilizzare lo <strong>sconto riservato del 50%</strong>.</p>'
+ . '<p style="margin:0 0 6px;font-size:13px;color:#66708a;">CODICE DA INSERIRE AL CHECKOUT</p>'
+ . '<p style="margin:0 0 16px;font-size:17px;font-weight:bold;letter-spacing:0.4px;color:#20263b;overflow-wrap:anywhere;">'.esc_html($code).'</p>'
+ . '<p style="margin:0;"><a href="https://store.trbrec.com/" style="color:#243e63;font-weight:bold;">Consulta i servizi nello Store TRB rec →</a></p>'
+ . '</td></tr></table>';
+}
+
 function trb_demo_send_review( $request_id ) {
 	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
 	$review = get_post_meta( $request_id, '_trb_demo_review', true );
@@ -341,10 +355,7 @@ function trb_demo_send_review( $request_id ) {
 	$focus_label = trb_demo_focus_options()[ $payload['review_context']['focus'] ?? 'overall' ] ?? 'Valutazione complessiva';
 	$genre_html = '<span style="display:block;margin-top:5px;"><strong>Approfondimento richiesto:</strong> ' . esc_html( $focus_label ) . '</span>';
 	$genre_html .= ! empty( $payload['genre'] ) ? '<span style="display:block;margin-top:5px;color:#66708a;"><strong style="color:#39415a;">Genere musicale:</strong> ' . esc_html( $payload['genre'] ) . '</span>' : '';
-	$service_note = '';
-	if ( in_array( $payload['profile'], array( 'ddb', 'ddb12', 'ddb_trb' ), true ) ) {
-		$service_note = '<div style="margin-top:28px;padding:18px 20px;background:#f4f5ff;border-left:4px solid #514cff;border-radius:8px;"><strong>Approfondimenti e interventi tecnici</strong><p style="margin:8px 0 0;">Quando la valutazione evidenzia una necessità concreta, puoi consultare i servizi riservati su <a style="color:#4038e8;" href="https://store.trbrec.com/">store.trbrec.com</a>. Le eventuali condizioni dedicate vengono applicate attraverso il codice comunicato da TRB rec.</p></div>';
-	}
+	$service_note = trb_demo_services_note( $payload['profile'] ?? '', trb_demo_settings()['artist_discount_code'] ?? '' );
 	$body = '<!doctype html><html><body style="margin:0;background:#f3f5f9;font-family:Arial,Helvetica,sans-serif;color:#20263b;">'
 		. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5f9;padding:24px 12px;"><tr><td align="center">'
 		. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 35px rgba(20,28,60,.10);">'
@@ -745,7 +756,7 @@ function trb_demo_render_settings_page() {
 	}
 	if ( isset( $_POST['trb_demo_save_settings'] ) ) {
 		check_admin_referer( 'trb_demo_save_settings' );
-		$fields = array( 'webdav_endpoint', 'pcloud_user', 'pcloud_pass', 'openai_key', 'text_model', 'audio_model', 'spreadsheet_id', 'spreadsheet_tab', 'sheet_webhook_url', 'sheet_webhook_secret' );
+		$fields = array( 'webdav_endpoint', 'pcloud_user', 'pcloud_pass', 'openai_key', 'text_model', 'audio_model', 'spreadsheet_id', 'spreadsheet_tab', 'sheet_webhook_url', 'sheet_webhook_secret', 'artist_discount_code' );
 		$secret_fields = array( 'pcloud_pass', 'openai_key', 'sheet_webhook_secret' );
 		$updated = array();
 		foreach ( $fields as $field ) {
@@ -805,6 +816,7 @@ function trb_demo_render_settings_page() {
 		'pcloud_user' => array( 'Utente pCloud', 'text' ),
 		'pcloud_pass' => array( 'Password pCloud', 'password' ),
 		'openai_key' => array( 'Chiave API OpenAI', 'password' ),
+		'artist_discount_code' => array( 'Codice sconto artisti (50%, escluso gruppo TRB)', 'text' ),
 		'text_model' => array( 'Modello testo OpenAI', 'text' ),
 		'audio_model' => array( 'Modello audio OpenAI', 'text' ),
 		'spreadsheet_id' => array( 'ID Google Spreadsheet', 'text' ),
@@ -872,6 +884,9 @@ function trb_demo_render_settings_page() {
   <details><summary><?php echo esc_html('#'.$qa_post->ID.' — Risposta non inviata'); ?></summary><pre style="white-space:pre-wrap"><?php echo esc_html($rejected['review'] ?? ''); ?></pre></details>
   <?php endforeach; ?>
   <hr>
+  <h2>Anteprima riquadro servizi</h2>
+  <p>Visibile nelle valutazioni dei gruppi DDS, DDB12, DDB e DDB-TRB. Escluso dal gruppo TRB.</p>
+  <div style="max-width:650px;padding:20px;background:#fff"><?php echo trb_demo_services_note('ddb',$settings['artist_discount_code'] ?? ''); ?></div>
   <h2>Configurazione collegamenti</h2>
 		<form method="post">
 			<?php wp_nonce_field( 'trb_demo_save_settings' ); ?>
