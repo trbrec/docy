@@ -56,6 +56,11 @@ check($mail===null,'missing selection metadata cannot silently produce an incomp
 $review='Valutiamo il verso sul telefono: la sintassi richiede maggiore chiarezza.';
 $meta[22]=['_trb_demo_payload'=>$payload,'_trb_demo_review'=>$review,'_trb_demo_service_decision'=>['status'=>'selected'],'_trb_demo_service_selection'=>['id'=>'lyrics_revision','reason'=>'Ti proponiamo un confronto sul verso del telefono, dopo aver preparato il riferimento melodico.','evidence'=>$review]];
 $benefits_live=false;$mail=null;trb_demo_send_review(22);
-check($mail!==null&&str_contains($mail['body'],'Revisione e Adattamento Autoriale del Testo')&&!str_contains($mail['body'],'50%'),'project service remains visible independently of Store activation');
+check($mail!==null&&str_contains($mail['body'],'Revisione del testo')&&!str_contains($mail['body'],'50%'),'project service remains visible independently of Store activation');
 $meta[23]=$meta[22];$meta[23]['_trb_demo_payload']['status']='ready';unset($meta[23]['_trb_demo_service_selection']);$mail=null;trb_demo_send_review(23);check($mail===null,'stale success status cannot conceal a lost selection');
 echo "PASS complete email: grounded service, independent rollout and missing-data gate\n";
+
+$benefits_live=true;$meta[24]=$meta[22];$meta[24]['_trb_demo_payload']['status']='ready';$mail=null;trb_demo_send_review(24);
+check(!str_contains($mail['body'],$payload['email']),'recipient address omitted from email body');
+check(str_contains($mail['body'],'50%')&&!str_contains($mail['body'],'Un supporto possibile')&&!str_contains($mail['body'],'font-size:13px'),'plain footer with readable consistent typography');
+echo "PASS footer privacy and legibility regressions\n";

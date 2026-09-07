@@ -469,9 +469,10 @@ function trb_demo_services_note( $profile, $code = '', $context = array() ) {
     $user = $email && function_exists( 'get_user_by' ) ? get_user_by( 'email', $email ) : false;
     $eligible = ! empty( $context['owner_qa'] ) || ( $user && trb_store_benefits_eligible( $user ) );
     if ( $live && $eligible ) {
-        $html .= '<h2 style="margin:20px 0 10px;font-size:18px;color:#20263b;">Le tue condizioni riservate</h2><p style="margin:0 0 12px;line-height:1.7;">Come nostro artista hai diritto al <strong>50% di sconto su qualsiasi servizio dello Store</strong>. Registrati o accedi con la stessa email del portale' . ( $email ? ': <strong>' . esc_html( $email ) . '</strong>' : '' ) . '. Dopo la conferma dell’indirizzo, lo sconto si applica automaticamente al carrello. Non serve alcun codice.</p><p style="margin:0;"><a href="https://store.trbrec.com/?trb_artist_account=1" style="color:#243e63;font-weight:bold;">Accedi allo Store →</a></p>';
+        $html .= '<p style="margin:20px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.65;color:#20263b;">Come artista TRB rec, hai il <strong>50% di sconto su tutti i servizi dello Store</strong>. Per usarlo, registrati o accedi allo Store con la stessa email del portale artisti e conferma l’indirizzo. Lo sconto compare automaticamente nel carrello, senza codici.</p>';
+        if ( empty($context['selection']['id']) ) $html .= '<p style="margin:14px 0 0;font-size:16px;line-height:1.65;"><a href="https://store.trbrec.com/?trb_artist_account=1" style="color:#243e63;text-decoration:underline;font-weight:600;">Vai allo Store</a></p>';
     }
-    return $html ? '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:28px;border-top:1px solid #dce2e9;"><tr><td style="padding:22px 0 0;">' . $html . '</td></tr></table>' : '';
+    return $html ? '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:28px;border-top:1px solid #dce2e9;"><tr><td style="padding:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.65;color:#20263b;">' . $html . '</td></tr></table>' : '';
 }
 
 function trb_demo_send_review( $request_id ) {
@@ -514,7 +515,7 @@ function trb_demo_send_review( $request_id ) {
 		$genre_html.='<span style="display:block;margin-top:5px;"><strong>Confronto basato su:</strong> '.esc_html(implode(', ',$basis)).' e materiali della nuova versione.</span>';
 	}
 	$service_note = trb_demo_services_note( $payload['profile'] ?? '', '', array( 'email' => $payload['email'], 'owner_qa' => trb_demo_is_test_payload( $payload ), 'selection' => get_post_meta( $request_id, '_trb_demo_service_selection', true ) ) );
-	$body = '<!doctype html><html><body style="margin:0;background:#f3f5f9;font-family:Arial,Helvetica,sans-serif;color:#20263b;">'
+	$body = '<!doctype html><html><body style="margin:0;background:#f3f5f9;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#20263b;">'
 		. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5f9;padding:24px 12px;"><tr><td align="center">'
 		. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 35px rgba(20,28,60,.10);">'
 		. '<tr><td style="padding:28px 34px;background:linear-gradient(135deg,#091b3c,#303e9f);color:#ffffff;"><div style="font-size:12px;letter-spacing:1.5px;font-weight:700;">TRB REC - MUSIC PUBLISHING</div><h1 style="margin:10px 0 0;font-size:28px;line-height:1.2;">Valutazione del provino</h1></td></tr>'
