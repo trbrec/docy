@@ -76,6 +76,9 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" \
             "php -l '${DEPLOY_PATH}/functions.php' && php -l '${DEPLOY_PATH}/inc/trb-resource-monitor.php'"
           echo "Successfully deployed and verified ${deployed_sha}."
+          if git diff-tree --no-commit-id --name-only -r -m "${GITHUB_SHA}" | grep -qx 'tools/qa-demo-footer.php'; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/qa-demo-footer.php' '${GITHUB_SHA}'"
+          fi
 
   trigger-daily-site-health:
     if: github.event_name != 'push'
