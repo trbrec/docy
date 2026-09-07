@@ -93,7 +93,8 @@ $payload=['request_id'=>11,'revision'=>$revision,'review_context'=>$author,'text
 $fixture_text='Testo nuovo con finale modificato';$finish='stop';$answer=$complete;
 check(!is_wp_error(trb_demo_openai_review($payload)),'revision API request succeeds');
 $content=$api_request['messages'][1]['content'];
-check(str_contains($content[0]['text'],$complete),'previous review reaches model');
+$sent_history=json_decode(substr($content[0]['text'],strpos($content[0]['text'],"\n")+1),true);
+check(($sent_history['review'] ?? '')===$complete,'previous review reaches model');
 check(str_contains($content[0]['text'],'Ho modificato il finale'),'declared changes reach model');
 check(str_contains($content[1]['text'],'Testo precedente esatto'),'previous text reaches model');
 check(str_contains($content[2]['text'],$fixture_text),'new text remains separate');
