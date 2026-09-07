@@ -176,3 +176,8 @@ echo "PASS reasoning editor request compatibility\n";
 foreach(['Valuto la nuova versione.','Analizzo la revisione.','Senza audio non posso stabilire la cantabilità.','A mio avviso il ponte funziona.','Ti consiglio di cambiare il ritornello.'] as $bad_voice) check(!trb_demo_team_voice_valid($bad_voice),'singular editorial voice blocked: '.$bad_voice);
 foreach(['Valutiamo la nuova versione. Senza audio non possiamo stabilire la cantabilità.','Il riscontro precedente resta disponibile.','Il nucleo «per trovare casa io» funziona.','Proponiamo come alternativa: *Non posso tornare da te*.','Il ritornello contiene «Ho analizzato i tuoi silenzi».'] as $good_voice) check(trb_demo_team_voice_valid($good_voice),'lyrics and team prose preserved');
 echo "PASS team voice, exact reported regressions, lyric/alternative preservation\n";
+check(!trb_demo_audio_evidence_valid('Si sente «I follow in a shadow».',false),'no lyric transcription without source text');
+check(!trb_demo_audio_evidence_valid('Al minuto 2:10 la voce rallenta.',false),'unverified numerical localization blocked');
+check(trb_demo_audio_evidence_valid('Nell’ingresso della voce osserviamo un attacco deciso.',false),'recognizable audible event allowed');
+check(trb_demo_audio_evidence_valid('Nel testo compare «alle 2:10 torno a casa».',true),'source lyric clock time preserved');
+echo "PASS audio transcription and unverified timestamp gates\n";
