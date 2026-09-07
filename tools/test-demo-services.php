@@ -13,3 +13,10 @@ check(!trb_demo_extract_service_selection($review."\nTRB_SERVICE_JSON: broken",f
 check(!str_contains(trb_demo_extract_service_selection($review."\n  TRB_SERVICE_JSON: broken",false)['review'],'TRB_SERVICE'),'indented metadata never mailed');
 check(!trb_demo_extract_service_selection(output_for($review,['id'=>'']),false)['selection'],'no service is valid');
 echo "PASS $checks service selection checks\n";
+$data=['id'=>'','reason'=>'Per questo progetto non proponiamo un servizio: il passaggio sul telefono può essere chiarito con la revisione indicata.','evidence'=>$review];
+$r=trb_demo_extract_service_selection(output_for($review,$data),false);check($r['status']==='none'&&!empty($r['selection']['reason']),'explicit no-service decision retains project reason');
+check(trb_demo_extract_service_selection($review,false)['status']==='missing','missing decision distinguishable from no offer');
+check(trb_demo_extract_service_selection($review."\nTRB_SERVICE_JSON: broken",false)['status']==='invalid','broken decision is observable');
+function esc_html($s){return htmlspecialchars($s,ENT_QUOTES,'UTF-8');}function esc_url($s){return $s;}
+check(str_contains(trb_demo_service_recommendation_html($r['selection']),'telefono'),'no recommendation is explained, not silently omitted');
+echo "PASS decision observability and honest no-service explanation\n";
