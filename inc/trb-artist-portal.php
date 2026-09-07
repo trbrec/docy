@@ -4317,6 +4317,7 @@ function trb_portal_render_demo_section() {
 					<input type="hidden" name="action" value="trb_portal_submit_demo" />
 					<?php wp_nonce_field( 'trb_portal_submit_demo', 'trb_demo_nonce' ); ?>
 					<div class="trb-portal__demo-intro"><strong>Dati trasmessi automaticamente</strong><p>Nome, cognome, nome d’arte ed e-mail vengono acquisiti dal profilo artista e non devono essere inseriti nuovamente.</p></div>
+					<?php if ( current_user_can( 'manage_options' ) ) : ?><label class="trb-portal__choice"><input type="checkbox" name="trb_demo_owner_qa" value="1" /> Invio QA esclusivamente ad andrea.tognassi@trbrec.com</label><?php endif; ?>
 					<label>Tipo di valutazione <span>*</span><select name="trb_demo_focus" required data-demo-focus><option value="">Seleziona l'obiettivo</option><?php foreach ( trb_demo_focus_options() as $key => $label ) : ?><option value="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></label>
 					<label>Titolo del provino <span>*</span><input type="text" name="trb_demo_title" maxlength="160" required /></label>
 					<label for="trb-demo-genre">Genere musicale <span>*</span></label>
@@ -4476,7 +4477,8 @@ function trb_portal_submit_demo() {
 	if ( 'dds' === trb_portal_user_profile( $user ) ) {
 		trb_portal_demo_finish( 'forbidden', $dashboard );
 	}
-	$is_test_account = trb_portal_is_demo_test_account( $user );
+	$owner_qa = current_user_can( 'manage_options' ) && isset( $_POST['trb_demo_owner_qa'] );
+	$is_test_account = $owner_qa || trb_portal_is_demo_test_account( $user );
 	$last = (int) get_user_meta( $user_id, '_trb_demo_last_submission', true );
 	if ( ! $is_test_account && $last && time() - $last < WEEK_IN_SECONDS ) {
 		trb_portal_demo_finish( 'weekly_limit', $dashboard );
@@ -4540,9 +4542,15 @@ function trb_portal_submit_demo() {
 		'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
 		'first_name' => $user->first_name, 'last_name' => $user->last_name,
 		'artist_name' => trb_portal_artist_profile_value( 'artist_name', $user_id ), 'email' => $user->user_email,
+		'owner_qa' => $owner_qa,
 		'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'genre' => $genre, 'no_lyrics' => $no_lyrics, 'review_context' => $review_context,
 		'text_only' => $text_only, 'text_file' => $text, 'audio_file' => $audio,
 	);
+	if ( $owner_qa ) {
+		$payload['email'] = 'andrea.tognassi@trbrec.com';
+		$payload['first_name'] = 'Andrea';
+		$payload['title'] = '[QA] ' . $title;
+	}
 	update_post_meta( $request_id, '_trb_demo_payload', $payload );
 	update_post_meta( $request_id, '_trb_demo_earliest_delivery', $earliest_delivery );
 	update_post_meta( $request_id, '_trb_demo_delete_after', $submitted_timestamp + 60 * DAY_IN_SECONDS );
