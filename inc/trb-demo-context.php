@@ -46,3 +46,19 @@ function trb_demo_review_prompt( $payload, $has_audio, $has_text ) {
  $prompt .= "PROFONDITÀ E FORMATO:\nUna valutazione normalmente di 1000-1800 parole, commisurata al materiale: meno se il materiale non sostiene osservazioni utili. Non ripetere né inventare criticità per raggiungere una lunghezza o un numero. Usa SOLO questi sei titoli Markdown, scritti esattamente:\n## Obiettivo e materiale\n## Punti riusciti\n## Analisi approfondita\n## Proposte di revisione\n## Piano di lavoro\n## Limiti della valutazione\nNella prima sezione dichiara obiettivo e contributo del mittente. Individua i punti riusciti con prove concrete e spiega cosa conservare. Nell'analisi tratta separatamente ogni aspetto pertinente della rubrica, inclusi quelli senza criticità. Nelle proposte privilegia 3-6 interventi motivati quando sostenibili, con alternative e relativi compromessi. Nel piano ordina 3-5 azioni realizzabili ed esercizi con un criterio pratico per verificare il miglioramento. Nei limiti elenca solo ciò che non puoi stabilire dal materiale. Usa elenchi per le azioni, non titoli numerati ripetitivi. Non presentare la revisione come infallibile.\n";
  return $prompt;
 }
+
+/** A completeness check, not a claim that the artistic judgements are correct. */
+function trb_demo_review_structure_valid( $review ) {
+ $titles = array( 'Obiettivo e materiale', 'Punti riusciti', 'Analisi approfondita', 'Proposte di revisione', 'Piano di lavoro', 'Limiti della valutazione' );
+ $position = 0;
+ foreach ( $titles as $index => $title ) {
+  $marker = '## ' . $title;
+  $found = strpos( $review, $marker, $position );
+  if ( false === $found ) return false;
+  $start = $found + strlen( $marker );
+  $end = strpos( $review, '## ', $start );
+  if ( strlen( trim( substr( $review, $start, false === $end ? null : $end - $start ) ) ) < 20 ) return false;
+  $position = $start;
+ }
+ return true;
+}
