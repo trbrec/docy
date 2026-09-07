@@ -43,3 +43,19 @@ $payload['profile']='admin';$meta[13]=['_trb_demo_payload'=>$payload,'_trb_demo_
 trb_demo_send_review(13);
 check(str_contains($mail['body'],'Non dichiarata')&&!str_contains($mail['body'],'Digital Distribution Bundle'),'unknown profile never labeled as DDB');
 echo "PASS email escaping, hierarchy, version, comparison evidence, recipients, discounts and duplicate-send guard\n";
+$payload['profile']='ddb';$payload['owner_qa']=true;$payload['email']='andrea.tognassi@trbrec.com';$payload['status']='ready';
+foreach(['Valuto la nuova versione.','Senza audio non posso stabilire la cantabilità.'] as $bad_voice){
+ $mail=null;$meta[20]=['_trb_demo_payload'=>$payload,'_trb_demo_review'=>$bad_voice];trb_demo_send_review(20);
+ check($mail===null&&$meta[20]['_trb_demo_payload']['status']==='manual_review','sender independently blocks singular even from stored review');
+}
+echo "PASS last-mile sender blocks actual singular regressions\n";
+require __DIR__.'/../inc/trb-demo-services.php';
+function esc_url($s){return $s;}
+$mail=null;$meta[21]=['_trb_demo_payload'=>$payload,'_trb_demo_review'=>'Valutiamo il verso sul telefono: la sintassi richiede maggiore chiarezza.'];trb_demo_send_review(21);
+check($mail===null,'missing selection metadata cannot silently produce an incomplete email');
+$review='Valutiamo il verso sul telefono: la sintassi richiede maggiore chiarezza.';
+$meta[22]=['_trb_demo_payload'=>$payload,'_trb_demo_review'=>$review,'_trb_demo_service_decision'=>['status'=>'selected'],'_trb_demo_service_selection'=>['id'=>'lyrics_revision','reason'=>'Ti proponiamo un confronto sul verso del telefono, dopo aver preparato il riferimento melodico.','evidence'=>$review]];
+$benefits_live=false;$mail=null;trb_demo_send_review(22);
+check($mail!==null&&str_contains($mail['body'],'Revisione e Adattamento Autoriale del Testo')&&!str_contains($mail['body'],'50%'),'project service remains visible independently of Store activation');
+$meta[23]=$meta[22];$meta[23]['_trb_demo_payload']['status']='ready';unset($meta[23]['_trb_demo_service_selection']);$mail=null;trb_demo_send_review(23);check($mail===null,'stale success status cannot conceal a lost selection');
+echo "PASS complete email: grounded service, independent rollout and missing-data gate\n";

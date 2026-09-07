@@ -10,28 +10,37 @@ function trb_demo_service_catalog() {
 }
 function trb_demo_service_selection_prompt() {
     $catalog = trb_demo_service_catalog();
-    $text = "\nDOPO le sei sezioni della valutazione, aggiungi una sola riga tecnica nel formato TRB_SERVICE_JSON: {\"id\":\"\",\"reason\":\"\",\"evidence\":\"\"}. Verrà rimossa prima dell'invio. Scegli AL MASSIMO UN servizio solo quando risponde a una priorità concreta appena motivata; usa id vuoto se il lavoro può proseguire autonomamente, se il materiale è già adeguato o se nessun servizio è pertinente. Non creare bisogni per vendere. reason: massimo 320 caratteri, suggerimento facoltativo in seconda persona che spiega cosa risolverebbe per QUESTO progetto, senza prezzi, sconti, promesse, link o valutazioni sonore non verificate. evidence: copia letterale di una frase breve della tua valutazione definitiva che documenta il bisogno. Non attribuire all'artista la paternità di testi dichiarati altrui. Con solo testo non suggerire mastering o produzione. Per lyrics_revision esplicita che l'adattamento metrico al canto richiede un riferimento melodico; se non è disponibile, proponi di prepararlo prima dell'acquisto. Servizi ammessi:\n";
+    $text = "\nMETADATI SEPARATI OBBLIGATORI: dopo le sei sezioni scrivi una sola riga TRB_SERVICE_JSON: {\"id\":\"\",\"reason\":\"\",\"evidence\":\"\"}. Non sono una settima sezione della valutazione. La riga viene rimossa e validata dal sistema. Valuta il supporto professionale più pertinente rispetto alle priorità osservate: AL MASSIMO UN servizio. La possibilità di lavorare autonomamente non esclude un supporto facoltativo del team se risponde a un bisogno concreto. Non creare problemi per vendere. Se nessun servizio è utile o il materiale è già adeguato, id deve essere vuoto, ma reason deve spiegare specificamente perché non lo proponiamo per questo progetto. reason è SEMPRE obbligatoria, 20–320 caratteri: voce del team al plurale o impersonale, tu al destinatario; spiega quale intervento aiuterebbe e su quale passaggio, senza prezzi, sconti, promesse, link o giudizi sonori non verificati. evidence è SEMPRE obbligatoria: copia letterale di una frase breve dalla valutazione definitiva (almeno 20 caratteri), che sostiene la scelta oppure l’assenza di proposta. Non attribuire al mittente opere dichiarate altrui. Con solo testo non suggerire mastering o produzione; una revisione autoriale può essere pertinente alle ambiguità del testo, ma l’adattamento al canto richiede demo o base con riferimento melodico: se manca, invita a prepararlo prima dell’acquisto. Le citazioni originali e le alternative restano alla loro persona grammaticale; la nostra spiegazione resta al plurale. Catalogo ammesso:\n";
     foreach ( $catalog as $id => $item ) $text .= $id . ': ' . $item['name'] . '. ' . $item['scope'] . "\n";
     return $text;
 }
 function trb_demo_extract_service_selection( $raw, $has_audio ) {
-    $parts = preg_split( '/\n[ \t]*(?:```(?:json)?\s*)?TRB_SERVICE_JSON:\s*/', $raw, 2 );
+    $parts = preg_split( '/\n[ \t]*TRB_SERVICE_JSON:\s*/', str_replace("\r\n", "\n", $raw), 2 );
     $review = trim( $parts[0] );
-    $selection = array();
-    if ( isset( $parts[1] ) ) {
-        $data = json_decode( trim( $parts[1] ), true );
-        $catalog = trb_demo_service_catalog();
-        $id = is_array( $data ) && is_string( $data['id'] ?? null ) ? $data['id'] : '';
-        $reason = is_array( $data ) && is_string( $data['reason'] ?? null ) ? trim( $data['reason'] ) : '';
-        $evidence = is_array( $data ) && is_string( $data['evidence'] ?? null ) ? trim( $data['evidence'] ) : '';
-        if ( isset( $catalog[ $id ] ) && ( $has_audio || ! $catalog[ $id ]['audio'] ) && strlen( $reason ) >= 20 && strlen( $reason ) <= 1000 && strlen( $evidence ) >= 20 && strlen( $evidence ) <= 1000 && false !== strpos( $review, $evidence ) && ! preg_match( '/https?:|www\.|[<>]|\b(?:sconto|coupon)\b|[%€]/iu', $reason ) ) $selection = array( 'id' => $id, 'reason' => $reason, 'evidence' => $evidence );
-    }
-    return array( 'review' => $review, 'selection' => $selection );
+    $result = array( 'review' => $review, 'selection' => array(), 'status' => 'missing', 'diagnostic' => 'Decisione sui servizi mancante.' );
+    if ( ! isset( $parts[1] ) ) return $result;
+    $json = trim( $parts[1] );
+    $json = preg_replace( '/^```(?:json)?\s*|\s*```$/u', '', $json );
+    $data = json_decode( $json, true );
+    $result['status'] = 'invalid';
+    $result['diagnostic'] = 'Decisione sui servizi non valida o non sostenuta dalla valutazione.';
+    if ( ! is_array( $data ) || ! is_string( $data['id'] ?? null ) || ! is_string( $data['reason'] ?? null ) || ! is_string( $data['evidence'] ?? null ) ) return $result;
+    $id = $data['id']; $reason = trim( $data['reason'] ); $evidence = trim( $data['evidence'] );
+    $catalog = trb_demo_service_catalog();
+    if ( '' !== $id && ( ! isset( $catalog[$id] ) || ( ! $has_audio && $catalog[$id]['audio'] ) ) ) return $result;
+    if ( strlen($reason) < 20 || strlen($reason) > 1280 || strlen($evidence) < 20 || strlen($evidence) > 1280 || false === strpos($review,$evidence) || preg_match('/https?:|www\.|[<>]|\b(?:sconto|coupon)\b|[%€]/iu',$reason) ) return $result;
+    if ( function_exists('trb_demo_team_voice_valid') && ! trb_demo_team_voice_valid($reason) ) { $result['diagnostic'] = 'La proposta di supporto non usa la voce del team.'; return $result; }
+    $result['selection'] = array( 'id' => $id, 'reason' => $reason, 'evidence' => $evidence );
+    $result['status'] = '' === $id ? 'none' : 'selected';
+    $result['diagnostic'] = '';
+    return $result;
 }
 function trb_demo_service_recommendation_html( $selection ) {
     $catalog = trb_demo_service_catalog();
     $id = is_array( $selection ) ? ( $selection['id'] ?? '' ) : '';
-    if ( ! isset( $catalog[ $id ] ) || empty( $selection['reason'] ) ) return '';
+    if ( empty( $selection['reason'] ) ) return '';
+    if ( '' === $id ) return '<h2 style="margin:0 0 10px;font-size:18px;color:#20263b;">Come proseguire con questo progetto</h2><p style="line-height:1.7;margin:0 0 10px;">' . esc_html($selection['reason']) . '</p>';
+    if ( ! isset( $catalog[ $id ] ) ) return '';
     $item = $catalog[ $id ];
     return '<h2 style="margin:0 0 10px;font-size:18px;color:#20263b;">Un supporto possibile per questo progetto</h2><p style="line-height:1.7;margin:0 0 10px;">' . esc_html( $selection['reason'] ) . '</p><p style="line-height:1.7;margin:0 0 10px;"><a style="color:#243e63;font-weight:bold;" href="' . esc_url( $item['url'] ) . '">' . esc_html( $item['name'] ) . '</a></p><p style="font-size:13px;line-height:1.6;color:#66708a;">' . esc_html( $item['scope'] ) . ' È una possibilità: puoi anche lavorare autonomamente seguendo le priorità indicate sopra.</p>';
 }
