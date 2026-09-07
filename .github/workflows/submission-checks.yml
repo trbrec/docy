@@ -25,6 +25,8 @@ jobs:
           php tools/test-true-peak.php
           php tools/test-demo-delivery-window.php
           php tools/test-demo-runtime-recovery.php
+          php tools/test-demo-context.php
+          node --check assets/js/trb-demo-evaluation.js
           php tools/test-audio-inventory.php
           php tools/test-rights-owner-review.php
           node tests/release-credit-options.test.js
