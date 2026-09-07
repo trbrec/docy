@@ -46,3 +46,11 @@ Ora il ramo audio rifiuta citazioni di versi senza sorgente testuale e timestamp
 Il controllo finale audio usa `gpt-audio`, mantenendo `gpt-audio-mini` per la prima lettura e fornendo nuovamente l’audio originale al controllo. Non si affida a un modello solo testuale per decidere fatti sonori. Sono registrati separatamente i consumi di ogni passaggio, compresi i tentativi respinti. Compatibilità Chat Completions, input audio e tariffe verificate nella [documentazione ufficiale OpenAI](https://developers.openai.com/api/docs/models/gpt-audio). Il cambio di modello non costituisce da solo una prova di maggiore correttezza: l’esito reale va letto.
 
 Le decisioni respinte conservano anche il contenuto candidato e un errore specifico (schema, lunghezza, catalogo/materiali, evidenza, condizioni economiche o voce), per evitare una nuova diagnosi basata soltanto su un array vuoto. Il parser elimina le delimitazioni tecniche dei metadati; l’anteprima amministrativa usa una valutazione QA effettivamente inviata.
+
+## Verifiche reali ed estensione 20260907.8
+
+La QA autoriale #12310, email #926 inviata esclusivamente al titolare, è stata letta integralmente: voce del team coerente, limite «non possiamo stabilire», proposta di revisione del testo motivata sui verbi della luce e sul referente della cornice, collegamento al servizio e prerequisito melodico esplicito. Nessun coupon o annuncio del 50% non attivo.
+
+La QA audio #12311 ha ritentato automaticamente sotto il protocollo .6 e ha consegnato la email #927 prima dell'aggiornamento .7. Questa prova NON è approvata: includeva parole non documentate, timestamp e un consiglio scorretto sul vibrato. Il primo tentativo #12312 sotto .7 è invece stato bloccato: mancavano i metadati e il testo violava anche i nuovi vincoli audio.
+
+Nel protocollo .8 viene eliminata la vecchia istruzione permissiva sui timestamp, in conflitto con il controllo finale. La seconda lettura audio è indipendente: riceve gli originali senza la bozza, per non ereditarne ancoraggi inventati. Una consegna sintetica dopo i materiali ribadisce vincoli, ruolo del team e metadati obbligatori. Sono esplicitamente esclusi il vibrato come mascheramento dell'intonazione e la modifica del tempo della base come correzione di un ingresso. I controlli bloccanti rimangono invariati; non vengono aggirati per far passare il collaudo.
