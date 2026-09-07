@@ -301,7 +301,15 @@ function trb_demo_process_request( $request_id ) {
 	if ( $delete_after && ! wp_next_scheduled( 'trb_portal_cleanup_demo', array( $request_id ) ) ) wp_schedule_single_event( $delete_after, 'trb_portal_cleanup_demo', array( $request_id ) );
 	$remote = trb_demo_upload_to_pcloud( $payload );
 	if ( ! is_wp_error( $remote ) ) update_post_meta( $request_id, '_trb_demo_remote', $remote );
-	$review_result = trb_demo_openai_review( $payload );
+	// Preserve a successful evaluation even when the independent archive transfer fails.
+	$saved_review = get_post_meta( $request_id, '_trb_demo_review', true );
+	$saved_usage = get_post_meta( $request_id, '_trb_demo_openai_usage', true );
+	$review_result = $saved_review && is_array( $saved_usage ) ? array( 'review' => $saved_review, 'usage' => $saved_usage ) : trb_demo_openai_review( $payload );
+	if ( ! is_wp_error( $review_result ) ) {
+		update_post_meta( $request_id, '_trb_demo_review', $review_result['review'] );
+		update_post_meta( $request_id, '_trb_demo_openai_usage', $review_result['usage'] );
+		update_post_meta( $request_id, '_trb_demo_cost_usd', (float) ( $review_result['usage']['estimated_cost_usd'] ?? 0 ) );
+	}
 	if ( is_wp_error( $remote ) || is_wp_error( $review_result ) ) {
 		$attempts = (int) get_post_meta( $request_id, '_trb_demo_attempts', true ) + 1;
 		update_post_meta( $request_id, '_trb_demo_attempts', $attempts );
@@ -318,6 +326,7 @@ function trb_demo_process_request( $request_id ) {
 	if ( ! trb_demo_sheet_row( $request_id, $payload, $remote ) && ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) {
 		wp_schedule_single_event( time() + 15 * MINUTE_IN_SECONDS, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
 	}
+	delete_post_meta( $request_id, '_trb_demo_last_error' );
 	$payload['status'] = 'ready';
 	update_post_meta( $request_id, '_trb_demo_payload', $payload );
 	$send_at = max( time() + 30, (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true ) );
@@ -333,10 +342,21 @@ function trb_demo_review_html( $review ) {
 	return wpautop( $safe );
 }
 
+/** Recheck delivery hours when the worker actually executes, including late cron runs. */
+function trb_demo_defer_review_if_needed( $request_id, $payload, $now = null ) {
+	$now = null === $now ? time() : (int) $now;
+	$due = max( $now, (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true ) );
+	if ( ! trb_demo_is_test_payload( $payload ) ) $due = trb_portal_demo_next_delivery_time( $due );
+	if ( $due <= $now ) return false;
+	if ( ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) wp_schedule_single_event( $due, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
+	return true;
+}
+
 function trb_demo_send_review( $request_id ) {
 	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
 	$review = get_post_meta( $request_id, '_trb_demo_review', true );
 	if ( ! is_array( $payload ) || 'ready' !== $payload['status'] || ! $review || empty( $payload['email'] ) ) return;
+	if ( trb_demo_defer_review_if_needed( $request_id, $payload ) ) return;
 	$name = $payload['first_name'] ?: ( $payload['artist_name'] ?: 'Artista' );
 	$artist_name = ! empty( $payload['artist_name'] ) ? $payload['artist_name'] : trim( $payload['first_name'] . ' ' . $payload['last_name'] );
 	$affiliation = function_exists( 'trb_portal_profile_affiliation' ) ? trb_portal_profile_affiliation( $payload['profile'] ) : ( 'trb' === $payload['profile'] ? 'TRB rec - Music Publishing' : 'Digital Distribution Bundle' );
@@ -404,8 +424,9 @@ function trb_demo_recover_stalled_requests() {
 			wp_schedule_single_event( time() + 5, 'trb_portal_process_demo', array( absint( $request_id ) ) );
 		}
 		$earliest = (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true );
-		if ( 'ready' === $status && ( ! $earliest || $earliest <= time() ) && ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) {
-			$send_at = trb_demo_is_test_payload( $payload ) ? time() + 5 : trb_portal_demo_next_delivery_time( time() + 5 );
+		if ( 'ready' === $status && ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) {
+			$send_at = max( time() + 5, $earliest );
+			if ( ! trb_demo_is_test_payload( $payload ) ) $send_at = trb_portal_demo_next_delivery_time( $send_at );
 			wp_schedule_single_event( $send_at, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
 		}
 		$remote = get_post_meta( $request_id, '_trb_demo_remote', true );
@@ -685,6 +706,12 @@ function trb_demo_render_settings_page() {
 
 	$settings = trb_demo_settings();
 	$test_results = array();
+	if ( isset( $_POST['trb_demo_audit_queue'] ) ) {
+		check_admin_referer( 'trb_demo_audit_queue' );
+		trb_demo_recover_stalled_requests();
+		trb_demo_refresh_operational_health();
+		echo '<div class="notice notice-success"><p>Controllo completato. Gli eventi mancanti sono stati riprogrammati rispettando gli orari di consegna.</p></div>';
+	}
 	if ( isset( $_POST['trb_demo_save_settings'] ) ) {
 		check_admin_referer( 'trb_demo_save_settings' );
 		$fields = array( 'webdav_endpoint', 'pcloud_user', 'pcloud_pass', 'openai_key', 'text_model', 'audio_model', 'spreadsheet_id', 'spreadsheet_tab', 'sheet_webhook_url', 'sheet_webhook_secret' );
@@ -765,6 +792,9 @@ function trb_demo_render_settings_page() {
 			<?php endforeach; ?>
 			</p></div>
 		<?php endif; ?>
+		<h2>Stato operativo e recupero code</h2>
+		<form method="post"><?php wp_nonce_field( 'trb_demo_audit_queue' ); ?><button class="button" name="trb_demo_audit_queue" value="1">Verifica servizi e recupera code</button></form>
+		<pre><?php echo esc_html( wp_json_encode( trb_demo_health_payload(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) ); ?></pre>
 		<h2>Consumi e costi OpenAI</h2>
 		<p>I costi sono stimati applicando ai token restituiti dall'API il listino associato al modello. Il dato di fatturazione definitivo resta quello dell'account OpenAI.</p>
 		<div style="display:flex;gap:16px;flex-wrap:wrap;margin:18px 0 24px;">
