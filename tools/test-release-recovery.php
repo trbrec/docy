@@ -42,3 +42,12 @@ try {
  verify(trb_recovery_reuse_file(12,['tmp_name'=>$stage],'audio',0) instanceof WP_Error,'Changed private file accepted');
  echo "PASS recovered file reuse, release isolation and integrity checks\n";
 } finally { unlink($local);unlink($stage);unset($GLOBALS['trb_recovery_resume_context']); }
+
+function get_post_meta($id,$key,$single){return $GLOBALS['recovery_meta'][$key]??'';}
+$GLOBALS['recovery_meta']=['_trb_release_intake_phase'=>'files_partial','_trb_release_files'=>[['kind'=>'audio']]];
+verify(trb_recovery_ready_for_validation(12),'Stored files cannot enter ordinary validation after ISRC failure');
+$GLOBALS['recovery_meta']['_trb_release_files']=[];
+verify(!trb_recovery_ready_for_validation(12),'Empty files offered for resume');
+$GLOBALS['recovery_meta']['_trb_release_files']=[['kind'=>'audio']];
+foreach(['awaiting_upload','acquiring_files','complete'] as $phase){$GLOBALS['recovery_meta']['_trb_release_intake_phase']=$phase;verify(!trb_recovery_ready_for_validation(12),'Unsafe phase offered for resume');}
+echo "PASS partial stored files expose standard validation without reopening completed or active intake\n";
