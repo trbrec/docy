@@ -19,7 +19,7 @@ function validationFeedback(form){
   if(match)title={audio:'File audio',lyrics:'Testo del brano',rights_document:'Licenza'}[match[1]];
   if(!title){var label=field.labels&&field.labels[0];title=field.getAttribute('aria-label')||(label?label.textContent.replace(/\s+/g,' ').trim().slice(0,100):'Campo da completare');}
   if(track)title='Brano '+(qa('[data-track]',form).indexOf(track)+1)+' · '+title;
-  return title+': '+field.validationMessage;
+  var detail=field.validationMessage;if(!field.validity.customError){if(field.validity.valueMissing)detail=field.type==='file'?'Seleziona il file richiesto.':field.type==='checkbox'?'Conferma questa voce.':'Completa questo campo.';else if(field.validity.typeMismatch||field.validity.patternMismatch)detail='Controlla il formato del valore inserito.';else if(field.validity.rangeUnderflow)detail='Inserisci un valore non inferiore a '+field.min+'.';else if(field.validity.rangeOverflow)detail='Inserisci un valore non superiore a '+field.max+'.';else detail='Controlla il valore inserito.';}return title+': '+detail;
  }
  function render(focus){
   var bad=qa('input,select,textarea',form).filter(function(field){return field.willValidate&&!field.validity.valid;});
