@@ -7,12 +7,20 @@ function get_transient($k){return $GLOBALS['cache'][$k]??false;} function set_tr
 function trb_analysis_binary($x){return '/usr/bin/ffmpeg';}
 function trb_analysis_exec($cmd){exec($cmd.' 2>&1',$lines,$code);return ['code'=>$code,'output'=>implode("\n",$lines)];}
 function trb_portal_wav_spec($p){return ['sample_rate'=>44100,'channels'=>2];}
-function wp_get_current_user(){return (object)['ID'=>71,'user_email'=>'artist@example.test','first_name'=>'Artista','display_name'=>'Artista'];}
+function wp_get_current_user(){return new WP_User();}
 function is_email($e){return filter_var($e,FILTER_VALIDATE_EMAIL);}
 function esc_html($s){return htmlspecialchars($s,ENT_QUOTES);}
 function trb_resource_queue_recipient_email($key,$to,$subject,$body,$priority,$headers){$GLOBALS['mail'][$key]=compact('to','subject','body','headers');}
 function trb_portal_user_profile($u){return $GLOBALS['profile']??'ddb';}
-function trb_portal_profile_has_service($s,$p){return $p!=='dds';}
+function sanitize_key($v){return preg_replace('/[^a-z0-9_-]/','',strtolower((string)$v));}
+$portalSource=file_get_contents(dirname(__DIR__).'/inc/trb-artist-portal.php');
+foreach(['trb_portal_service_catalogue','trb_portal_service_status','trb_portal_profile_has_service'] as $fn){
+ $start=strpos($portalSource,'function '.$fn.'(');$end=strpos($portalSource,"\n}\n",$start)+3;eval(substr($portalSource,$start,$end-$start));
+}
+class WP_User {public $ID=71;public $first_name='Artista';public $last_name='Rossi';public $user_email='artist@example.test';}
+function trb_portal_artist_profile_value($field,$id){return 'Maria Luisa Rossi';}
+$resourceSource=file_get_contents(dirname(__DIR__).'/inc/trb-resource-monitor.php');
+$start=strpos($resourceSource,'function trb_resource_artist_legal_greeting_name(');$end=strpos($resourceSource,"\n}\n",$start)+3;eval(substr($resourceSource,$start,$end-$start));
 require dirname(__DIR__).'/inc/trb-master-acceptance.php';
 function verify_master($ok,$s){if(!$ok)throw new RuntimeException($s);}
 $peak=['verified'=>true,'complete_file'=>true,'maximum_dbtp'=>-.1];
@@ -35,3 +43,13 @@ try {
  }
 } finally {unlink($path);}
 echo "PASS master acceptance: real subzero/rail WAV, independent PCM gate, original integrity, artist+CC, queue deduplication and premaster scope\n";
+
+foreach(['dds'=>false,'ddb12'=>true,'ddb'=>true,'ddb_trb'=>true,'trb'=>true,'unknown'=>false] as $profile=>$included){
+ $GLOBALS['profile']=$profile;
+ $text=trb_master_premaster_email_guidance(wp_get_current_user());
+ verify_master(($text!=='')===$included,'Incorrect mastering guidance for '.$profile);
+ if($included) verify_master(str_contains($text,'Invio un pre-master e richiedo il mastering del brano')&&str_contains($text,'Sostituisci il WAV')&&str_contains($text,'44.100 Hz / 16 bit'),'Incomplete next steps for '.$profile);
+}
+$user=new WP_User();$user->first_name='Maria Luisa';verify_master(trb_resource_artist_legal_greeting_name($user)==='Maria Luisa','Compound given name altered');
+$user->first_name='';verify_master(trb_resource_artist_legal_greeting_name($user)==='Maria Luisa','Surname retained in fallback greeting');
+echo "PASS real five-profile service catalogue, unknown-profile exclusion and first-name greetings\n";
