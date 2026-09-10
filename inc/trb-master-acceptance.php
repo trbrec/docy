@@ -32,10 +32,21 @@ function trb_master_upload_check($path, $name, $status='mastered') {
     $values='Picco campione: '.number_format((float)$result['sample_peak'],6,',','').' dBFS; true peak: '.number_format((float)$result['true_peak'],6,',','').' dBTP.';
     $user=wp_get_current_user();
     if ($user->ID && is_email($user->user_email) && function_exists('trb_resource_queue_recipient_email')) {
-        $body='<p>Ciao '.esc_html($user->first_name?:$user->display_name).',</p><p>non possiamo accettare il master <strong>'.esc_html($name).'</strong>: raggiunge o supera il limite di picco consentito.</p><p>'.esc_html($values).'</p><p>Il picco campione deve restare sotto 0 dBFS e il true peak sotto 0 dBTP, anche per brani già pubblicati. Prepara un nuovo master con margine sotto zero e sostituisci il file prima di completare l’invio. I dati della bozza restano conservati.</p>';
+        $body='<p>Gentile '.esc_html(function_exists('trb_resource_artist_legal_greeting_name') ? trb_resource_artist_legal_greeting_name($user) : ($user->first_name ?: 'Artista')).',</p><p>non possiamo accettare il master <strong>'.esc_html($name).'</strong>: raggiunge o supera il limite di picco consentito.</p><p>'.esc_html($values).'</p><p>Il picco campione deve restare sotto 0 dBFS e il true peak sotto 0 dBTP, anche per brani già pubblicati. Prepara un nuovo master con margine sotto zero e sostituisci il file prima di completare l’invio. I dati della bozza restano conservati.</p>';
+        $body .= trb_master_premaster_email_guidance($user);
         if(function_exists('trb_resource_artist_email_signature'))$body.=trb_resource_artist_email_signature();
         $headers=strcasecmp($user->user_email,'andrea.tognassi@trbrec.com')===0?array():array('Cc: andrea.tognassi@trbrec.com');
         trb_resource_queue_recipient_email('master-rejected-'.$user->ID.'-'.$hash,$user->user_email,'Master da correggere: '.$name,$body,false,$headers);
     }
     return new WP_Error('MASTER_PEAK_REJECTED',$message.' '.$values,$result);
+}
+
+/** Explain the included mastering route only to eligible artist profiles. */
+function trb_master_premaster_email_guidance($user) {
+    if (!function_exists('trb_portal_user_profile') || !function_exists('trb_portal_profile_has_service')) return '';
+    $profile=trb_portal_user_profile($user);
+    if ($profile==='dds' || !trb_portal_profile_has_service('mastering',$profile)) return '';
+    $settings=function_exists('trb_analysis_settings') ? trb_analysis_settings() : array();
+    $peak=(float)($settings['premaster_peak_max'] ?? -6);
+    return '<p><strong>Puoi affidare il mastering a noi: è incluso nel tuo contratto.</strong> In alternativa al master corretto, esporta dal progetto un vero pre-master e, nello stato del file audio, seleziona «Invio un pre-master e richiedo il mastering del brano».</p><p>Consegna un WAV stereo, minimo 44.100 Hz / 16 bit, preferibilmente 48.000 Hz / 24 bit se disponibili nella sessione originale. Il pre-master deve essere privo di clipping, normalizzazione automatica e limiter aggressivi; consigliamo un true peak non superiore a '.esc_html(number_format($peak,1,',','')).' dBTP. Non occorre raggiungere un valore LUFS prestabilito.</p><p>Non basta rinominare il WAV rifiutato, abbassare il volume di un file già distorto o cambiare soltanto la selezione nel modulo: occorre esportare nuovamente il mix senza il trattamento che ha provocato il clipping. Sostituisci il WAV nel modulo e ripeti «Verifica e continua», poi conferma il riepilogo. Se hai riaperto la pagina, riseleziona anche gli altri allegati richiesti. Ci occuperemo noi del mastering dopo i controlli sul materiale.</p>';
 }

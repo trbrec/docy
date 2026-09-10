@@ -11,6 +11,8 @@ function wp_get_current_user(){return (object)['ID'=>71,'user_email'=>'artist@ex
 function is_email($e){return filter_var($e,FILTER_VALIDATE_EMAIL);}
 function esc_html($s){return htmlspecialchars($s,ENT_QUOTES);}
 function trb_resource_queue_recipient_email($key,$to,$subject,$body,$priority,$headers){$GLOBALS['mail'][$key]=compact('to','subject','body','headers');}
+function trb_portal_user_profile($u){return $GLOBALS['profile']??'ddb';}
+function trb_portal_profile_has_service($s,$p){return $p!=='dds';}
 require dirname(__DIR__).'/inc/trb-master-acceptance.php';
 function verify_master($ok,$s){if(!$ok)throw new RuntimeException($s);}
 $peak=['verified'=>true,'complete_file'=>true,'maximum_dbtp'=>-.1];
@@ -18,7 +20,7 @@ verify_master(trb_master_acceptance_errors($peak,['verified'=>true,'full_scale_s
 verify_master(in_array('PCM_MEASUREMENT_UNAVAILABLE',trb_master_acceptance_errors($peak,[]),true),'Unverified PCM passed');
 $path=tempnam(sys_get_temp_dir(),'master-qa');
 try {
- foreach([.5,1] as $amplitude){
+ foreach([.5,1,.5] as $amplitude){
   $pcm='';for($i=0;$i<44100;$i++){ $value=(int)round(32767*$amplitude*sin(2*M_PI*$i/4));$pcm.=pack('vv',$value&65535,$value&65535); }
   file_put_contents($path,'RIFF'.pack('V',36+strlen($pcm)).'WAVEfmt '.pack('VvvVVvv',16,1,2,44100,176400,4,16).'data'.pack('V',strlen($pcm)).$pcm);
   $hash=hash_file('sha256',$path);$result=trb_master_upload_check($path,'master.wav');
@@ -26,7 +28,7 @@ try {
   verify_master($hash===hash_file('sha256',$path),'Source modified');
   if($amplitude===1){
    trb_master_upload_check($path,'master.wav');verify_master(count($GLOBALS['mail'])===1,'Repeated file queued duplicate notifications');
-   $mail=array_values($GLOBALS['mail'])[0];verify_master($mail['to']==='artist@example.test' && $mail['headers']===['Cc: andrea.tognassi@trbrec.com'],'Wrong artist/CC');
+   $mail=array_values($GLOBALS['mail'])[0];verify_master(str_starts_with($mail['body'],'<p>Gentile Artista,</p>'),'Greeting incorrect');verify_master(str_contains($mail['body'],'vero pre-master'),'Missing included mastering route');$GLOBALS['profile']='dds';verify_master(trb_master_premaster_email_guidance(wp_get_current_user())==='','DDS offered included mastering');$GLOBALS['profile']='ddb';verify_master($mail['to']==='artist@example.test' && $mail['headers']===['Cc: andrea.tognassi@trbrec.com'],'Wrong artist/CC');
    verify_master(str_contains($mail['body'],'dBFS')&&str_contains($mail['body'],'dBTP'),'Missing measurement units');
    verify_master(trb_master_upload_check($path,'premaster.wav','mastering')===true,'Master-only rule unexpectedly blocks premaster');
   }

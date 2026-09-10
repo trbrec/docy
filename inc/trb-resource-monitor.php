@@ -993,6 +993,8 @@ function trb_resource_artist_legal_greeting_name( $user ) {
 	$name = trim( (string) $user->first_name );
 	if ( '' === $name && function_exists( 'trb_portal_artist_profile_value' ) ) {
 		$name = trim( (string) trb_portal_artist_profile_value( 'legal_name', $user->ID ) );
+		$surname = trim((string)$user->last_name);
+		if ($surname !== '' && preg_match('/\s+'.preg_quote($surname, '/').'$/iu', $name)) $name = trim(preg_replace('/\s+'.preg_quote($surname, '/').'$/iu', '', $name));
 	}
 	return '' !== $name ? $name : 'Artista';
 }

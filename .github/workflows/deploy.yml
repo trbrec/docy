@@ -34,6 +34,7 @@ jobs:
         shell: bash
         run: |
           node tests/release-draft-restore.test.js
+          node tests/release-master-retry.test.js
           find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
           php tools/test-release-draft-normalizer.php
           php tools/test-release-staging-cleanup.php
