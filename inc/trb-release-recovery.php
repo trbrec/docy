@@ -26,13 +26,19 @@ function trb_recovery_release( $release_id ) {
 	return $post;
 }
 
+function trb_recovery_ready_for_validation($id) {
+ $phase=get_post_meta($id,'_trb_release_intake_phase',true);
+ $files=get_post_meta($id,'_trb_release_files',true);
+ return in_array($phase,array('files_partial','recovery_review'),true) && is_array($files) && count($files)>0;
+}
+
 function trb_recovery_page() {
 	if ( ! current_user_can( 'manage_options' ) ) return;
 	$id = absint( $_GET['release_id'] ?? 0 );
 	echo '<div class="wrap"><h1>Recupero materiali release</h1><form method="get"><input type="hidden" name="page" value="trb-release-recovery"><label>Numero pratica <input type="number" name="release_id" min="1" value="' . $id . '"></label> <button class="button">Apri materiali ricevuti</button></form>';
 	$post = trb_recovery_release( $id );
 	if ( ! $post ) { echo '<p>Seleziona una pratica incompleta. Le release già completate non vengono modificate da questo strumento.</p></div>'; return; }
-	if ( 'recovery_review' === get_post_meta( $id, '_trb_release_intake_phase', true ) ) {
+	if ( trb_recovery_ready_for_validation($id) ) {
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="trb_recovery_resume"><input type="hidden" name="release_id" value="' . $id . '">';
 		wp_nonce_field( 'trb_recovery_resume_' . $id );
 		echo '<p>La verifica usa i dati salvati e tutti i controlli ordinari. Se validi, avvia archiviazione e analisi; i contratti seguono le regole della pipeline.</p><button class="button button-primary">Riprendi la verifica standard della pratica</button></form>';
@@ -170,7 +176,7 @@ function trb_recovery_resume() {
 	$id = absint( $_POST['release_id'] ?? 0 );
 	check_admin_referer( 'trb_recovery_resume_' . $id );
 	$post = trb_recovery_release( $id );
-	if ( ! $post || 'recovery_review' !== get_post_meta( $id, '_trb_release_intake_phase', true ) ) wp_die( 'Pratica non pronta per la verifica.' );
+	if ( ! $post || !trb_recovery_ready_for_validation($id) ) wp_die( 'Pratica non pronta per la verifica.' );
 	$pairs = get_post_meta( $id, '_trb_release_intake_draft', true );
 	$files = get_post_meta( $id, '_trb_release_files', true );
 	$token = (string) get_post_meta( $id, '_trb_release_submission_token', true );
