@@ -45,12 +45,7 @@ add_action( 'init', 'trb_portal_schedule_launch_campaign', 45 );
 
 /** Prefer the artist name stored in the portal, with a safe account fallback. */
 function trb_portal_launch_campaign_recipient_name( WP_User $user ) {
-	$artist_name = trim( (string) get_user_meta( $user->ID, '_trb_artist_artist_name', true ) );
-	if ( '' !== $artist_name ) {
-		return $artist_name;
-	}
-	$name = trim( (string) $user->display_name );
-	return '' !== $name ? $name : 'Artista';
+	return trb_resource_artist_legal_greeting_name($user);
 }
 
 /** Build the responsive HTML message sent to each artist. */
@@ -65,7 +60,7 @@ function trb_portal_launch_campaign_message( WP_User $user ) {
 	'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 8px 28px rgba(20,31,45,.08);">' .
 	'<tr><td style="background:#101820;padding:30px 42px;color:#ffffff;"><div style="font-size:14px;letter-spacing:1.7px;text-transform:uppercase;color:#e33139;font-weight:700;">TRB rec – Music Publishing</div><h1 style="font-size:30px;line-height:1.2;margin:12px 0 0;color:#ffffff;">Il nuovo portale artisti è online</h1></td></tr>' .
 	'<tr><td style="padding:38px 42px;font-size:16px;line-height:1.7;">' .
-	'<p style="margin:0 0 22px;">Ciao <strong>' . $name . '</strong>,</p>' .
+	'<p style="margin:0 0 22px;">Gentile <strong>' . $name . '</strong>,</p>' .
 	'<p style="margin:0 0 22px;">siamo lieti di annunciarti l’inaugurazione del nuovo portale artisti TRB rec, completamente riprogettato per accompagnarti nella gestione delle pubblicazioni e nel tuo percorso con noi.</p>' .
 	'<p style="margin:0 0 22px;">Non si tratta di un semplice aggiornamento grafico. Abbiamo ricostruito l’intera area riservata con l’obiettivo di riunire in un unico spazio tutto ciò che riguarda la tua attività artistica: identità, materiali, pubblicazioni, servizi, documenti, assistenza e comunicazioni operative.</p>' .
 	'<p style="margin:0 0 30px;">Il portale riconosce automaticamente il tuo percorso con TRB rec e ti mostra esclusivamente le informazioni, le procedure e i servizi pertinenti. In questo modo potrai lavorare con indicazioni più precise, evitando passaggi superflui o informazioni non applicabili alla tua situazione.</p>' .
