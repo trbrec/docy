@@ -1915,8 +1915,9 @@ function trb_portal_stage_release_chunk() {
 	$part_path = trailingslashit( $directory ) . $file_key . '.part';
 	$meta_path = trailingslashit( $directory ) . $file_key . '.json';
 	$meta = file_exists( $meta_path ) ? json_decode( (string) file_get_contents( $meta_path ), true ) : array(); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-	$signature = array( 'name' => $file_name, 'type' => $file_type, 'size' => $file_size, 'last_modified' => $last_modified, 'total' => $chunk_total );
-	$matches = is_array( $meta );
+	$signature = array( 'upload_id' => sanitize_key(wp_unslash($_POST['upload_id'] ?? '')), 'name' => $file_name, 'type' => $file_type, 'size' => $file_size, 'last_modified' => $last_modified, 'total' => $chunk_total );
+	$matches = is_array( $meta ) && is_file($part_path);
+	if ($matches && !empty($meta['complete']) && (int)filesize($part_path) !== $file_size) $matches = false;
 	foreach ( $signature as $key => $value ) if ( ! isset( $meta[ $key ] ) || (string) $meta[ $key ] !== (string) $value ) $matches = false;
 	if ( ! $matches ) {
 		if ( 0 !== $chunk_index ) wp_send_json_error( array( 'message' => 'La sequenza del caricamento è incompleta. Riprova senza ricaricare la pagina.' ), 409 );
@@ -2704,6 +2705,7 @@ function trb_portal_start_release() {
 	}
 	$user_id = get_current_user_id();
 	$profile = trb_portal_user_profile();
+	if (!in_array($profile,array('dds','ddb12','ddb','ddb_trb','trb'),true)) trb_portal_release_submission_response('profile_required',current_user_can('manage_options') ? 'Per il collaudo usa un account artista di test con un gruppo contrattuale assegnato. Questo account amministrativo non può ricevere ISRC.' : 'Il gruppo contrattuale del tuo account non è configurato. Apri una segnalazione: i dati della bozza restano conservati.',422);
 	if ( ! current_user_can( 'manage_options' ) ) {
 		$preliminary_contract = (string) get_user_meta( $user_id, '_trb_artist_preliminary_contract', true );
 		$contract_valid = function_exists( 'trb_release_bridge_validate_preliminary_contract' ) ? trb_release_bridge_validate_preliminary_contract( wp_get_current_user(), $preliminary_contract ) : true;
@@ -2725,6 +2727,7 @@ function trb_portal_start_release() {
 	$submission_token = sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ?? '' ) );
 	$intake_id = trb_intake_record( $user_id, $submission_token, wp_unslash( $_POST ) );
 	if ( is_wp_error( $intake_id ) ) trb_portal_release_submission_response( 'intake_failed', $intake_id->get_error_message(), 409 );
+	trb_intake_recover_stalled($intake_id);
 	$intake_phase = (string) get_post_meta( $intake_id, '_trb_release_intake_phase', true );
 	$intake_pipeline = (string) get_post_meta( $intake_id, '_trb_release_pipeline_status', true );
 	if ( 'complete' === $intake_phase || ( '' === $intake_phase && ! in_array( $intake_pipeline, array( 'upload_failed', 'isrc_assignment_failed' ), true ) ) ) {
@@ -2735,6 +2738,7 @@ function trb_portal_start_release() {
 	}
 	$GLOBALS['trb_verified_intake_id'] = $intake_id;
 	if ( ! empty( $_POST['trb_release_intake_only'] ) ) {
+		trb_intake_refresh_draft($intake_id, wp_unslash($_POST));
 		wp_send_json_success( array( 'status' => 'received', 'release_id' => $intake_id, 'message' => 'Invio ricevuto; acquisizione dei file da completare.' ), 200 );
 	}
 	$title = isset( $_POST['trb_release_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_title'] ) ) : '';
@@ -2894,6 +2898,7 @@ function trb_portal_start_release() {
 		delete_user_meta( $user_id, $submit_lock_key );
 		trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: nessun duplicato.', 200, $intake_id );
 	}
+	update_post_meta( $intake_id, '_trb_release_acquisition_started_at', time() );
 	update_post_meta( $intake_id, '_trb_release_intake_phase', 'acquiring_files' );
 
 	$release_id = wp_update_post(
@@ -2967,6 +2972,8 @@ function trb_portal_start_release() {
 				update_post_meta( $release_id, '_trb_release_date', $release_date );
 				update_post_meta( $release_id, '_trb_release_tracks', $tracks );
 				update_post_meta( $release_id, '_trb_release_files', array_values( array_filter( $release_files, 'is_array' ) ) );
+				update_post_meta( $release_id, '_trb_release_intake_phase', 'files_partial' );
+				update_post_meta( $release_id, '_trb_release_intake_error', 'File conservati. Assegnazione ISRC non completata: recuperare la pratica esistente.' );
 				update_post_meta( $release_id, '_trb_release_pipeline_status', 'isrc_assignment_failed' );
 				update_post_meta( $release_id, '_trb_contract_state', 'data_error' );
 				if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );

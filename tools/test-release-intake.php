@@ -16,7 +16,7 @@ function get_current_user_id(){return 7;}
 function is_user_logged_in(){global $logged;return $logged;}
 function current_user_can($v){return true;}
 function wp_verify_nonce($a,$b){global $nonce;return $nonce;}
-function trb_portal_user_profile(){return 'trb';}
+function trb_portal_user_profile(){return $GLOBALS['test_profile']??'trb';}
 function trb_portal_artist_profile_is_complete(){return true;}
 function trb_portal_is_release_qa_account(){return true;}
 function trb_portal_sanitize_release_tracks($tracks){return $tracks;}
@@ -39,7 +39,7 @@ function submit(){try{trb_portal_start_release();}catch(Reply $r){return $r->pay
 $_POST=['trb_release_submission_token'=>'11111111-1111-1111-1111-111111111111','trb_release_title'=>'QA intake','trb_release_type'=>'single','trb_tracks'=>[['title'=>'Track']], 'trb_release_intake_only'=>'1'];
 $logged=false;check(submit()['status']==='session_expired'&&count($posts)===0,'Unauthenticated receipt created');
 $logged=true;$nonce=false;check(submit()['status']==='security_expired'&&count($posts)===0,'Invalid nonce created receipt');
-$nonce=true;$a=submit();check($a['status']==='received'&&$a['release_id']===1&&count($posts)===1,'Receipt not persisted');
+$nonce=true;$GLOBALS['test_profile']=false;check(submit()['status']==='profile_required'&&count($posts)===0,'Missing profile reached receipt or upload');$GLOBALS['test_profile']='trb';$a=submit();check($a['status']==='received'&&$a['release_id']===1&&count($posts)===1,'Receipt not persisted');
 check(get_post_meta(1,'_trb_release_pipeline_status',true)==='upload_incomplete','Premature pipeline progress');
 check(get_post_meta(1,'_trb_contract_state',true)==='waiting_upload','Premature contracts');
 $b=submit();check($b['release_id']===1&&count($posts)===1,'Duplicate receipt');
@@ -92,3 +92,22 @@ $result=trb_release_pcloud_sync(1);
 $finished=get_post_meta(1,'_trb_release_pcloud_archive',true);
 check(!is_wp_error($result)&&count($finished['files'])===24&&$finished['verified']===true,'Complete batch not recorded');
 echo "PASS pCloud empty batch guard and durable progress with failure at file 7 of 24\n";
+
+update_post_meta(1,'_trb_release_intake_phase','acquiring_files');
+update_post_meta(1,'_trb_release_pipeline_status','upload_incomplete');
+update_post_meta(1,'_trb_release_acquisition_started_at',time());
+check(trb_intake_recover_stalled(1)===false,'Active acquisition interrupted');
+update_post_meta(1,'_trb_release_acquisition_started_at',time()-1900);
+check(trb_intake_recover_stalled(1)===true && get_post_meta(1,'_trb_release_intake_phase',true)==='files_partial','Stale acquisition not recoverable');
+update_post_meta(1,'_trb_release_intake_phase','acquiring_files');
+update_post_meta(1,'_trb_release_acquisition_started_at',0);
+update_post_meta(1,'_trb_release_pipeline_status','isrc_assignment_failed');
+check(trb_intake_recover_stalled(1)===true,'Historical ISRC failure remains stuck');
+update_post_meta(1,'_trb_release_intake_phase','complete');
+check(trb_intake_recover_stalled(1)===false,'Completed intake modified');
+trb_intake_refresh_draft(1,['trb_release_date'=>'2027-01-01']);
+check(get_post_meta(1,'_trb_release_date',true)!=='2027-01-01','Completed data overwritten');
+update_post_meta(1,'_trb_release_intake_phase','validation_failed');
+trb_intake_refresh_draft(1,['trb_release_date'=>'2027-01-01']);
+check(get_post_meta(1,'_trb_release_date',true)==='2027-01-01','Retry kept stale date');
+echo "PASS stale acquisition, historical ISRC recovery, latest retry metadata and completed-intake protection\n";

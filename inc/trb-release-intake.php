@@ -55,6 +55,30 @@ function trb_intake_record( $user_id, $token, $post ) {
 	}
 }
 
+/** Keep retries recoverable from the latest confirmed metadata. */
+function trb_intake_refresh_draft($id, $post) {
+ if (!in_array(get_post_meta($id,'_trb_release_intake_phase',true), array('awaiting_upload','validation_failed'),true)) return;
+ $pairs=json_decode((string)($post['trb_release_payload_json']??''),true);
+ if (is_array($pairs) && function_exists('trb_portal_normalize_release_draft_pairs')) update_post_meta($id,'_trb_release_intake_draft',trb_portal_normalize_release_draft_pairs($pairs));
+ $title=sanitize_text_field($post['trb_release_title']??'');
+ if ($title!=='') wp_update_post(array('ID'=>$id,'post_title'=>$title));
+ foreach(array('type','state','date','original_date') as $field) update_post_meta($id,'_trb_release_'.$field,sanitize_text_field($post['trb_release_'.$field]??''));
+ if (isset($post['trb_tracks']) && is_array($post['trb_tracks'])) update_post_meta($id,'_trb_release_tracks',trb_portal_sanitize_release_tracks(array_slice($post['trb_tracks'],0,24,true)));
+}
+
+/** Release only interrupted acquisition to manual recovery, never to approval. */
+function trb_intake_recover_stalled($id) {
+ if (get_post_meta($id,'_trb_release_intake_phase',true)!=='acquiring_files') return false;
+ $isrc=get_post_meta($id,'_trb_release_pipeline_status',true)==='isrc_assignment_failed';
+ $started=(int)get_post_meta($id,'_trb_release_acquisition_started_at',true);
+ if (!$isrc && (!$started || time()-$started<=30*MINUTE_IN_SECONDS)) return false;
+ update_post_meta($id,'_trb_release_intake_phase','files_partial');
+ update_post_meta($id,'_trb_release_intake_error','Elaborazione interrotta. Dati e file conservati: la Direzione può riprendere la verifica dalla pratica esistente.');
+ if (!$isrc) update_post_meta($id,'_trb_release_pipeline_status','upload_failed');
+ trb_intake_sync($id);
+ return true;
+}
+
 function trb_intake_failure( $status, $message ) {
 	if ( ! is_user_logged_in() ) return 0;
 	$token = sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ?? '' ) );
