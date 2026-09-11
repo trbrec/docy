@@ -4938,7 +4938,7 @@ function trb_portal_render_release_status( $release_id ) {
 function trb_portal_render_cover_guidance() {
 	?>
 	<div class="trb-cover-guidance" style="margin-top:12px;padding:12px 14px;border-left:3px solid #78909c;background:#f5f7f9;font-size:14px;line-height:1.55">
-		<p style="margin:0"><strong>Scritte consentite sulla copertina</strong><br>La copertina può essere priva di testo. Se contiene scritte, sono consentiti esclusivamente <strong>il titolo della release e l’eventuale nome d’arte</strong>, corrispondenti ai dati inseriti nel modulo. <strong>Qualsiasi altra scritta è vietata.</strong> L’unica eccezione è l’etichetta <strong>Parental Advisory</strong>, facoltativa e ammessa soltanto per contenuti espliciti.</p>
+		<p style="margin:0"><strong>Scritte consentite sulla copertina</strong><br>La copertina può essere priva di testo. Se presente, può riportare esclusivamente il <strong>TITOLO</strong> ed eventuale <strong>NOME D’ARTE PRIMARIO</strong> inseriti nella presente modulistica. L’unica eccezione è il bollino facoltativo <em>Parental Advisory</em> per i contenuti espliciti.</p>
 		<details style="margin-top:8px">
 			<summary style="cursor:pointer;font-weight:600">Requisiti della copertina</summary>
 			<ul style="margin:10px 0 0;padding-left:20px">
