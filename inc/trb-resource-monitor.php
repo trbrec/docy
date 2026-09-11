@@ -3,6 +3,7 @@
 
 
 if ( ! defined( 'ABSPATH' ) ) exit;
+require_once __DIR__ . '/trb-acr-wallet.php';
 
 
 define( 'TRB_RESOURCE_MONITOR_VERSION', '1.2.4' );
@@ -13,6 +14,7 @@ function trb_resource_settings() {
 		'admin_email' => 'info@trbrec.com',
 		'acr_enabled' => 0, 'acr_paid_confirmed' => 0, 'acr_token' => '', 'acr_container_id' => '', 'acr_fingerprint_container_id' => '', 'acr_region' => 'eu-west-1',
 		'acr_monthly_budget' => 5.00, 'acr_fingerprint_max' => 0.05, 'acr_deepright_minute_max' => 0.001,
+		'acr_wallet_low_usd' => 10.00,
 		'acr_cover_minute_max' => 0.001, 'acr_metadata_call_max' => 0.01, 'acr_engine' => 3, 'acr_deepright' => 1,
 		'acr_excerpt_seconds' => 90, 'acr_excerpt_offset' => 30,
 		'pcloud_api_host' => 'https://eapi.pcloud.com', 'pcloud_auth_token' => '', 'pcloud_token_type' => 'auth', 'pcloud_safety_bytes' => 1073741824,
@@ -178,6 +180,13 @@ function trb_resource_process_notifications() {
 	$sent_today = (int) get_option( 'trb_resource_email_sent_' . wp_date( 'Ymd' ), 0 );
 	$rows = $wpdb->get_results( "SELECT * FROM $table WHERE status IN ('pending','retry') AND attempts<5 ORDER BY id ASC LIMIT 20" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	foreach ( $rows as $row ) {
+		if ( 0 === strpos( (string) $row->event_key, 'acr-wallet-' ) ) {
+			$wallet_state = trb_acr_wallet_state();
+			if ( ! in_array( $wallet_state, array( 'low', 'empty' ), true ) || 0 !== strpos( (string) $row->event_key, 'acr-wallet-' . $wallet_state . '-' ) ) {
+				$wpdb->update( $table, array( 'status' => 'cancelled_obsolete', 'last_error' => 'wallet_alert_not_current', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) ); continue;
+			}
+			$row->body = trb_acr_wallet_message();
+		}
 		if ( preg_match( '/^acr-budget-(?:75|80)-/', (string) $row->event_key ) ) {
 			$wpdb->update( $table, array( 'status' => 'cancelled_obsolete', 'last_error' => 'internal_budget_is_not_wallet_credit', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) ); continue;
 		}
@@ -406,6 +415,7 @@ function trb_resource_provider_shape( $value, $depth = 0 ) {
 
 /** Read the current billed amount through ACRCloud's bearer-token Console API. */
 function trb_resource_acr_current_bill() {
+	update_option( 'trb_acr_wallet_attempt', array( 'checked_at' => time(), 'ok' => false ), false );
 	$settings = trb_resource_settings();
 	$billing_token = trim( (string) ( $settings['acr_billing_token'] ?? '' ) );
 	if ( '' === $billing_token ) return new WP_Error( 'ACR_BILLING_TOKEN_MISSING' );
@@ -430,6 +440,7 @@ function trb_resource_acr_current_bill() {
 		'state' => isset( $bill['state'] ) ? absint( $bill['state'] ) : null,
 	);
 	update_option( 'trb_resource_acr_bill_snapshot', $snapshot, false );
+	trb_acr_wallet_record( $bill );
 	trb_resource_resolve_event( 'billing-' . trb_resource_period_key(), 'acrcloud' );
 	return $snapshot;
 }
@@ -1601,6 +1612,7 @@ function trb_resource_render_admin() {
 		$boolean = array( 'acr_enabled', 'acr_paid_confirmed', 'acr_deepright' );
 		$numeric = array( 'acr_monthly_budget','acr_fingerprint_max','acr_deepright_minute_max','acr_cover_minute_max','acr_metadata_call_max','acr_engine','acr_excerpt_seconds','acr_excerpt_offset','pcloud_safety_bytes','pcloud_warning_1','pcloud_warning_2','pcloud_warning_3','pcloud_block','temp_warning_1','temp_warning_2','temp_block','temp_file_multiplier','temp_min_free_bytes','email_daily_limit' );
 		$updated = $settings;
+		if ( isset( $_POST['acr_wallet_low_usd'] ) && is_numeric( $_POST['acr_wallet_low_usd'] ) ) $updated['acr_wallet_low_usd'] = max( 0, (float) $_POST['acr_wallet_low_usd'] );
 		foreach ( $boolean as $field ) $updated[ $field ] = isset( $_POST[ $field ] ) ? 1 : 0;
 		foreach ( $numeric as $field ) if ( isset( $_POST[ $field ] ) ) $updated[ $field ] = (float) wp_unslash( $_POST[ $field ] );
 		foreach ( array( 'admin_email','acr_container_id','acr_region','pcloud_api_host' ) as $field ) if ( isset( $_POST[ $field ] ) ) $updated[ $field ] = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
@@ -1624,7 +1636,7 @@ function trb_resource_render_admin() {
 	<form method="post"><?php wp_nonce_field( 'trb_provider_check' ); ?><button class="button" name="trb_provider_check" value="1">Verifica collegamenti provider</button></form><details><summary>Diagnostica collegamenti</summary><pre><?php echo esc_html( wp_json_encode( array( 'acrcloud' => get_option( 'trb_resource_acr_bill_diagnostic', array() ), 'pcloud' => get_option( 'trb_resource_pcloud_api_diagnostic', array() ) ), JSON_PRETTY_PRINT ) ); ?></pre></details>
 	<h2>Quadro corrente</h2><table class="widefat striped"><tbody>
 	<tr><th>Impegno massimo prudenziale ACRCloud</th><td><?php echo esc_html( number_format_i18n( $spent, 4 ) . ' / ' . number_format_i18n( $budget, 2 ) . ' USD (' . number_format_i18n( $percent, 1 ) . '%)' ); ?></td></tr>
-	<tr><th>Credito disponibile ACRCloud</th><td>Non sincronizzato: consultare il saldo nella console ACRCloud. Nessun allarme sul credito viene calcolato usando il limite interno di spesa.</td></tr>
+	<tr><th>Credito disponibile ACRCloud</th><td><?php echo esc_html( trb_acr_wallet_notice() ); ?></td></tr>
 	<tr><th>Limite interno di spesa</th><td><?php echo esc_html( trb_resource_acr_budget_notice( $spent, $budget ) ); ?> Al raggiungimento del limite le nuove analisi a pagamento vengono sospese dal portale.</td></tr>
 	<tr><th>Tracce / richieste</th><td><?php echo esc_html( absint( isset( $stats['tracks'] ) ? $stats['tracks'] : 0 ) . ' / ' . absint( isset( $stats['requests'] ) ? $stats['requests'] : 0 ) ); ?></td></tr>
 	<tr><th>Stima massima media / proiezione stimata fine mese</th><td><?php echo esc_html( number_format_i18n( $average, 4 ) . ' USD / ' . number_format_i18n( $projection, 4 ) . ' USD' ); ?></td></tr>
@@ -1641,7 +1653,7 @@ function trb_resource_render_admin() {
 	<h2>Configurazione</h2><form method="post"><?php wp_nonce_field( 'trb_resource_save' ); ?><table class="form-table"><tbody>
 	<tr><th>Email amministrativa</th><td><input type="email" class="regular-text" name="admin_email" value="<?php echo esc_attr( $settings['admin_email'] ); ?>"></td></tr>
 	<tr><th>ACRCloud</th><td><label><input type="checkbox" name="acr_enabled" <?php checked( $settings['acr_enabled'] ); ?>> Abilita analisi reali</label><br><label><input type="checkbox" name="acr_paid_confirmed" <?php checked( $settings['acr_paid_confirmed'] ); ?>> Confermo piano Premium/pay-per-use e pagamento verificato</label><br><label><input type="checkbox" name="acr_deepright" <?php checked( $settings['acr_deepright'] ); ?>> DeepRight abilitato</label><p><input type="password" class="regular-text" name="acr_token" placeholder="Token invariato se vuoto"> <input name="acr_container_id" value="<?php echo esc_attr( $settings['acr_container_id'] ); ?>" placeholder="Container ID"> <select name="acr_region"><option value="eu-west-1" <?php selected( $settings['acr_region'], 'eu-west-1' ); ?>>EU</option><option value="us-west-2" <?php selected( $settings['acr_region'], 'us-west-2' ); ?>>US</option><option value="ap-southeast-1" <?php selected( $settings['acr_region'], 'ap-southeast-1' ); ?>>AP</option></select></p><p>Motore <select name="acr_engine"><option value="1" <?php selected( $settings['acr_engine'], 1 ); ?>>Fingerprinting</option><option value="2" <?php selected( $settings['acr_engine'], 2 ); ?>>Cover Song</option><option value="3" <?php selected( $settings['acr_engine'], 3 ); ?>>Entrambi</option></select> Estratto massimo <input name="acr_excerpt_seconds" value="<?php echo esc_attr( $settings['acr_excerpt_seconds'] ); ?>" size="4"> secondi consecutivi dopo il solo silenzio tecnico iniziale, senza ricampionamento o elaborazioni.</p></td></tr>
-	<tr><th>Accesso contabile ACRCloud</th><td><label>Token di sola lettura fatturazione <input type="password" name="acr_billing_token" autocomplete="new-password" value="" placeholder="Invariato se vuoto"></label><p>Usa un token separato con il solo permesso read-billing. Il token delle analisi audio resta separato. <?php echo empty( $settings['acr_billing_token'] ) ? 'Non configurato.' : 'Configurato.'; ?></p></td></tr>
+	<tr><th>Accesso contabile ACRCloud</th><td><label>Token di sola lettura fatturazione <input type="password" name="acr_billing_token" autocomplete="new-password" value="" placeholder="Invariato se vuoto"></label><p>Usa un token separato con il solo permesso read-billing. Il token delle analisi audio resta separato. <?php echo empty( $settings['acr_billing_token'] ) ? 'Non configurato.' : 'Configurato.'; ?></p><label>Avviso con saldo inferiore a (USD) <input type="number" min="0" step="0.01" name="acr_wallet_low_usd" value="<?php echo esc_attr( $settings['acr_wallet_low_usd'] ); ?>"></label><p>Avviso una volta al passaggio sotto soglia; esaurimento solo con saldo ACRCloud non positivo. Nessun allarme sul saldo se la lettura fallisce o è scaduta.</p></td></tr>
 	<tr><th>Limite interno e stime massime USD</th><td>Budget <input type="number" step="0.01" name="acr_monthly_budget" value="<?php echo esc_attr( $settings['acr_monthly_budget'] ); ?>"> Fingerprint <input type="number" step="0.000001" name="acr_fingerprint_max" value="<?php echo esc_attr( $settings['acr_fingerprint_max'] ); ?>"> DeepRight/min <input type="number" step="0.000001" name="acr_deepright_minute_max" value="<?php echo esc_attr( $settings['acr_deepright_minute_max'] ); ?>"> Cover/min <input type="number" step="0.000001" name="acr_cover_minute_max" value="<?php echo esc_attr( $settings['acr_cover_minute_max'] ); ?>"> Metadata <input type="number" step="0.000001" name="acr_metadata_call_max" value="<?php echo esc_attr( $settings['acr_metadata_call_max'] ); ?>"></td></tr>
 	<tr><th>pCloud API</th><td><input class="regular-text" name="pcloud_api_host" value="<?php echo esc_attr( $settings['pcloud_api_host'] ); ?>"><br><input type="password" class="regular-text" name="pcloud_auth_token" placeholder="Token invariato se vuoto"><label>Tipo token <select name="pcloud_token_type"><option value="auth" <?php selected( $settings['pcloud_token_type'], 'auth' ); ?>>Token di sessione API (auth)</option><option value="oauth" <?php selected( $settings['pcloud_token_type'], 'oauth' ); ?>>OAuth (access_token)</option></select></label><p>Serve un token API autorizzato per leggere quota e spazio libero. I trasferimenti usano separatamente WebDAV; la password WebDAV non viene riutilizzata per il login API.</p></td></tr>
 	<tr><th>Soglie pCloud %</th><td><input name="pcloud_warning_1" value="<?php echo esc_attr( $settings['pcloud_warning_1'] ); ?>" size="4"> / <input name="pcloud_warning_2" value="<?php echo esc_attr( $settings['pcloud_warning_2'] ); ?>" size="4"> / <input name="pcloud_warning_3" value="<?php echo esc_attr( $settings['pcloud_warning_3'] ); ?>" size="4"> / blocco <input name="pcloud_block" value="<?php echo esc_attr( $settings['pcloud_block'] ); ?>" size="4"> Margine byte <input name="pcloud_safety_bytes" value="<?php echo esc_attr( $settings['pcloud_safety_bytes'] ); ?>"></td></tr>

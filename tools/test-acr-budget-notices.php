@@ -24,3 +24,20 @@ foreach ( array(
 	array( 'result'=>0, 'quota'=>1000, 'usedquota'=>NAN )
 ) as $data ) check_budget( ! trb_resource_pcloud_quota_valid( $data ), 'Reject unavailable, failed or malformed quota.' );
 echo "Provider accounting boundaries passed.\n";
+
+// Captured, non-sensitive provider values verified against the console on 2026-09-11.
+$wallet = trb_acr_wallet_parse( array( 'amount' => 0.86, 'credit' => 4.63, 'balance' => 45.37 ), 10000 );
+check_budget( 45.37 === $wallet['balance'], 'Use provider balance, never billed amount or credit.' );
+foreach ( array( array(), array( 'amount'=>0, 'credit'=>0 ), array( 'balance'=>null ), array( 'balance'=>'unknown' ), array( 'balance'=>INF ), array( 'balance'=>NAN ) ) as $invalid ) {
+	check_budget( null === trb_acr_wallet_parse( $invalid, 10000 ), 'Missing or invalid wallet is not zero credit.' );
+}
+$ok = array( 'ok'=>true, 'checked_at'=>10000 );
+check_budget( 'healthy' === trb_acr_wallet_classify( $wallet, $ok, 10001, 10 ), 'Available credit must not alert.' );
+check_budget( 'unknown' === trb_acr_wallet_classify( array(), $ok, 10001 ), 'No balance is unknown.' );
+check_budget( 'stale' === trb_acr_wallet_classify( $wallet, $ok, 17201 ), 'Expired balances must not alert.' );
+check_budget( 'stale' === trb_acr_wallet_classify( $wallet, array( 'ok'=>false, 'checked_at'=>10001 ), 10002 ), 'HTTP failure invalidates freshness, not the saved balance.' );
+foreach ( array( array(0,'empty'), array(-1,'empty'), array(9.99,'low'), array(10,'healthy') ) as $case ) {
+	$s = trb_acr_wallet_parse( array( 'balance'=>$case[0] ), 10000 );
+	check_budget( $case[1] === trb_acr_wallet_classify( $s, $ok, 10001, 10 ), 'Provider wallet threshold boundary.' );
+}
+echo "Provider wallet balance and freshness passed.\n";
