@@ -417,6 +417,7 @@ function trb_resource_acr_current_bill() {
 	$code = (int) wp_remote_retrieve_response_code( $response );
 	$payload = json_decode( wp_remote_retrieve_body( $response ), true );
 	$bill = is_array( $payload ) && isset( $payload['data'] ) && is_array( $payload['data'] ) ? $payload['data'] : array();
+	update_option( 'trb_resource_acr_bill_diagnostic', array( 'checked_at' => time(), 'http' => $code, 'shape' => trb_resource_provider_shape( $payload ) ), false );
 	if ( $code < 200 || $code >= 300 || ! isset( $bill['amount'] ) || ! is_numeric( $bill['amount'] ) ) {
 		update_option( 'trb_resource_acr_bill_diagnostic', array( 'http' => $code, 'shape' => trb_resource_provider_shape( $payload ) ), false );
 		return new WP_Error( 'ACR_BILLING_RESPONSE_INVALID', 'HTTP ' . $code );
