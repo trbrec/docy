@@ -4938,14 +4938,14 @@ function trb_portal_render_release_status( $release_id ) {
 function trb_portal_render_cover_guidance() {
 	?>
 	<div class="trb-cover-guidance" style="margin-top:12px;padding:12px 14px;border-left:3px solid #78909c;background:#f5f7f9;font-size:14px;line-height:1.55">
-		<p style="margin:0"><strong>Testi e informazioni sulla copertina</strong><br>Il testo non è obbligatorio. Se presente, titolo (incluse eventuali versioni), nome artista e featuring devono corrispondere ai dati della release. Usa solo immagini e contenuti di cui possiedi i diritti.</p>
+		<p style="margin:0"><strong>Scritte consentite sulla copertina</strong><br>La copertina può essere priva di testo. Se contiene scritte, sono consentiti esclusivamente <strong>il titolo della release e l’eventuale nome d’arte</strong>, corrispondenti ai dati inseriti nel modulo. <strong>Qualsiasi altra scritta è vietata.</strong> L’unica eccezione è l’etichetta <strong>Parental Advisory</strong>, facoltativa e ammessa soltanto per contenuti espliciti.</p>
 		<details style="margin-top:8px">
-			<summary style="cursor:pointer;font-weight:600">Leggi le regole e cosa evitare</summary>
+			<summary style="cursor:pointer;font-weight:600">Requisiti della copertina</summary>
 			<ul style="margin:10px 0 0;padding-left:20px">
-				<li><strong>Titolo e artisti:</strong> riporta esattamente i metadati, comprese diciture come “Acoustic Version”. Gli eventuali featuring devono essere indicati anche nei crediti della release.</li>
+				<li><strong>Titolo e nome d’arte:</strong> devono corrispondere esattamente ai dati della release. Non aggiungere sottotitoli, slogan, dediche, crediti di produzione o altre diciture.</li>
 				<li><strong>Parental Advisory:</strong> è facoltativo e va usato soltanto se il contenuto è contrassegnato come esplicito nel modulo.</li>
-				<li><strong>Niente promozioni o contatti:</strong> evita loghi e nomi delle piattaforme, “Out Now”, date d’uscita, offerte, prezzi, social, siti, email, telefoni, QR e codici a barre.</li>
-				<li><strong>Niente confezioni simulate:</strong> evita CD o custodie in 3D, finti adesivi e diciture “CD”, “DVD” o “Cassette”.</li>
+				<li><strong>Nessun testo aggiuntivo:</strong> non sono consentiti BPM, date o timbri data della fotocamera, nomi di etichette, marchi, loghi di piattaforme, “Out Now”, offerte, prezzi, contatti, siti, social, QR o codici a barre. Il divieto vale anche per scritte decorative o già presenti nella fotografia.</li>
+				<li><strong>Niente confezioni simulate:</strong> non sono ammesse riproduzioni di CD o custodie in 3D, finti adesivi e diciture “CD”, “DVD” o “Cassette”.</li>
 				<li><strong>Diritti e contenuti:</strong> niente marchi, personaggi o immagini senza autorizzazione, pornografia, incitamento all’odio, apologia del nazismo o violenza estrema e gratuita.</li>
 			</ul>
 		</details>
