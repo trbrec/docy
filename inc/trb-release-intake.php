@@ -1,6 +1,7 @@
 <?php
 /** Durable receipt for confirmed submissions, independent of file acquisition. */
 if ( ! defined( 'ABSPATH' ) ) exit;
+require_once __DIR__ . '/trb-release-integrity.php';
 
 function trb_intake_find( $user_id, $token ) {
 	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $token ) ) return 0;
@@ -18,14 +19,22 @@ function trb_intake_sync( $release_id ) {
 
 function trb_intake_record( $user_id, $token, $post ) {
 	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $token ) ) return new WP_Error( 'invalid_token', 'Identificativo invio non valido.' );
-	$existing = trb_intake_find( $user_id, $token );
-	if ( $existing ) return $existing;
-	// An option has a database-unique key, unlike user/post metadata.
-	$lock = 'trb_intake_' . hash( 'sha256', $user_id . ':' . $token );
-	if ( ! add_option( $lock, time(), '', false ) ) return new WP_Error( 'intake_busy', 'Registrazione della ricevuta in corso. Attendi e riprova con lo stesso modulo.' );
+	// Lock the artist, not the token: two tabs can hold different tokens.
+	$lock = trb_release_process_lock( 'intake-user:' . absint( $user_id ) );
+	if ( ! $lock ) return new WP_Error( 'intake_busy', 'Registrazione della ricevuta in corso. Attendi e riprova con lo stesso modulo.' );
 	try {
 		$existing = trb_intake_find( $user_id, $token );
-		if ( $existing ) return $existing;
+		if ( $existing ) {
+			if ( trb_release_is_inactive( $existing ) ) return new WP_Error( 'release_cancelled', 'Questa pratica è stata annullata. Apri una nuova bozza.' );
+			if ( 'complete' === get_post_meta( $existing, '_trb_release_intake_phase', true ) ) {
+				$previous = array( 'trb_release_title' => get_post($existing)->post_title, 'trb_release_type' => get_post_meta($existing,'_trb_release_type',true), 'trb_tracks' => get_post_meta($existing,'_trb_release_tracks',true) );
+				if ( trb_intake_project_identity($post) !== trb_intake_project_identity($previous) ) return new WP_Error( 'receipt_completed', 'Questa ricevuta appartiene a una pratica già inviata. Per un altro progetto apri una nuova bozza: i nuovi dati non sono stati inviati.', $existing );
+			}
+			return $existing;
+		}
+		if ( ! trb_intake_project_identity( $post ) ) return new WP_Error( 'invalid', 'Inserisci il titolo della release, la tipologia e il titolo di ciascun brano prima di inviare.' );
+		$conflict = trb_intake_project_conflict( $user_id, $post );
+		if ( $conflict ) return new WP_Error( 'existing_release', 'Esiste già la pratica #' . $conflict . ' con questo titolo e questi brani. Aprila da «Il tuo catalogo» e usa «Riprendi il caricamento di questa pratica» se incompleta. Nessuna nuova pratica è stata creata. Se intendi pubblicare una nuova edizione distinta, apri una segnalazione.', $conflict );
 		$title = sanitize_text_field( $post['trb_release_title'] ?? '' );
 		$raw_tracks = isset( $post['trb_tracks'] ) && is_array( $post['trb_tracks'] ) ? array_slice( $post['trb_tracks'], 0, 24, true ) : array();
 		$tracks = trb_portal_sanitize_release_tracks( $raw_tracks );
@@ -51,7 +60,7 @@ function trb_intake_record( $user_id, $token, $post ) {
 		if ( ! is_wp_error( $id ) && $id ) trb_intake_sync( $id );
 		return $id ?: new WP_Error( 'intake_failed', 'Impossibile registrare la ricevuta.' );
 	} finally {
-		delete_option( $lock );
+		trb_release_process_unlock( $lock );
 	}
 }
 
@@ -68,15 +77,25 @@ function trb_intake_refresh_draft($id, $post) {
 
 /** Release only interrupted acquisition to manual recovery, never to approval. */
 function trb_intake_recover_stalled($id) {
+ if (trb_release_is_inactive($id)) return false;
  if (get_post_meta($id,'_trb_release_intake_phase',true)!=='acquiring_files') return false;
  $isrc=get_post_meta($id,'_trb_release_pipeline_status',true)==='isrc_assignment_failed';
  $started=(int)get_post_meta($id,'_trb_release_acquisition_started_at',true);
  if (!$isrc && (!$started || time()-$started<=30*MINUTE_IN_SECONDS)) return false;
+ $lock=trb_release_process_lock('release:'.absint($id));
+ if (!$lock) return false;
+ try {
+ $checkpoint=get_post_meta($id,'_trb_release_acquired_files',true);
+ $files=get_post_meta($id,'_trb_release_files',true);
+ $merged=array();
+ foreach(array_merge(is_array($files)?$files:array(),is_array($checkpoint)?$checkpoint:array()) as $file) if(is_array($file)&&!empty($file['path'])) $merged[$file['kind'].':'.(string)$file['track']]=$file;
+ if($merged) update_post_meta($id,'_trb_release_files',array_values($merged));
  update_post_meta($id,'_trb_release_intake_phase','files_partial');
  update_post_meta($id,'_trb_release_intake_error','Elaborazione interrotta. Dati e file conservati: la Direzione può riprendere la verifica dalla pratica esistente.');
  if (!$isrc) update_post_meta($id,'_trb_release_pipeline_status','upload_failed');
  trb_intake_sync($id);
  return true;
+ } finally { trb_release_process_unlock($lock); }
 }
 
 function trb_intake_failure( $status, $message ) {

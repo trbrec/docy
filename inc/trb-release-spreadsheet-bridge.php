@@ -723,6 +723,7 @@ add_action( 'updated_post_meta', 'trb_release_bridge_meta_written', 10, 4 );
 
 function trb_release_bridge_queue_dispatch( $release_id ) {
 	$release_id = absint( $release_id );
+	if ( trb_release_is_inactive($release_id) ) return;
 	if ( 'trb_release' !== get_post_type( $release_id ) || 'approved' !== get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) return;
 	if ( function_exists( 'trb_portal_release_is_qa' ) && trb_portal_release_is_qa( $release_id ) ) {
 		update_post_meta( $release_id, '_trb_contract_state', 'qa_simulated' );
@@ -813,8 +814,7 @@ function trb_release_bridge_retry_dispatch() {
     $release_id = isset( $_GET['release_id'] ) ? absint( $_GET['release_id'] ) : 0;
     check_admin_referer( 'trb_release_bridge_retry_' . $release_id );
     if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) ) wp_die( 'Pratica non valida.' );
-    update_post_meta( $release_id, '_trb_contract_state', 'preparing' );
-    delete_post_meta( $release_id, '_trb_contract_error' );
+    // Dispatch owns the lock and preserves contract_sent/signed on a late retry.
     trb_release_bridge_dispatch( $release_id );
     wp_safe_redirect( get_edit_post_link( $release_id, 'url' ) );
     exit;
@@ -1112,6 +1112,16 @@ function trb_release_bridge_notify_spreadsheet_signed( $release_id ) {
 }
 
 function trb_release_bridge_dispatch( $release_id ) {
+	if ( trb_release_is_inactive( $release_id ) ) return;
+	$lock = trb_release_process_lock( 'release:' . absint( $release_id ) );
+	if ( ! $lock ) {
+		if (!wp_next_scheduled('trb_release_bridge_dispatch',array($release_id))) wp_schedule_single_event(time()+60,'trb_release_bridge_dispatch',array($release_id));
+		return;
+	}
+	try {
+	if ( trb_release_is_inactive($release_id) ) return;
+	$phase = get_post_meta($release_id,'_trb_release_intake_phase',true);
+	if ($phase && 'complete' !== $phase) return;
 	if ( function_exists( 'trb_portal_release_is_qa' ) && trb_portal_release_is_qa( $release_id ) ) {
 		update_post_meta( $release_id, '_trb_contract_state', 'qa_simulated' );
 		update_post_meta( $release_id, '_trb_contract_qa_simulated_at', current_time( 'mysql', true ) );
@@ -1121,6 +1131,7 @@ function trb_release_bridge_dispatch( $release_id ) {
     $current = get_post_meta( $release_id, '_trb_contract_state', true );
     if ( in_array( $current, array( 'contract_sent', 'signed' ), true ) ) return;
     if ( 'approved' !== get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) { update_post_meta($release_id,'_trb_contract_state','waiting_analysis'); return; }
+    if (!trb_release_technical_is_current($release_id)) { update_post_meta($release_id,'_trb_contract_state','waiting_analysis'); update_post_meta($release_id,'_trb_release_pipeline_status','archived_pending_analysis'); return; }
     $payload = trb_release_bridge_payload( $release_id );
     if ( is_wp_error( $payload ) ) { update_post_meta($release_id,'_trb_contract_state','data_error'); update_post_meta($release_id,'_trb_contract_error',$payload->get_error_message()); return; }
     $s = trb_release_bridge_settings();
@@ -1133,8 +1144,10 @@ function trb_release_bridge_dispatch( $release_id ) {
     $body = json_decode( wp_remote_retrieve_body( $response ), true );
     if ( wp_remote_retrieve_response_code( $response ) >= 300 || empty( $body['success'] ) ) { update_post_meta($release_id,'_trb_contract_state','dispatch_error'); update_post_meta($release_id,'_trb_contract_error',sanitize_text_field($body['error']??wp_remote_retrieve_body($response))); return; }
     update_post_meta($release_id,'_trb_contract_state','contract_sent'); update_post_meta($release_id,'_trb_contract_sent_at',current_time('mysql',true));
+    delete_post_meta($release_id,'_trb_contract_error');
     if ( ! empty($body['contract_number']) ) update_post_meta($release_id,'_trb_contract_number',sanitize_text_field($body['contract_number']));
     if ( ! empty($body['dossier_id']) ) update_post_meta($release_id,'_trb_otp_dossier_id',sanitize_text_field($body['dossier_id']));
+	} finally { trb_release_process_unlock( $lock ); }
 }
 add_action( 'trb_release_bridge_dispatch', 'trb_release_bridge_dispatch', 10, 1 );
 
@@ -1150,6 +1163,9 @@ function trb_release_bridge_callback_url() {
 function trb_release_bridge_apply_callback( $payload ) {
     $release_id = absint( $payload['release_id'] ?? 0 );
     if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) ) return new WP_Error( 'not_found', 'Release non trovata.', array( 'status' => 404 ) );
+	if ( trb_release_is_inactive($release_id) ) return new WP_Error('release_cancelled','Pratica annullata.',array('status'=>409));
+	$status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
+	if ( ! in_array( $status, array( 'completed', 'contract_sent' ), true ) ) return new WP_Error( 'status_invalid', 'Stato firma non valido.', array( 'status' => 400 ) );
 
     $dossier_id = sanitize_text_field( (string) ( $payload['dossier_id'] ?? '' ) );
     if ( ! $dossier_id ) return new WP_Error( 'dossier_missing', 'Dossier OTP mancante.', array( 'status' => 400 ) );

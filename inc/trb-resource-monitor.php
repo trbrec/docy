@@ -709,6 +709,17 @@ function trb_resource_poll_dual_acr_job( $ledger_id ) {
 	global $wpdb; $table = trb_resource_tables()['usage'];
 	$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id=%d", absint( $ledger_id ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	if ( ! $row || ! $row->provider_reference || 'cancelled' === $row->status || 'trash' === get_post_status( $row->release_id ) ) return;
+	$job_lock = trb_release_process_lock('release:'.absint($row->release_id));
+	if (!$job_lock) {
+		if (!wp_next_scheduled('trb_resource_poll_dual_acr_job',array((int)$row->id))) wp_schedule_single_event(time()+60,'trb_resource_poll_dual_acr_job',array((int)$row->id));
+		return;
+	}
+	try {
+	if (!trb_release_current_audio_hash($row->release_id,$row->track_index,$row->file_hash)) {
+		// Stop obsolete work while retaining its cost amounts and provider history.
+		$wpdb->update($table,array('status'=>'cancelled','last_error'=>'superseded_audio','updated_at'=>trb_resource_now()),array('id'=>$row->id));
+		return;
+	}
 	$envelope = json_decode( (string) $row->payload, true );
 	$container_id = absint( $envelope['trb_container_id'] ?? 0 );
 	$expected_engine = absint( $envelope['trb_expected_engine'] ?? 0 );
@@ -741,6 +752,7 @@ function trb_resource_poll_dual_acr_job( $ledger_id ) {
 		update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'copyright_review' );
 		if ( function_exists( 'trb_analysis_decide_release' ) ) trb_analysis_decide_release( absint( $row->release_id ) );
 	}
+	} finally { trb_release_process_unlock($job_lock); }
 }
 add_action( 'trb_resource_poll_dual_acr_job', 'trb_resource_poll_dual_acr_job' );
 
@@ -943,6 +955,17 @@ add_action( 'trb_resource_start_release_analysis_manual', 'trb_resource_start_re
 function trb_resource_poll_acr_job( $ledger_id ) {
 	global $wpdb; $table = trb_resource_tables()['usage']; $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id=%d", absint( $ledger_id ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	if ( ! $row || ! $row->provider_reference || 'cancelled' === $row->status || 'trash' === get_post_status( $row->release_id ) ) return;
+	$job_lock = trb_release_process_lock('release:'.absint($row->release_id));
+	if (!$job_lock) {
+		if (!wp_next_scheduled('trb_resource_poll_acr_job',array((int)$row->id))) wp_schedule_single_event(time()+60,'trb_resource_poll_acr_job',array((int)$row->id));
+		return;
+	}
+	try {
+	if (!trb_release_current_audio_hash($row->release_id,$row->track_index,$row->file_hash)) {
+		// Stop obsolete work while retaining its cost amounts and provider history.
+		$wpdb->update($table,array('status'=>'cancelled','last_error'=>'superseded_audio','updated_at'=>trb_resource_now()),array('id'=>$row->id));
+		return;
+	}
 	$s = trb_resource_settings();
 	$url = trb_resource_acr_endpoint() . '/api/fs-containers/' . rawurlencode( $s['acr_container_id'] ) . '/files/' . rawurlencode( $row->provider_reference );
 	$response = wp_remote_get( $url, array( 'timeout' => 60, 'headers' => array( 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $s['acr_token'] ) ) );
@@ -992,6 +1015,7 @@ function trb_resource_poll_acr_job( $ledger_id ) {
 			if ( function_exists( 'trb_analysis_decide_release' ) ) trb_analysis_decide_release( absint( $row->release_id ) );
 		}
 	} else update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'manual_review' );
+	} finally { trb_release_process_unlock($job_lock); }
 }
 add_action( 'trb_resource_poll_acr_job', 'trb_resource_poll_acr_job' );
 
@@ -1078,12 +1102,16 @@ function trb_resource_recover_release_pipeline() {
 		'meta_query'     => array(
 			'relation' => 'OR',
 			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'pending_pcloud_transfer', 'pcloud_transfer_waiting' ), 'compare' => 'IN' ),
-			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'archived_pending_analysis', 'technical_review', 'copyright_queued', 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review' ), 'compare' => 'IN' ),
+			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'archived_pending_analysis', 'technical_analysis_running', 'technical_review', 'copyright_queued', 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review' ), 'compare' => 'IN' ),
 		),
 	) );
 
 
 	foreach ( $release_ids as $release_id ) {
+		if (trb_release_is_inactive($release_id)) continue;
+		$recovery_lock=trb_release_process_lock('release:'.absint($release_id));
+		if (!$recovery_lock) continue;
+		try {
 		$status  = sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
 		$archive = (array) get_post_meta( $release_id, '_trb_release_pcloud_archive', true );
 		$last_recovery = absint( get_post_meta( $release_id, '_trb_pipeline_last_recovery_at', true ) );
@@ -1100,7 +1128,7 @@ function trb_resource_recover_release_pipeline() {
 				wp_schedule_single_event( time() + 5, 'trb_release_pcloud_retry', array( $release_id ) );
 				$recovered = true;
 			}
-		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'archived_pending_analysis', 'technical_review', 'copyright_queued' ), true ) ) {
+		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'archived_pending_analysis', 'technical_analysis_running', 'technical_review', 'copyright_queued' ), true ) ) {
 			do_action( 'trb_release_audio_ready_for_analysis', $release_id, (array) ( $archive['files'] ?? array() ) );
 			$recovered = true;
 		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review' ), true ) && function_exists( 'trb_resource_start_release_analysis' ) ) {
@@ -1117,6 +1145,7 @@ function trb_resource_recover_release_pipeline() {
 			$body = '<p>La pratica #' . absint( $release_id ) . ' (' . esc_html( $release ? $release->post_title : '' ) . ') è rimasta nello stato <strong>' . esc_html( $status ) . '</strong> dopo ' . absint( $attempts ) . ' tentativi automatici.</p><p>Artista: ' . esc_html( $artist ?: 'non indicato' ) . '.</p>';
 			trb_resource_queue_email( 'pipeline-stalled-' . absint( $release_id ) . '-' . $status . '-' . wp_date( 'Ymd' ), 'Release ancora bloccata dopo il recupero automatico', $body, true );
 		}
+		} finally { trb_release_process_unlock($recovery_lock); }
 	}
 }
 add_action( 'trb_resource_recover_release_pipeline', 'trb_resource_recover_release_pipeline' );
