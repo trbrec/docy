@@ -1,0 +1,36 @@
+<?php
+/** Apply scoped CRM review visibility patches to current live files, preserving unrelated edits. */
+if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
+$revision=$argv[1]??'';
+if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents(dirname(__DIR__).'/.trb-deployed-sha'))!==$revision)exit(2);
+$root='/home/customer/www/crm.trbrec.com/public_html';
+$backup='/home/customer/www/crm.trbrec.com/private/rights-review-'.$revision;
+if(!is_dir($backup)&&!mkdir($backup,0700,true))throw new RuntimeException('Cannot prepare private backup');
+$lock=fopen(dirname($backup).'/rights-review-deploy.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Deployment busy');
+$manifest=json_decode(base64_decode('eyJhcHAvU3VibWlzc2lvblJlcG9zaXRvcnkucGhwIjogeyJyZXBsYWNlbWVudHMiOiBbWyJ1bnNldCgkcGlwZWxpbmVJdGVtWydtZXRhZGF0YSddKTsiLCAiJHBpcGVsaW5lSXRlbVsncmlnaHRzX3JldmlldyddPXRyYl9jcm1fcmVsZWFzZV9yaWdodHNfc3VtbWFyeShpc19hcnJheSgkdHJhbnNmZXJNZXRhKT8kdHJhbnNmZXJNZXRhOltdKTt1bnNldCgkcGlwZWxpbmVJdGVtWydtZXRhZGF0YSddKTsiXV0sICJhcHBlbmQiOiAiLyoqIENvbXBhY3Qgb3BlcmF0aW9uYWwgc3RhdHVzOyBrZWVwIENSTSBzdWJtaXNzaW9uIGlkZW50aXR5IHNlcGFyYXRlIGZyb20gcG9ydGFsIHJlY2VpcHQuICovXG5mdW5jdGlvbiB0cmJfY3JtX3JlbGVhc2VfcmlnaHRzX3N1bW1hcnkoYXJyYXkgJG1ldGFkYXRhKTogYXJyYXlcbntcbiAgICAkZGVjaXNpb249aXNfYXJyYXkoJG1ldGFkYXRhWydhbmFseXNpc19kZWNpc2lvbiddPz9udWxsKT8kbWV0YWRhdGFbJ2FuYWx5c2lzX2RlY2lzaW9uJ106W107XG4gICAgJHBpcGVsaW5lPShzdHJpbmcpKCRtZXRhZGF0YVsncG9ydGFsX3BpcGVsaW5lX3N0YXR1cyddPz8nJyk7XG4gICAgJHN0YXRlPShzdHJpbmcpKCRkZWNpc2lvblsnc3RhdGUnXT8/JHBpcGVsaW5lKTtcbiAgICAkcmV2aWV3PWluX2FycmF5KCRwaXBlbGluZSxbJ21hbnVhbF9yZXZpZXcnLCdjb3B5cmlnaHRfcmV2aWV3JywnY29weXJpZ2h0X2RvY3VtZW50c19uZWVkZWQnLCdwdWJsaXNoZWRfYXVkaW9fY29uZmxpY3QnXSx0cnVlKTtcbiAgICAkdGl0bGU9JHJldmlldz8nRGlyaXR0aSBkYSB2ZXJpZmljYXJlJzooJHBpcGVsaW5lPT09J2FwcHJvdmVkJz8nQ29udHJvbGxvIGRpcml0dGkgYXBwcm92YXRvJzonQ29udHJvbGxvIGRpcml0dGkgaW4gY29yc28nKTtcbiAgICBpZigkcGlwZWxpbmU9PT0nJykkdGl0bGU9J1N0YXRvIGRlbCBjb250cm9sbG8gZGlyaXR0aSBub24gZGlzcG9uaWJpbGUnO1xuICAgICRmaW5kaW5ncz1bXTtmb3JlYWNoKChhcnJheSkoJGRlY2lzaW9uWydjb3B5cmlnaHRfZmluZGluZ3MnXT8/W10pIGFzICRmaW5kaW5nKWlmKGlzX3N0cmluZygkZmluZGluZykmJnRyaW0oJGZpbmRpbmcpIT09JycpJGZpbmRpbmdzW109dHJpbSgkZmluZGluZyk7XG4gICAgcmV0dXJuIFsndGl0bGUnPT4kdGl0bGUsJ25lZWRzX3Jldmlldyc9PiRyZXZpZXcsJ3BpcGVsaW5lJz0+JHBpcGVsaW5lLCdzdGF0ZSc9PiRzdGF0ZSwnZmluZGluZ3MnPT5hcnJheV92YWx1ZXMoYXJyYXlfdW5pcXVlKCRmaW5kaW5ncykpLCdjaGVja2VkX2F0Jz0+KGludCkoJGRlY2lzaW9uWydkZWNpZGVkX2F0J10/PzApXTtcbn1cbiIsICJtYXJrZXIiOiAiZnVuY3Rpb24gdHJiX2NybV9yZWxlYXNlX3JpZ2h0c19zdW1tYXJ5KCJ9LCAiYXBwL1ZpZXcucGhwIjogeyJyZXBsYWNlbWVudHMiOiBbWyI8ZGV0YWlscyBjbGFzcz1cInNoZWV0LXBhbmVsIHJpZ2h0cy1wYW5lbFwiPiIsICI8ZGV0YWlscyBjbGFzcz1cInNoZWV0LXBhbmVsIHJpZ2h0cy1wYW5lbFwiIGlkPVwiY29weXJpZ2h0LXJldmlld1wiIG9wZW4+Il0sIFsiPGI+Q29weXJpZ2h0IGUgY29udHJvbGxvIHRlY25pY288L2I+IiwgIjxiPlJldmlzaW9uZSBBQ1JDbG91ZCBlIGNvbnRyb2xsbyB0ZWNuaWNvPC9iPiJdLCBbIjxoMz5SZXZpc2lvbmUgZGVpIGJyYW5pPC9oMz4iLCAiPGgzPkNvbmZyb250YSBpIGJyYW5pIHNlZ25hbGF0aSBkYSBBQ1JDbG91ZDwvaDM+Il1dLCAiY2FjaGUiOiB0cnVlfSwgImFzc2V0cy9hcHAtMjAyNjA4MzEtcjI3LmpzIjogeyJyZXBsYWNlbWVudHMiOiBbWyI8Yj4ke2UoeC5yZWxlYXNlX3RpdGxlKX08L2I+IiwgIjxiPiR7ZSh4LnJlbGVhc2VfdGl0bGUpfTwvYj4ke3JlbGVhc2VSaWdodHNTdW1tYXJ5KHgpfSJdLCBbIkFwcmkgc2NoZWRhIGRpc3RyaWJ1emlvbmUg4oaXIiwgIkFwcmkgc2NoZWRhIGUgcmV2aXNpb25lIGRpcml0dGkg4oaXIl0sIFsiPHNtYWxsPiR7ZSh4LmNvbnRyYWN0X251bWJlcnx8eC5wdWJsaWNfaWQpfSDCtyIsICI8c21hbGw+UG9ydGFsZSAke2UoU3RyaW5nKHgucG9ydGFsX3JlbGVhc2VfaWR8fCdub24gY29sbGVnYXRvJykucmVwbGFjZSgvXmFydGlzdDovLCcjJykpfSDCtyBDUk0gJHtlKHgucHVibGljX2lkfHx4LmlkKX08L3NtYWxsPjxzbWFsbD4ke2UoeC5jb250cmFjdF9udW1iZXJ8fCcnKX0gwrciXV0sICJhcHBlbmQiOiAiZnVuY3Rpb24gcmVsZWFzZVJpZ2h0c1N1bW1hcnkoaXRlbSl7XG4gY29uc3Qgcj1pdGVtLnJpZ2h0c19yZXZpZXc7XG4gaWYoIXIpcmV0dXJuICc8ZGl2IHJvbGU9XCJzdGF0dXNcIiBzdHlsZT1cIm1hcmdpbjoxMHB4IDBcIj5EZXR0YWdsaW8gZGlyaXR0aSBub24gZGlzcG9uaWJpbGUuIEFwcmkgbGEgc2NoZWRhIHBlciB2ZXJpZmljYXJlIGlsIGNvbnRyb2xsby48L2Rpdj4nO1xuIHJldHVybiBgPHNlY3Rpb24gc3R5bGU9XCJtYXJnaW46MTJweCAwO3BhZGRpbmc6MTJweDtib3JkZXItbGVmdDo0cHggc29saWQgJHtyLm5lZWRzX3Jldmlldz8nI2I3NzkxZic6JyMzYjgyNzAnfTtiYWNrZ3JvdW5kOiR7ci5uZWVkc19yZXZpZXc/JyNmZmY4ZTgnOicjZjFmOGY1J31cIj48c3Ryb25nPiR7ZShyLnRpdGxlKX08L3N0cm9uZz4ke3IuZmluZGluZ3M/Lmxlbmd0aD9gPHVsIHN0eWxlPVwibWFyZ2luOjhweCAwO3BhZGRpbmctbGVmdDoyMHB4XCI+JHtyLmZpbmRpbmdzLm1hcChmPT5gPGxpPiR7ZShmKX08L2xpPmApLmpvaW4oJycpfTwvdWw+YDonJ308cCBzdHlsZT1cIm1hcmdpbjo2cHggMFwiPiR7ci5uZWVkc19yZXZpZXc/J0FzY29sdGEgaWwgYnJhbm8gZSBpIHJpZmVyaW1lbnRpIG5lbGxhIHNjaGVkYS4gTGEgc2VnbmFsYXppb25lIHJpY2hpZWRlIHVuYSB2YWx1dGF6aW9uZSwgbm9uIGluZGljYSBhdXRvbWF0aWNhbWVudGUgdW5hIHZpb2xhemlvbmUuJzonQXByaSBsYSBzY2hlZGEgcGVyIGNvbnN1bHRhcmUgcmlzdWx0YXRpLCBtYXRlcmlhbGkgZSBzdGF0byBhZ2dpb3JuYXRvLid9PC9wPjxhIGhyZWY9XCIvcmVsZWFzZS1jYXNlcy8ke2UoaXRlbS5pZCl9I2NvcHlyaWdodC1yZXZpZXdcIiB0YXJnZXQ9XCJfYmxhbmtcIiByZWw9XCJub29wZW5lclwiPkFwcmkgcmV2aXNpb25lIEFDUkNsb3VkIOKGlzwvYT48L3NlY3Rpb24+YDtcbn1cbiIsICJtYXJrZXIiOiAiZnVuY3Rpb24gcmVsZWFzZVJpZ2h0c1N1bW1hcnkoaXRlbSl7In19'),true,512,JSON_THROW_ON_ERROR);
+$staged=[];
+foreach($manifest as $relative=>$patch){
+ $path=$root.'/'.$relative;$original=file_get_contents($path);if(!is_string($original))throw new RuntimeException('Source unavailable');$next=$original;
+ foreach($patch['replacements'] as [$old,$new]){
+  if(strpos($next,$new)!==false)continue;
+  if(substr_count($next,$old)!==1)throw new RuntimeException('Changed source anchor: '.$relative);
+  $next=str_replace($old,$new,$next);
+ }
+ if(isset($patch['append'])&&strpos($next,$patch['marker'])===false)$next.="\n".$patch['append'];
+ if(!empty($patch['cache']))$next=preg_replace('~(/assets/app-20260831-r27\.js\?[^"\s]*)(?=")~','$1&rights=20260912r1',$next);
+ $temp=$backup.'/'.basename($relative).'.new';if(file_put_contents($temp,$next)!==strlen($next))throw new RuntimeException('Stage failed');
+ if(str_ends_with($relative,'.php')){exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($temp).' 2>&1',$out,$exit);if($exit!==0)throw new RuntimeException('PHP validation failed: '.$relative);}
+ $staged[]=compact('path','original','temp','relative');
+}
+foreach($staged as $file)if(hash_file('sha256',$file['path'])!==hash('sha256',$file['original']))throw new RuntimeException('Concurrent CRM edit; deployment aborted');
+foreach($staged as $file){
+ if(file_put_contents($backup.'/'.basename($file['relative']).'.before',$file['original'])!==strlen($file['original']))throw new RuntimeException('Backup failed');
+ chmod($file['temp'],0644);if(!rename($file['temp'],$file['path']))throw new RuntimeException('Install failed');
+ if(function_exists('opcache_invalidate'))opcache_invalidate($file['path'],true);
+ echo 'CRM_REVIEW_DEPLOYED '.json_encode(['file'=>$file['relative'],'sha256'=>hash_file('sha256',$file['path'])])."\n";
+}
+require_once $root.'/app/bootstrap.php';
+require_once $root.'/app/SubmissionRepository.php';
+$db=\TrbCrm\Database::connection();
+$q=$db->query("SELECT rc.id,rc.portal_release_id,rc.workflow_status,rc.metadata,s.public_id FROM release_cases rc JOIN submissions s ON s.id=rc.submission_id WHERE rc.portal_release_id='artist:12329'");
+foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row){$m=json_decode($row['metadata'],true);unset($row['metadata']);$row['review']=\TrbCrm\trb_crm_release_rights_summary(is_array($m)?$m:[]);echo 'CRM_REVIEW_VERIFIED '.json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)."\n";}
