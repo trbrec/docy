@@ -2761,7 +2761,7 @@ function trb_portal_start_release() {
 	if ( 'complete' === $intake_phase || ( '' === $intake_phase && ! in_array( $intake_pipeline, array( 'upload_failed', 'isrc_assignment_failed' ), true ) ) ) {
 		trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: nessun duplicato.', 200, $intake_id );
 	}
-	if ( ! in_array( $intake_phase, array( 'awaiting_upload', 'validation_failed' ), true ) ) {
+	if ( ! in_array( $intake_phase, array( 'awaiting_upload', 'validation_failed' ), true ) && !( !empty($GLOBALS['trb_recovery_resume_context']) && (int)$GLOBALS['trb_recovery_resume_context']['id']===(int)$intake_id && in_array($intake_phase,array('files_partial','recovery_review'),true) ) ) {
 		trb_portal_release_submission_response( 'recovery_required', 'Pratica #' . $intake_id . ' conservata con acquisizione parziale. È necessario completarla dalla pratica esistente.', 409, $intake_id );
 	}
 	$GLOBALS['trb_verified_intake_id'] = $intake_id;
@@ -2901,6 +2901,7 @@ function trb_portal_start_release() {
 		trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: nessun duplicato.', 200, $intake_id );
 	}
 	if ( ! in_array( get_post_meta($intake_id,'_trb_release_intake_phase',true), array('awaiting_upload','validation_failed'), true ) && empty($GLOBALS['trb_recovery_resume_context']) ) trb_portal_release_submission_response( 'recovery_required', 'La pratica contiene un’acquisizione parziale. La Direzione può recuperarla senza creare un nuovo invio.', 409, $intake_id );
+	if (!trb_recovery_context_matches_files($intake_id)) trb_portal_release_submission_response('recovery_required','I materiali sono cambiati durante il recupero. Riapri la pratica per usare i file aggiornati.',409,$intake_id);
 	update_post_meta( $intake_id, '_trb_release_acquisition_started_at', time() );
 	update_post_meta( $intake_id, '_trb_release_intake_phase', 'acquiring_files' );
 
