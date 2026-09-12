@@ -1,0 +1,22 @@
+name: Remove historical production diagnostics
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/privacy-cleanup.yml', 'tools/privacy-cleanup.py']
+permissions:
+  contents: read
+jobs:
+  cleanup:
+    permissions:
+      contents: read
+      actions: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Remove exposed logs and verify absence without printing their contents
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/privacy-cleanup.py
