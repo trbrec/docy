@@ -46,7 +46,7 @@ function trb_crm_inline_snapshot($id) {
  if(empty($archive['verified']))$blockers[]='Archiviazione dei materiali da completare.';
  if(!$cover_ready)$blockers[]='Copertina definitiva da completare.';
  if(count($files)<count($tracks))$blockers[]='Uno o più file audio devono essere caricati.';
- return array('ok'=>true,'release_id'=>$id,'version'=>hash('sha256',wp_json_encode(array($bindings,$revision,$reviews,$pipeline,$contract,$technical,$archive['verified']??false,$cover_ready))),'analysis_revision'=>$revision,'pipeline'=>$pipeline,'contract_state'=>$contract,'blockers'=>$blockers,'can_finalize'=>(bool)($ready&&$cover_ready),'can_decide'=>(bool)($results&&!in_array($contract,array('contract_sent','signed'),true)),'unavailable_reason'=>!$ready?'Controlli tecnici, archiviazione o analisi ancora da completare.':(!$cover_ready?'Copertina definitiva da completare.':''),'findings'=>array_values((array)($decision['copyright_findings']??array())),'tracks'=>$out);
+ return array('ok'=>true,'release_id'=>$id,'version'=>hash('sha256',wp_json_encode(array($bindings,$revision,$reviews,$pipeline,$contract,$technical,$archive['verified']??false,$cover_ready))),'analysis_revision'=>$revision,'pipeline'=>$pipeline,'contract_state'=>$contract,'blockers'=>$blockers,'can_finalize'=>(bool)($ready&&$cover_ready),'can_decide'=>(bool)($results&&!in_array($contract,array('contract_sent','signed'),true)),'rejection_text'=>trb_crm_inline_rejection_text(),'unavailable_reason'=>in_array($contract,array('contract_sent','signed'),true)?($contract==='signed'?'Contratto già firmato. Questa sezione mostra i risultati storici: non occorre una nuova approvazione.':'Contratto già inviato. Questa sezione mostra i risultati storici: non occorre una nuova approvazione.'):(!$ready?'Controlli tecnici, archiviazione o analisi ancora da completare.':(!$cover_ready?'Copertina definitiva da completare.':'')),'findings'=>array_values((array)($decision['copyright_findings']??array())),'tracks'=>$out);
 }
 /** Preserve current operator decisions when a delayed provider callback repeats. */
 function trb_crm_inline_apply_review($id,$dispatch=false) {
@@ -66,21 +66,25 @@ function trb_crm_inline_validate_batch($snapshot,$input) {
  $tracks=array_column($snapshot['tracks'],null,'index');$seen=array();$validated=array();
  foreach($input as $item){
   $index=isset($item['track'])?(int)$item['track']:-1;$action=$item['action']??'';
-  if(!isset($tracks[$index])||empty($tracks[$index]['analysis_available'])||isset($seen[$index])||!in_array($action,array('approve','reject'),true)||($item['listened']??false)!==true)return new WP_Error('review_invalid','Controlla brani, decisioni e conferme di ascolto.');
+  if(!isset($tracks[$index])||empty($tracks[$index]['analysis_available'])||isset($seen[$index])||!in_array($action,array('approve','reject'),true))return new WP_Error('review_invalid','Controlla brani, decisioni e conferme di ascolto.');
   $seen[$index]=true;$track=$tracks[$index];$note=sanitize_textarea_field($item['note']??'');
   $available=array_column($track['matches'],null,'id');$selected=array();
   foreach((array)($item['selected_matches']??array()) as $matchId){if(!is_string($matchId)||!isset($available[$matchId]))return new WP_Error('match_stale','Una corrispondenza non è più disponibile. Ricarica il confronto.');$selected[$matchId]=$available[$matchId];}
-  if($action==='reject'&&(mb_strlen($note)<10||(!$selected&&($item['other_reason']??false)!==true)))return new WP_Error('reason_required','Per ogni rifiuto seleziona le corrispondenze pertinenti o Altro problema e scrivi la motivazione.');
+  if($action==='reject'&&!$selected)return new WP_Error('reason_required','Seleziona almeno una corrispondenza per ciascun brano da segnalare.');
   if($action==='approve'&&$selected)return new WP_Error('review_conflict','Un brano approvato non può avere corrispondenze indicate come problematiche.');
   $validated[]=array('track'=>$track,'action'=>$action,'note'=>$note,'selected_matches'=>array_values($selected),'other_reason'=>!empty($item['other_reason']));
  }
  return $validated;
 }
+function trb_crm_inline_rejection_text() {
+ return 'Durante la verifica dei brani indicati qui sotto abbiamo individuato corrispondenze che richiedono un chiarimento sui diritti. Per proseguire, ti chiediamo di confermare la titolarità dei materiali e di fornire le eventuali licenze o autorizzazioni. Se il riferimento corrisponde a una tua precedente pubblicazione, indicaci il relativo ISRC o il link ufficiale.';
+}
 function trb_crm_inline_email_body($name,$rejected) {
- $body='<p>Gentile '.esc_html($name?:'Artista').',</p><p>abbiamo completato la verifica dei materiali indicati qui sotto. Prima di poter proseguire con la release, occorre risolvere questi punti:</p>';
+ $body='<p>Gentile '.esc_html($name?:'Artista').',</p><p>'.esc_html(trb_crm_inline_rejection_text()).'</p>';
  foreach($rejected as $item){
-  $body.='<h3>'.esc_html($item['track']['title']).'</h3><p>'.nl2br(esc_html($item['note'])).'</p>';
-  if($item['selected_matches']){$body.='<p>Corrispondenze che abbiamo ritenuto da chiarire dopo l’ascolto:</p><ul>';foreach($item['selected_matches'] as $match)$body.='<li>'.esc_html(implode(', ',(array)$match['artists']).' — '.$match['title']).'</li>';$body.='</ul>';}
+  $body.='<h3>'.esc_html($item['track']['title']).'</h3>';
+  if(!empty($item['note']))$body.='<p>'.nl2br(esc_html($item['note'])).'</p>';
+  $body.='<ul>';foreach($item['selected_matches'] as $match)$body.='<li>'.esc_html(implode(', ',(array)$match['artists']).' — '.$match['title']).'</li>';$body.='</ul>';
  }
  return $body.'<p>La pratica rimane aperta. Rispondi a questa email con i chiarimenti o la documentazione richiesti; non creare una nuova release.</p>'.trb_resource_artist_email_signature();
 }
