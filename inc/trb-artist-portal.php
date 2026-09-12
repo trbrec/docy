@@ -2668,7 +2668,8 @@ function trb_portal_save_release_draft() {
 		wp_send_json_error( array( 'message' => 'Bozza non valida.' ), 422 );
 	}
 	$clean = trb_portal_normalize_release_draft_pairs( $pairs, $normalization_report );
-	update_user_meta( $user_id, '_trb_release_form_draft', array( 'version' => 1, 'savedAt' => time() * 1000, 'pairs' => $clean ) );
+	$draft_token = sanitize_text_field( wp_unslash( $_POST['submission_token'] ?? '' ) );
+	update_user_meta( $user_id, '_trb_release_form_draft', array( 'version' => 1, 'savedAt' => time() * 1000, 'pairs' => $clean, 'submissionToken' => preg_match( '/^[a-f0-9-]{36}$/i', $draft_token ) ? $draft_token : '' ) );
 	wp_send_json_success( array( 'saved_at' => time(), 'draft_schema' => 2, 'legacy_roles_normalized' => absint( $normalization_report['legacy_technical'] ) ) );
 }
 add_action( 'wp_ajax_trb_portal_save_release_draft', 'trb_portal_save_release_draft' );
@@ -5025,6 +5026,15 @@ function trb_portal_render_release_section() {
 	$monthly_guide_url     = add_query_arg( 'trb_search', 'limite mensile ' . $monthly_profile_label, get_permalink() ) . '#risposte';
 	$server_draft        = get_user_meta( get_current_user_id(), '_trb_release_form_draft', true );
 	$server_draft        = is_array( $server_draft ) ? $server_draft : array();
+	$resume_id = absint( $_GET['trb_resume_release'] ?? 0 );
+	$resume_post = $resume_id ? get_post( $resume_id ) : null;
+	if ( $resume_post && 'trb_release' === $resume_post->post_type && (int) $resume_post->post_author === get_current_user_id() && 'trash' !== $resume_post->post_status && in_array( get_post_meta( $resume_id, '_trb_release_intake_phase', true ), array( 'awaiting_upload', 'validation_failed' ), true ) ) {
+		$resume_pairs = get_post_meta( $resume_id, '_trb_release_intake_draft', true );
+		$resume_token = get_post_meta( $resume_id, '_trb_release_submission_token', true );
+		if ( is_array( $resume_pairs ) && $resume_pairs && preg_match( '/^[a-f0-9-]{36}$/i', $resume_token ) ) {
+			$server_draft = array( 'version' => 1, 'savedAt' => time() * 1000, 'pairs' => $resume_pairs, 'submissionToken' => $resume_token, 'explicitResume' => true );
+		}
+	}
 	?>
 	<section id="release" class="trb-portal__section trb-portal__section--releases">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PUBBLICAZIONI</p><h2>Le tue release</h2><p>Inserisci metadati, crediti e file audio della pubblicazione, quindi ricevi il contratto da sottoscrivere per avviare l’iter di distribuzione.</p></div>
@@ -5059,7 +5069,7 @@ function trb_portal_render_release_section() {
 			?><li class="trb-release-card" data-release-item="<?php echo esc_attr( $release->ID ); ?>">
 				<div class="trb-release-card__cover"><?php if ( null !== $cover_index ) : ?><img src="<?php echo esc_url( trb_portal_release_file_url( $release->ID, $cover_index, true ) ); ?>" alt="Copertina di <?php echo esc_attr( $release->post_title ); ?>" loading="lazy" /><?php else : ?><span aria-hidden="true">♪</span><?php endif; ?></div>
 				<div class="trb-release-card__summary"><strong><?php echo esc_html( $release->post_title ); ?></strong><span><?php echo esc_html( isset( $types[ $release_type ] ) ? $types[ $release_type ]['label'] : 'Release' ); ?></span><b data-release-current-state><?php echo esc_html( trb_portal_release_current_state_label( $release->ID ) ); ?></b><?php if ( $release_isrcs ) : ?><small class="trb-release-isrc-summary"><?php echo esc_html( 1 === count( $release_isrcs ) ? 'ISRC ' . $release_isrcs[0] : count( $release_isrcs ) . ' codici ISRC assegnati' ); ?></small><?php endif; ?></div>
-				<details class="trb-release-card__details"><summary><span class="trb-release-card__open-label">Apri la release</span><span class="trb-release-card__close-label">Chiudi la release</span></summary><?php trb_portal_render_release_status( $release->ID ); ?><?php trb_portal_render_release_files( $release->ID ); ?><button type="button" class="trb-button trb-button--secondary trb-release-card__close" data-release-close>Chiudi la release</button></details>
+				<details class="trb-release-card__details"><summary><span class="trb-release-card__open-label">Apri la release</span><span class="trb-release-card__close-label">Chiudi la release</span></summary><?php trb_portal_render_release_status( $release->ID ); ?><?php if ( in_array( get_post_meta( $release->ID, '_trb_release_intake_phase', true ), array( 'awaiting_upload', 'validation_failed' ), true ) ) : ?><p><a class="trb-button" href="<?php echo esc_url( add_query_arg( 'trb_resume_release', $release->ID, get_permalink() ) . '#release' ); ?>">Riprendi il caricamento di questa pratica</a></p><?php endif; ?><?php trb_portal_render_release_files( $release->ID ); ?><button type="button" class="trb-button trb-button--secondary trb-release-card__close" data-release-close>Chiudi la release</button></details>
 			</li><?php endforeach; ?></ul></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?>
 			<div class="trb-portal__release-gate"><strong>Completa il profilo per iniziare.</strong><p>Quando il profilo raggiunge il 100% potrai creare la prima release.</p><a class="trb-button" href="#profilo">Completa il profilo</a></div>
