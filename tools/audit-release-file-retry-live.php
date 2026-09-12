@@ -26,6 +26,7 @@ try {
     'pipeline'=>get_post_meta($id,'_trb_release_pipeline_status',true),
     'label'=>trb_portal_release_current_state_label($id),
     'contract'=>get_post_meta($id,'_trb_contract_state',true),
+    'rights_decision'=>array_intersect_key((array)get_post_meta($id,'_trb_release_analysis_decision',true),array_flip(array('state','semaphore','copyright_findings','limitations','decided_at'))),
     'technical'=>array_intersect_key($technical,array_flip(array('status','errors','warnings','retryable','completed_at'))),
     'archive'=>array_intersect_key($archive,array_flip(array('status','verified','time','error'))),
     'files'=>array_map(static function($f){return array_intersect_key((array)$f,array_flip(array('kind','name','audio_status','rejected_reason')));},$files)
