@@ -422,7 +422,7 @@ function trb_analysis_run_technical( $release_id, $audit_only = false ) {
 		if ( ! empty( $file['sha256'] ) && ! hash_equals( (string) $file['sha256'], (string) hash_file( 'sha256', $path ) ) ) { $release_errors[] = 'AUDIO_HASH_MISMATCH'; continue; }
 		$spec = trb_analysis_inspect_wav( $path );
 		if ( is_wp_error( $spec ) ) {
-			$results[ $index ] = array( 'status' => 'error', 'code' => $spec->get_error_code(), 'message' => $spec->get_error_message() );
+			$results[ $index ] = array( 'status' => 'error', 'code' => $spec->get_error_code(), 'message' => $spec->get_error_message(), 'sha256'=>hash_file('sha256',$path), 'findings'=>array('errors'=>array($spec->get_error_code())) );
 			$release_errors[] = $spec->get_error_code(); continue;
 		}
 		$declared = function_exists( 'trb_portal_release_track_duration_seconds' ) && isset( $tracks[ $index ] ) ? trb_portal_release_track_duration_seconds( $tracks[ $index ] ) : 0;
@@ -435,6 +435,8 @@ function trb_analysis_run_technical( $release_id, $audit_only = false ) {
 	}
 	$status = $release_errors ? 'failed' : ( $release_warnings ? 'warning' : 'passed' );
 	$payload = array( 'version' => TRB_RELEASE_ANALYSIS_VERSION, 'status' => $status, 'release_state' => $release_state, 'uniformity_required' => $uniformity_required, 'tracks' => $results, 'errors' => array_values( array_unique( $release_errors ) ), 'warnings' => array_values( array_unique( $release_warnings ) ), 'completed_at' => time() );
+	$temporary_codes=array('MASTER_CHECK_UNAVAILABLE','PCM_MEASUREMENT_UNAVAILABLE','PCM_PEAK_VERIFICATION_UNAVAILABLE','TECHNICAL_ANALYSIS_UNAVAILABLE','TECHNICAL_ANALYSIS_FAILED','TRUE_PEAK_MEASUREMENT_UNAVAILABLE','FFMPEG_UNAVAILABLE','FFMPEG_NOT_AVAILABLE','FFMPEG_NOT_FOUND','AUDIO_INSPECTION_FAILED');
+	$payload['retryable']=$release_errors && !array_diff(array_unique($release_errors),$temporary_codes);
 	update_post_meta( $release_id, '_trb_release_technical_analysis', $payload );
 	if ( $audit_only ) return $payload;
 	if ( 'failed' === $status ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'technical_error' );
@@ -445,7 +447,15 @@ function trb_analysis_run_technical( $release_id, $audit_only = false ) {
 	// requires an immediate correction email.
 	if ( 'failed' === $status ) {
 		trb_analysis_queue_admin_review_email( $release_id, 'technical', $payload );
-		trb_analysis_queue_artist_correction_email( $release_id, $payload );
+		if (empty($payload['retryable'])) trb_analysis_queue_artist_correction_email( $release_id, $payload );
+		foreach ($files as $file) {
+			if (!is_array($file) || ($file['kind']??'')!=='audio') continue;
+			$result=$results[$file['track']]??array();
+			foreach ((array)($result['findings']['errors']??array()) as $code) if (trb_file_retry_is_rejection($code)) {
+				trb_file_retry_discard($release_id,trb_file_retry_field($file),$result['sha256']??'',$code,true); break;
+			}
+		}
+
 	}
 	return $payload;
 }
@@ -941,6 +951,10 @@ add_action( 'admin_post_trb_analysis_download_report', 'trb_analysis_download_re
 function trb_analysis_retry_security_scans() {
 	$releases = get_posts( array( 'post_type' => 'trb_release', 'post_status' => 'publish', 'posts_per_page' => 50, 'fields' => 'ids', 'meta_key' => '_trb_release_pipeline_status', 'meta_value' => 'security_scan_waiting' ) );
 	foreach ( $releases as $release_id ) {
+		$retry_lock=trb_release_process_lock('release:'.absint($release_id));
+		if (!$retry_lock) continue;
+		try {
+		if (trb_release_is_inactive($release_id)) continue;
 		$files = (array) get_post_meta( $release_id, '_trb_release_files', true ); $blocked = false; $malware = false;
 		foreach ( $files as &$file ) {
 			if ( 'audio' === ( $file['kind'] ?? '' ) ) continue;
@@ -950,11 +964,13 @@ function trb_analysis_retry_security_scans() {
 			if ( is_wp_error( $scan ) ) { $blocked = true; if ( 'MALWARE_DETECTED' === $scan->get_error_code() ) $malware = true; }
 		}
 		unset( $file ); update_post_meta( $release_id, '_trb_release_files', $files );
+		foreach ($files as $file) if (is_array($file) && ($file['security_status']??'')==='MALWARE_DETECTED') trb_file_retry_discard($release_id,trb_file_retry_field($file),$file['sha256']??'','MALWARE_DETECTED',true);
 		$documents = get_post_meta( $release_id, '_trb_release_rights_documents', true );
 		$documents = is_array( $documents ) ? array_values( array_filter( $documents, static function( $document ) { return is_array( $document ) && ! empty( $document['path'] ); } ) ) : array();
 		foreach ( $documents as $index => $document ) if ( 'synced' !== ( $document['status'] ?? '' ) && function_exists( 'trb_resource_sync_rights_document' ) ) { $result = trb_resource_sync_rights_document( $release_id, $index ); if ( is_wp_error( $result ) ) { $blocked = true; if ( 'MALWARE_DETECTED' === $result->get_error_code() ) $malware = true; } }
 		if ( $malware ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_rejected' ); if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'security-rejected-' . $release_id, 'Materiale bloccato dalla scansione antivirus', 'La pratica #' . absint( $release_id ) . ' richiede verifica immediata.', true ); continue; }
 		if ( ! $blocked && function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
+		} finally {trb_release_process_unlock($retry_lock);}
 	}
 }
 add_action( 'trb_analysis_security_retry', 'trb_analysis_retry_security_scans' );

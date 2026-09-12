@@ -15,6 +15,7 @@ function trb_master_upload_check($path, $name, $status='mastered') {
     if (!$hash) return new WP_Error('MASTER_CHECK_UNAVAILABLE');
     $key='trb_master_v1_'.$hash;
     $result=get_transient($key);
+    if (is_array($result) && !empty($result['errors']) && !array_intersect($result['errors'],array('MASTER_TRUE_PEAK_AT_ZERO','MASTER_SAMPLE_PEAK_AT_ZERO'))) $result=false;
     if (!is_array($result)) {
         $spec=trb_portal_wav_spec($path);
         if (is_wp_error($spec)) return new WP_Error('MASTER_CHECK_UNAVAILABLE');
@@ -28,6 +29,7 @@ function trb_master_upload_check($path, $name, $status='mastered') {
         } catch (RuntimeException $e) { return new WP_Error('MASTER_CHECK_UNAVAILABLE'); }
     }
     if (!$result['errors']) return true;
+    if (!array_intersect($result['errors'],array('MASTER_TRUE_PEAK_AT_ZERO','MASTER_SAMPLE_PEAK_AT_ZERO'))) return new WP_Error('MASTER_CHECK_UNAVAILABLE','La verifica del master non è temporaneamente disponibile. Il file è conservato: riprova dalla stessa pratica.');
     $message='Master rifiutato: '.$name.'. Il picco campione deve restare sotto 0 dBFS e il true peak sotto 0 dBTP. Esporta un nuovo master con margine sotto zero e sostituisci il WAV. Non basta rinominare il file.';
     $values='Picco campione: '.number_format((float)$result['sample_peak'],6,',','').' dBFS; true peak: '.number_format((float)$result['true_peak'],6,',','').' dBTP.';
     $user=wp_get_current_user();
@@ -48,5 +50,5 @@ function trb_master_premaster_email_guidance($user) {
     if ($profile==='dds' || !trb_portal_profile_has_service('mastering',$profile)) return '';
     $settings=function_exists('trb_analysis_settings') ? trb_analysis_settings() : array();
     $peak=(float)($settings['premaster_peak_max'] ?? -6);
-    return '<p><strong>Puoi affidare il mastering a noi: è incluso nel tuo contratto.</strong> In alternativa al master corretto, esporta dal progetto un vero pre-master e, nello stato del file audio, seleziona «Invio un pre-master e richiedo il mastering del brano».</p><p>Consegna un WAV stereo, minimo 44.100 Hz / 16 bit, preferibilmente 48.000 Hz / 24 bit se disponibili nella sessione originale. Il pre-master deve essere privo di clipping, normalizzazione automatica e limiter aggressivi; consigliamo un true peak non superiore a '.esc_html(number_format($peak,1,',','')).' dBTP. Non occorre raggiungere un valore LUFS prestabilito.</p><p>Non basta rinominare il WAV rifiutato, abbassare il volume di un file già distorto o cambiare soltanto la selezione nel modulo: occorre esportare nuovamente il mix senza il trattamento che ha provocato il clipping. Sostituisci il WAV nel modulo e ripeti «Verifica e continua», poi conferma il riepilogo. Se hai riaperto la pagina, riseleziona anche gli altri allegati richiesti. Ci occuperemo noi del mastering dopo i controlli sul materiale.</p>';
+    return '<p><strong>Puoi affidare il mastering a noi: è incluso nel tuo contratto.</strong> In alternativa al master corretto, esporta dal progetto un vero pre-master e, nello stato del file audio, seleziona «Invio un pre-master e richiedo il mastering del brano».</p><p>Consegna un WAV stereo, minimo 44.100 Hz / 16 bit, preferibilmente 48.000 Hz / 24 bit se disponibili nella sessione originale. Il pre-master deve essere privo di clipping, normalizzazione automatica e limiter aggressivi; consigliamo un true peak non superiore a '.esc_html(number_format($peak,1,',','')).' dBTP. Non occorre raggiungere un valore LUFS prestabilito.</p><p>Non basta rinominare il WAV rifiutato, abbassare il volume di un file già distorto o cambiare soltanto la selezione nel modulo: occorre esportare nuovamente il mix senza il trattamento che ha provocato il clipping. Sostituisci il WAV nel modulo e ripeti «Verifica e continua», poi conferma il riepilogo. Se hai riaperto la pagina, usa «Riprendi il caricamento di questa pratica» dal catalogo e aggiungi solo gli allegati indicati come mancanti. Ci occuperemo noi del mastering dopo i controlli sul materiale.</p>';
 }

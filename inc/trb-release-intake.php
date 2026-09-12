@@ -2,6 +2,7 @@
 /** Durable receipt for confirmed submissions, independent of file acquisition. */
 if ( ! defined( 'ABSPATH' ) ) exit;
 require_once __DIR__ . '/trb-release-integrity.php';
+require_once __DIR__ . '/trb-release-file-retry.php';
 
 function trb_intake_find( $user_id, $token ) {
 	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $token ) ) return 0;
@@ -33,6 +34,11 @@ function trb_intake_record( $user_id, $token, $post ) {
 				$previous = array( 'trb_release_title' => get_post($existing)->post_title, 'trb_release_type' => get_post_meta($existing,'_trb_release_type',true), 'trb_tracks' => get_post_meta($existing,'_trb_release_tracks',true) );
 				if ( trb_intake_project_identity($post) !== trb_intake_project_identity($previous) ) return new WP_Error( 'receipt_completed', 'Questa ricevuta appartiene a una pratica già inviata. Per un altro progetto apri una nuova bozza: i nuovi dati non sono stati inviati.', $existing );
 			} else {
+				$held=(array)get_post_meta($existing,'_trb_release_files',true);
+				if (array_filter($held,'is_array')) {
+					$previous=array('trb_release_title'=>get_post($existing)->post_title,'trb_release_type'=>get_post_meta($existing,'_trb_release_type',true),'trb_tracks'=>get_post_meta($existing,'_trb_release_tracks',true));
+					if (trb_intake_project_identity($post)!==trb_intake_project_identity($previous)) return new WP_Error('receipt_materials_conflict','Questa pratica contiene già materiali associati ai brani. Riprendila dal catalogo senza cambiare titolo, versione o ordine dei brani.',$existing);
+				}
 				$conflict=trb_intake_project_conflict($user_id,$post,$existing);
 				if ($conflict) return new WP_Error('existing_release','Esiste già la pratica #'.$conflict.' per questo progetto. Riprendila da «Il tuo catalogo». I dati delle pratiche sono rimasti separati.',$conflict);
 				trb_intake_refresh_draft($existing,$post);
@@ -74,7 +80,7 @@ function trb_intake_record( $user_id, $token, $post ) {
 
 /** Keep retries recoverable from the latest confirmed metadata. */
 function trb_intake_refresh_draft($id, $post) {
- if (!in_array(get_post_meta($id,'_trb_release_intake_phase',true), array('awaiting_upload','validation_failed'),true)) return;
+ if (!in_array(get_post_meta($id,'_trb_release_intake_phase',true), trb_file_retry_phases(),true)) return;
  $pairs=json_decode((string)($post['trb_release_payload_json']??''),true);
  if (is_array($pairs) && function_exists('trb_portal_normalize_release_draft_pairs')) update_post_meta($id,'_trb_release_intake_draft',trb_portal_normalize_release_draft_pairs($pairs));
  $title=sanitize_text_field($post['trb_release_title']??'');
@@ -83,23 +89,24 @@ function trb_intake_refresh_draft($id, $post) {
  if (isset($post['trb_tracks']) && is_array($post['trb_tracks'])) update_post_meta($id,'_trb_release_tracks',trb_portal_sanitize_release_tracks(array_slice($post['trb_tracks'],0,24,true)));
 }
 
-/** Release only interrupted acquisition to manual recovery, never to approval. */
+/** The process lock, not an arbitrary waiting period, distinguishes an active worker from an interrupted one. */
 function trb_intake_recover_stalled($id) {
  if (trb_release_is_inactive($id)) return false;
  if (get_post_meta($id,'_trb_release_intake_phase',true)!=='acquiring_files') return false;
  $isrc=get_post_meta($id,'_trb_release_pipeline_status',true)==='isrc_assignment_failed';
  $started=(int)get_post_meta($id,'_trb_release_acquisition_started_at',true);
- if (!$isrc && (!$started || time()-$started<=30*MINUTE_IN_SECONDS)) return false;
+ // An active acquisition owns the same release lock until every checkpoint is saved.
  $lock=trb_release_process_lock('release:'.absint($id));
  if (!$lock) return false;
  try {
+ if (trb_release_is_inactive($id) || get_post_meta($id,'_trb_release_intake_phase',true)!=='acquiring_files') return false;
  $checkpoint=get_post_meta($id,'_trb_release_acquired_files',true);
  $files=get_post_meta($id,'_trb_release_files',true);
  $merged=array();
  foreach(array_merge(is_array($files)?$files:array(),is_array($checkpoint)?$checkpoint:array()) as $file) if(is_array($file)&&!empty($file['path'])) $merged[$file['kind'].':'.(string)$file['track']]=$file;
  if($merged) update_post_meta($id,'_trb_release_files',array_values($merged));
  update_post_meta($id,'_trb_release_intake_phase',$merged ? 'files_partial' : 'validation_failed');
- update_post_meta($id,'_trb_release_intake_error',$merged ? 'Elaborazione interrotta. Dati e file conservati: la Direzione può riprendere la verifica dalla pratica esistente.' : 'Elaborazione interrotta prima dell’acquisizione dei file. Riprendi il caricamento da questa pratica, senza crearne un’altra.');
+ update_post_meta($id,'_trb_release_intake_error',$merged ? 'Elaborazione interrotta. Dati e file acquisiti sono conservati: riprendi il caricamento di questa pratica e aggiungi soltanto gli allegati mancanti.' : 'Elaborazione interrotta prima dell’acquisizione dei file. Riprendi il caricamento da questa pratica, senza crearne un’altra.');
  if (!$isrc) update_post_meta($id,'_trb_release_pipeline_status','upload_failed');
  trb_intake_sync($id);
  return true;
