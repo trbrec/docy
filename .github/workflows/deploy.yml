@@ -91,6 +91,9 @@ jobs:
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/recover-acr-budget-live.php' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/recover-acr-budget-live.php' '${GITHUB_SHA}'"
           fi
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/deploy-crm-rights-visibility.php' >/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/deploy-crm-rights-visibility.php' '${GITHUB_SHA}'"
+          fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/qa-demo-footer.php' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/qa-demo-footer.php' '${GITHUB_SHA}'"
           fi
