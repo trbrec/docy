@@ -18,6 +18,18 @@ try {
   $manifest=trb_file_retry_manifest($id);
   $results[]=array('id'=>$id,'phase'=>$phase,'active'=>!trb_release_is_inactive($id),'owner_can_resume'=>in_array($phase,trb_file_retry_phases(),true),'retained_fields'=>array_keys($manifest),'has_saved_metadata'=>(bool)get_post_meta($id,'_trb_release_intake_draft',true));
   if (12329===$id) {
+   $technical=(array)get_post_meta($id,'_trb_release_technical_analysis',true);
+   $archive=(array)get_post_meta($id,'_trb_release_pcloud_archive',true);
+   $files=(array)get_post_meta($id,'_trb_release_files',true);
+   echo 'GREED_PIPELINE_DIAGNOSTIC '.wp_json_encode(array(
+    'id'=>$id,'checked_at'=>gmdate('c'),'post_status'=>$post->post_status,
+    'pipeline'=>get_post_meta($id,'_trb_release_pipeline_status',true),
+    'label'=>trb_portal_release_current_state_label($id),
+    'contract'=>get_post_meta($id,'_trb_contract_state',true),
+    'technical'=>array_intersect_key($technical,array_flip(array('status','errors','warnings','retryable','completed_at'))),
+    'archive'=>array_intersect_key($archive,array_flip(array('status','verified','time','error'))),
+    'files'=>array_map(static function($f){return array_intersect_key((array)$f,array_flip(array('kind','name','audio_status','rejected_reason')));},$files)
+   ),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)."\n";
    $images=array();$token=(string)get_post_meta($id,'_trb_release_submission_token',true);
    foreach (trb_recovery_file_candidates($post->post_author) as $candidate) {
     $image=@getimagesize($candidate['path']);if (!$image) continue;
