@@ -12,7 +12,8 @@ $staged=[];
 foreach($manifest as $relative=>$patch){
  $path=$root.'/'.$relative;$original=file_get_contents($path);if(!is_string($original))throw new RuntimeException('Source unavailable');$next=$original;
  foreach($patch['replacements'] as [$old,$new]){
-  if($new!==''&&strpos($next,$new)!==false)continue;
+  if(substr_count($next,$old)===0&&($new===''||strpos($next,$new)!==false))continue;
+  if($new!==''&&strpos($new,$old)!==false&&strpos($next,$new)!==false)continue;
   if(substr_count($next,$old)!==1)throw new RuntimeException('Changed source anchor: '.$relative);
   $next=str_replace($old,$new,$next);
  }
