@@ -50,3 +50,10 @@ $crmRoot='/home/customer/www/crm.trbrec.com';
 foreach(array($crmRoot.'/public_html',$crmRoot.'/public_html/app',$crmRoot.'/app',$crmRoot.'/private/app') as $dir) {
  if(is_dir($dir))echo 'CRM_LAYOUT '.wp_json_encode(array('dir'=>$dir,'entries'=>array_values(array_diff(scandir($dir),array('.','..')))))."\n";
 }
+
+require_once $crmRoot.'/public_html/app/bootstrap.php';
+$db=\TrbCrm\Database::connection();
+$rows=$db->query("SELECT rc.id,rc.portal_release_id,rc.workflow_status,s.public_id,rc.metadata FROM release_cases rc JOIN submissions s ON s.id=rc.submission_id WHERE rc.portal_release_id IN ('artist:12325','artist:12329')")->fetchAll(PDO::FETCH_ASSOC);
+foreach($rows as $row){$m=json_decode($row['metadata'],true);unset($row['metadata']);$row['pipeline']=$m['portal_pipeline_status']??null;echo 'CRM_GREED_CASE '.wp_json_encode($row)."\n";}
+foreach(array('app/View.php','app/Controller.php','app/SubmissionRepository.php','assets/app-20260831-r27.js') as $rel)echo 'CRM_FILE_VERSION '.wp_json_encode(array('path'=>$rel,'sha256'=>hash_file('sha256',$crmRoot.'/public_html/'.$rel)))."\n";
+foreach(get_defined_functions()['user'] as $fn) if(strpos($fn,'trb')===0 && preg_match('/(copyright.*review|review.*copyright)/',$fn)) { $rf=new ReflectionFunction($fn);echo 'RIGHTS_FUNCTION '.wp_json_encode(array('name'=>$fn,'file'=>basename($rf->getFileName()),'parameters'=>array_map(static function($p){return $p->getName();},$rf->getParameters())))."\n"; }
