@@ -180,6 +180,15 @@ function trb_resource_process_notifications() {
 	$sent_today = (int) get_option( 'trb_resource_email_sent_' . wp_date( 'Ymd' ), 0 );
 	$rows = $wpdb->get_results( "SELECT * FROM $table WHERE status IN ('pending','retry') AND attempts<5 ORDER BY id ASC LIMIT 20" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	foreach ( $rows as $row ) {
+		if ( preg_match( '/^pcloud-(?:85|95|block)-/', (string) $row->event_key ) ) {
+			$wpdb->update( $table, array( 'status' => 'cancelled_obsolete', 'last_error' => 'pcloud_space_monitor_removed', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) ); continue;
+		}
+		if ( 0 === strpos( (string) $row->event_key, 'daily-health-' ) ) {
+			$row->body = preg_replace( '~<p>pCloud(?: direttamente)?(?:\s+utilizzato|: lettura dello spazio)[^<]*</p>~u', '', (string) $row->body );
+			if ( substr_count( (string) $row->body, '<p>' ) <= 2 ) {
+				$wpdb->update( $table, array( 'status' => 'cancelled_obsolete', 'last_error' => 'no_remaining_health_alerts', 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) ); continue;
+			}
+		}
 		if ( 0 === strpos( (string) $row->event_key, 'acr-wallet-' ) ) {
 			$wallet_state = trb_acr_wallet_state();
 			if ( ! in_array( $wallet_state, array( 'low', 'empty' ), true ) || 0 !== strpos( (string) $row->event_key, 'acr-wallet-' . $wallet_state . '-' ) ) {
@@ -343,62 +352,10 @@ function trb_resource_pcloud_webdav_userinfo() {
 }
 
 
-function trb_resource_pcloud_userinfo() {
-	$settings = trb_resource_settings();
-	$host = in_array( untrailingslashit( $settings['pcloud_api_host'] ), array( 'https://api.pcloud.com', 'https://eapi.pcloud.com' ), true ) ? untrailingslashit( $settings['pcloud_api_host'] ) : 'https://eapi.pcloud.com';
-	$data = array();
-	$diagnostic = array( 'checked_at' => time(), 'code' => 'PCLOUD_API_TOKEN_MISSING' );
-	if ( ! empty( $settings['pcloud_auth_token'] ) ) {
-		$parameter = 'oauth' === $settings['pcloud_token_type'] ? 'access_token' : 'auth';
-		$response = wp_remote_post( $host . '/userinfo', array( 'timeout' => 30, 'redirection' => 0, 'body' => array( $parameter => $settings['pcloud_auth_token'] ) ) );
-		$http = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
-		if ( ! is_wp_error( $response ) ) $data = json_decode( wp_remote_retrieve_body( $response ), true );
-		$diagnostic = array( 'checked_at' => time(), 'http' => $http, 'shape' => trb_resource_provider_shape( $data ), 'code' => 'PCLOUD_API_QUOTA_UNAVAILABLE' );
-		if ( 200 === $http && trb_resource_pcloud_quota_valid( $data ) ) {
-			$data['used_percent'] = ( (float) $data['usedquota'] / (float) $data['quota'] ) * 100;
-			$data['free'] = max( 0, (float) $data['quota'] - (float) $data['usedquota'] );
-			$data['source'] = 'api';
-			$diagnostic['code'] = '';
-		}
-	}
-	update_option( 'trb_resource_pcloud_api_diagnostic', $diagnostic, false );
-	if ( ! empty( $diagnostic['code'] ) ) {
-		// WebDAV passwords must not be repeatedly submitted to API login.
-		$data = trb_resource_pcloud_webdav_userinfo();
-		if ( is_wp_error( $data ) ) {
-			update_option( 'trb_resource_pcloud_diagnostic', array( 'checked_at' => time(), 'code' => $diagnostic['code'], 'source' => 'api-webdav' ), false );
-			return new WP_Error( $diagnostic['code'], 'Collegamento API pCloud da autorizzare; WebDAV non espone la quota. Questo errore non indica un trasferimento fallito.' );
-		}
-	}
-	update_option( 'trb_resource_pcloud_diagnostic', array( 'checked_at' => time(), 'code' => '', 'source' => $data['source'] ), false );
-	update_option( 'trb_resource_pcloud_snapshot', array( 'time' => time(), 'data' => $data ), false );
-	$pcloud_settings = trb_resource_settings();
-	trb_resource_resolve_event( 'userinfo', 'pcloud' );
-	if ( $data['used_percent'] < (float) $pcloud_settings['pcloud_block'] && $data['free'] >= (float) $pcloud_settings['pcloud_safety_bytes'] ) trb_resource_resolve_event( 'quota', 'pcloud' );
-	if ( $data['used_percent'] >= (float) $pcloud_settings['pcloud_warning_1'] ) trb_resource_event( 'quota-warning', 'pcloud', 'warning', 'Utilizzo pCloud oltre la prima soglia.', array( 'used_percent' => $data['used_percent'] ) );
-	else trb_resource_resolve_event( 'quota-warning', 'pcloud' );
-	if ( $data['used_percent'] >= (float) $pcloud_settings['pcloud_warning_2'] ) trb_resource_queue_email( 'pcloud-85-' . wp_date( 'Ym' ), 'Quota pCloud oltre la soglia di attenzione', 'Spazio utilizzato: ' . number_format_i18n( $data['used_percent'], 1 ) . '%.' );
-	if ( $data['used_percent'] >= (float) $pcloud_settings['pcloud_warning_3'] ) trb_resource_queue_email( 'pcloud-95-' . wp_date( 'Ym' ), 'Quota pCloud quasi esaurita', 'Spazio utilizzato: ' . number_format_i18n( $data['used_percent'], 1 ) . '%.', true );
-	return $data;
-}
-
-
+/** Quota monitoring retired; WebDAV still verifies each actual transfer. */
 function trb_resource_pcloud_guard( $incoming_bytes ) {
-	$settings = trb_resource_settings();
-	$data = trb_resource_pcloud_userinfo();
-	if ( is_wp_error( $data ) ) {
-		trb_resource_event( 'userinfo', 'pcloud', 'warning', 'Quota pCloud non verificabile; il trasferimento atomico resta protetto dalla risposta WebDAV.', array( 'code' => $data->get_error_code() ) );
-		return array( 'quota_verified' => false, 'source' => 'webdav-transfer-guard' );
-	}
-	$required = (float) $incoming_bytes + (float) $settings['pcloud_safety_bytes'];
-	if ( $data['used_percent'] >= (float) $settings['pcloud_block'] || $data['free'] < $required ) {
-		trb_resource_event( 'quota', 'pcloud', 'critical', 'Quota pCloud insufficiente.', array( 'used_percent' => $data['used_percent'], 'free' => $data['free'], 'required' => $required ) );
-		trb_resource_queue_email( 'pcloud-block-' . wp_date( 'YmdH' ), 'Trasferimenti pCloud bloccati preventivamente', 'La quota disponibile non consente un trasferimento sicuro. I WAV restano nello storage temporaneo.', true );
-		return new WP_Error( 'PCLOUD_QUOTA_LIMIT_REACHED' );
-	}
-	return $data;
+	return array( 'quota_verified' => false, 'source' => 'webdav-transfer-guard' );
 }
-
 
 
 /** Diagnostic types and allowlisted amounts only; never credentials or account identifiers. */
@@ -1319,19 +1276,6 @@ function trb_resource_daily_health() {
 		$anomalies[ sanitize_key( $key ) ] = sanitize_text_field( $message );
 		if ( $resource ) $covered_resources[] = sanitize_key( $resource );
 	};
-	$pcloud = trb_resource_pcloud_userinfo();
-	if ( is_wp_error( $pcloud ) ) {
-		$pcloud_code = sanitize_key( $pcloud->get_error_code() );
-		update_option( 'trb_resource_pcloud_diagnostic', array( 'checked_at' => $checked_at, 'code' => $pcloud_code, 'source' => 'api-webdav' ), false );
-		trb_resource_event( 'quota-check-' . wp_date( 'Ymd' ), 'pcloud', 'warning', 'Quota pCloud non verificabile.', array( 'code' => $pcloud_code ) );
-		$add_anomaly( 'pcloud-quota', 'pCloud: lettura dello spazio da collegare (' . strtoupper( $pcloud_code ) . '). Occorre un token API autorizzato. La quota non disponibile non dimostra un errore di trasferimento; i singoli file restano verificati via WebDAV.', 'pcloud' );
-	}
-	else {
-		update_option( 'trb_resource_pcloud_diagnostic', array( 'checked_at' => $checked_at, 'code' => '', 'source' => sanitize_key( (string) ( $pcloud['source'] ?? 'verified' ) ) ), false );
-		trb_resource_resolve_event( 'quota-check-' . wp_date( 'Ymd' ), 'pcloud' );
-		$covered_resources[] = 'pcloud';
-		if ( $pcloud['used_percent'] >= (float) $settings['pcloud_warning_1'] ) $add_anomaly( 'pcloud-capacity', 'pCloud utilizzato al ' . number_format_i18n( $pcloud['used_percent'], 1 ) . '%.', 'pcloud' );
-	}
 	$storage = trb_resource_storage_snapshot();
 	if ( null === $storage['free'] ) {
 		trb_resource_event( 'storage-check-' . wp_date( 'Ymd' ), 'storage', 'warning', 'Spazio hosting non verificabile.' );
@@ -1376,8 +1320,9 @@ function trb_resource_daily_health() {
 		if ( $missing_roles ) $add_anomaly( 'missing-roles', 'Ruoli contrattuali mancanti: ' . implode( ', ', $missing_roles ) . '.', 'roles' );
 		if ( $ambiguous ) $add_anomaly( 'ambiguous-roles', $ambiguous . ' account hanno più gruppi contrattuali assegnati e richiedono verifica amministrativa.', 'roles' );
 	}
-	$open_events = $wpdb->get_results( "SELECT resource,severity,message,occurrences FROM {$tables['events']} WHERE status='open' AND severity IN ('warning','critical') ORDER BY severity DESC,last_seen DESC LIMIT 30", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$open_events = $wpdb->get_results( "SELECT event_key,resource,severity,message,occurrences FROM {$tables['events']} WHERE status='open' AND severity IN ('warning','critical') ORDER BY severity DESC,last_seen DESC LIMIT 30", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	foreach ( $open_events as $event ) {
+		if ( preg_match( '/^pcloud:(?:userinfo$|quota$|quota-warning$|quota-check-)/', (string) $event['event_key'] ) ) continue;
 		$resource = sanitize_key( (string) $event['resource'] );
 		if ( 'critical' !== $event['severity'] && in_array( $resource, $covered_resources, true ) ) continue;
 		$occurrences = max( 1, absint( $event['occurrences'] ) );
@@ -1569,7 +1514,7 @@ function trb_resource_render_admin() {
 	if ( ! current_user_can( 'manage_options' ) ) return;
 	if ( isset( $_POST['trb_provider_check'] ) ) {
 		check_admin_referer( 'trb_provider_check' );
-		trb_resource_acr_current_bill(); trb_resource_pcloud_userinfo();
+		trb_resource_acr_current_bill();
 	}
 	$settings = trb_resource_settings();
 	if ( isset( $_POST['trb_resource_reconcile'] ) ) {
@@ -1650,7 +1595,7 @@ function trb_resource_render_admin() {
 	?>
 	<div class="wrap"><h1>Monitoraggio risorse TRB</h1><p>Sistema indipendente di prevenzione per costi, crediti, spazio e notifiche.</p>
 
-	<form method="post"><?php wp_nonce_field( 'trb_provider_check' ); ?><button class="button" name="trb_provider_check" value="1">Verifica collegamenti provider</button></form><details><summary>Diagnostica collegamenti</summary><pre><?php echo esc_html( wp_json_encode( array( 'acrcloud' => get_option( 'trb_resource_acr_bill_diagnostic', array() ), 'pcloud' => get_option( 'trb_resource_pcloud_api_diagnostic', array() ) ), JSON_PRETTY_PRINT ) ); ?></pre></details>
+	<form method="post"><?php wp_nonce_field( 'trb_provider_check' ); ?><button class="button" name="trb_provider_check" value="1">Verifica collegamenti provider</button></form><details><summary>Diagnostica collegamenti</summary><pre><?php echo esc_html( wp_json_encode( array( 'acrcloud' => get_option( 'trb_resource_acr_bill_diagnostic', array() ), 'pcloud' => 'Controllo spazio disattivato' ), JSON_PRETTY_PRINT ) ); ?></pre></details>
 	<h2>Quadro corrente</h2><table class="widefat striped"><tbody>
 	<tr><th>Impegno massimo prudenziale ACRCloud</th><td><?php echo esc_html( number_format_i18n( $spent, 4 ) . ' USD (stima informativa)' ); ?></td></tr>
 	<tr><th>Credito disponibile ACRCloud</th><td><?php echo esc_html( trb_acr_wallet_notice() ); ?></td></tr>
@@ -1661,7 +1606,6 @@ function trb_resource_render_admin() {
 	<tr><th>Ultima fattura ACRCloud</th><td><?php echo esc_html( isset( $acr_bill_snapshot['amount'] ) ? number_format_i18n( $acr_bill_snapshot['amount'], 4 ) . ' USD · sincronizzata il ' . wp_date( 'd/m/Y H:i:s', absint( $acr_bill_snapshot['checked_at'] ?? 0 ) ) : 'Da sincronizzare automaticamente' ); ?></td></tr>
 	<tr><th>Errori / retry / rinnovo periodo</th><td><?php echo esc_html( absint( isset( $stats['errors'] ) ? $stats['errors'] : 0 ) . ' / ' . absint( isset( $stats['attempts'] ) ? $stats['attempts'] : 0 ) . ' / ' . $reset ); ?></td></tr>
 	<tr><th>DeepRight / Cover Song / Metadata</th><td><?php echo esc_html( (float) ( isset( $stats['deepright_minutes'] ) ? $stats['deepright_minutes'] : 0 ) . ' min / ' . (float) ( isset( $stats['cover_minutes'] ) ? $stats['cover_minutes'] : 0 ) . ' min / ' . absint( isset( $stats['metadata_calls'] ) ? $stats['metadata_calls'] : 0 ) . ' chiamate' ); ?></td></tr>
-	<tr><th>pCloud</th><td><?php echo esc_html( isset( $pcloud_snapshot['data']['used_percent'] ) && empty( $pcloud_diagnostic['code'] ) && absint( $pcloud_snapshot['time'] ?? 0 ) >= time() - DAY_IN_SECONDS ? size_format( $pcloud_snapshot['data']['free'], 2 ) . ' liberi · ' . number_format_i18n( $pcloud_snapshot['data']['used_percent'], 1 ) . '% utilizzato · verificato il ' . wp_date( 'd/m/Y H:i:s', $pcloud_snapshot['time'] ) : 'Spazio non verificato: collegamento API da completare' . ( ! empty( $pcloud_diagnostic['code'] ) ? ' · ' . strtoupper( $pcloud_diagnostic['code'] ) : '' ) ); ?></td></tr>
 	<tr><th>Filesystem condiviso (dato informativo)</th><td><?php echo esc_html( null !== $storage['free'] ? size_format( $storage['free'], 2 ) . ' liberi' . ( null !== $storage['used_percent'] ? ' · volume condiviso al ' . number_format_i18n( $storage['used_percent'], 1 ) . '%' : '' ) : 'Non verificabile' ); ?></td></tr>
 	<tr><th>Controllo automatico giornaliero</th><td><?php echo esc_html( 'Ultimo: ' . ( $daily_health_last ? wp_date( 'd/m/Y H:i:s', $daily_health_last ) : 'mai eseguito' ) . ' · Prossimo: ' . ( $daily_health_next ? wp_date( 'd/m/Y H:i:s', $daily_health_next ) : 'da pianificare' ) . ' · Anomalie ultimo controllo: ' . absint( $daily_health_status['anomaly_count'] ?? 0 ) . ( ! empty( $daily_health_status['email_queued'] ) ? ' · email accodata' : '' ) ); ?></td></tr>
 	</tbody></table><form method="post" style="margin:12px 0 24px"><?php wp_nonce_field( 'trb_resource_reconcile' ); ?><label><strong>Spesa effettiva ACRCloud del mese (USD)</strong> <input type="number" min="0" step="0.000001" name="acr_actual_cost" value="<?php echo esc_attr( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0 ); ?>"></label> <button class="button" name="trb_resource_reconcile" value="1">Registra riconciliazione</button></form>
@@ -1672,8 +1616,6 @@ function trb_resource_render_admin() {
 	<tr><th>ACRCloud</th><td><label><input type="checkbox" name="acr_enabled" <?php checked( $settings['acr_enabled'] ); ?>> Abilita analisi reali</label><br><label><input type="checkbox" name="acr_paid_confirmed" <?php checked( $settings['acr_paid_confirmed'] ); ?>> Confermo piano Premium/pay-per-use e pagamento verificato</label><br><label><input type="checkbox" name="acr_deepright" <?php checked( $settings['acr_deepright'] ); ?>> DeepRight abilitato</label><p><input type="password" class="regular-text" name="acr_token" placeholder="Token invariato se vuoto"> <input name="acr_container_id" value="<?php echo esc_attr( $settings['acr_container_id'] ); ?>" placeholder="Container ID"> <select name="acr_region"><option value="eu-west-1" <?php selected( $settings['acr_region'], 'eu-west-1' ); ?>>EU</option><option value="us-west-2" <?php selected( $settings['acr_region'], 'us-west-2' ); ?>>US</option><option value="ap-southeast-1" <?php selected( $settings['acr_region'], 'ap-southeast-1' ); ?>>AP</option></select></p><p>Motore <select name="acr_engine"><option value="1" <?php selected( $settings['acr_engine'], 1 ); ?>>Fingerprinting</option><option value="2" <?php selected( $settings['acr_engine'], 2 ); ?>>Cover Song</option><option value="3" <?php selected( $settings['acr_engine'], 3 ); ?>>Entrambi</option></select> Estratto massimo <input name="acr_excerpt_seconds" value="<?php echo esc_attr( $settings['acr_excerpt_seconds'] ); ?>" size="4"> secondi consecutivi dopo il solo silenzio tecnico iniziale, senza ricampionamento o elaborazioni.</p></td></tr>
 	<tr><th>Accesso contabile ACRCloud</th><td><label>Token di sola lettura fatturazione <input type="password" name="acr_billing_token" autocomplete="new-password" value="" placeholder="Invariato se vuoto"></label><p>Usa un token separato con il solo permesso read-billing. Il token delle analisi audio resta separato. <?php echo empty( $settings['acr_billing_token'] ) ? 'Non configurato.' : 'Configurato.'; ?></p><label>Avviso con saldo inferiore a (USD) <input type="number" min="0" step="0.01" name="acr_wallet_low_usd" value="<?php echo esc_attr( $settings['acr_wallet_low_usd'] ); ?>"></label><p>Avviso una volta al passaggio sotto soglia; esaurimento solo con saldo ACRCloud non positivo. Nessun allarme sul saldo se la lettura fallisce o è scaduta.</p></td></tr>
 	<tr><th>Stime informative dei costi USD</th><td>Fingerprint <input type="number" step="0.000001" name="acr_fingerprint_max" value="<?php echo esc_attr( $settings['acr_fingerprint_max'] ); ?>"> DeepRight/min <input type="number" step="0.000001" name="acr_deepright_minute_max" value="<?php echo esc_attr( $settings['acr_deepright_minute_max'] ); ?>"> Cover/min <input type="number" step="0.000001" name="acr_cover_minute_max" value="<?php echo esc_attr( $settings['acr_cover_minute_max'] ); ?>"> Metadata <input type="number" step="0.000001" name="acr_metadata_call_max" value="<?php echo esc_attr( $settings['acr_metadata_call_max'] ); ?>"></td></tr>
-	<tr><th>pCloud API</th><td><input class="regular-text" name="pcloud_api_host" value="<?php echo esc_attr( $settings['pcloud_api_host'] ); ?>"><br><input type="password" class="regular-text" name="pcloud_auth_token" placeholder="Token invariato se vuoto"><label>Tipo token <select name="pcloud_token_type"><option value="auth" <?php selected( $settings['pcloud_token_type'], 'auth' ); ?>>Token di sessione API (auth)</option><option value="oauth" <?php selected( $settings['pcloud_token_type'], 'oauth' ); ?>>OAuth (access_token)</option></select></label><p>Serve un token API autorizzato per leggere quota e spazio libero. I trasferimenti usano separatamente WebDAV; la password WebDAV non viene riutilizzata per il login API.</p></td></tr>
-	<tr><th>Soglie pCloud %</th><td><input name="pcloud_warning_1" value="<?php echo esc_attr( $settings['pcloud_warning_1'] ); ?>" size="4"> / <input name="pcloud_warning_2" value="<?php echo esc_attr( $settings['pcloud_warning_2'] ); ?>" size="4"> / <input name="pcloud_warning_3" value="<?php echo esc_attr( $settings['pcloud_warning_3'] ); ?>" size="4"> / blocco <input name="pcloud_block" value="<?php echo esc_attr( $settings['pcloud_block'] ); ?>" size="4"> Margine byte <input name="pcloud_safety_bytes" value="<?php echo esc_attr( $settings['pcloud_safety_bytes'] ); ?>"></td></tr>
 	<tr><th>Margine staging hosting</th><td>Spazio libero minimo <input name="temp_min_free_bytes" value="<?php echo esc_attr( $settings['temp_min_free_bytes'] ); ?>"> byte · Moltiplicatore per caricamento <input name="temp_file_multiplier" value="<?php echo esc_attr( $settings['temp_file_multiplier'] ); ?>" size="5"><p>Le percentuali del volume condiviso sono solo informative e non bloccano le release.</p></td></tr>
 	<tr><th>Limite email giornaliero</th><td><input name="email_daily_limit" value="<?php echo esc_attr( $settings['email_daily_limit'] ); ?>"></td></tr>
 	</tbody></table><p><button class="button button-primary" name="trb_resource_save" value="1">Salva configurazione</button></p></form></div>
