@@ -10,7 +10,7 @@ foreach ( array( 0, 3.765, 4, 4.125, 5.5, 50 ) as $spent ) {
 	trb_resource_acr_thresholds( $spent, 5 ); // Must not access the notification queue.
 }
 $notice = trb_resource_acr_budget_notice( 4.125, 5 );
-foreach ( array( '4,1250 USD', '5,00 USD', 'Limite interno', 'non misurano il credito' ) as $expected ) check_budget( false !== strpos( $notice, $expected ), $expected );
+foreach ( array( '4,1250 USD', 'Nessun limite interno', 'non misurano il credito', 'non sospendono le analisi' ) as $expected ) check_budget( false !== strpos( $notice, $expected ), $expected );
 check_budget( false === strpos( $notice, '82,5%' ) && false === strpos( $notice, 'residuo' ), 'Do not imply estimated reservations measure the wallet.' );
 check_budget( trb_resource_pcloud_quota_valid( array( 'result'=>0, 'quota'=>1000, 'usedquota'=>500 ) ), 'Valid provider quota.' );
 check_budget( trb_resource_pcloud_quota_valid( array( 'result'=>0, 'quota'=>1000, 'usedquota'=>1200 ) ), 'Overquota is a real capacity condition.' );
@@ -41,3 +41,9 @@ foreach ( array( array(0,'empty'), array(-1,'empty'), array(9.99,'low'), array(1
 	check_budget( $case[1] === trb_acr_wallet_classify( $s, $ok, 10001, 10 ), 'Provider wallet threshold boundary.' );
 }
 echo "Provider wallet balance and freshness passed.\n";
+
+// No settings/database/notification access is permitted by the retired cap.
+foreach (array(0, 0.068, 5, 50, 1000000) as $maximum) {
+ check_budget(true === trb_resource_acr_budget_guard($maximum, 12329), 'Internal estimates cannot block paid analysis.');
+}
+echo "Retired internal cap cannot block release analysis.\n";
