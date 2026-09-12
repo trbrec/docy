@@ -44,7 +44,7 @@ $GLOBALS['wpdb']=new class {function prepare($sql,...$args){return $sql;}functio
 $GLOBALS['fixtureMeta']=['_trb_release_files'=>[['kind'=>'audio','track'=>0,'sha256'=>'current','path'=>'qa.wav']],'_trb_release_tracks'=>[['title'=>'QA']], '_trb_release_pipeline_status'=>'technical_error','_trb_release_technical_analysis'=>['status'=>'failed','errors'=>['QA clipping']],'_trb_release_pcloud_archive'=>['verified'=>true],'_trb_contract_state'=>'waiting_analysis'];
 $GLOBALS['fixtureTechnical']=false;$GLOBALS['fixtureDispatches']=0;
 $snap=trb_crm_inline_snapshot(1);check($snap['can_decide']&&!$snap['can_finalize'],'Technical block incorrectly prevents rights review or permits contract');
-$GLOBALS['fixtureMeta']['_trb_crm_inline_reviews']=[['action'=>'approve','sha256'=>'current','analysis_revision'=>$snap['analysis_revision']]];
+$GLOBALS['fixtureMeta']['_trb_crm_inline_reviews']=[['action'=>'approve','sha256'=>'current','analysis_revision'=>$snap['tracks'][0]['analysis_revision']]];
 check(!trb_crm_inline_apply_review(1,true)&&$GLOBALS['fixtureDispatches']===0&&$GLOBALS['fixtureMeta']['_trb_release_pipeline_status']==='technical_error','Copyright approval erased technical blocker');
 $GLOBALS['fixtureTechnical']=true;$GLOBALS['fixtureMeta']['_trb_release_technical_analysis']=['status'=>'passed'];
 check(trb_crm_inline_apply_review(1,true)&&$GLOBALS['fixtureDispatches']===1&&$GLOBALS['fixtureMeta']['_trb_release_pipeline_status']==='approved','Successful review did not resume contract workflow');

@@ -12,7 +12,7 @@ function trb_crm_inline_permission($request) {
 function trb_crm_inline_current_reviews($files,$reviews,$revision) {
  $current=array();foreach($files as $index=>$file) {
   $review=$reviews[$index]??array();
-  if(!empty($review['sha256'])&&hash_equals((string)$file['sha256'],(string)$review['sha256'])&&(string)($review['analysis_revision']??'')===(string)$revision)$current[$index]=$review;
+  if(!empty($review['sha256'])&&hash_equals((string)$file['sha256'],(string)$review['sha256'])&&(string)($review['analysis_revision']??'')===(string)(is_array($revision)?($revision[$index]??''):$revision))$current[$index]=$review;
  }
  return $current;
 }
@@ -27,12 +27,13 @@ function trb_crm_inline_snapshot($id) {
  $rows=$wpdb->get_results($wpdb->prepare("SELECT track_index,file_hash,payload FROM $table WHERE release_id=%d AND provider='acrcloud' AND service IN ('fingerprinting','fingerprinting_reuse') AND status='completed' ORDER BY id",$id),ARRAY_A);
  foreach($rows as $row){$i=(int)$row['track_index'];if(isset($files[$i])&&hash_equals((string)$files[$i]['sha256'],(string)$row['file_hash'])){$payload=json_decode($row['payload'],true);$results[$i]=trb_analysis_normalize_acr_result(is_array($payload)?$payload:array());}}
  $revision=hash('sha256',wp_json_encode($results));
- $reviews=trb_crm_inline_current_reviews($files,(array)get_post_meta($id,'_trb_crm_inline_reviews',true),$revision);
+ $track_revisions=array();foreach($results as $i=>$result)$track_revisions[$i]=hash('sha256',wp_json_encode($result));
+ $reviews=trb_crm_inline_current_reviews($files,(array)get_post_meta($id,'_trb_crm_inline_reviews',true),$track_revisions);
  $bindings=array();$out=array();
  foreach($files as $index=>$file){
   $bindings[$index]=(string)$file['sha256'];$result=(array)($results[$index]??array());
   $matches=array();foreach((array)($result['matches']??array()) as $match){$match['id']=substr(hash('sha256',wp_json_encode($match)),0,24);$matches[]=$match;}
-  $out[]=array('index'=>$index,'title'=>$tracks[$index]['title']??$file['name']??'Brano '.($index+1),'sha256'=>$file['sha256'],'audio_relative'=>$file['path']??'','audio_available'=>(bool)trb_release_pcloud_local_file($file),'matches'=>$matches,'analysis_available'=>isset($results[$index]),'review'=>$reviews[$index]??null);
+  $out[]=array('index'=>$index,'title'=>$tracks[$index]['title']??$file['name']??'Brano '.($index+1),'sha256'=>$file['sha256'],'audio_relative'=>$file['path']??'','audio_available'=>(bool)trb_release_pcloud_local_file($file),'matches'=>$matches,'analysis_revision'=>$track_revisions[$index]??'','analysis_available'=>isset($results[$index]),'review'=>$reviews[$index]??null);
  }
  $pipeline=(string)get_post_meta($id,'_trb_release_pipeline_status',true);
  $technical=(array)get_post_meta($id,'_trb_release_technical_analysis',true);
@@ -109,7 +110,7 @@ function trb_crm_inline_handle($request) {
   $rejected=array_values(array_filter($validated,static function($item){return $item['action']==='reject';}));
   global $wpdb;$wpdb->query('START TRANSACTION');$email=null;if($rejected){$email=trb_crm_inline_queue_rejections($id,$rejected,$key);if(is_wp_error($email)){$wpdb->query('ROLLBACK');return $email;}}
   $reviews=(array)get_post_meta($id,'_trb_crm_inline_reviews',true);
-  foreach($validated as $item){$track=$item['track'];$reviews[$track['index']]=array('action'=>$item['action'],'sha256'=>$track['sha256'],'analysis_revision'=>$snapshot['analysis_revision'],'reviewer'=>(int)$body['reviewer'],'at'=>time(),'note'=>$item['note'],'selected_matches'=>array_column($item['selected_matches'],'id'),'notification'=>$item['action']==='reject'?$email:null);}
+  foreach($validated as $item){$track=$item['track'];$reviews[$track['index']]=array('action'=>$item['action'],'sha256'=>$track['sha256'],'analysis_revision'=>$track['analysis_revision'],'reviewer'=>(int)$body['reviewer'],'at'=>time(),'note'=>$item['note'],'selected_matches'=>array_column($item['selected_matches'],'id'),'notification'=>$item['action']==='reject'?$email:null);}
   if(!update_post_meta($id,'_trb_crm_inline_reviews',$reviews)){$wpdb->query('ROLLBACK');clean_post_cache($id);return new WP_Error('review_save_failed','Decisioni non salvate. Riprova.',array('status'=>500));}
   add_post_meta($id,'_trb_crm_inline_review_audit',array('request_key'=>$key,'reviewer'=>(int)$body['reviewer'],'at'=>time(),'decisions'=>$reviews));
   $wpdb->query('COMMIT');
