@@ -48,6 +48,7 @@ jobs:
           php tools/test-demo-services.php
           php tools/test-rights-owner-review.php
           php tools/test-crm-inline-review.php
+          php tools/test-crm-performance.php
           python3 tools/portal-audit.py
 
       - name: Deploy and verify exact main revision over SSH
@@ -92,6 +93,10 @@ jobs:
           fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/recover-acr-budget-live.php' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/recover-acr-budget-live.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+          fi
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/(deploy-crm-performance|crm-performance-patch)\.php$' >/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/deploy-crm-performance.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+            echo "CRM read-path performance installation verified."
           fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/deploy-crm-inline-review.php' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/deploy-crm-inline-review.php' '${GITHUB_SHA}'" >/dev/null 2>&1
