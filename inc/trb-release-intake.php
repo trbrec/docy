@@ -5,7 +5,7 @@ require_once __DIR__ . '/trb-release-integrity.php';
 
 function trb_intake_find( $user_id, $token ) {
 	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $token ) ) return 0;
-	$ids = get_posts( array( 'post_type' => 'trb_release', 'post_status' => array( 'publish', 'private', 'pending', 'draft' ), 'author' => absint( $user_id ), 'posts_per_page' => 1, 'fields' => 'ids', 'meta_key' => '_trb_release_submission_token', 'meta_value' => $token ) );
+	$ids = get_posts( array( 'post_type' => 'trb_release', 'post_status' => array( 'publish', 'private', 'pending', 'draft' ), 'author' => absint( $user_id ), 'posts_per_page' => 1, 'fields' => 'ids', 'meta_key' => '_trb_release_submission_token', 'meta_value' => $token, 'cache_results' => false ) );
 	return $ids ? absint( $ids[0] ) : 0;
 }
 

@@ -10,6 +10,12 @@ function trb_release_process_lock( $scope ) {
 	$handle = fopen( $directory . '/' . hash( 'sha256', $scope ) . '.lock', 'c' );
 	if ( ! $handle ) return false;
 	if ( ! flock( $handle, LOCK_EX | LOCK_NB ) ) { fclose( $handle ); return false; }
+	// A pre-lock read can be stale in WordPress's per-request object cache.
+	if ( 0 === strpos($scope,'release:') && function_exists('wp_cache_delete') ) {
+		$id = absint(substr($scope,8));
+		wp_cache_delete($id,'posts');
+		wp_cache_delete($id,'post_meta');
+	}
 	return $handle;
 }
 function trb_release_process_unlock( $handle ) {
@@ -64,8 +70,9 @@ function trb_intake_project_identity( $post ) {
 function trb_intake_project_conflict( $user_id, $post ) {
 	$identity = trb_intake_project_identity( $post );
 	if ( ! $identity ) return 0;
-	$candidates = get_posts( array( 'post_type' => 'trb_release', 'post_status' => array( 'publish', 'private', 'pending', 'draft' ), 'author' => absint( $user_id ), 'posts_per_page' => -1, 'orderby' => 'ID', 'order' => 'DESC' ) );
+	$candidates = get_posts( array( 'post_type' => 'trb_release', 'post_status' => array( 'publish', 'private', 'pending', 'draft' ), 'author' => absint( $user_id ), 'posts_per_page' => -1, 'orderby' => 'ID', 'order' => 'DESC', 'cache_results' => false ) );
 	foreach ( $candidates as $candidate ) {
+		if (function_exists('wp_cache_delete')) wp_cache_delete($candidate->ID,'post_meta');
 		if ( get_post_meta( $candidate->ID, '_trb_owner_cancelled_at', true ) ) continue;
 		$previous = array( 'trb_release_title' => $candidate->post_title, 'trb_release_type' => get_post_meta( $candidate->ID, '_trb_release_type', true ), 'trb_tracks' => get_post_meta( $candidate->ID, '_trb_release_tracks', true ) );
 		if ( hash_equals( $identity, trb_intake_project_identity( $previous ) ) ) return (int) $candidate->ID;
