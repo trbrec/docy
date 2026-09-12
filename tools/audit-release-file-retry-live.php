@@ -50,6 +50,3 @@ $crmRoot='/home/customer/www/crm.trbrec.com';
 foreach(array($crmRoot.'/public_html',$crmRoot.'/public_html/app',$crmRoot.'/app',$crmRoot.'/private/app') as $dir) {
  if(is_dir($dir))echo 'CRM_LAYOUT '.wp_json_encode(array('dir'=>$dir,'entries'=>array_values(array_diff(scandir($dir),array('.','..')))))."\n";
 }
-foreach(array($crmRoot.'/public_html/index.php',$crmRoot.'/public_html/app/Database.php',$crmRoot.'/app/Database.php') as $file) {
- if(is_file($file))echo 'CRM_BOOTSTRAP '.wp_json_encode(array('file'=>$file,'source'=>file_get_contents($file)))."\n";
-}
