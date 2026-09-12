@@ -18,6 +18,7 @@ jobs:
           php tools/test-submission-diagnostics.php
           php tools/test-release-credit-roles.php
           php tools/test-release-intake.php
+          php tools/test-release-integrity.php
           php tools/test-release-recovery.php
           php tools/test-crm-transfer-health.php
           php tools/test-acr-budget-notices.php

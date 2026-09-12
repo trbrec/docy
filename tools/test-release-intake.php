@@ -1,7 +1,7 @@
 <?php
 // Functional tests of the real intake and start handler with an in-memory WP boundary.
 define('ABSPATH', __DIR__); define('MINUTE_IN_SECONDS',60);
-class WP_Error { public function __construct(public $code, public $message='') {} public function get_error_message(){return $this->message;} }
+class WP_Error { public function __construct(public $code, public $message='', public $data=null) {} public function get_error_message(){return $this->message;} public function get_error_code(){return $this->code;} public function get_error_data(){return $this->data;} }
 class Reply extends Exception { public function __construct(public $payload){parent::__construct('reply');} }
 $posts=[];$options=[];$next=1;$logged=true;$nonce=true;
 function is_wp_error($v){return $v instanceof WP_Error;}
@@ -22,9 +22,17 @@ function trb_portal_is_release_qa_account(){return true;}
 function trb_portal_sanitize_release_tracks($tracks){return $tracks;}
 function add_option($k,$v,...$rest){global $options;if(isset($options[$k]))return false;$options[$k]=$v;return true;}
 function delete_option($k){global $options;unset($options[$k]);}
-function get_posts($args){global $posts;$out=[];foreach($posts as $id=>$p)if($p['post_author']===$args['author']&&($p['meta_input'][$args['meta_key']]??null)===$args['meta_value'])$out[]=$id;return array_slice($out,0,1);}
-function wp_insert_post($p,...$rest){global $posts,$next;$id=$next++;$posts[$id]=$p;return $id;}
-function wp_update_post($p){return $p['ID'];}
+function get_posts($args){global $posts;$out=[];foreach(array_reverse($posts,true) as $id=>$p){
+ if($p['post_author']!==$args['author'] || !in_array($p['post_status'],$args['post_status'],true))continue;
+ if(isset($args['meta_key']) && ($p['meta_input'][$args['meta_key']]??null)!==$args['meta_value'])continue;
+ $out[]=($args['fields']??'')==='ids'?$id:(object)$p;
+ }return ($args['posts_per_page']??-1)>0?array_slice($out,0,$args['posts_per_page']):$out;}
+function wp_insert_post($p,...$rest){global $posts,$next;$id=$next++;$p['ID']=$id;$posts[$id]=$p;return $id;}
+function wp_update_post($p){global $posts;$posts[$p['ID']]=array_merge($posts[$p['ID']],$p);return $p['ID'];}
+function wp_upload_dir(){return ['basedir'=>sys_get_temp_dir().'/trb-intake-tests-'.getmypid()];}
+function wp_mkdir_p($p){return is_dir($p)||mkdir($p,0700,true);}
+function wp_json_encode($v){return json_encode($v);}
+register_shutdown_function(function(){ $d=wp_upload_dir()['basedir'].'/trb-release-locks';foreach(glob($d.'/*')?:[] as $p)unlink($p);if(is_dir($d))rmdir($d);if(is_dir(dirname($d)))rmdir(dirname($d)); });
 function get_post_meta($id,$k,$single){global $posts;return $posts[$id]['meta_input'][$k]??'';}
 function update_post_meta($id,$k,$v){global $posts;$posts[$id]['meta_input'][$k]=$v;}
 function wp_send_json_success($p,...$rest){throw new Reply($p);}
@@ -111,3 +119,38 @@ update_post_meta(1,'_trb_release_intake_phase','validation_failed');
 trb_intake_refresh_draft(1,['trb_release_date'=>'2027-01-01']);
 check(get_post_meta(1,'_trb_release_date',true)==='2027-01-01','Retry kept stale date');
 echo "PASS stale acquisition, historical ISRC recovery, latest retry metadata and completed-intake protection\n";
+
+// Same project/new browser token must never create another receipt.
+$project=['trb_release_title'=>'Different project','trb_release_type'=>'single','trb_tracks'=>[['title'=>'Song','version'=>'']]];
+$token='22222222-2222-2222-2222-222222222222';
+$id=trb_intake_record(7,$token,$project);check(is_int($id),'Project rejected');
+$changed=$project;$changed['trb_release_date']='2027-05-01';$changed['trb_tracks'][0]['duration_seconds']=55;
+$retry=trb_intake_record(7,'33333333-3333-3333-3333-333333333333',$changed);
+check(is_wp_error($retry)&&$retry->get_error_code()==='existing_release'&&$retry->get_error_data()===$id,'Changed token/date/duration duplicated project');
+check(is_int(trb_intake_record(8,'44444444-4444-4444-4444-444444444444',$project)),'Different artist wrongly blocked');
+$version=$project;$version['trb_tracks'][0]['version']='Acoustic';
+check(is_int(trb_intake_record(7,'55555555-5555-5555-5555-555555555555',$version)),'Distinct version wrongly blocked');
+check(trb_intake_record(7,$token,$version)->get_error_code()==='existing_release','Editing an existing token duplicated another project');
+update_post_meta($id,'_trb_release_intake_phase','complete');
+check(trb_intake_record(7,$token,$project)===$id,'Completed retry rejected');
+check(is_wp_error(trb_intake_record(7,$token,$version)),'New project silently accepted with completed token');
+$lock=trb_release_process_lock('intake-user:7');
+check(trb_intake_record(7,$token,$project)->get_error_code()==='intake_busy','Concurrent receipt not serialized');
+trb_release_process_unlock($lock);check(trb_intake_record(7,$token,$project)===$id,'Released process left a stuck lock');
+$posts[$id]['post_status']='trash';
+check(is_int(trb_intake_record(7,'66666666-6666-6666-6666-666666666666',$project)),'Trashed practice blocks new submission');
+check(is_wp_error(trb_intake_record(7,'77777777-7777-7777-7777-777777777777',[])),'Empty receipt accepted');
+echo "PASS cross-token duplicate prevention, artist isolation, editions, completed token, process lock and trash
+";
+$posts[$id]['post_status']='private';
+update_post_meta($id,'_trb_release_intake_phase','acquiring_files');
+update_post_meta($id,'_trb_release_acquisition_started_at',time()-1900);
+$file=['kind'=>'audio','track'=>0,'path'=>'private.wav','sha256'=>'hash'];
+trb_intake_checkpoint_file($id,$file);
+$lock=trb_release_process_lock('release:'.$id);
+check(!trb_intake_recover_stalled($id),'Recovery interrupted an active worker');
+trb_release_process_unlock($lock);
+check(trb_intake_recover_stalled($id),'Interrupted worker did not recover');
+check(get_post_meta($id,'_trb_release_files',true)===[$file],'Durable acquired file lost on recovery');
+echo "PASS durable acquisition checkpoint and recovery concurrency
+";

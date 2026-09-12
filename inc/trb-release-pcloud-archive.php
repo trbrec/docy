@@ -226,6 +226,7 @@ function trb_release_pcloud_publish_file( $remote, $local, $content_type = 'appl
 function trb_release_pcloud_sync( $release_id ) {
 	$release = get_post( $release_id );
 	if ( ! $release || 'trb_release' !== $release->post_type ) return new WP_Error( 'release_not_found' );
+	if ( function_exists('trb_release_is_inactive') && trb_release_is_inactive($release_id) ) return new WP_Error('TRB_RELEASE_CANCELLED');
 	$user = get_userdata( $release->post_author );
 	if ( ! $user ) return new WP_Error( 'artist_not_found' );
 	$profile = trb_portal_user_profile( $user );
@@ -304,8 +305,16 @@ function trb_release_pcloud_sync( $release_id ) {
 }
 
 function trb_release_pcloud_run_sync( $release_id ) {
+	if ( trb_release_is_inactive( $release_id ) ) return;
+	$lock = trb_release_process_lock( 'release:' . absint( $release_id ) );
+	if ( ! $lock ) {
+		if ( ! wp_next_scheduled( 'trb_release_pcloud_retry', array( absint($release_id) ) ) ) wp_schedule_single_event( time()+60, 'trb_release_pcloud_retry', array( absint($release_id) ) );
+		return;
+	}
+	try {
 	$result = trb_release_pcloud_sync( absint( $release_id ) );
 	if ( is_wp_error( $result ) ) {
+		if ( in_array( $result->get_error_code(), array('TRB_RELEASE_CANCELLED','release_not_found','release_intake_incomplete'), true ) ) return;
 		$archive = (array) get_post_meta( $release_id, '_trb_release_pcloud_archive', true );
 		$archive['status'] = 'error'; $archive['time'] = time(); $archive['code'] = $result->get_error_code(); $archive['detail'] = sanitize_text_field( $result->get_error_message() );
 		update_post_meta( $release_id, '_trb_release_pcloud_archive', $archive );
@@ -313,6 +322,7 @@ function trb_release_pcloud_run_sync( $release_id ) {
 		update_post_meta( $release_id, '_trb_release_pipeline_status', $pipeline_status );
 		if ( ! wp_next_scheduled( 'trb_release_pcloud_retry', array( absint( $release_id ) ) ) ) wp_schedule_single_event( time() + 10 * MINUTE_IN_SECONDS, 'trb_release_pcloud_retry', array( absint( $release_id ) ) );
 	}
+	} finally { trb_release_process_unlock( $lock ); }
 }
 add_action( 'trb_release_pcloud_sync', 'trb_release_pcloud_run_sync', 10, 1 );
 add_action( 'trb_release_pcloud_retry', 'trb_release_pcloud_run_sync', 10, 1 );

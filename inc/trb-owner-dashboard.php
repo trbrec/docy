@@ -105,6 +105,7 @@ function trb_owner_dashboard_stop_release_jobs( $release_id ) {
 		'trb_release_audio_ready_for_analysis',
 		'trb_release_pcloud_sync',
 		'trb_release_pcloud_retry',
+		'trb_release_bridge_dispatch',
 		'trb_resource_retry_rights_document',
 	) as $hook ) {
 		wp_clear_scheduled_hook( $hook, array( $release_id ) );
@@ -131,6 +132,9 @@ function trb_owner_dashboard_trash_release() {
 	$release_id = absint( $_GET['release_id'] ?? 0 );
 	check_admin_referer( 'trb_owner_dashboard_trash_' . $release_id );
 	if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) ) wp_die( 'Pratica non valida.' );
+	$lock = trb_release_process_lock( 'release:' . $release_id );
+	if ( ! $lock ) wp_die( 'Pratica in elaborazione. Attendi la conclusione dell’operazione e riprova.' );
+	try {
 	$contract_state = sanitize_key( (string) get_post_meta( $release_id, '_trb_contract_state', true ) );
 	if ( in_array( $contract_state, array( 'contract_sent', 'signed' ), true ) ) wp_die( 'Questa pratica ha già un contratto inviato o firmato e deve restare nello storico. Annullare prima il dossier esterno, se applicabile.' );
 	update_post_meta( $release_id, '_trb_owner_pretrash_pipeline_status', (string) get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
@@ -142,6 +146,7 @@ function trb_owner_dashboard_trash_release() {
 	if ( function_exists( 'trb_resource_event' ) ) trb_resource_event( 'owner-trash-release-' . $release_id, 'portal', 'info', 'Pratica spostata nel cestino dalla Direzione TRB.', array( 'release_id' => $release_id, 'user_id' => get_current_user_id() ) );
 	wp_safe_redirect( trb_owner_dashboard_url( array( 'view' => 'releases', 'trb_notice' => 'trashed' ) ) );
 	exit;
+	} finally { trb_release_process_unlock( $lock ); }
 }
 add_action( 'admin_post_trb_owner_dashboard_trash_release', 'trb_owner_dashboard_trash_release' );
 
@@ -302,8 +307,6 @@ function trb_owner_dashboard_retry_feel_contract( $release_id ) {
 	$release_id = absint( $release_id );
 	if ( 12275 !== $release_id || ! add_post_meta( $release_id, '_trb_owner_live_recovery_20260825', time(), true ) ) return;
 	if ( 'approved' !== get_post_meta( $release_id, '_trb_release_pipeline_status', true ) || in_array( get_post_meta( $release_id, '_trb_contract_state', true ), array( 'contract_sent', 'signed' ), true ) || ! function_exists( 'trb_release_bridge_dispatch' ) ) return;
-	update_post_meta( $release_id, '_trb_contract_state', 'preparing' );
-	delete_post_meta( $release_id, '_trb_contract_error' );
 	trb_release_bridge_dispatch( $release_id );
 }
 add_action( 'trb_owner_dashboard_retry_feel_contract', 'trb_owner_dashboard_retry_feel_contract', 10, 1 );

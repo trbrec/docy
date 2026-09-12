@@ -21,6 +21,7 @@ function trb_recovery_file_candidates( $user_id ) {
 
 function trb_recovery_release( $release_id ) {
 	$post = get_post( absint( $release_id ) );
+	if ( $post && ( 'trash' === $post->post_status || get_post_meta($post->ID,'_trb_owner_cancelled_at',true) ) ) return null;
 	if ($post && 'trb_release' === $post->post_type) trb_intake_recover_stalled($post->ID);
 	if ( ! $post || 'trb_release' !== $post->post_type || ! in_array( get_post_meta( $post->ID, '_trb_release_intake_phase', true ), array( 'awaiting_upload', 'validation_failed', 'files_partial', 'recovery_review' ), true ) ) return null;
 	return $post;

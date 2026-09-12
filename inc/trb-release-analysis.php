@@ -556,10 +556,17 @@ function trb_analysis_apply_catalogue_bypass( $release_id ) {
 }
 
 function trb_analysis_decide_release( $release_id ) {
+	if ( function_exists('trb_release_is_inactive') && trb_release_is_inactive($release_id) ) return;
 	global $wpdb; $table = function_exists( 'trb_resource_tables' ) ? trb_resource_tables()['usage'] : '';
 	if ( ! $table ) return;
 	$rows = $wpdb->get_results( $wpdb->prepare( "SELECT track_index,file_hash,payload,status FROM $table WHERE release_id=%d AND provider='acrcloud' AND service IN ('fingerprinting','fingerprinting_reuse') ORDER BY id ASC", $release_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$current_hashes = array(); foreach ( (array) get_post_meta( $release_id, '_trb_release_files', true ) as $file ) if ( 'audio' === ( $file['kind'] ?? '' ) ) $current_hashes[ absint( $file['track'] ?? 0 ) ] = (string) ( $file['sha256'] ?? '' );
+	if ( ! $current_hashes ) { update_post_meta($release_id,'_trb_release_pipeline_status','upload_incomplete'); return; }
+	if ( function_exists('trb_release_technical_is_current') && ! trb_release_technical_is_current($release_id) ) {
+		$technical = (array)get_post_meta($release_id,'_trb_release_technical_analysis',true);
+		update_post_meta($release_id,'_trb_release_pipeline_status', 'failed' === ($technical['status'] ?? '') ? 'technical_error' : 'archived_pending_analysis');
+		return;
+	}
 	$s = trb_analysis_settings();
 	$normalized = array(); $limitations = array(); $copyright_findings = array(); $red = false; $yellow = false;
 	foreach ( $rows as $row ) {
