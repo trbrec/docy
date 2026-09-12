@@ -22,7 +22,7 @@ def all_pages(path,key):
     raise RuntimeError('Pagination limit exceeded')
 # Scope to historical production deployments. Never delete source, releases, CRM records or CI checks.
 runs=[r for r in all_pages('/actions/runs','workflow_runs') if r['path']=='.github/workflows/deploy.yml' and r['event']=='push' and r['status']=='completed' and r['created_at']<CUTOFF]
-pattern=re.compile(r'(?:CRM_(?:REVIEW_VERIFIED|LIVE_RIGHTS_SNAPSHOT|LAYOUT|IDENTITY)|GREED_[A-Z_]+|ACR_RECOVERY_RESULT|FILE_RETRY_LIVE|RELEASE_AUDIT)[^\n]*\{|"(?:copyright_findings|user_email|file_hash|artist_credit|portal_post_meta|contract_state|received_images)"\s*:')
+pattern=re.compile(r'(?:CRM_(?:REVIEW_VERIFIED|LIVE_RIGHTS_SNAPSHOT|LAYOUT|IDENTITY)|GREED_[A-Z_]+|ACR_RECOVERY_RESULT|FILE_RETRY_LIVE|RELEASE_AUDIT)[^\n]*\{|"(?:copyright_findings|user_email|file_hash|artist_credit|portal_post_meta|contract_state|received_images|matches|tracks|files|pipeline|contract|release_id|portal_release_id|public_id)"\s*:')
 def inspect(run):
     code,headers,_=api('/actions/runs/'+str(run['id'])+'/logs')
     if code in (404,410):return run['id'],'absent'
