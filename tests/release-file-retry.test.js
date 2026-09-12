@@ -17,5 +17,7 @@ const form={dataset:{},action:'/upload',querySelectorAll(){return [cover,audio,l
  assert.equal(map.trb_release_cover.retained,'cover-hash');assert.equal(map['trb_track_lyrics[0]'].key,'f1101');assert.equal(requests[1].chunk_index,'0');assert.equal(requests[1].field_name,'trb_track_audio[0]');assert.equal(requests[0].file_key,requests[1].file_key);assert.notEqual(requests[0].upload_id,requests[1].upload_id);
  assert.equal(api.uploadSlotKey(audio,0),api.uploadSlotKey(audio,9));assert.notEqual(api.uploadSlotKey(audio,0),api.uploadSlotKey(lyrics,0));
  api.discardResponseFields(form,{discarded_fields:['trb_track_lyrics[0]']});assert.equal(lyrics._trbRetained,null);assert.equal(cover._trbRetained.name,'valid.png');assert.equal(audio.files.length,1);
+ const replacement=input('trb_release_replacement',{...wav});const replacementForm={...form,querySelectorAll(){return [replacement];},querySelector(s){return {value:s.includes('submission_token')?'token':s.includes('stage_nonce')?'nonce':'mastering'};}};
+ await api.stageFiles(replacementForm,()=>{});assert.equal(requests.at(-1).audio_status,'mastering');
  console.log('PASS only rejected input cleared, corrected file retry, valid attachment reuse, stable staging slots and field-specific final errors');
 })().catch(e=>{console.error(e);process.exit(1);});

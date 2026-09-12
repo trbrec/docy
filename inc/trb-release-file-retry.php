@@ -39,7 +39,7 @@ function trb_file_retry_manifest($id) {
         $part=substr($meta_path,0,-5).'.part';
         $field=$meta['field_name']??'';
         if (!preg_match('/^trb_(?:release_(?:cover|cover_reference|presentation)|track_(?:audio|lyrics|rights_document)\[[0-9]{1,2}\])$/',$field) || empty($meta['complete']) || !trb_portal_release_is_staged_path($part) || (int)filesize($part)!==(int)($meta['size']??0)) continue;
-        $out[$field]=array('session'=>$token,'key'=>basename($part,'.part'),'name'=>$meta['name']);
+        $out[$field]=array('session'=>$token,'key'=>basename($part,'.part'),'name'=>$meta['name'],'upload_id'=>$meta['upload_id']??'');
     }
     foreach ((array)get_post_meta($id,'_trb_release_files',true) as $file) {
         if (!is_array($file) || !trb_file_retry_verified($id,$file)) continue;
@@ -110,6 +110,8 @@ function trb_file_retry_reject_upload($file,$error) {
         $path=$file['tmp_name'];
         $lock=fopen($path.'.lock','c');
         if ($lock && flock($lock,LOCK_EX|LOCK_NB)) {
+            // A new upload can replace this staging slot while the previous file is being validated.
+            if (empty($file['_trb_hash']) || !is_file($path) || !hash_equals($file['_trb_hash'],(string)hash_file('sha256',$path))) {flock($lock,LOCK_UN);fclose($lock);return;}
             wp_delete_file($path); wp_delete_file(preg_replace('/\.part$/','.json',$path));
             clearstatcache(true,$path); $removed=!is_file($path);
             flock($lock,LOCK_UN);

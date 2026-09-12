@@ -2006,8 +2006,9 @@ function trb_portal_staged_release_upload_item( $input_name, $index = null ) {
 	$part_path = $directory ? trailingslashit( $directory ) . $file_key . '.part' : '';
 	$meta_path = $directory ? trailingslashit( $directory ) . $file_key . '.json' : '';
 	$meta = $meta_path && file_exists( $meta_path ) ? json_decode( (string) file_get_contents( $meta_path ), true ) : array(); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+	if (isset($entry['upload_id']) && !hash_equals((string)($meta['upload_id']??''),(string)$entry['upload_id'])) { $GLOBALS['trb_discarded_upload_fields'][]=$field_name; return array(); }
 	if ( ! is_array( $meta ) || empty( $meta['complete'] ) || ! trb_portal_release_is_staged_path( $part_path ) || (int) filesize( $part_path ) !== (int) ( $meta['size'] ?? 0 ) ) return array();
-	return array( 'name' => sanitize_file_name( $meta['name'] ?? '' ), 'type' => sanitize_mime_type( $meta['type'] ?? '' ), 'tmp_name' => $part_path, 'error' => UPLOAD_ERR_OK, 'size' => (int) filesize( $part_path ), '_trb_staged' => true, '_trb_staging_session' => $session, '_trb_field' => $field_name );
+	return array( 'name' => sanitize_file_name( $meta['name'] ?? '' ), 'type' => sanitize_mime_type( $meta['type'] ?? '' ), 'tmp_name' => $part_path, 'error' => UPLOAD_ERR_OK, 'size' => (int) filesize( $part_path ), '_trb_staged' => true, '_trb_staging_session' => $session, '_trb_field' => $field_name, '_trb_hash' => hash_file('sha256',$part_path) );
 }
 
 function trb_portal_release_upload_item( $input_name, $index = null ) {
@@ -2153,6 +2154,7 @@ function trb_portal_validate_release_upload( $file, $kind, $audio_status = 'mast
 
 function trb_portal_validate_release_upload_bytes( $file, $kind, $audio_status = 'mastered' ) {
 	$is_staged = ! empty( $file['_trb_staged'] ) && ! empty( $file['tmp_name'] ) && trb_portal_release_is_staged_path( $file['tmp_name'] );
+	if ($is_staged && !empty($file['_trb_hash']) && !hash_equals($file['_trb_hash'],(string)hash_file('sha256',$file['tmp_name']))) return new WP_Error('recovery_integrity_failed');
 	if (!empty($file['_trb_retained'])) {
 		$current=trb_file_retry_retained_upload($file['_trb_field']??'', $file['_trb_hash']??'');
 		$is_staged=$current && ($current['tmp_name']??'')===($file['tmp_name']??'');
@@ -2408,7 +2410,15 @@ function trb_portal_replace_release_file() {
 	$old_file = is_array( $files ) && isset( $files[ $file_index ] ) ? $files[ $file_index ] : array();
 	$new_upload = trb_portal_release_upload_item( 'trb_release_replacement' );
 	$kind = isset( $old_file['kind'] ) ? $old_file['kind'] : '';
-	$valid = in_array( $kind, array( 'cover', 'cover_reference', 'presentation', 'lyrics', 'audio', 'rights_document' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind, $old_file['audio_status'] ?? 'mastered' ) : new WP_Error( 'invalid_file' );
+	$replacement_audio_status=$old_file['audio_status']??'mastered';
+	if ('audio'===$kind) {
+		$release_owner=get_userdata(get_post($release_id)->post_author);
+		$owner_profile=trb_portal_user_profile($release_owner);
+		$replacement_audio_status=sanitize_key(wp_unslash($_POST['trb_replacement_audio_status']??$replacement_audio_status));
+		if (!in_array($replacement_audio_status,array('mastered','mastering'),true) || ('mastering'===$replacement_audio_status && !trb_portal_profile_has_service('mastering',$owner_profile))) trb_portal_release_submission_response('invalid_audio','Seleziona un tipo di file audio previsto dal tuo contratto.',422,$release_id);
+	}
+
+	$valid = in_array( $kind, array( 'cover', 'cover_reference', 'presentation', 'lyrics', 'audio', 'rights_document' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind, $replacement_audio_status ) : new WP_Error( 'invalid_file' );
 	if ( 'cover' === $kind && empty( $_POST['trb_release_cover_300dpi'] ) ) $valid = new WP_Error( 'invalid_cover' );
 	if ( 'audio' === $kind && ! is_wp_error( $valid ) ) {
 		$release_tracks    = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
@@ -2431,7 +2441,7 @@ function trb_portal_replace_release_file() {
 		$replacement_track = isset( $old_file['track'] ) ? absint( $old_file['track'] ) : 0;
 		$replacement_meta = array(
 			'track_title' => isset( $release_tracks[ $replacement_track ]['title'] ) ? $release_tracks[ $replacement_track ]['title'] : '',
-			'audio_status' => ! empty( $old_file['audio_status'] ) ? $old_file['audio_status'] : 'mastered',
+			'audio_status' => $replacement_audio_status,
 			'replacement' => true,
 		);
 	}
@@ -2447,7 +2457,11 @@ function trb_portal_replace_release_file() {
 		$stored['security_status'] = is_wp_error( $scan ) ? $scan->get_error_code() : 'clean';
 		$security_blocked = is_wp_error( $scan );
 	}
-	if ( 'audio' === $kind && ! empty( $old_file['audio_status'] ) ) $stored['audio_status'] = $old_file['audio_status'];
+	if ('audio'===$kind) {
+		$stored['audio_status']=$replacement_audio_status;
+		$release_tracks[$replacement_track]['audio_status']=$replacement_audio_status;
+		update_post_meta($release_id,'_trb_release_tracks',$release_tracks);
+	}
 	if ( ! empty( $old_file['path'] ) && $old_file['path'] !== $stored['path'] ) {
 		$previous_files = (array) get_post_meta( $release_id, '_trb_release_previous_files', true );
 		$previous_files[] = $old_file;
@@ -4801,6 +4815,12 @@ function trb_portal_render_release_files( $release_id ) {
 									<input type="hidden" name="trb_release_file_index" value="<?php echo esc_attr( $index ); ?>" />
 									<?php wp_nonce_field( 'trb_portal_replace_release_file_' . $release_id . '_' . $index, 'trb_release_file_nonce' ); ?>
 									<input type="file" name="trb_release_replacement" accept="<?php echo esc_attr( $accept ); ?>" required />
+									<?php if ('audio'===$kind) :
+										$owner_profile=trb_portal_user_profile(get_userdata(get_post($release_id)->post_author));
+										if (trb_portal_profile_has_service('mastering',$owner_profile)) : ?>
+										<label>Tipo di file audio<select name="trb_replacement_audio_status" required><option value="mastered" <?php selected($file['audio_status']??'mastered','mastered'); ?>>Master definitivo</option><option value="mastering" <?php selected($file['audio_status']??'mastered','mastering'); ?>>Pre-master: richiedo il mastering incluso</option></select></label>
+										<?php else : ?><input type="hidden" name="trb_replacement_audio_status" value="mastered" /><?php endif; ?>
+									<?php endif; ?>
 									<?php if ( 'cover' === $kind ) : ?><label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo 300 DPI</label><?php elseif ( 'audio' === $kind ) : ?><small>Solo WAV stereo · minimo 44.100 Hz / 16 bit. La durata deve coincidere con quella dichiarata, con tolleranza massima di 1 secondo.</small><?php endif; ?>
 									<button class="trb-button trb-button--compact" type="submit">Carica la sostituzione</button>
 								</form>
