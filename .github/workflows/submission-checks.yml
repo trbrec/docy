@@ -37,6 +37,7 @@ jobs:
           php tools/test-release-staging-cleanup.php
           php tools/test-release-chunk-transfer.php
           node tests/release-draft-restore.test.js
+          node tests/release-receipt-resume.test.js
           node tests/release-master-retry.test.js
           node tests/release-audio-validation-race.test.js
           python3 tools/portal-audit.py
