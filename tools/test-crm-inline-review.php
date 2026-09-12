@@ -14,11 +14,11 @@ $result=trb_crm_inline_validate_batch($snapshot,$input);check(!is_wp_error($resu
 $email=trb_crm_inline_email_body('QA',array_values(array_filter($result,fn($v)=>$v['action']==='reject')));
 check(str_contains($email,'Gentile QA,')&&str_contains($email,'Reference 1 B')&&str_contains($email,'Reference 2 A'),'Selected reasons missing');
 check(!str_contains($email,'Fixture 0')&&!str_contains($email,'Reference 1 A')&&!str_contains($email,'Reference 2 B'),'Unselected finding leaked into email');
-foreach(['foreign','duplicate','unheard','short','conflict','missing_analysis'] as $case){$bad=$input;$snap=$snapshot;
+foreach(['foreign','duplicate','empty_selection','conflict','missing_analysis'] as $case){$bad=$input;$snap=$snapshot;
  if($case==='foreign')$bad[1]['selected_matches']=['match-2-a'];
  if($case==='duplicate')$bad[]=$bad[0];
  if($case==='unheard')$bad[0]['listened']=false;
- if($case==='short')$bad[1]['note']='no';
+ if($case==='empty_selection')$bad[1]['selected_matches']=[];
  if($case==='conflict')$bad[0]['selected_matches']=['match-0-a'];
  if($case==='missing_analysis')$snap['tracks'][0]['analysis_available']=false;
  check(is_wp_error(trb_crm_inline_validate_batch($snap,$bad)),'Invalid batch accepted: '.$case);
@@ -57,3 +57,8 @@ $request->headers=['x-trb-timestamp'=>(string)time(),'x-trb-signature'=>'sha256=
 check(trb_crm_inline_permission($request)===true,'Signed fixture rejected');
 $request->headers['x-trb-signature'].='0';check(is_wp_error(trb_crm_inline_permission($request)),'Tampered signature accepted');
 echo "Signed service request validation passed.\n";
+
+$automatic=$input;foreach($automatic as &$item){unset($item['note'],$item['listened']);}unset($item);
+check(!is_wp_error(trb_crm_inline_validate_batch($snapshot,$automatic)),'Preconfigured communication requires manual text');
+check(substr_count(trb_crm_inline_email_body('QA',array_slice($result,1)),trb_crm_inline_rejection_text())===1,'Template repeated per track');
+echo "Preconfigured communication without manual note passed.\n";
