@@ -45,3 +45,8 @@ try {
  }
 } finally {wp_set_current_user($initial);}
 echo 'FILE_RETRY_LIVE '.wp_json_encode(array('revision'=>$revision,'functions_loaded'=>true,'ownership_guard'=>true,'receipts'=>$results),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)."\n";
+
+$crmRoot='/home/customer/www/crm.trbrec.com';
+foreach(array($crmRoot.'/public_html',$crmRoot.'/public_html/app',$crmRoot.'/app',$crmRoot.'/private/app') as $dir) {
+ if(is_dir($dir))echo 'CRM_LAYOUT '.wp_json_encode(array('dir'=>$dir,'entries'=>array_values(array_diff(scandir($dir),array('.','..')))))."\n";
+}
