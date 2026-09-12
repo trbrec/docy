@@ -1,6 +1,6 @@
 <?php
 // Synthetic fixtures only: no production records, API requests, contracts or email.
-define('ABSPATH',__DIR__);function add_action(...$args){};
+define('ABSPATH',__DIR__);function add_action(...$args){};function add_filter(...$args){};
 class WP_Error {public function __construct(public $code,public $message='',public $data=[]){} }
 function is_wp_error($v){return $v instanceof WP_Error;}
 function sanitize_textarea_field($v){return trim(strip_tags($v));}

@@ -96,7 +96,7 @@ function trb_crm_inline_queue_rejections($id,$rejected,$key) {
 function trb_crm_inline_handle($request) {
  $id=(int)$request['id'];$body=(array)$request->get_json_params();
  if((int)($body['release_id']??0)!==$id)return new WP_Error('wrong_receipt','Identificativo pratica non corrispondente.',array('status'=>409));
- $action=(string)($body['operation']??'snapshot');
+ $action=preg_replace('/^inline_review_/','',(string)($body['operation']??'snapshot'));
  if($action==='snapshot')return trb_crm_inline_snapshot($id);
  if($action==='reference')return trb_crm_inline_reference($id,$body);
  if($action!=='apply'||empty($body['reviewer']))return new WP_Error('review_invalid','Operazione non valida.',array('status'=>422));
@@ -139,4 +139,11 @@ function trb_crm_inline_reference($id,$body) {
  $result=array('ok'=>true,'reference'=>count($found)===1?array_values($found)[0]:null,'search_url'=>'https://open.spotify.com/search/'.rawurlencode($term));
  set_transient($cache,$result,$result['reference']?DAY_IN_SECONDS:300);return $result;
 }
-add_action('rest_api_init',static function(){register_rest_route('trb/v1','/crm-inline-review/(?P<id>\d+)',array('methods'=>'POST','permission_callback'=>'trb_crm_inline_permission','callback'=>'trb_crm_inline_handle'));});
+// Reuse the existing authenticated CRM transport; do not exempt a new route from REST security.
+add_filter('rest_pre_dispatch',static function($result,$server,$request){
+ if($result!==null||$request->get_method()!=='POST'||!preg_match('#^/trb-crm/v1/release/(\d+)/?$#',$request->get_route(),$m))return $result;
+ $body=(array)$request->get_json_params();if(!in_array($body['operation']??'',array('inline_review_snapshot','inline_review_apply','inline_review_reference'),true))return $result;
+ if(!function_exists('trb_crm_sync_verify_release_request'))return new WP_Error('crm_unavailable','Connettore firmato non disponibile.',array('status'=>503));
+ $auth=trb_crm_sync_verify_release_request($request);if(is_wp_error($auth))return $auth;
+ $request->set_url_params(array('id'=>(int)$m[1]));return rest_ensure_response(trb_crm_inline_handle($request));
+},11,3);
