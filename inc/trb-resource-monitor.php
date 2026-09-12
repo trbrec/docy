@@ -13,7 +13,7 @@ function trb_resource_settings() {
 	$defaults = array(
 		'admin_email' => 'info@trbrec.com',
 		'acr_enabled' => 0, 'acr_paid_confirmed' => 0, 'acr_token' => '', 'acr_container_id' => '', 'acr_fingerprint_container_id' => '', 'acr_region' => 'eu-west-1',
-		'acr_monthly_budget' => 5.00, 'acr_fingerprint_max' => 0.05, 'acr_deepright_minute_max' => 0.001,
+		'acr_monthly_budget' => 0.00, 'acr_fingerprint_max' => 0.05, 'acr_deepright_minute_max' => 0.001,
 		'acr_wallet_low_usd' => 10.00,
 		'acr_cover_minute_max' => 0.001, 'acr_metadata_call_max' => 0.01, 'acr_engine' => 3, 'acr_deepright' => 1,
 		'acr_excerpt_seconds' => 90, 'acr_excerpt_offset' => 30,
@@ -254,7 +254,7 @@ function trb_resource_storage_snapshot() {
 
 /** Internal reservations are neither invoiced costs nor prepaid credit. */
 function trb_resource_acr_budget_notice( $current, $budget ) {
-	return 'Stima massima impegnata: ' . number_format_i18n( $current, 4 ) . ' USD. Limite interno mensile: ' . number_format_i18n( $budget, 2 ) . ' USD. Questi importi non misurano il credito ACRCloud disponibile.';
+	return 'Stima massima impegnata: ' . number_format_i18n( $current, 4 ) . ' USD. Nessun limite interno di spesa. Le stime non misurano il credito ACRCloud disponibile e non sospendono le analisi.';
 }
 
 /** Kept for callers: an internal spending estimate cannot trigger a wallet alert. */
@@ -480,16 +480,8 @@ function trb_resource_acr_max_cost( $duration_seconds ) {
 
 
 function trb_resource_acr_budget_guard( $maximum, $release_id = 0 ) {
-	$s = trb_resource_settings();
-	$stats = trb_resource_acr_stats();
-	$current = isset( $stats['cost_max'] ) ? (float) $stats['cost_max'] : 0;
-	$budget = (float) $s['acr_monthly_budget'];
-	if ( $budget <= 0 || $current + (float) $maximum > $budget ) {
-		if ( $release_id && get_post_meta( $release_id, '_trb_acr_budget_override', true ) ) return true;
-		trb_resource_event( 'budget-' . trb_resource_period_key(), 'acrcloud', 'critical', 'Limite interno di spesa ACRCloud raggiunto; saldo del conto non verificato.', compact( 'current', 'maximum', 'budget', 'release_id' ) );
-		trb_resource_queue_email( 'acr-budget-block-' . trb_resource_period_key(), 'Limite interno di spesa ACRCloud raggiunto', 'Nuove analisi sospese dal limite interno mensile del portale, non per credito ACRCloud esaurito. Verificare o modificare il limite nel monitor. Nessun WAV è stato eliminato.', true );
-		return new WP_Error( 'ACR_BUDGET_LIMIT_REACHED' );
-	}
+	// Internal maximum-cost estimates are accounting information, not prepaid credit.
+	// Owner policy: no portal monthly spending cap. Provider errors still apply.
 	return true;
 }
 
@@ -774,8 +766,6 @@ function trb_resource_start_dual_acr_analysis( $release_id ) {
 		$duration = ! empty( $file['audio_spec']['duration_seconds'] ) ? (float) $file['audio_spec']['duration_seconds'] : 0;
 		$minutes = max( 1, ceil( $duration / 60 ) );
 		$maximum = (float) $s['acr_fingerprint_max'] + $minutes * (float) $s['acr_cover_minute_max'];
-		$guard = trb_resource_acr_budget_guard( $maximum, $release_id );
-		if ( is_wp_error( $guard ) ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'ACR_BUDGET_LIMIT_REACHED' ); return $guard; }
 		$excerpt = trb_resource_create_excerpt( $local, $release_id, $track );
 		if ( is_wp_error( $excerpt ) ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' ); return $excerpt; }
 		foreach ( $containers as $service => $container_id ) {
@@ -908,8 +898,6 @@ function trb_resource_start_release_analysis( $release_id ) {
 			}
 		$duration = ! empty( $file['audio_spec']['duration_seconds'] ) ? (float) $file['audio_spec']['duration_seconds'] : 0;
 		$maximum = trb_resource_acr_max_cost( $duration );
-		$guard = trb_resource_acr_budget_guard( $maximum, $release_id );
-		if ( is_wp_error( $guard ) ) { update_post_meta( $release_id, '_trb_release_pipeline_status', 'ACR_BUDGET_LIMIT_REACHED' ); return; }
 		$excerpt = trb_resource_create_excerpt( $local, $release_id, $track );
 		if ( is_wp_error( $excerpt ) ) { trb_resource_event( 'extractor-' . $release_id, 'acrcloud', 'critical', 'Impossibile creare l’estratto audio per ACRCloud.', array( 'code' => $excerpt->get_error_code() ) ); update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' ); return; }
 		$minutes = max( 1, ceil( $duration / 60 ) );
@@ -1091,7 +1079,7 @@ function trb_resource_notify_artist_recovery_without_release( $user_id, $event_s
 }
 
 
-function trb_resource_recover_release_pipeline() {
+function trb_resource_recover_release_pipeline( $only_budget = false ) {
 	$release_ids = get_posts( array(
 		'post_type'      => 'trb_release',
 		'post_status'    => array( 'publish', 'private', 'pending' ),
@@ -1099,10 +1087,10 @@ function trb_resource_recover_release_pipeline() {
 		'fields'         => 'ids',
 		'orderby'        => 'modified',
 		'order'          => 'ASC',
-		'meta_query'     => array(
+		'meta_query'     => $only_budget ? array( array( 'key'=>'_trb_release_pipeline_status', 'value'=>'ACR_BUDGET_LIMIT_REACHED' ) ) : array(
 			'relation' => 'OR',
 			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'pending_pcloud_transfer', 'pcloud_transfer_waiting' ), 'compare' => 'IN' ),
-			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'archived_pending_analysis', 'technical_analysis_running', 'technical_review', 'copyright_queued', 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review' ), 'compare' => 'IN' ),
+			array( 'key' => '_trb_release_pipeline_status', 'value' => array( 'archived_pending_analysis', 'technical_analysis_running', 'technical_review', 'copyright_queued', 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review', 'ACR_BUDGET_LIMIT_REACHED' ), 'compare' => 'IN' ),
 		),
 	) );
 
@@ -1116,7 +1104,7 @@ function trb_resource_recover_release_pipeline() {
 		$archive = (array) get_post_meta( $release_id, '_trb_release_pcloud_archive', true );
 		$last_recovery = absint( get_post_meta( $release_id, '_trb_pipeline_last_recovery_at', true ) );
 		$recovery_cooldown = 'analysis_waiting_configuration' === $status ? 2 * MINUTE_IN_SECONDS : 15 * MINUTE_IN_SECONDS;
-		if ( $last_recovery && $last_recovery > time() - $recovery_cooldown ) continue;
+		if ( 'acr_budget_limit_reached' !== $status && $last_recovery && $last_recovery > time() - $recovery_cooldown ) continue;
 		$previous_status = sanitize_key( get_post_meta( $release_id, '_trb_pipeline_last_recovery_status', true ) );
 		$attempts = $previous_status === $status ? absint( get_post_meta( $release_id, '_trb_pipeline_recovery_attempts', true ) ) + 1 : 1;
 		update_post_meta( $release_id, '_trb_pipeline_last_recovery_at', time() );
@@ -1131,7 +1119,7 @@ function trb_resource_recover_release_pipeline() {
 		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'archived_pending_analysis', 'technical_analysis_running', 'technical_review', 'copyright_queued' ), true ) ) {
 			do_action( 'trb_release_audio_ready_for_analysis', $release_id, (array) ( $archive['files'] ?? array() ) );
 			$recovered = true;
-		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review' ), true ) && function_exists( 'trb_resource_start_release_analysis' ) ) {
+		} elseif ( ! empty( $archive['verified'] ) && in_array( $status, array( 'analysis_in_progress', 'analysis_waiting_configuration', 'copyright_review', 'acr_budget_limit_reached' ), true ) && function_exists( 'trb_resource_start_release_analysis' ) ) {
 			trb_resource_start_release_analysis( $release_id );
 			$recovered = 'analysis_waiting_configuration' !== sanitize_key( get_post_meta( $release_id, '_trb_release_pipeline_status', true ) );
 		}
@@ -1652,7 +1640,7 @@ function trb_resource_render_admin() {
 		update_option( 'trb_resource_monitor_settings', $updated, false ); $settings = $updated;
 		echo '<div class="notice notice-success"><p>Configurazione salvata.</p></div>';
 	}
-	$stats = trb_resource_acr_stats(); $budget = (float) $settings['acr_monthly_budget']; $spent = isset( $stats['cost_max'] ) ? (float) $stats['cost_max'] : 0; $percent = $budget > 0 ? min( 100, $spent / $budget * 100 ) : 100;
+	$stats = trb_resource_acr_stats(); $budget = 0; $spent = isset( $stats['cost_max'] ) ? (float) $stats['cost_max'] : 0;
 	$day = (int) wp_date( 'j' ); $days = (int) wp_date( 't' ); $projection = $day > 0 ? $spent / $day * $days : $spent; $average = ! empty( $stats['tracks'] ) ? $spent / (int) $stats['tracks'] : 0; $reset = wp_date( 'd/m/Y', ( new DateTimeImmutable( 'first day of next month 00:00:00', wp_timezone() ) )->getTimestamp() );
 	$pcloud_snapshot = get_option( 'trb_resource_pcloud_snapshot', array() ); $pcloud_diagnostic = (array) get_option( 'trb_resource_pcloud_diagnostic', array() ); $acr_bill_snapshot = (array) get_option( 'trb_resource_acr_bill_snapshot', array() ); $storage = trb_resource_storage_snapshot(); global $wpdb; $tables = trb_resource_tables();
 	$daily_health_status = (array) get_option( 'trb_resource_daily_health_status', array() ); $daily_health_last = absint( get_option( 'trb_resource_daily_health_last_run', 0 ) ); $daily_health_next = wp_next_scheduled( 'trb_resource_daily_health_catchup' );
@@ -1664,9 +1652,9 @@ function trb_resource_render_admin() {
 
 	<form method="post"><?php wp_nonce_field( 'trb_provider_check' ); ?><button class="button" name="trb_provider_check" value="1">Verifica collegamenti provider</button></form><details><summary>Diagnostica collegamenti</summary><pre><?php echo esc_html( wp_json_encode( array( 'acrcloud' => get_option( 'trb_resource_acr_bill_diagnostic', array() ), 'pcloud' => get_option( 'trb_resource_pcloud_api_diagnostic', array() ) ), JSON_PRETTY_PRINT ) ); ?></pre></details>
 	<h2>Quadro corrente</h2><table class="widefat striped"><tbody>
-	<tr><th>Impegno massimo prudenziale ACRCloud</th><td><?php echo esc_html( number_format_i18n( $spent, 4 ) . ' / ' . number_format_i18n( $budget, 2 ) . ' USD (' . number_format_i18n( $percent, 1 ) . '%)' ); ?></td></tr>
+	<tr><th>Impegno massimo prudenziale ACRCloud</th><td><?php echo esc_html( number_format_i18n( $spent, 4 ) . ' USD (stima informativa)' ); ?></td></tr>
 	<tr><th>Credito disponibile ACRCloud</th><td><?php echo esc_html( trb_acr_wallet_notice() ); ?></td></tr>
-	<tr><th>Limite interno di spesa</th><td><?php echo esc_html( trb_resource_acr_budget_notice( $spent, $budget ) ); ?> Al raggiungimento del limite le nuove analisi a pagamento vengono sospese dal portale.</td></tr>
+	<tr><th>Limite interno di spesa</th><td><?php echo esc_html( trb_resource_acr_budget_notice( $spent, $budget ) ); ?></td></tr>
 	<tr><th>Tracce / richieste</th><td><?php echo esc_html( absint( isset( $stats['tracks'] ) ? $stats['tracks'] : 0 ) . ' / ' . absint( isset( $stats['requests'] ) ? $stats['requests'] : 0 ) ); ?></td></tr>
 	<tr><th>Stima massima media / proiezione stimata fine mese</th><td><?php echo esc_html( number_format_i18n( $average, 4 ) . ' USD / ' . number_format_i18n( $projection, 4 ) . ' USD' ); ?></td></tr>
 	<tr><th>Spesa stimata / effettiva sincronizzata</th><td><?php echo esc_html( number_format_i18n( isset( $stats['cost_estimated'] ) ? $stats['cost_estimated'] : 0, 4 ) . ' USD / ' . ( isset( $acr_bill_snapshot['amount'] ) ? number_format_i18n( $acr_bill_snapshot['amount'], 4 ) . ' USD (ultima sincronizzazione)' : 'non sincronizzata' ) ); ?></td></tr>
@@ -1678,12 +1666,12 @@ function trb_resource_render_admin() {
 	<tr><th>Controllo automatico giornaliero</th><td><?php echo esc_html( 'Ultimo: ' . ( $daily_health_last ? wp_date( 'd/m/Y H:i:s', $daily_health_last ) : 'mai eseguito' ) . ' · Prossimo: ' . ( $daily_health_next ? wp_date( 'd/m/Y H:i:s', $daily_health_next ) : 'da pianificare' ) . ' · Anomalie ultimo controllo: ' . absint( $daily_health_status['anomaly_count'] ?? 0 ) . ( ! empty( $daily_health_status['email_queued'] ) ? ' · email accodata' : '' ) ); ?></td></tr>
 	</tbody></table><form method="post" style="margin:12px 0 24px"><?php wp_nonce_field( 'trb_resource_reconcile' ); ?><label><strong>Spesa effettiva ACRCloud del mese (USD)</strong> <input type="number" min="0" step="0.000001" name="acr_actual_cost" value="<?php echo esc_attr( isset( $stats['cost_actual'] ) ? $stats['cost_actual'] : 0 ); ?>"></label> <button class="button" name="trb_resource_reconcile" value="1">Registra riconciliazione</button></form>
 	<h2>Anomalie aperte</h2><?php if ( ! $events ) : ?><p>Nessuna anomalia registrata.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Ultimo evento</th><th>Risorsa</th><th>Gravità</th><th>Dettaglio</th><th>Occorrenze</th></tr></thead><tbody><?php foreach ( $events as $event ) : ?><tr><td><?php echo esc_html( $event->last_seen ); ?></td><td><?php echo esc_html( $event->resource ); ?></td><td><?php echo esc_html( $event->severity ); ?></td><td><?php echo esc_html( $event->message ); ?></td><td><?php echo esc_html( $event->occurrences ); ?></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
-	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $archive = (array) get_post_meta( $release->ID, '_trb_release_pcloud_archive', true ); $artist = get_userdata( $release->post_author ); $cover_requested = 'request' === get_post_meta( $release->ID, '_trb_release_cover_mode', true ); $cover_missing = $cover_requested && function_exists( 'trb_portal_release_has_final_cover' ) && ! trb_portal_release_has_final_cover( $release->ID ); ?><tr id="trb-release-<?php echo esc_attr( $release->ID ); ?>"><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state . ( $cover_missing ? ' · copertina definitiva mancante' : '' ) . ( ! empty( $archive['code'] ) ? ' · ' . $archive['code'] : '' ) . ( ! empty( $archive['detail'] ) ? ' · ' . $archive['detail'] : '' ) ); ?></td><td><a class="button" href="<?php echo esc_url( admin_url( 'tools.php?page=trb-release-recovery&release_id=' . $release->ID ) ); ?>">Apri recupero materiali</a><form method="post" enctype="multipart/form-data"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="retry_acr">Rielabora risposta ACR</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button" name="trb_resource_release_action" value="override_budget">Autorizza analisi</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( $cover_missing ) : ?><br><label><strong>Copertina definitiva:</strong> <input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png"></label> <label><input type="checkbox" name="trb_release_cover_300dpi" value="1"> Confermo 300 DPI</label> <button class="button" name="trb_resource_release_action" value="upload_cover">Collega copertina</button><?php endif; ?><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
+	<h2>Coda pratiche</h2><?php if ( ! $queue ) : ?><p>Nessuna pratica in attesa.</p><?php else : ?><table class="widefat striped"><thead><tr><th>Pratica</th><th>Artista</th><th>Stato</th><th>Decisione</th></tr></thead><tbody><?php foreach ( $queue as $release ) : $state = get_post_meta( $release->ID, '_trb_release_pipeline_status', true ); $archive = (array) get_post_meta( $release->ID, '_trb_release_pcloud_archive', true ); $artist = get_userdata( $release->post_author ); $cover_requested = 'request' === get_post_meta( $release->ID, '_trb_release_cover_mode', true ); $cover_missing = $cover_requested && function_exists( 'trb_portal_release_has_final_cover' ) && ! trb_portal_release_has_final_cover( $release->ID ); ?><tr id="trb-release-<?php echo esc_attr( $release->ID ); ?>"><td>#<?php echo esc_html( $release->ID . ' · ' . $release->post_title ); ?></td><td><?php echo esc_html( $artist ? $artist->display_name : '' ); ?></td><td><?php echo esc_html( $state . ( $cover_missing ? ' · copertina definitiva mancante' : '' ) . ( ! empty( $archive['code'] ) ? ' · ' . $archive['code'] : '' ) . ( ! empty( $archive['detail'] ) ? ' · ' . $archive['detail'] : '' ) ); ?></td><td><a class="button" href="<?php echo esc_url( admin_url( 'tools.php?page=trb-release-recovery&release_id=' . $release->ID ) ); ?>">Apri recupero materiali</a><form method="post" enctype="multipart/form-data"><?php wp_nonce_field( 'trb_resource_release_action' ); ?><input type="hidden" name="release_id" value="<?php echo esc_attr( $release->ID ); ?>"><button class="button" name="trb_resource_release_action" value="retry_pcloud">Riprova pCloud</button> <button class="button" name="trb_resource_release_action" value="retry_acr">Rielabora risposta ACR</button> <button class="button" name="trb_resource_release_action" value="request_documents">Richiedi documenti</button> <button class="button" name="trb_resource_release_action" value="manual_review">Verifica manuale</button> <button class="button button-primary" name="trb_resource_release_action" value="approve">Approva</button><?php if ( $cover_missing ) : ?><br><label><strong>Copertina definitiva:</strong> <input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png"></label> <label><input type="checkbox" name="trb_release_cover_300dpi" value="1"> Confermo 300 DPI</label> <button class="button" name="trb_resource_release_action" value="upload_cover">Collega copertina</button><?php endif; ?><?php if ( false !== stripos( $release->post_title, 'NON PUBBLICARE' ) ) : ?><br><input type="email" name="qa_artist_email" placeholder="E-mail account collaudo" style="margin-top:6px"> <button class="button" name="trb_resource_release_action" value="qa_reassign">Riassegna test e ritenta</button><?php endif; ?></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
 	<h2>Configurazione</h2><form method="post"><?php wp_nonce_field( 'trb_resource_save' ); ?><table class="form-table"><tbody>
 	<tr><th>Email amministrativa</th><td><input type="email" class="regular-text" name="admin_email" value="<?php echo esc_attr( $settings['admin_email'] ); ?>"></td></tr>
 	<tr><th>ACRCloud</th><td><label><input type="checkbox" name="acr_enabled" <?php checked( $settings['acr_enabled'] ); ?>> Abilita analisi reali</label><br><label><input type="checkbox" name="acr_paid_confirmed" <?php checked( $settings['acr_paid_confirmed'] ); ?>> Confermo piano Premium/pay-per-use e pagamento verificato</label><br><label><input type="checkbox" name="acr_deepright" <?php checked( $settings['acr_deepright'] ); ?>> DeepRight abilitato</label><p><input type="password" class="regular-text" name="acr_token" placeholder="Token invariato se vuoto"> <input name="acr_container_id" value="<?php echo esc_attr( $settings['acr_container_id'] ); ?>" placeholder="Container ID"> <select name="acr_region"><option value="eu-west-1" <?php selected( $settings['acr_region'], 'eu-west-1' ); ?>>EU</option><option value="us-west-2" <?php selected( $settings['acr_region'], 'us-west-2' ); ?>>US</option><option value="ap-southeast-1" <?php selected( $settings['acr_region'], 'ap-southeast-1' ); ?>>AP</option></select></p><p>Motore <select name="acr_engine"><option value="1" <?php selected( $settings['acr_engine'], 1 ); ?>>Fingerprinting</option><option value="2" <?php selected( $settings['acr_engine'], 2 ); ?>>Cover Song</option><option value="3" <?php selected( $settings['acr_engine'], 3 ); ?>>Entrambi</option></select> Estratto massimo <input name="acr_excerpt_seconds" value="<?php echo esc_attr( $settings['acr_excerpt_seconds'] ); ?>" size="4"> secondi consecutivi dopo il solo silenzio tecnico iniziale, senza ricampionamento o elaborazioni.</p></td></tr>
 	<tr><th>Accesso contabile ACRCloud</th><td><label>Token di sola lettura fatturazione <input type="password" name="acr_billing_token" autocomplete="new-password" value="" placeholder="Invariato se vuoto"></label><p>Usa un token separato con il solo permesso read-billing. Il token delle analisi audio resta separato. <?php echo empty( $settings['acr_billing_token'] ) ? 'Non configurato.' : 'Configurato.'; ?></p><label>Avviso con saldo inferiore a (USD) <input type="number" min="0" step="0.01" name="acr_wallet_low_usd" value="<?php echo esc_attr( $settings['acr_wallet_low_usd'] ); ?>"></label><p>Avviso una volta al passaggio sotto soglia; esaurimento solo con saldo ACRCloud non positivo. Nessun allarme sul saldo se la lettura fallisce o è scaduta.</p></td></tr>
-	<tr><th>Limite interno e stime massime USD</th><td>Budget <input type="number" step="0.01" name="acr_monthly_budget" value="<?php echo esc_attr( $settings['acr_monthly_budget'] ); ?>"> Fingerprint <input type="number" step="0.000001" name="acr_fingerprint_max" value="<?php echo esc_attr( $settings['acr_fingerprint_max'] ); ?>"> DeepRight/min <input type="number" step="0.000001" name="acr_deepright_minute_max" value="<?php echo esc_attr( $settings['acr_deepright_minute_max'] ); ?>"> Cover/min <input type="number" step="0.000001" name="acr_cover_minute_max" value="<?php echo esc_attr( $settings['acr_cover_minute_max'] ); ?>"> Metadata <input type="number" step="0.000001" name="acr_metadata_call_max" value="<?php echo esc_attr( $settings['acr_metadata_call_max'] ); ?>"></td></tr>
+	<tr><th>Stime informative dei costi USD</th><td>Fingerprint <input type="number" step="0.000001" name="acr_fingerprint_max" value="<?php echo esc_attr( $settings['acr_fingerprint_max'] ); ?>"> DeepRight/min <input type="number" step="0.000001" name="acr_deepright_minute_max" value="<?php echo esc_attr( $settings['acr_deepright_minute_max'] ); ?>"> Cover/min <input type="number" step="0.000001" name="acr_cover_minute_max" value="<?php echo esc_attr( $settings['acr_cover_minute_max'] ); ?>"> Metadata <input type="number" step="0.000001" name="acr_metadata_call_max" value="<?php echo esc_attr( $settings['acr_metadata_call_max'] ); ?>"></td></tr>
 	<tr><th>pCloud API</th><td><input class="regular-text" name="pcloud_api_host" value="<?php echo esc_attr( $settings['pcloud_api_host'] ); ?>"><br><input type="password" class="regular-text" name="pcloud_auth_token" placeholder="Token invariato se vuoto"><label>Tipo token <select name="pcloud_token_type"><option value="auth" <?php selected( $settings['pcloud_token_type'], 'auth' ); ?>>Token di sessione API (auth)</option><option value="oauth" <?php selected( $settings['pcloud_token_type'], 'oauth' ); ?>>OAuth (access_token)</option></select></label><p>Serve un token API autorizzato per leggere quota e spazio libero. I trasferimenti usano separatamente WebDAV; la password WebDAV non viene riutilizzata per il login API.</p></td></tr>
 	<tr><th>Soglie pCloud %</th><td><input name="pcloud_warning_1" value="<?php echo esc_attr( $settings['pcloud_warning_1'] ); ?>" size="4"> / <input name="pcloud_warning_2" value="<?php echo esc_attr( $settings['pcloud_warning_2'] ); ?>" size="4"> / <input name="pcloud_warning_3" value="<?php echo esc_attr( $settings['pcloud_warning_3'] ); ?>" size="4"> / blocco <input name="pcloud_block" value="<?php echo esc_attr( $settings['pcloud_block'] ); ?>" size="4"> Margine byte <input name="pcloud_safety_bytes" value="<?php echo esc_attr( $settings['pcloud_safety_bytes'] ); ?>"></td></tr>
 	<tr><th>Margine staging hosting</th><td>Spazio libero minimo <input name="temp_min_free_bytes" value="<?php echo esc_attr( $settings['temp_min_free_bytes'] ); ?>"> byte · Moltiplicatore per caricamento <input name="temp_file_multiplier" value="<?php echo esc_attr( $settings['temp_file_multiplier'] ); ?>" size="5"><p>Le percentuali del volume condiviso sono solo informative e non bloccano le release.</p></td></tr>

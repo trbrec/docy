@@ -116,7 +116,7 @@ check("durata WAV verificata con tolleranza di un secondo", "audio_duration_mism
 check("WAV validi con profondita diverse ammessi nella stessa release", "audio_standard_mismatch" not in PORTAL and "$release_audio_standard" not in PORTAL)
 check("trasferimento pCloud verificato prima dell'analisi", "archived_pending_analysis" in PCLOUD and "verified" in PCLOUD)
 check("retry pCloud schedulato", "trb_release_pcloud_retry" in PCLOUD)
-recovery_function = RESOURCE.split("function trb_resource_recover_release_pipeline()", 1)[1].split("add_action( 'trb_resource_recover_release_pipeline'", 1)[0]
+recovery_function = RESOURCE.split("function trb_resource_recover_release_pipeline(", 1)[1].split("add_action( 'trb_resource_recover_release_pipeline'", 1)[0]
 check("recupero pipeline esteso a tutti gli artisti", "author__in" not in recovery_function and "meta_value'   => 'Ruggia'" not in recovery_function)
 check("recupero pipeline limitato e temporizzato", "'posts_per_page' => 20" in RESOURCE and "15 * MINUTE_IN_SECONDS" in RESOURCE and "2 * MINUTE_IN_SECONDS" in RESOURCE)
 check("recupero riattiva release ferme dopo il ripristino ACR", "analysis_waiting_configuration" in recovery_function and "trb_resource_start_release_analysis( $release_id )" in recovery_function)
