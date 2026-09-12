@@ -2142,11 +2142,31 @@ function trb_portal_validate_release_document( $path, $extension ) {
 }
 
 require_once __DIR__ . '/trb-master-acceptance.php';
+/** Report exactly which artwork requirement failed, before discarding the rejected bytes. */
+function trb_portal_cover_upload_check($file) {
+    $name=sanitize_file_name($file['name']??'');
+    $extension=strtolower(pathinfo($name,PATHINFO_EXTENSION));
+    if (!in_array($extension,array('jpg','jpeg','png'),true)) return new WP_Error('invalid_cover','La copertina deve essere un file JPG o PNG. Il file selezionato è «'.$name.'». Esporta l’immagine nel formato richiesto; non basta cambiare l’estensione.');
+    if ((int)($file['size']??0)>20*MB_IN_BYTES) return new WP_Error('invalid_cover','La copertina supera il limite di 20 MB. Esporta un JPG o PNG più leggero e caricalo di nuovo.');
+    $image=!empty($file['tmp_name'])?@getimagesize($file['tmp_name']):false;
+    if (!$image || !in_array((int)$image[2],array(IMAGETYPE_JPEG,IMAGETYPE_PNG),true)) return new WP_Error('invalid_cover','Il file della copertina non è un’immagine JPG o PNG leggibile. Esporta una nuova copia e caricala di nuovo.');
+    $width=(int)$image[0];$height=(int)$image[1];
+    $details=array('name'=>$name,'width'=>$width,'height'=>$height,'bytes'=>(int)($file['size']??0));
+    if ($width!==$height) return new WP_Error('invalid_cover','La copertina «'.$name.'» misura '.$width.'×'.$height.' px e non è quadrata. Carica un’immagine quadrata di almeno 1500×1500 px, preferibilmente 3000×3000 px.',$details);
+    if ($width<1500) return new WP_Error('invalid_cover','La copertina «'.$name.'» misura '.$width.'×'.$height.' px: il minimo richiesto è 1500×1500 px. Carica una versione a risoluzione maggiore, preferibilmente 3000×3000 px. Cambiare soltanto il valore DPI non aumenta i pixel.',$details);
+    return true;
+}
+
 function trb_portal_validate_release_upload( $file, $kind, $audio_status = 'mastered' ) {
 	$result=trb_portal_validate_release_upload_bytes($file,$kind,$audio_status);
 	if (!is_wp_error($result) && 'audio'!==$kind && function_exists('trb_analysis_antivirus_scan')) {
 		$scan=trb_analysis_antivirus_scan($file['tmp_name']);
 		if (is_wp_error($scan) && 'MALWARE_DETECTED'===$scan->get_error_code()) $result=$scan;
+	}
+	if ('cover'===$kind && is_wp_error($result) && 'invalid_cover'===$result->get_error_code()) {
+		$id=(int)($GLOBALS['trb_verified_intake_id']??0);
+		$post=$id?get_post($id):null;
+		if ($post && (int)$post->post_author===get_current_user_id()) update_post_meta($id,'_trb_release_last_cover_rejection',array('message'=>$result->get_error_message(),'details'=>$result->get_error_data(),'at'=>time()));
 	}
 	if (function_exists('trb_file_retry_reject_upload')) trb_file_retry_reject_upload($file,$result);
 	return $result;
@@ -2167,9 +2187,7 @@ function trb_portal_validate_release_upload_bytes( $file, $kind, $audio_status =
 	$name = sanitize_file_name( $file['name'] );
 	$extension = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
 	if ( 'cover' === $kind ) {
-		if ( ! in_array( $extension, array( 'jpg', 'jpeg', 'png' ), true ) || (int) $file['size'] > 20 * MB_IN_BYTES ) return new WP_Error( 'invalid_cover' );
-		$image = @getimagesize( $file['tmp_name'] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-		if ( ! $image || $image[0] < 1500 || $image[1] < 1500 || $image[0] !== $image[1] || ! in_array( (int) $image[2], array( IMAGETYPE_JPEG, IMAGETYPE_PNG ), true ) ) return new WP_Error( 'invalid_cover' );
+		return trb_portal_cover_upload_check($file);
 	} elseif ( 'cover_reference' === $kind ) {
 		if ( ! in_array( $extension, array( 'jpg', 'jpeg', 'png', 'pdf' ), true ) || (int) $file['size'] > 20 * MB_IN_BYTES ) return new WP_Error( 'invalid_cover_reference' );
 		if ( 'pdf' === $extension ) {
@@ -2419,7 +2437,7 @@ function trb_portal_replace_release_file() {
 	}
 
 	$valid = in_array( $kind, array( 'cover', 'cover_reference', 'presentation', 'lyrics', 'audio', 'rights_document' ), true ) ? trb_portal_validate_release_upload( $new_upload, $kind, $replacement_audio_status ) : new WP_Error( 'invalid_file' );
-	if ( 'cover' === $kind && empty( $_POST['trb_release_cover_300dpi'] ) ) $valid = new WP_Error( 'invalid_cover' );
+	if ( 'cover' === $kind && !is_wp_error($valid) && empty( $_POST['trb_release_cover_300dpi'] ) ) $valid = new WP_Error( 'cover_confirmation_missing' );
 	if ( 'audio' === $kind && ! is_wp_error( $valid ) ) {
 		$release_tracks    = (array) get_post_meta( $release_id, '_trb_release_tracks', true );
 		$replacement_track = isset( $old_file['track'] ) ? absint( $old_file['track'] ) : 0;
@@ -2430,7 +2448,7 @@ function trb_portal_replace_release_file() {
 		}
 	}
 	if ( is_wp_error( $valid ) ) {
-		if (!empty($_POST['trb_release_ajax'])) trb_portal_release_submission_response('file_invalid',trb_portal_release_upload_error_message($valid->get_error_code()),422,$release_id);
+		if (!empty($_POST['trb_release_ajax'])) trb_portal_release_submission_response('file_invalid',trb_portal_release_upload_error_message($valid),422,$release_id);
 		$invalid_status = 'audio_duration_mismatch' === $valid->get_error_code() ? 'duration_mismatch' : 'file_invalid';
 		wp_safe_redirect( add_query_arg( 'trb_release', $invalid_status, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release-files-' . $release_id );
 		exit;
@@ -2726,6 +2744,11 @@ add_action( 'wp_ajax_trb_portal_save_release_draft', 'trb_portal_save_release_dr
 add_action( 'admin_post_trb_portal_save_release_draft', 'trb_portal_save_release_draft' );
 
 function trb_portal_release_upload_error_message( $code ) {
+	if (is_wp_error($code)) {
+		if ('invalid_cover'===$code->get_error_code() && $code->get_error_message()) return $code->get_error_message();
+		$code=$code->get_error_code();
+	}
+	if ('cover_confirmation_missing'===$code) return 'La copertina ha superato i controlli sul file. Devi selezionare la casella di conferma dei requisiti della copertina e ripetere l’invio. Non occorre sostituire l’immagine.';
 	if ('MALWARE_DETECTED'===$code) return 'Il file è stato rifiutato dalla verifica di sicurezza. Carica una nuova copia sicura dello stesso allegato; gli altri materiali restano conservati.';
 	$messages = array(
 		'missing_cover'              => 'La copertina non è arrivata al server. Selezionala nuovamente e riprova.',
@@ -2840,7 +2863,7 @@ function trb_portal_start_release() {
 	$uploads_valid = true;
 	if ( 'upload' === $cover_mode ) {
 		$uploads_valid = trb_portal_validate_release_upload( $cover, 'cover' );
-		if ( ! is_wp_error( $uploads_valid ) && empty( $_POST['trb_release_cover_300dpi'] ) ) $uploads_valid = new WP_Error( 'invalid_cover' );
+		if ( ! is_wp_error( $uploads_valid ) && empty( $_POST['trb_release_cover_300dpi'] ) ) $uploads_valid = new WP_Error( 'cover_confirmation_missing' );
 	} elseif ( ! $cover_service_included || strlen( $cover_brief ) < 40 ) {
 		$uploads_valid = new WP_Error( 'invalid_cover_request' );
 	} elseif ( ! empty( $cover_reference['name'] ) ) {
@@ -2918,7 +2941,7 @@ function trb_portal_start_release() {
 	if ( 'previously_released' === $release_state && ! $original_date_valid ) trb_portal_release_submission_response( 'invalid', 'Inserisci una data di pubblicazione originale valida e non futura.', 422 );
 	if ( is_wp_error( $uploads_valid ) ) {
 		$upload_code = $uploads_valid->get_error_code();
-		trb_portal_release_submission_response( 'audio_duration_mismatch' === $upload_code ? 'duration_mismatch' : 'invalid', trb_portal_release_upload_error_message( $upload_code ), 422 );
+		trb_portal_release_submission_response( 'audio_duration_mismatch' === $upload_code ? 'duration_mismatch' : 'invalid', trb_portal_release_upload_error_message( $uploads_valid ), 422 );
 	}
 	// Process-owned locks cannot remain stuck after a terminated PHP request.
 	$annual_reservation_key = $monthly_reservation_key = '';
@@ -3005,7 +3028,7 @@ function trb_portal_start_release() {
 			delete_user_meta( $user_id, $submit_lock_key );
 			update_post_meta( $release_id, '_trb_release_intake_phase', 'files_partial' );
 			trb_intake_sync( $release_id );
-			trb_portal_release_submission_response( 'error', 'I dati della pratica sono stati conservati, ma uno o più file non sono stati archiviati. Causa: ' . trb_portal_release_upload_error_message( $file_error->get_error_code() ) . ' Non reinviare tutto: la pratica è visibile e può essere completata.', 500, $release_id );
+			trb_portal_release_submission_response( 'error', 'I dati della pratica sono stati conservati, ma uno o più file non sono stati archiviati. Causa: ' . trb_portal_release_upload_error_message( $file_error ) . ' Non reinviare tutto: la pratica è visibile e può essere completata.', 500, $release_id );
 		}
 		if ( 'unreleased' === $release_state ) {
 			$assigned_isrcs=trb_file_retry_allocated_isrcs($release_id,count($tracks),$profile);
@@ -4681,7 +4704,7 @@ function trb_portal_store_final_release_cover( $release_id, $cover, $dpi_confirm
 	if ( 'trb_release' !== get_post_type( $release_id ) ) return new WP_Error( 'release_not_found' );
 	if ( 'request' !== get_post_meta( $release_id, '_trb_release_cover_mode', true ) || trb_portal_release_has_final_cover( $release_id ) ) return new WP_Error( 'invalid_cover_request' );
 	$valid = trb_portal_validate_release_upload( $cover, 'cover' );
-	if ( ! is_wp_error( $valid ) && ! $dpi_confirmed ) $valid = new WP_Error( 'invalid_cover' );
+	if ( ! is_wp_error( $valid ) && ! $dpi_confirmed ) $valid = new WP_Error( 'cover_confirmation_missing' );
 	if ( is_wp_error( $valid ) ) return $valid;
 	$stored = trb_portal_store_release_upload( $release_id, $cover, 'cover' );
 	if ( is_wp_error( $stored ) ) return $stored;
