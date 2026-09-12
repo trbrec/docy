@@ -98,8 +98,8 @@ function trb_intake_recover_stalled($id) {
  $merged=array();
  foreach(array_merge(is_array($files)?$files:array(),is_array($checkpoint)?$checkpoint:array()) as $file) if(is_array($file)&&!empty($file['path'])) $merged[$file['kind'].':'.(string)$file['track']]=$file;
  if($merged) update_post_meta($id,'_trb_release_files',array_values($merged));
- update_post_meta($id,'_trb_release_intake_phase','files_partial');
- update_post_meta($id,'_trb_release_intake_error','Elaborazione interrotta. Dati e file conservati: la Direzione può riprendere la verifica dalla pratica esistente.');
+ update_post_meta($id,'_trb_release_intake_phase',$merged ? 'files_partial' : 'validation_failed');
+ update_post_meta($id,'_trb_release_intake_error',$merged ? 'Elaborazione interrotta. Dati e file conservati: la Direzione può riprendere la verifica dalla pratica esistente.' : 'Elaborazione interrotta prima dell’acquisizione dei file. Riprendi il caricamento da questa pratica, senza crearne un’altra.');
  if (!$isrc) update_post_meta($id,'_trb_release_pipeline_status','upload_failed');
  trb_intake_sync($id);
  return true;

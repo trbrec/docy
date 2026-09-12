@@ -62,6 +62,12 @@ foreach($posts as $post) {
     if ($phase && 'complete'!==$phase) {
         $counts['incomplete']++;
         $issues[]=array('id'=>$id,'issue'=>'incomplete_intake','phase'=>$phase,'pipeline'=>$pipeline);
+        $candidates=trb_recovery_file_candidates($post->post_author);
+        $last_error=get_user_meta($post->post_author,'_trb_release_last_submission_error',true);
+        $materials=array();
+        foreach($candidates as $key=>$file) $materials[]=array('key'=>$key,'name'=>$file['name'],'bytes'=>$file['size'],'relative'=>$file['relative']);
+        $tracks=(array)get_post_meta($id,'_trb_release_tracks',true);
+        trb_live_audit_emit('INCOMPLETE_DETAILS',array('id'=>$id,'title'=>$post->post_title,'artist'=>trb_portal_artist_profile_value('artist_name',$post->post_author),'cover_mode'=>get_post_meta($id,'_trb_release_cover_mode',true),'tracks'=>array_map(static function($t){return array_intersect_key((array)$t,array_flip(array('title','duration_minutes','duration_seconds','audio_status','advisory')));},$tracks),'last_error'=>is_array($last_error)?array_intersect_key($last_error,array_flip(array('code','message','at'))):array(),'complete_staging'=>$materials));
         if (in_array($contract,array('contract_sent','signed'),true)) $issues[]=array('id'=>$id,'issue'=>'contract_on_incomplete_intake');
         continue;
     }

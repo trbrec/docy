@@ -106,7 +106,7 @@ update_post_meta(1,'_trb_release_pipeline_status','upload_incomplete');
 update_post_meta(1,'_trb_release_acquisition_started_at',time());
 check(trb_intake_recover_stalled(1)===false,'Active acquisition interrupted');
 update_post_meta(1,'_trb_release_acquisition_started_at',time()-1900);
-check(trb_intake_recover_stalled(1)===true && get_post_meta(1,'_trb_release_intake_phase',true)==='files_partial','Stale acquisition not recoverable');
+check(trb_intake_recover_stalled(1)===true && get_post_meta(1,'_trb_release_intake_phase',true)==='validation_failed','Empty interrupted acquisition cannot be retried by the artist');
 update_post_meta(1,'_trb_release_intake_phase','acquiring_files');
 update_post_meta(1,'_trb_release_acquisition_started_at',0);
 update_post_meta(1,'_trb_release_pipeline_status','isrc_assignment_failed');
