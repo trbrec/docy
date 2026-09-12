@@ -3008,7 +3008,9 @@ function trb_portal_start_release() {
 			trb_portal_release_submission_response( 'error', 'I dati della pratica sono stati conservati, ma uno o più file non sono stati archiviati. Causa: ' . trb_portal_release_upload_error_message( $file_error->get_error_code() ) . ' Non reinviare tutto: la pratica è visibile e può essere completata.', 500, $release_id );
 		}
 		if ( 'unreleased' === $release_state ) {
-			$assigned_isrcs = function_exists( 'trb_release_bridge_allocate_isrcs' ) ? trb_release_bridge_allocate_isrcs( count( $tracks ), $profile ) : new WP_Error( 'isrc_allocator_missing' );
+			$assigned_isrcs=trb_file_retry_allocated_isrcs($release_id,count($tracks),$profile);
+			$allocation_reused=null!==$assigned_isrcs;
+			if (!$allocation_reused) $assigned_isrcs = function_exists( 'trb_release_bridge_allocate_isrcs' ) ? trb_release_bridge_allocate_isrcs( count( $tracks ), $profile ) : new WP_Error( 'isrc_allocator_missing' );
 			if ( is_wp_error( $assigned_isrcs ) || count( $assigned_isrcs ) !== count( $tracks ) ) {
 				update_post_meta( $release_id, '_trb_release_type', $type );
 				update_post_meta( $release_id, '_trb_release_state', $release_state );
@@ -3029,13 +3031,16 @@ function trb_portal_start_release() {
 			}
 			foreach ( $tracks as $track_index => &$track ) $track['isrc'] = $assigned_isrcs[ $track_index ];
 			unset( $track );
-			update_post_meta( $release_id, '_trb_release_isrc_allocation', array( 'pool' => 'trb' === $profile ? 'trb' : 'distribution', 'year' => wp_date( 'y' ), 'codes' => $assigned_isrcs, 'assigned_at' => time() ) );
+			if (!$allocation_reused) update_post_meta( $release_id, '_trb_release_isrc_allocation', array( 'pool' => 'trb' === $profile ? 'trb' : 'distribution', 'year' => wp_date( 'y' ), 'codes' => $assigned_isrcs, 'assigned_at' => time() ) );
 		}
 		update_post_meta( $release_id, '_trb_release_cover_mode', $cover_mode );
 		if ( 'request' === $cover_mode ) {
 			update_post_meta( $release_id, '_trb_release_cover_brief', $cover_brief );
 			update_post_meta( $release_id, '_trb_release_cover_status', 'requested' );
-			$cover_request_id = wp_insert_post( array(
+			$cover_request_id=absint(get_post_meta($release_id,'_trb_release_cover_request_id',true));
+			$existing_cover_request=$cover_request_id?get_post($cover_request_id):null;
+			$reuse_cover_request=$existing_cover_request && 'trb_request'===$existing_cover_request->post_type && (int)$existing_cover_request->post_author===$user_id && (int)get_post_meta($cover_request_id,'_trb_cover_release_id',true)===$release_id;
+			if (!$reuse_cover_request) $cover_request_id = wp_insert_post( array(
 				'post_type'    => 'trb_request',
 				'post_status'  => 'private',
 				'post_title'   => '[Copertina] ' . $title,

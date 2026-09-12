@@ -73,6 +73,13 @@ try {
  $replacement=['_trb_hash'=>hash_file('sha256',$dir.'/f1100.part'),'name'=>'replacement.wav','error'=>UPLOAD_ERR_OK,'size'=>9,'tmp_name'=>$dir.'/f1100.part','_trb_staged'=>true,'_trb_field'=>'trb_release_replacement'];
  check(is_wp_error(trb_portal_validate_release_upload($replacement,'audio')),'Malformed replacement accepted');
  check(!is_file($dir.'/f1100.part') && is_file($root.'/'.$audio['path']),'Rejected replacement destroyed valid predecessor');
+
+ check(trb_file_retry_allocated_isrcs(1,1,'trb')===null,'Unassigned receipt reused fictitious ISRC');
+ $allocation=['pool'=>'trb','codes'=>['ITABC2600001'],'assigned_at'=>123];$meta[1]['_trb_release_isrc_allocation']=$allocation;
+ check(trb_file_retry_allocated_isrcs(1,1,'trb')===$allocation['codes'] && $meta[1]['_trb_release_isrc_allocation']===$allocation,'Retry changed allocated ISRCs');
+ check(is_wp_error(trb_file_retry_allocated_isrcs(1,2,'trb')),'Mismatched track count reused allocation');
+ check(is_wp_error(trb_file_retry_allocated_isrcs(1,1,'dds')),'Mismatched allocation pool reused');
+ echo "PASS interrupted finalization reuses assigned ISRCs and rejects incompatible allocation\n";
  echo "PASS actual WAV validator/acquisition reuse and rejected replacement preserves predecessor\n";
  echo "PASS per-file deletion, stable replacement slot, partial resume, staged reload, ownership, hash/race gates and transient failure preservation\n";
 } finally {
