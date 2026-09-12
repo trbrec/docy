@@ -51,3 +51,12 @@ verify(!trb_recovery_ready_for_validation(12),'Empty files offered for resume');
 $GLOBALS['recovery_meta']['_trb_release_files']=[['kind'=>'audio']];
 foreach(['awaiting_upload','acquiring_files','complete'] as $phase){$GLOBALS['recovery_meta']['_trb_release_intake_phase']=$phase;verify(!trb_recovery_ready_for_validation(12),'Unsafe phase offered for resume');}
 echo "PASS partial stored files expose standard validation without reopening completed or active intake\n";
+
+$GLOBALS['recovery_meta']['_trb_release_files']=[['kind'=>'audio','track'=>0,'sha256'=>'new']];
+$GLOBALS['trb_recovery_resume_context']=['id'=>12,'files'=>[['kind'=>'audio','track'=>0,'sha256'=>'old']]];
+verify(!trb_recovery_context_matches_files(12),'Recovery overwrote a replacement made during validation');
+$GLOBALS['trb_recovery_resume_context']['files'][0]['sha256']='new';
+verify(trb_recovery_context_matches_files(12),'Unchanged recovery snapshot rejected');
+unset($GLOBALS['trb_recovery_resume_context']);
+verify(trb_recovery_context_matches_files(12),'Ordinary submission affected');
+echo "PASS recovery snapshot freshness after concurrent replacement\n";

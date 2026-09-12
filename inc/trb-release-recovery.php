@@ -98,10 +98,16 @@ function trb_recovery_attach() {
 		$chosen[ $slot ] = $candidates[ $key ];
 	}
 	if ( ! $chosen ) wp_die( 'Nessun file selezionato.' );
-	$lock = 'trb_recovery_release_' . $id;
-	if ( ! add_option( $lock, time(), '', false ) ) wp_die( 'Un recupero è già in corso.' );
+	$lock = trb_release_process_lock('recovery:'.$id);
+	if (!$lock) wp_die( 'Un recupero è già in corso.' );
+	$release_lock=trb_release_process_lock('release:'.$id);
+	if (!$release_lock) {trb_release_process_unlock($lock);wp_die('Pratica in elaborazione. Attendi e riprova.');}
 	$session = wp_generate_uuid4();
 	try {
+		if (!trb_recovery_release($id)) throw new RuntimeException('La pratica non è più recuperabile.');
+		$existing=get_post_meta($id,'_trb_release_files',true);
+		$existing=is_array($existing)?$existing:array();
+		$tracks=(array)get_post_meta($id,'_trb_release_tracks',true);
 		$temp = trb_portal_release_staging_session_dir( $session, true );
 		if ( ! $temp ) throw new RuntimeException( 'Storage temporaneo non disponibile.' );
 		foreach ( $chosen as $slot => $file ) {
@@ -137,11 +143,12 @@ function trb_recovery_attach() {
 	} catch ( Throwable $error ) {
 		update_post_meta( $id, '_trb_release_intake_error', sanitize_text_field( $error->getMessage() ) );
 		trb_intake_sync( $id );
-		delete_option( $lock );
+		trb_release_process_unlock( $lock );
 		trb_portal_cleanup_release_staging_session( $session );
 		wp_die( esc_html( $error->getMessage() ) );
 	} finally {
-		delete_option( $lock );
+		trb_release_process_unlock($release_lock);
+		trb_release_process_unlock( $lock );
 	}
 	trb_portal_cleanup_release_staging_session( $session );
 	wp_safe_redirect( admin_url( 'tools.php?page=trb-release-recovery&release_id=' . $id ) );
@@ -182,11 +189,11 @@ function trb_recovery_resume() {
 	$files = get_post_meta( $id, '_trb_release_files', true );
 	$token = (string) get_post_meta( $id, '_trb_release_submission_token', true );
 	if ( ! is_array( $pairs ) || ! $pairs || ! is_array( $files ) || ! $files || ! preg_match( '/^[a-f0-9-]{36}$/i', $token ) ) wp_die( 'Dati di recupero insufficienti.' );
-	$lock = 'trb_recovery_release_' . $id;
-	if ( ! add_option( $lock, time(), '', false ) ) wp_die( 'Recupero già in corso.' );
+	$lock = trb_release_process_lock('recovery:'.$id);
+	if (!$lock) wp_die( 'Recupero già in corso.' );
 	$admin = get_current_user_id();
 	$GLOBALS['trb_recovery_resume_context'] = array( 'id' => $id, 'admin' => $admin, 'lock' => $lock, 'token' => $token, 'files' => $files );
-	register_shutdown_function( static function() use ( $lock ) { delete_option( $lock ); } );
+	register_shutdown_function( static function() use ( $lock ) { trb_release_process_unlock( $lock ); } );
 	try {
 		// The administrator authorizes recovery, while normal profile/contract checks run as the owner.
 		wp_set_current_user( $post->post_author );
@@ -221,7 +228,7 @@ function trb_recovery_resume() {
 		$_POST = wp_slash( $_POST );
 		update_post_meta( $id, '_trb_release_recovery_resumed_by', $admin );
 		update_post_meta( $id, '_trb_release_recovery_resumed_at', time() );
-		update_post_meta( $id, '_trb_release_intake_phase', 'validation_failed' );
+		// Keep the partial phase: only the authenticated recovery context may resume it.
 		trb_portal_start_release();
 	} catch ( Throwable $error ) {
 		trb_recovery_resume_response( 'error', $error->getMessage() );
@@ -246,7 +253,7 @@ function trb_recovery_resume_response( $status, $message ) {
 	$context = $GLOBALS['trb_recovery_resume_context'] ?? array();
 	if ( ! $context ) return;
 	$id = $context['id'];
-	if ( 'created' !== $status ) {
+	if ( 'created' !== $status && !trb_release_is_inactive($id) && 'complete'!==get_post_meta($id,'_trb_release_intake_phase',true) ) {
 		update_post_meta( $id, '_trb_release_intake_phase', 'recovery_review' );
 		update_post_meta( $id, '_trb_release_intake_error', sanitize_text_field( $message ) );
 		update_post_meta( $id, '_trb_release_pipeline_status', 'upload_incomplete' );
@@ -254,8 +261,24 @@ function trb_recovery_resume_response( $status, $message ) {
 	update_post_meta( $id, '_trb_release_recovery_result', array( 'status' => sanitize_key( $status ), 'message' => sanitize_text_field( $message ), 'time' => time() ) );
 	trb_intake_sync( $id );
 	trb_portal_cleanup_release_staging_session( $context['token'] );
-	delete_option( $context['lock'] );
+	trb_release_process_unlock( $context['lock'] );
 	wp_set_current_user( $context['admin'] );
 	wp_safe_redirect( admin_url( 'post.php?post=' . $id . '&action=edit' ) );
 	exit;
+}
+
+/** A recovery must not restore a superseded attachment snapshot. */
+function trb_recovery_context_matches_files($id) {
+ $context=$GLOBALS['trb_recovery_resume_context']??array();
+ if (!$context || (int)$context['id']!==(int)$id) return true;
+ $signature=static function($files){
+  $map=array();foreach((array)$files as $file){
+   if(!is_array($file)||empty($file['sha256']))return null;
+   $key=($file['kind']??'').':'.(string)($file['track']??'');
+   if(isset($map[$key]))return null;
+   $map[$key]=(string)$file['sha256'];
+  }ksort($map);return $map;
+ };
+ $expected=$signature($context['files']);
+ return is_array($expected)&&$expected===$signature(get_post_meta($id,'_trb_release_files',true));
 }
