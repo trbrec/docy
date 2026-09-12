@@ -397,3 +397,5 @@ require get_template_directory() . '/inc/sidebars.php';
  * Admin Page
  */
 require get_template_directory() . '/inc/Admin.php';
+
+require_once get_template_directory() . "/inc/trb-crm-inline-review.php";
