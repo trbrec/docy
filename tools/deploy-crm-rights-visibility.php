@@ -34,3 +34,11 @@ require_once $root.'/app/SubmissionRepository.php';
 $db=\TrbCrm\Database::connection();
 $q=$db->query("SELECT rc.id,rc.portal_release_id,rc.workflow_status,rc.metadata,s.public_id FROM release_cases rc JOIN submissions s ON s.id=rc.submission_id WHERE rc.portal_release_id='artist:12329'");
 foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row){$m=json_decode($row['metadata'],true);unset($row['metadata']);$row['review']=\TrbCrm\trb_crm_release_rights_summary(is_array($m)?$m:[]);echo 'CRM_REVIEW_VERIFIED '.json_encode($row,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)."\n";}
+try {
+ require_once $root.'/app/Controller.php';
+ $controller=(new ReflectionClass(\TrbCrm\Controller::class))->newInstanceWithoutConstructor();
+ $method=new ReflectionMethod($controller,'rightsReviewRequest');$method->setAccessible(true);
+ $review=$method->invoke($controller,['release'=>['portal_release_id'=>'artist:12329']],'copyright_review_snapshot',[]);
+ $tracks=[];foreach(($review['tracks']??[]) as $track){$matches=[];foreach(($track['matches']??[]) as $match)$matches[]=array_intersect_key($match,array_flip(['title','artists','engine','score','platform_ids']));$tracks[]=['index'=>$track['index']??null,'title'=>$track['title']??null,'matches'=>$matches];}
+ echo 'CRM_LIVE_RIGHTS_SNAPSHOT '.json_encode(['available'=>!empty($review['version']),'tracks'=>$tracks],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)."\n";
+} catch(Throwable $error){echo 'CRM_LIVE_RIGHTS_SNAPSHOT '.json_encode(['available'=>false,'error'=>$error->getMessage()])."\n";}
