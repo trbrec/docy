@@ -130,6 +130,7 @@ check(is_wp_error($retry)&&$retry->get_error_code()==='existing_release'&&$retry
 check(is_int(trb_intake_record(8,'44444444-4444-4444-4444-444444444444',$project)),'Different artist wrongly blocked');
 $version=$project;$version['trb_tracks'][0]['version']='Acoustic';
 check(is_int(trb_intake_record(7,'55555555-5555-5555-5555-555555555555',$version)),'Distinct version wrongly blocked');
+check(trb_intake_record(7,$token,$version)->get_error_code()==='existing_release','Editing an existing token duplicated another project');
 update_post_meta($id,'_trb_release_intake_phase','complete');
 check(trb_intake_record(7,$token,$project)===$id,'Completed retry rejected');
 check(is_wp_error(trb_intake_record(7,$token,$version)),'New project silently accepted with completed token');

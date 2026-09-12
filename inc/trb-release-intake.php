@@ -25,12 +25,20 @@ function trb_intake_record( $user_id, $token, $post ) {
 	try {
 		$existing = trb_intake_find( $user_id, $token );
 		if ( $existing ) {
+			$receipt_lock=trb_release_process_lock('release:'.$existing);
+			if (!$receipt_lock) return new WP_Error('intake_busy','La pratica è in elaborazione. Attendi e riprova con lo stesso modulo.');
+			try {
 			if ( trb_release_is_inactive( $existing ) ) return new WP_Error( 'release_cancelled', 'Questa pratica è stata annullata. Apri una nuova bozza.' );
 			if ( 'complete' === get_post_meta( $existing, '_trb_release_intake_phase', true ) ) {
 				$previous = array( 'trb_release_title' => get_post($existing)->post_title, 'trb_release_type' => get_post_meta($existing,'_trb_release_type',true), 'trb_tracks' => get_post_meta($existing,'_trb_release_tracks',true) );
 				if ( trb_intake_project_identity($post) !== trb_intake_project_identity($previous) ) return new WP_Error( 'receipt_completed', 'Questa ricevuta appartiene a una pratica già inviata. Per un altro progetto apri una nuova bozza: i nuovi dati non sono stati inviati.', $existing );
+			} else {
+				$conflict=trb_intake_project_conflict($user_id,$post,$existing);
+				if ($conflict) return new WP_Error('existing_release','Esiste già la pratica #'.$conflict.' per questo progetto. Riprendila da «Il tuo catalogo». I dati delle pratiche sono rimasti separati.',$conflict);
+				trb_intake_refresh_draft($existing,$post);
 			}
 			return $existing;
+			} finally {trb_release_process_unlock($receipt_lock);}
 		}
 		if ( ! trb_intake_project_identity( $post ) ) return new WP_Error( 'invalid', 'Inserisci il titolo della release, la tipologia e il titolo di ciascun brano prima di inviare.' );
 		$conflict = trb_intake_project_conflict( $user_id, $post );

@@ -2766,7 +2766,7 @@ function trb_portal_start_release() {
 	}
 	$GLOBALS['trb_verified_intake_id'] = $intake_id;
 	if ( ! empty( $_POST['trb_release_intake_only'] ) ) {
-		trb_intake_refresh_draft($intake_id, wp_unslash($_POST));
+		// Confirmed draft metadata was refreshed under the intake/receipt locks.
 		wp_send_json_success( array( 'status' => 'received', 'release_id' => $intake_id, 'message' => 'Invio ricevuto; acquisizione dei file da completare.' ), 200 );
 	}
 	$title = isset( $_POST['trb_release_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_release_title'] ) ) : '';

@@ -67,11 +67,12 @@ function trb_intake_project_identity( $post ) {
 	return hash( 'sha256', wp_json_encode( array( $title, $type, $ordered ) ) );
 }
 /** Return a conflict for explicit recovery; never silently merge projects. */
-function trb_intake_project_conflict( $user_id, $post ) {
+function trb_intake_project_conflict( $user_id, $post, $exclude_id = 0 ) {
 	$identity = trb_intake_project_identity( $post );
 	if ( ! $identity ) return 0;
 	$candidates = get_posts( array( 'post_type' => 'trb_release', 'post_status' => array( 'publish', 'private', 'pending', 'draft' ), 'author' => absint( $user_id ), 'posts_per_page' => -1, 'orderby' => 'ID', 'order' => 'DESC', 'cache_results' => false ) );
 	foreach ( $candidates as $candidate ) {
+		if ((int)$candidate->ID === (int)$exclude_id) continue;
 		if (function_exists('wp_cache_delete')) wp_cache_delete($candidate->ID,'post_meta');
 		if ( get_post_meta( $candidate->ID, '_trb_owner_cancelled_at', true ) ) continue;
 		$previous = array( 'trb_release_title' => $candidate->post_title, 'trb_release_type' => get_post_meta( $candidate->ID, '_trb_release_type', true ), 'trb_tracks' => get_post_meta( $candidate->ID, '_trb_release_tracks', true ) );
