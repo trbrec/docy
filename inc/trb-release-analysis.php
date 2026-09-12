@@ -566,6 +566,7 @@ function trb_analysis_apply_catalogue_bypass( $release_id ) {
 }
 
 function trb_analysis_decide_release( $release_id ) {
+	if (function_exists('trb_crm_inline_apply_review') && trb_crm_inline_apply_review($release_id,true)) return;
 	if ( function_exists('trb_release_is_inactive') && trb_release_is_inactive($release_id) ) return;
 	global $wpdb; $table = function_exists( 'trb_resource_tables' ) ? trb_resource_tables()['usage'] : '';
 	if ( ! $table ) return;

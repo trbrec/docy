@@ -35,6 +35,7 @@ jobs:
           node --check assets/js/trb-demo-evaluation.js
           php tools/test-audio-inventory.php
           php tools/test-rights-owner-review.php
+          php tools/test-crm-inline-review.php
           node tests/release-credit-options.test.js
           node tests/release-single-title.test.js
           php tools/test-release-draft-normalizer.php
