@@ -4860,7 +4860,7 @@ function trb_portal_render_release_files( $release_id ) {
 		</div>
 		<?php
 		$analysis_report = (array) get_post_meta( $release_id, '_trb_release_analysis_report', true );
-		if ( ! empty( $analysis_report['name'] ) && function_exists( 'trb_analysis_report_url' ) ) : ?>
+		if ( current_user_can( 'manage_options' ) && ! empty( $analysis_report['name'] ) && function_exists( 'trb_analysis_report_url' ) ) : ?>
 			<div class="trb-portal__message"><strong>Report di analisi</strong><p>Il controllo tecnico e dei diritti è documentato e collegato alla versione del WAV tramite hash SHA-256.</p><a class="trb-button trb-button--compact" href="<?php echo esc_url( trb_analysis_report_url( $release_id ) ); ?>">Scarica il report PDF</a></div>
 		<?php endif; ?>
 		<?php if ( function_exists( 'trb_resource_render_rights_box' ) ) trb_resource_render_rights_box( $release_id ); ?>
