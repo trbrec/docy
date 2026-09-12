@@ -1907,13 +1907,22 @@ function trb_portal_stage_release_chunk() {
 	$last_modified = isset( $_POST['last_modified'] ) ? absint( $_POST['last_modified'] ) : 0;
 	$chunk_index = isset( $_POST['chunk_index'] ) ? absint( $_POST['chunk_index'] ) : 0;
 	$chunk_total = isset( $_POST['chunk_total'] ) ? absint( $_POST['chunk_total'] ) : 0;
-	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $session ) || ! preg_match( '/^f[0-9]{1,4}$/', $file_key ) || '' === $file_name || $file_size < 1 || $file_size > trb_portal_release_max_file_bytes() || $chunk_total < 1 || $chunk_total > 512 || $chunk_index >= $chunk_total ) wp_send_json_error( array( 'message' => 'Ogni file può avere una dimensione massima di 250 MB.' ), 422 );
+	if ( $file_size > trb_portal_release_max_file_bytes() ) wp_send_json_error( array( 'message' => 'Ogni file può avere una dimensione massima di 250 MB.' ), 422 );
+	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $session ) || ! preg_match( '/^f[0-9]{1,4}$/', $file_key ) || '' === $file_name || $file_size < 1 || $chunk_total < 1 || $chunk_total > 512 || $chunk_index >= $chunk_total ) wp_send_json_error( array( 'message' => 'I dati del caricamento sono incompleti o non validi. Riapri la pratica da completare e seleziona nuovamente il file.' ), 422 );
 	$chunk = ! empty( $_FILES['trb_release_chunk'] ) ? $_FILES['trb_release_chunk'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 	if ( empty( $chunk['tmp_name'] ) || UPLOAD_ERR_OK !== (int) ( $chunk['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_uploaded_file( $chunk['tmp_name'] ) || (int) $chunk['size'] < 1 || (int) $chunk['size'] > 6 * MB_IN_BYTES ) wp_send_json_error( array( 'message' => 'Un blocco del file non è arrivato correttamente al server.' ), 422 );
 	$directory = trb_portal_release_staging_session_dir( $session, true );
 	if ( ! $directory ) wp_send_json_error( array( 'message' => 'Il server non riesce a preparare l’area temporanea del file.' ), 500 );
 	$part_path = trailingslashit( $directory ) . $file_key . '.part';
 	$meta_path = trailingslashit( $directory ) . $file_key . '.json';
+	// Serialize metadata and file writes together, including repeated HTTP requests.
+	$upload_lock = fopen( $part_path . '.lock', 'c' );
+	if ( ! $upload_lock || ! flock( $upload_lock, LOCK_EX | LOCK_NB ) ) {
+		if ( $upload_lock ) fclose( $upload_lock );
+		wp_send_json_error( array( 'message' => 'Il file è già in caricamento. Attendi il termine del tentativo in corso e riprova dalla stessa pratica.' ), 409 );
+	}
+	try {
+	clearstatcache( true, $part_path );
 	$meta = file_exists( $meta_path ) ? json_decode( (string) file_get_contents( $meta_path ), true ) : array(); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	$signature = array( 'upload_id' => sanitize_key(wp_unslash($_POST['upload_id'] ?? '')), 'name' => $file_name, 'type' => $file_type, 'size' => $file_size, 'last_modified' => $last_modified, 'total' => $chunk_total );
 	$matches = is_array( $meta ) && is_file($part_path);
@@ -1955,10 +1964,12 @@ function trb_portal_stage_release_chunk() {
 	}
 	$meta['next_chunk'] = $chunk_index + 1;
 	$meta['complete'] = $meta['next_chunk'] === $chunk_total;
+	// is_file()/filesize() above may have cached the size before this append.
+	clearstatcache( true, $part_path );
 	if ( $meta['complete'] && (int) filesize( $part_path ) !== $file_size ) {
 		wp_delete_file( $part_path );
 		wp_delete_file( $meta_path );
-		wp_send_json_error( array( 'message' => 'La dimensione finale del file non coincide con quella originale. Il caricamento è stato annullato.' ), 422 );
+		wp_send_json_error( array( 'message' => 'Il trasferimento del file non è completo: i byte ricevuti non corrispondono al file selezionato. Non modificare la durata del brano. Riprova il caricamento dalla stessa pratica.' ), 422 );
 	}
 	if ( false === file_put_contents( $meta_path, wp_json_encode( $meta ), LOCK_EX ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 		wp_delete_file( $part_path );
@@ -1969,6 +1980,10 @@ function trb_portal_stage_release_chunk() {
 		if(is_wp_error($check)) { wp_delete_file($part_path); wp_delete_file($meta_path); wp_send_json_error(array('message'=>$check->get_error_message()?:trb_portal_release_upload_error_message($check->get_error_code())),422); }
 	}
 	wp_send_json_success( array( 'next_chunk' => $meta['next_chunk'], 'complete' => $meta['complete'] ) );
+	} finally {
+		flock( $upload_lock, LOCK_UN );
+		fclose( $upload_lock );
+	}
 }
 add_action( 'admin_post_trb_portal_stage_release_chunk', 'trb_portal_stage_release_chunk' );
 add_action( 'wp_ajax_trb_portal_stage_release_chunk', 'trb_portal_stage_release_chunk' );
