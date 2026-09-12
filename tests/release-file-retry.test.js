@@ -39,3 +39,8 @@ const coverFunction=fs.readFileSync('assets/js/trb-release-form-ux.js','utf8').s
 const nodes={'[data-cover-workflow]':{},'[data-cover-upload]':{},'[data-cover-request]':{},'input[name="trb_release_cover"]':coverFile,'input[name="trb_release_cover_300dpi"]':confirmation,'input[name="trb_release_cover_mode"]:checked':{value:'upload'}};
 vm.runInNewContext(coverFunction+';coverWorkflow({});',{q(s){return nodes[s]||null;},qa(){return [];}});assert.equal(coverFile.required,false);assert.equal(confirmation.required,true);
 console.log('PASS native required stays correct for retained cover, lyrics and rights after dynamic form changes');
+const errorSource=fs.readFileSync('assets/js/trb-release-upload.js','utf8').split('\n').find(l=>l.startsWith('function submissionErrorText('));
+const errorContext={};vm.runInNewContext(errorSource,errorContext);
+assert.equal(errorContext.submissionErrorText('12329','Pratica #12329 incompleta. Copertina non valida.'),'Pratica #12329 incompleta. Copertina non valida.');
+assert.equal(errorContext.submissionErrorText('12329','Copertina non valida.'),'Pratica #12329 incompleta. Copertina non valida.');
+console.log('PASS incomplete receipt prefix appears only once');

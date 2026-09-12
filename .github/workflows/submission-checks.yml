@@ -21,6 +21,7 @@ jobs:
           php tools/test-release-integrity.php
           php tools/test-release-recovery.php
           php tools/test-release-file-retry.php
+          php tools/test-cover-diagnostics.php
           node tests/release-file-retry.test.js
           php tools/test-crm-transfer-health.php
           php tools/test-acr-budget-notices.php
