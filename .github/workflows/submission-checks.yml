@@ -35,6 +35,7 @@ jobs:
           node tests/release-single-title.test.js
           php tools/test-release-draft-normalizer.php
           php tools/test-release-staging-cleanup.php
+          php tools/test-release-chunk-transfer.php
           node tests/release-draft-restore.test.js
           node tests/release-master-retry.test.js
           node tests/release-audio-validation-race.test.js
