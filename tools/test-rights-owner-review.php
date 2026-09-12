@@ -16,3 +16,20 @@ foreach([[],[-1],['1.0'],['1<script>'],[0],[3]] as $invalid){
  check_review($failed,'Invalid or evidence-free selection admitted');
 }
 echo "PASS per-track isolation, duplicate selection and invalid index rejection\n";
+
+// Exercise the actual download entry point before any report data is read.
+function current_user_can($cap){return $GLOBALS['report_admin']??false;}
+function is_user_logged_in(){return true;}
+function wp_die($message,$title='',$args=[]){throw new RuntimeException('http:'.($args['response']??0));}
+function absint($v){return abs((int)$v);}
+function check_admin_referer($v){throw new RuntimeException('admin_nonce_gate');}
+$source=file_get_contents(__DIR__.'/../inc/trb-release-analysis.php');
+$start=strpos($source,'function trb_analysis_download_report()');
+$end=strpos($source,"add_action( 'admin_post_trb_analysis_download_report'",$start);
+eval(substr($source,$start,$end-$start));
+foreach([false,true] as $admin){
+ $GLOBALS['report_admin']=$admin;
+ try{trb_analysis_download_report();throw new RuntimeException('unexpected_download');}
+ catch(RuntimeException $e){check_review($e->getMessage()===($admin?'admin_nonce_gate':'http:403'),'Report access authorization failed');}
+}
+echo "PASS artist report denied; administrator proceeds to nonce validation\n";

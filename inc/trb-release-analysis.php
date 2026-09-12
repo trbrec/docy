@@ -933,11 +933,13 @@ function trb_analysis_generate_report( $release_id ) {
 }
 
 function trb_analysis_report_url( $release_id ) {
+	if ( ! current_user_can( 'manage_options' ) ) return '';
 	return wp_nonce_url( add_query_arg( array( 'action' => 'trb_analysis_download_report', 'release_id' => absint( $release_id ) ), admin_url( 'admin-post.php' ) ), 'trb_analysis_report_' . absint( $release_id ) );
 }
 
 function trb_analysis_download_report() {
 	if ( ! is_user_logged_in() ) auth_redirect();
+	if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Report riservato alla Direzione.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
 	$release_id = absint( $_GET['release_id'] ?? 0 ); check_admin_referer( 'trb_analysis_report_' . $release_id );
 	if ( ! function_exists( 'trb_portal_current_user_can_access_release' ) || ! trb_portal_current_user_can_access_release( $release_id ) ) wp_die( 'Operazione non consentita.', 'Area Artisti TRB rec', array( 'response' => 403 ) );
 	$report = (array) get_post_meta( $release_id, '_trb_release_analysis_report', true ); $uploads = wp_upload_dir();
