@@ -46,3 +46,4 @@ jobs:
           node tests/release-master-retry.test.js
           node tests/release-audio-validation-race.test.js
           python3 tools/portal-audit.py
+          python3 tools/test-private-deploy-output.py
