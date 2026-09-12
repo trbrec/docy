@@ -2152,8 +2152,8 @@ function trb_portal_cover_upload_check($file) {
     if (!$image || !in_array((int)$image[2],array(IMAGETYPE_JPEG,IMAGETYPE_PNG),true)) return new WP_Error('invalid_cover','Il file della copertina non è un’immagine JPG o PNG leggibile. Esporta una nuova copia e caricala di nuovo.');
     $width=(int)$image[0];$height=(int)$image[1];
     $details=array('name'=>$name,'width'=>$width,'height'=>$height,'bytes'=>(int)($file['size']??0));
-    if ($width!==$height) return new WP_Error('invalid_cover','La copertina «'.$name.'» misura '.$width.'×'.$height.' px e non è quadrata. Carica un’immagine quadrata di almeno 1500×1500 px, preferibilmente 3000×3000 px.',$details);
-    if ($width<1500) return new WP_Error('invalid_cover','La copertina «'.$name.'» misura '.$width.'×'.$height.' px: il minimo richiesto è 1500×1500 px. Carica una versione a risoluzione maggiore, preferibilmente 3000×3000 px. Cambiare soltanto il valore DPI non aumenta i pixel.',$details);
+    if ($width!==$height) return new WP_Error('invalid_cover','La copertina «'.$name.'» misura '.$width.'×'.$height.' px e non è quadrata. Carica un’immagine quadrata di almeno 1254×1254 px, preferibilmente 3000×3000 px.',$details);
+    if ($width<1254) return new WP_Error('invalid_cover','La copertina «'.$name.'» misura '.$width.'×'.$height.' px: il minimo richiesto è 1254×1254 px. Carica una versione a risoluzione maggiore, preferibilmente 3000×3000 px. Cambiare soltanto il valore DPI non aumenta i pixel.',$details);
     return true;
 }
 
@@ -4776,7 +4776,7 @@ function trb_portal_render_release_files( $release_id ) {
 						<input type="hidden" name="trb_release_id" value="<?php echo esc_attr( $release_id ); ?>" />
 						<?php wp_nonce_field( 'trb_portal_attach_release_cover_' . $release_id, 'trb_release_cover_nonce' ); ?>
 						<label><strong>Copertina definitiva ricevuta</strong><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /></label>
-						<label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che il file è quadrato, almeno 1500×1500 px e a 300 DPI.</label>
+						<label><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che il file è quadrato, almeno 1254×1254 px e a 300 DPI.</label>
 						<?php trb_portal_render_cover_guidance(); ?>
 						<button class="trb-button trb-button--compact" type="submit">Collega la copertina definitiva</button>
 					</form>
@@ -5042,7 +5042,7 @@ function trb_portal_render_cover_guidance() {
 function trb_portal_render_release_cover_input( $profile ) {
 	$included = trb_portal_profile_has_service( 'cover_artwork', $profile );
 	if ( ! $included ) {
-		?><div class="trb-release-upload trb-release-upload--cover"><strong>Copertina della release <span>*</span></strong><p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px. Il sistema verifica formato, proporzioni e dimensioni.</p><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /><label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che la copertina è stata esportata a 300 DPI.</label><?php trb_portal_render_cover_guidance(); ?></div><?php
+		?><div class="trb-release-upload trb-release-upload--cover"><strong>Copertina della release <span>*</span></strong><p>JPG o PNG quadrato · minimo 1254×1254 px a 300 DPI · consigliato 3000×3000 px. Il sistema verifica formato, proporzioni e dimensioni.</p><input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required /><label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" required /> Confermo che la copertina è stata esportata a 300 DPI.</label><?php trb_portal_render_cover_guidance(); ?></div><?php
 		return;
 	}
 	?>
@@ -5055,7 +5055,7 @@ function trb_portal_render_release_cover_input( $profile ) {
 		</div>
 		<div class="trb-release-upload trb-release-upload--cover" data-cover-upload hidden>
 			<strong>Carica la copertina definitiva <span>*</span></strong>
-			<p>JPG o PNG quadrato · minimo 1500×1500 px a 300 DPI · consigliato 3000×3000 px.</p>
+			<p>JPG o PNG quadrato · minimo 1254×1254 px a 300 DPI · consigliato 3000×3000 px.</p>
 			<input type="file" name="trb_release_cover" accept="image/jpeg,image/png,.jpg,.jpeg,.png" disabled />
 			<label class="trb-release-confirm"><input type="checkbox" name="trb_release_cover_300dpi" value="1" disabled /> Confermo che la copertina è stata esportata a 300 DPI.</label>
 			<?php trb_portal_render_cover_guidance(); ?>

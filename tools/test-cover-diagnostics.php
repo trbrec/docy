@@ -9,7 +9,7 @@ function check($v,$message){if(!$v)throw new RuntimeException($message);}
 function png_chunk($type,$data){return pack('N',strlen($data)).$type.$data.pack('N',crc32($type.$data));}
 $path=tempnam(sys_get_temp_dir(),'trb-cover-');
 try {
- foreach ([[1024,1024,false,'1024×1024'],[1536,1024,false,'non è quadrata'],[1500,1500,true,''],[3000,3000,true,'']] as [$w,$h,$accepted,$message]) {
+ foreach ([[1024,1024,false,'1024×1024'],[1536,1024,false,'non è quadrata'],[1253,1253,false,'1253×1253'],[1254,1254,true,''],[1500,1500,true,''],[3000,3000,true,'']] as [$w,$h,$accepted,$message]) {
   $png="\x89PNG\r\n\x1a\n".png_chunk('IHDR',pack('NNCCCCC',$w,$h,8,2,0,0,0)).png_chunk('IDAT',gzcompress(str_repeat("\0".str_repeat("\0",$w*3),$h))).png_chunk('IEND','');
   file_put_contents($path,$png);clearstatcache(true,$path);
   $result=trb_portal_cover_upload_check(['name'=>'Cover.png','tmp_name'=>$path,'size'=>strlen($png)]);
