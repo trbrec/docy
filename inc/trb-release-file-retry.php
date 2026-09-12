@@ -129,3 +129,14 @@ function trb_file_retry_reuse($id,$upload,$kind,$index) {
     }
     return !empty($upload['_trb_retained'])?new WP_Error('recovery_integrity_failed'):null;
 }
+
+/** Resume an allocation already checkpointed by this same receipt. Never silently replace a mismatched batch. */
+function trb_file_retry_allocated_isrcs($id,$count,$profile) {
+    $allocation=get_post_meta($id,'_trb_release_isrc_allocation',true);
+    if (!is_array($allocation) || empty($allocation['codes'])) return null;
+    $codes=$allocation['codes'];
+    $pool='trb'===$profile?'trb':'distribution';
+    if (($allocation['pool']??'')!==$pool || !is_array($codes) || count($codes)!==$count || count(array_unique($codes))!==$count) return new WP_Error('isrc_allocation_conflict');
+    foreach ($codes as $code) if (!is_string($code) || !preg_match('/^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$/D',$code)) return new WP_Error('isrc_allocation_conflict');
+    return array_values($codes);
+}

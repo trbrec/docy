@@ -21,3 +21,21 @@ const form={dataset:{},action:'/upload',querySelectorAll(){return [cover,audio,l
  await api.stageFiles(replacementForm,()=>{});assert.equal(requests.at(-1).audio_status,'mastering');
  console.log('PASS only rejected input cleared, corrected file retry, valid attachment reuse, stable staging slots and field-specific final errors');
 })().catch(e=>{console.error(e);process.exit(1);});
+
+// Real dynamic form handlers must not restore native required on a server-retained file.
+const portal=fs.readFileSync('inc/trb-artist-portal.php','utf8');
+const lyricsField={_trbRetained:{name:'lyrics.txt'},required:true};
+const lyricsWrap={querySelector(){return lyricsField;}};
+const lyricsTrack={querySelector(s){return s==='[data-track-advisory]'?{value:'clean'}:lyricsWrap;}};
+const lyricsFunction=portal.split('\n').find(l=>l.includes('function updateLyrics(track)'));
+vm.runInNewContext(lyricsFunction+';updateLyrics(track);',{track:lyricsTrack});assert.equal(lyricsField.required,false);
+lyricsField._trbRetained=null;vm.runInNewContext(lyricsFunction+';updateLyrics(track);',{track:lyricsTrack});assert.equal(lyricsField.required,true);
+const rightsField={_trbRetained:{name:'license.pdf'},required:true};
+const rightsTrack={querySelector(s){return s==='[data-content-nature]'?{value:'type_beat'}:s==='[data-rights-basis]'?{value:'licensed',setCustomValidity(){}}:s==='[data-rights-document]'?{querySelector(){return rightsField;}}:null;}};
+const rightsFunction=portal.split('\n').find(l=>l.includes('function syncRightsFields(track)'));
+vm.runInNewContext(rightsFunction+';syncRightsFields(track);',{track:rightsTrack,form:{querySelector(){return {value:'unreleased'};}}});assert.equal(rightsField.required,false);
+const coverFile={type:'file',_trbRetained:{name:'cover.png'}},confirmation={type:'checkbox'};
+const coverFunction=fs.readFileSync('assets/js/trb-release-form-ux.js','utf8').split('\n').find(l=>l.startsWith('function coverWorkflow(form)'));
+const nodes={'[data-cover-workflow]':{},'[data-cover-upload]':{},'[data-cover-request]':{},'input[name="trb_release_cover"]':coverFile,'input[name="trb_release_cover_300dpi"]':confirmation,'input[name="trb_release_cover_mode"]:checked':{value:'upload'}};
+vm.runInNewContext(coverFunction+';coverWorkflow({});',{q(s){return nodes[s]||null;},qa(){return [];}});assert.equal(coverFile.required,false);assert.equal(confirmation.required,true);
+console.log('PASS native required stays correct for retained cover, lyrics and rights after dynamic form changes');
