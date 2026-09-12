@@ -53,7 +53,7 @@ check(get_post_meta(1,'_trb_contract_state',true)==='waiting_upload','Premature 
 $b=submit();check($b['release_id']===1&&count($posts)===1,'Duplicate receipt');
 trb_intake_failure('invalid','Invalid credit');check(get_post_meta(1,'_trb_release_intake_phase',true)==='validation_failed','Failure not durable');
 check(submit()['release_id']===1&&count($posts)===1,'Retry duplicated failed receipt');
-update_post_meta(1,'_trb_release_intake_phase','files_partial');check(submit()['status']==='recovery_required','Partial acquisition reported success');
+update_post_meta(1,'_trb_release_intake_phase','files_partial');check(submit()['status']==='received','Partial acquisition cannot be resumed by its owner');
 update_post_meta(1,'_trb_release_intake_phase','complete');unset($_POST['trb_release_intake_only']);check(submit()['status']==='created','Completed retry required missing files');
 check(trb_intake_find(8,$_POST['trb_release_submission_token'])===0,'Cross-user lookup');
 check(is_wp_error(trb_intake_record(7,'bad',[])),'Invalid token accepted');
@@ -104,8 +104,10 @@ echo "PASS pCloud empty batch guard and durable progress with failure at file 7 
 update_post_meta(1,'_trb_release_intake_phase','acquiring_files');
 update_post_meta(1,'_trb_release_pipeline_status','upload_incomplete');
 update_post_meta(1,'_trb_release_acquisition_started_at',time());
+$active_lock=trb_release_process_lock('release:1');
 check(trb_intake_recover_stalled(1)===false,'Active acquisition interrupted');
-update_post_meta(1,'_trb_release_acquisition_started_at',time()-1900);
+trb_release_process_unlock($active_lock);
+update_post_meta(1,'_trb_release_acquisition_started_at',time());
 check(trb_intake_recover_stalled(1)===true && get_post_meta(1,'_trb_release_intake_phase',true)==='validation_failed','Empty interrupted acquisition cannot be retried by the artist');
 update_post_meta(1,'_trb_release_intake_phase','acquiring_files');
 update_post_meta(1,'_trb_release_acquisition_started_at',0);

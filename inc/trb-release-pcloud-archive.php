@@ -240,6 +240,14 @@ function trb_release_pcloud_sync( $release_id ) {
 	$audio_indexes = array();
 	foreach ( $files as $file ) if ( is_array( $file ) && 'audio' === ( $file['kind'] ?? '' ) && isset( $file['track'] ) ) $audio_indexes[ absint( $file['track'] ) ] = true;
 	if ( ! $tracks || count( $audio_indexes ) !== count( $tracks ) ) return new WP_Error( 'release_audio_incomplete', 'Il numero dei WAV acquisiti non corrisponde ai brani della release.' );
+	foreach ($files as $file) if (!empty($file['rejected'])) {
+		update_post_meta($release_id,'_trb_release_pipeline_status',($file['kind']??'')==='audio'?'technical_error':'security_rejected');
+		return new WP_Error('release_technical_rejected','Carica il file corretto nella stessa release.');
+	}
+	if (function_exists('trb_analysis_run_technical') && !trb_release_technical_is_current($release_id)) {
+		$technical=trb_analysis_run_technical($release_id);
+		if (($technical['status']??'failed')==='failed') return new WP_Error(!empty($technical['retryable'])?'release_technical_unavailable':'release_technical_rejected','Materiale da verificare o sostituire nella stessa pratica.');
+	}
 	$master_folder = trb_release_pcloud_master_folder( $release_id, $profile, $artist_name, $release->post_title );
 	$mastering_folder = trb_release_pcloud_mastering_folder( $artist_name, $release->post_title, $release_id );
 	$total_bytes = 0;
@@ -314,11 +322,12 @@ function trb_release_pcloud_run_sync( $release_id ) {
 	try {
 	$result = trb_release_pcloud_sync( absint( $release_id ) );
 	if ( is_wp_error( $result ) ) {
-		if ( in_array( $result->get_error_code(), array('TRB_RELEASE_CANCELLED','release_not_found','release_intake_incomplete'), true ) ) return;
+		if ( in_array( $result->get_error_code(), array('TRB_RELEASE_CANCELLED','release_not_found','release_intake_incomplete','release_technical_rejected'), true ) ) return;
 		$archive = (array) get_post_meta( $release_id, '_trb_release_pcloud_archive', true );
 		$archive['status'] = 'error'; $archive['time'] = time(); $archive['code'] = $result->get_error_code(); $archive['detail'] = sanitize_text_field( $result->get_error_message() );
 		update_post_meta( $release_id, '_trb_release_pcloud_archive', $archive );
 		$pipeline_status = in_array( $result->get_error_code(), array( 'PCLOUD_QUOTA_LIMIT_REACHED', 'PCLOUD_QUOTA_UNVERIFIED' ), true ) ? $result->get_error_code() : 'pcloud_transfer_waiting';
+		if ('release_technical_unavailable'===$result->get_error_code()) $pipeline_status='technical_check_waiting';
 		update_post_meta( $release_id, '_trb_release_pipeline_status', $pipeline_status );
 		if ( ! wp_next_scheduled( 'trb_release_pcloud_retry', array( absint( $release_id ) ) ) ) wp_schedule_single_event( time() + 10 * MINUTE_IN_SECONDS, 'trb_release_pcloud_retry', array( absint( $release_id ) ) );
 	}

@@ -35,6 +35,8 @@ jobs:
         run: |
           node tests/release-draft-restore.test.js
           node tests/release-master-retry.test.js
+          node tests/release-file-retry.test.js
+          php tools/test-release-file-retry.php
           node tests/release-audio-validation-race.test.js
           find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
           php tools/test-release-draft-normalizer.php
@@ -82,6 +84,9 @@ jobs:
           echo "Successfully deployed and verified ${deployed_sha}."
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/audit-release-integrity-live.php' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/audit-release-integrity-live.php' '${GITHUB_SHA}' --repair-empty-greed"
+          fi
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/audit-release-file-retry-live.php' >/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/audit-release-file-retry-live.php' '${GITHUB_SHA}'"
           fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/qa-demo-footer.php' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/qa-demo-footer.php' '${GITHUB_SHA}'"
