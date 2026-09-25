@@ -17,6 +17,7 @@ jobs:
           find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
           php tools/test-submission-diagnostics.php
           php tools/test-release-credit-roles.php
+          php tools/test-symphonic-credits.php
           php tools/test-release-intake.php
           php tools/test-release-integrity.php
           php tools/test-release-recovery.php
@@ -37,6 +38,7 @@ jobs:
           php tools/test-rights-owner-review.php
           php tools/test-crm-inline-review.php
           node tests/release-credit-options.test.js
+          node tests/symphonic-credit-validation.test.js
           node tests/release-single-title.test.js
           php tools/test-release-draft-normalizer.php
           php tools/test-release-staging-cleanup.php

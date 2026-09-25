@@ -41,6 +41,8 @@ function trb_intake_record( $user_id, $token, $post ) {
 				}
 				$conflict=trb_intake_project_conflict($user_id,$post,$existing);
 				if ($conflict) return new WP_Error('existing_release','Esiste già la pratica #'.$conflict.' per questo progetto. Riprendila da «Il tuo catalogo». I dati delle pratiche sono rimasti separati.',$conflict);
+				if (trb_symphonic_release($existing) && ($errors=trb_symphonic_credit_errors($post['trb_tracks'] ?? array()))) return new WP_Error('invalid_credits',implode(' ',$errors));
+				if (trb_symphonic_genre_release($existing) && ($errors=trb_symphonic_genre_errors($post['trb_tracks'] ?? array()))) return new WP_Error('invalid_genres',implode(' ',$errors));
 				trb_intake_refresh_draft($existing,$post);
 			}
 			return $existing;
@@ -51,9 +53,15 @@ function trb_intake_record( $user_id, $token, $post ) {
 		if ( $conflict ) return new WP_Error( 'existing_release', 'Esiste già la pratica #' . $conflict . ' con questo titolo e questi brani. Aprila da «Il tuo catalogo» e usa «Riprendi il caricamento di questa pratica» se incompleta. Nessuna nuova pratica è stata creata. Se intendi pubblicare una nuova edizione distinta, apri una segnalazione.', $conflict );
 		$title = sanitize_text_field( $post['trb_release_title'] ?? '' );
 		$raw_tracks = isset( $post['trb_tracks'] ) && is_array( $post['trb_tracks'] ) ? array_slice( $post['trb_tracks'], 0, 24, true ) : array();
-		$tracks = trb_portal_sanitize_release_tracks( $raw_tracks );
+		$credit_errors=trb_symphonic_credit_errors($raw_tracks);
+		if ($credit_errors) return new WP_Error('invalid_credits',implode(' ',$credit_errors));
+		$genre_errors=trb_symphonic_genre_errors($raw_tracks);
+		if ($genre_errors) return new WP_Error('invalid_genres',implode(' ',$genre_errors));
+		$tracks = trb_portal_sanitize_release_tracks( $raw_tracks, true, true );
 		$meta = array(
 			'_trb_release_submission_token' => $token,
+			'_trb_release_credit_schema' => 'symphonic-2026-09',
+			'_trb_release_genre_schema' => 'symphonic-2026-09',
 			'_trb_release_intake_phase' => 'awaiting_upload',
 			'_trb_release_pipeline_status' => 'upload_incomplete',
 			'_trb_release_status' => 'attention',
@@ -86,7 +94,7 @@ function trb_intake_refresh_draft($id, $post) {
  $title=sanitize_text_field($post['trb_release_title']??'');
  if ($title!=='') wp_update_post(array('ID'=>$id,'post_title'=>$title));
  foreach(array('type','state','date','original_date') as $field) update_post_meta($id,'_trb_release_'.$field,sanitize_text_field($post['trb_release_'.$field]??''));
- if (isset($post['trb_tracks']) && is_array($post['trb_tracks'])) update_post_meta($id,'_trb_release_tracks',trb_portal_sanitize_release_tracks(array_slice($post['trb_tracks'],0,24,true)));
+ if (isset($post['trb_tracks']) && is_array($post['trb_tracks'])) update_post_meta($id,'_trb_release_tracks',trb_portal_sanitize_release_tracks(array_slice($post['trb_tracks'],0,24,true),trb_symphonic_release($id),trb_symphonic_genre_release($id)));
 }
 
 /** The process lock, not an arbitrary waiting period, distinguishes an active worker from an interrupted one. */

@@ -19,7 +19,11 @@ function wp_verify_nonce($a,$b){global $nonce;return $nonce;}
 function trb_portal_user_profile(){return $GLOBALS['test_profile']??'trb';}
 function trb_portal_artist_profile_is_complete(){return true;}
 function trb_portal_is_release_qa_account(){return true;}
-function trb_portal_sanitize_release_tracks($tracks){return $tracks;}
+function trb_portal_sanitize_release_tracks($tracks,...$rest){return $tracks;}
+function trb_symphonic_genre_errors($tracks){return [];}
+function trb_symphonic_genre_release($id){return get_post_meta($id,"_trb_release_genre_schema",true)==="symphonic-2026-09";}
+function trb_symphonic_credit_errors($tracks){return [];}
+function trb_symphonic_release($id){return get_post_meta($id,"_trb_release_credit_schema",true)==="symphonic-2026-09";}
 function add_option($k,$v,...$rest){global $options;if(isset($options[$k]))return false;$options[$k]=$v;return true;}
 function delete_option($k){global $options;unset($options[$k]);}
 function get_posts($args){global $posts;$out=[];foreach(array_reverse($posts,true) as $id=>$p){
