@@ -1,5 +1,6 @@
 <?php
 require __DIR__.'/../inc/trb-symphonic-credits.php';
+require __DIR__.'/../inc/trb-symphonic-genres.php';
 require __DIR__.'/test-release-credit-roles.php';
 $roles=trb_symphonic_roles();
 check(array_map('count',$roles)===array('writers'=>43,'performers'=>818,'engineering'=>115),'Complete observed Symphonic catalogue');
@@ -17,3 +18,13 @@ $bad=$t;$bad['credits']['engineering'][0]['name']='';check((bool)trb_symphonic_c
 $before=serialize($tracks);trb_portal_sanitize_release_tracks($tracks);check(serialize($tracks)===$before,'Historical input never mutated');
 foreach($roles as $group=>$options)foreach($options as $name=>$id){$probe=$t;if($group==='writers')$probe['credits'][$group][]=['name'=>'Test Writer','roles'=>[$name]];else $probe['credits'][$group][]=['name'=>'Test Person','role'=>$name];if(trb_symphonic_credit_errors([$probe])||count(trb_portal_sanitize_release_tracks([$probe],true))!==1)throw new Exception('Role lost: '.$group.' '.$name);}
 check(true,'Every observed role accepted only in its group');
+
+$genres=trb_symphonic_genres();
+check(count($genres)===48 && array_sum(array_map('count',$genres))===498,'Complete observed genre/subgenre pairs');
+$genreTrack=$t;$genreTrack['primary_genre']='Alternative';$genreTrack['secondary_genre']='Indie Rock';
+check(!trb_symphonic_genre_errors([$genreTrack]) && count(trb_portal_sanitize_release_tracks([$genreTrack],true,true))===1,'Valid Symphonic genre pair accepted');
+$genreTrack['secondary_genre']='Alternative Pop';
+check((bool)trb_symphonic_genre_errors([$genreTrack]) && !trb_portal_sanitize_release_tracks([$genreTrack],true,true),'Cross-genre subgenre rejected');
+$genreTrack['secondary_genre']='';
+check((bool)trb_symphonic_genre_errors([$genreTrack]),'Missing subgenre rejected');
+check(count(trb_portal_sanitize_release_tracks($tracks))===count($tracks),'Historical genre validation is unchanged');
