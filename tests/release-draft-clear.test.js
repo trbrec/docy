@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+const source=fs.readFileSync('assets/js/trb-release-upload.js','utf8');
+const helper=source.slice(source.indexOf('function clearDraft('),source.indexOf('\nvar DRAFT_MAX_TRACK_INDEX',source.indexOf('function clearDraft(')));
+const first='11111111-1111-4111-8111-111111111111',second='22222222-2222-4222-8222-222222222222';
+const values=new Map([['release-draft',JSON.stringify({submissionToken:second,pairs:[['trb_release_title','Seconda release'] ]})],['release-draft:receipt',second]]);
+const storage={getItem:key=>values.get(key)||null,removeItem:key=>values.delete(key)};
+let clears=0;
+const context={draftKey:()=> 'release-draft',localStorage:storage,postDraft:()=>{clears++;}};
+vm.createContext(context);vm.runInContext(helper+';result=clearDraft;',context);
+context.result({querySelector:()=>({value:first})});
+assert.equal(JSON.parse(values.get('release-draft')).submissionToken,second);
+assert.equal(values.get('release-draft:receipt'),second);
+context.result({querySelector:()=>({value:second})});
+assert.equal(values.has('release-draft'),false);
+assert.equal(values.has('release-draft:receipt'),false);
+assert.equal(clears,2);
+console.log('PASS release draft local clear is scoped to its receipt');
