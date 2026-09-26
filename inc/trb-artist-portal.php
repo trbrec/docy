@@ -2530,7 +2530,8 @@ function trb_portal_release_submission_response( $status, $message = '', $http_s
 	}
 	$redirect   = add_query_arg( 'trb_release', $status, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#release';
 	if ( $is_success && is_user_logged_in() ) {
-		delete_user_meta( get_current_user_id(), '_trb_release_form_draft' );
+		$completed_token = sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ?? '' ) );
+		trb_portal_clear_release_draft_if_matching( get_current_user_id(), $completed_token );
 		delete_user_meta( get_current_user_id(), '_trb_release_last_submission_error' );
 	}
 
@@ -2717,6 +2718,12 @@ function trb_portal_migrate_release_drafts_v2() {
 add_action( 'init', 'trb_portal_migrate_release_drafts_v2', 30 );
 
 /** Persist release form text fields across expired sessions and new tabs. */
+function trb_portal_clear_release_draft_if_matching( $user_id, $submission_token ) {
+	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $submission_token ) ) return false;
+	$draft = get_user_meta( $user_id, '_trb_release_form_draft', true );
+	if ( ! is_array( $draft ) || ( $draft['submissionToken'] ?? '' ) !== $submission_token ) return false;
+	return delete_user_meta( $user_id, '_trb_release_form_draft', $draft );
+}
 function trb_portal_save_release_draft() {
 	if ( ! is_user_logged_in() ) {
 		wp_send_json_error( array( 'message' => 'Sessione scaduta.' ), 401 );
@@ -2724,8 +2731,8 @@ function trb_portal_save_release_draft() {
 	check_ajax_referer( 'trb_portal_release_draft', 'nonce' );
 	$user_id = get_current_user_id();
 	if ( 'clear' === sanitize_key( wp_unslash( $_POST['mode'] ?? '' ) ) ) {
-		delete_user_meta( $user_id, '_trb_release_form_draft' );
-		wp_send_json_success();
+		$token = sanitize_text_field( wp_unslash( $_POST['submission_token'] ?? '' ) );
+		wp_send_json_success( array( 'cleared' => trb_portal_clear_release_draft_if_matching( $user_id, $token ) ) );
 	}
 	$raw = isset( $_POST['pairs'] ) ? wp_unslash( $_POST['pairs'] ) : '';
 	if ( ! is_string( $raw ) || strlen( $raw ) > 512000 ) {
