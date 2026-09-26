@@ -5129,6 +5129,8 @@ function trb_portal_render_release_section() {
 		}
 	}
 	$credit_receipt = !empty($server_draft['submissionToken']) ? trb_intake_find(get_current_user_id(),$server_draft['submissionToken']) : 0;
+	// A completed receipt cannot define the schema for a new release form.
+	if ($credit_receipt && 'complete' === get_post_meta($credit_receipt,'_trb_release_intake_phase',true)) $credit_receipt = 0;
 	$new_credits = !$credit_receipt || trb_symphonic_release($credit_receipt);
 	$new_genres = !$credit_receipt || trb_symphonic_genre_release($credit_receipt);
 	?>

@@ -34,6 +34,7 @@ jobs:
         shell: bash
         run: |
           node tests/release-draft-restore.test.js
+          node tests/release-completed-receipt.test.js
           node tests/release-master-retry.test.js
           node tests/release-file-retry.test.js
           php tools/test-release-file-retry.php
