@@ -3,12 +3,18 @@
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
 $revision = $argv[1] ?? '';
 if ( ! preg_match( '/^[a-f0-9]{40}$/D', $revision ) || trim( (string) @file_get_contents( dirname( __DIR__ ) . '/.trb-deployed-sha' ) ) !== $revision ) exit( 2 );
+$status_file = dirname( __DIR__ ) . '/.trb-demo-qa-' . $revision;
+$GLOBALS['trb_demo_qa_step'] = 'bootstrap';
+register_shutdown_function( static function () use ( $status_file ) {
+ if ( $GLOBALS['trb_demo_qa_step'] !== 'done' ) file_put_contents( $status_file, $GLOBALS['trb_demo_qa_step'] );
+} );
 $_SERVER['HTTP_HOST'] = 'artist.trbrec.com';
 $_SERVER['REQUEST_URI'] = '/';
 $_SERVER['HTTPS'] = 'on';
 define( 'DISABLE_WP_CRON', true );
 require dirname( __DIR__, 4 ) . '/wp-load.php';
 if ( rtrim( home_url(), '/' ) !== 'https://artist.trbrec.com' || ! function_exists( 'curl_init' ) ) throw new RuntimeException( 'QA prerequisites missing' );
+$GLOBALS['trb_demo_qa_step'] = 'account';
 add_filter( 'pre_wp_mail', static function () { throw new RuntimeException( 'QA must not send mail' ); }, PHP_INT_MAX );
 add_filter( 'pre_http_request', static function () { throw new RuntimeException( 'QA must not call external services' ); }, PHP_INT_MAX );
 $user = get_user_by( 'login', 'spotify4' );
@@ -23,6 +29,7 @@ $_COOKIE[ LOGGED_IN_COOKIE ] = wp_generate_auth_cookie( $user->ID, time() + 1800
 $nonce = wp_create_nonce( 'trb_portal_stage_release' );
 $directory = trb_portal_release_staging_session_dir( $session, true );
 if ( ! $directory ) throw new RuntimeException( 'Staging directory unavailable' );
+$GLOBALS['trb_demo_qa_step'] = 'http';
 try {
  $fixtures = array(
   array( 'field' => 'trb_demo_text', 'key' => 'f2000', 'name' => 'qa-demo.txt', 'type' => 'text/plain', 'body' => str_repeat( "Testo QA, senza dati artista.\n", 5000 ), 'limit' => 2 * MB_IN_BYTES, 'mimes' => array( 'txt' => 'text/plain' ) ),
@@ -52,13 +59,16 @@ try {
   $_POST['trb_release_submission_token'] = $session;
   $_POST['trb_staged_uploads_json'] = wp_json_encode( array( $fixture['field'] => array( 'key' => $fixture['key'], 'session' => $session, 'upload_id' => $upload_id ) ) );
   $item = trb_portal_demo_upload_item( $fixture['field'] );
+  $GLOBALS['trb_demo_qa_step'] = 'staging';
   if ( empty( $item['_trb_staged'] ) || $item['size'] !== $size || hash_file( 'sha256', $item['tmp_name'] ) !== hash( 'sha256', $body ) ) throw new RuntimeException( 'QA staged bytes differ' );
   $saved = trb_portal_store_demo_file( $fixture['field'], $fixture['mimes'], $fixture['limit'], $item );
+  $GLOBALS['trb_demo_qa_step'] = 'private-storage';
   if ( ! is_array( $saved ) ) throw new RuntimeException( 'QA private sideload failed: ' . ( is_wp_error( $saved ) ? $saved->get_error_message() : 'unknown' ) );
   $path = trailingslashit( wp_upload_dir()['basedir'] ) . $saved['path'];
   $stored[] = $path;
   if ( ! is_file( $path ) || hash_file( 'sha256', $path ) !== hash( 'sha256', $body ) ) throw new RuntimeException( 'QA saved bytes differ' );
  }
+ $GLOBALS['trb_demo_qa_step'] = 'done';
  echo "PASS isolated demo HTTP staging (5 MiB chunks), TXT and 25 MiB MP3 private sideload\n";
 } finally {
  foreach ( $scratch as $path ) if ( is_file( $path ) ) wp_delete_file( $path );
