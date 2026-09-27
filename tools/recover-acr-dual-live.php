@@ -9,7 +9,7 @@ require dirname(__DIR__, 4) . '/wp-load.php';
 if ( rtrim( home_url(), '/' ) !== 'https://artist.trbrec.com' ) throw new RuntimeException( 'Unexpected site' );
 global $wpdb;
 $table = trb_resource_tables()['usage'];
-$jobs = $wpdb->get_results( "SELECT id,release_id FROM $table WHERE provider='acrcloud' AND status='error' AND provider_reference<>'' AND ((service='cover_song_scan' AND last_error='ACR_DUAL_ENGINE_MISMATCH_2_EXPECTED_2') OR (service='fingerprinting_exact' AND last_error='ACR_DUAL_ENGINE_MISMATCH_1_EXPECTED_1'))" );
+$jobs = $wpdb->get_results( "SELECT id,release_id FROM $table WHERE provider='acrcloud' AND provider_reference<>'' AND service IN ('cover_song_scan','fingerprinting_exact') AND ((status='error' AND last_error IN ('ACR_DUAL_ENGINE_MISMATCH_2_EXPECTED_2','ACR_DUAL_ENGINE_MISMATCH_1_EXPECTED_1')) OR (status='processing' AND last_error='ACR_PROVIDER_PROCESSING' AND attempts>=30))" );
 $releases = array();
 foreach ( $jobs as $job ) {
     if ( trb_release_is_inactive( (int) $job->release_id ) ) continue;

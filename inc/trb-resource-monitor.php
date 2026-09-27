@@ -705,11 +705,22 @@ function trb_resource_poll_dual_acr_job( $ledger_id ) {
 	$saved = $item ?: ( is_array( $envelope ) ? $envelope : array() );
 	$saved['trb_container_id'] = $container_id;
 	$saved['trb_expected_engine'] = $expected_engine;
+	foreach ( array( 'trb_rescan_requested_at', 'trb_rescan_http' ) as $key ) if ( isset( $envelope[$key] ) ) $saved[$key] = $envelope[$key];
 	$attempts = (int) $row->attempts + 1;
 	$retryable = 'ACR_PROVIDER_PROCESSING' === $error || is_wp_error( $response ) || $http_code === 429 || $http_code >= 500 || 'ACR_RESPONSE_INVALID' === $error;
 	if ( $retryable && $attempts <= 126 ) {
+		// Requeue a stalled remote object once, without another upload or an endless rescan loop.
+		$rescanned = false;
+		if ( 'ACR_PROVIDER_PROCESSING' === $error && $attempts >= 30 && empty( $saved['trb_rescan_requested_at'] ) ) {
+			$saved['trb_rescan_requested_at'] = time();
+			$wpdb->update( $table, array( 'payload' => wp_json_encode( $saved ) ), array( 'id' => $row->id ) );
+			$rescan = wp_remote_request( $url . '/rescan', array( 'method' => 'PUT', 'timeout' => 60, 'headers' => array( 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $s['acr_token'] ) ) );
+			$saved['trb_rescan_http'] = is_wp_error( $rescan ) ? 0 : (int) wp_remote_retrieve_response_code( $rescan );
+			$rescanned = true;
+		}
 		$wpdb->update( $table, array( 'status' => 'processing', 'payload' => wp_json_encode( $saved ), 'attempts' => $attempts, 'last_error' => $error, 'updated_at' => trb_resource_now() ), array( 'id' => $row->id ) );
-		if ( ! wp_next_scheduled( 'trb_resource_poll_dual_acr_job', array( (int) $row->id ) ) ) wp_schedule_single_event( time() + ( $attempts < 30 ? 2 : 15 ) * MINUTE_IN_SECONDS, 'trb_resource_poll_dual_acr_job', array( (int) $row->id ) );
+		if ( $rescanned ) wp_clear_scheduled_hook( 'trb_resource_poll_dual_acr_job', array( (int) $row->id ) );
+		if ( ! wp_next_scheduled( 'trb_resource_poll_dual_acr_job', array( (int) $row->id ) ) ) wp_schedule_single_event( time() + ( $attempts < 30 || $rescanned ? 2 : 15 ) * MINUTE_IN_SECONDS, 'trb_resource_poll_dual_acr_job', array( (int) $row->id ) );
 		update_post_meta( $row->release_id, '_trb_release_pipeline_status', 'analysis_in_progress' );
 		if ( $attempts >= 30 ) trb_resource_event( 'acr-dual-' . $row->release_id . '-' . $row->track_index . '-' . $expected_engine, 'acrcloud', 'warning', 'Analisi copyright ancora in attesa del provider; verifica automatica dello stesso job in corso.', array( 'code' => $error, 'attempts' => $attempts ) );
 		return;

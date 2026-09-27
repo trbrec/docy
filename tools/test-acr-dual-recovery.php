@@ -11,10 +11,12 @@ function get_post_meta($id,$key,$single=true){return $GLOBALS['input_meta'][$key
 function trb_release_process_lock($key){return true;} function trb_release_process_unlock($lock){}
 function trb_release_current_audio_hash(...$a){return true;}
 function wp_remote_get($url,$args){$GLOBALS['requested_url']=$url;return $GLOBALS['response'];}
+function wp_remote_request($url,$args){$GLOBALS['rescans'][]=[$url,$args['method']];return ['code'=>200];}
 function is_wp_error($v){return false;}
 function wp_remote_retrieve_response_code($v){return $v['code'];}
 function wp_remote_retrieve_body($v){return json_encode(['data'=>$v['item']]);}
 function wp_next_scheduled(...$a){return false;}
+function wp_clear_scheduled_hook(...$a){}
 function wp_schedule_single_event($when,$hook,$args){$GLOBALS['scheduled'][]=[$when,$hook,$args];}
 function update_post_meta($id,$key,$v){$GLOBALS['meta'][$key]=$v;}
 class RecoveryDB {
@@ -34,7 +36,7 @@ foreach([1,2] as $engine){
 check('ACR_DUAL_ENGINE_MISMATCH_1_EXPECTED_2'===trb_resource_dual_acr_result_error(['engine'=>1,'state'=>1],2),'Actual mismatch fails');
 check('ACR_HTTP_503'===trb_resource_dual_acr_result_error(['engine'=>2,'state'=>1],2,503),'HTTP failure cannot complete');
 check('ACR_RESPONSE_INVALID'===trb_resource_dual_acr_result_error([],2),'Missing response fails');
-$legacy=['id'=>'known-job','cid'=>35033,'engine'=>2,'state'=>0,'duration'=>0,'results'=>null];
+$legacy=['id'=>'known-job','cid'=>35033,'engine'=>2,'state'=>0,'duration'=>0,'results'=>null,'trb_rescan_requested_at'=>1];
 $wpdb=new RecoveryDB();
 $wpdb->row=(object)['id'=>4,'release_id'=>12339,'track_index'=>0,'file_hash'=>str_repeat('a',64),'service'=>'cover_song_scan','status'=>'error','attempts'=>30,'provider_reference'=>'known-job','payload'=>json_encode($legacy)];
 check([35033,2]===trb_resource_dual_acr_context($wpdb->row,$legacy),'Legacy context recovered');
@@ -49,6 +51,19 @@ check(count($scheduled)===1 && $scheduled[0][0]>=time()+899,'Backoff polling sch
 check('analysis_in_progress'===$GLOBALS['meta']['_trb_release_pipeline_status'],'No release approval while pending');
 check(str_ends_with($GLOBALS['requested_url'],'/35033/files/known-job'),'Existing job reused');
 check('warning'===$wpdb->events[0]['severity'],'Slow job has accurate warning');
+check(empty($GLOBALS['rescans']),'Previously requested rescan never repeated');
+$wpdb->writes=[]; $scheduled=[];
+$before_rescan=$legacy; unset($before_rescan['trb_rescan_requested_at']);
+$wpdb->row->payload=json_encode($before_rescan);
+$response['item']=$before_rescan;
+trb_resource_poll_dual_acr_job(4);
+check(count($GLOBALS['rescans'])===1 && $GLOBALS['rescans'][0]===[$GLOBALS['requested_url'].'/rescan','PUT'],'Slow job requeued via documented existing-object endpoint');
+check(!empty(json_decode($wpdb->writes[0][1]['payload'],true)['trb_rescan_requested_at']),'Rescan recorded before remote side effect');
+$rescan_saved=$wpdb->writes[1][1]['payload'];
+check($scheduled[0][0]<=time()+121,'Rescan checked after two minutes');
+$wpdb->row->payload=$rescan_saved; $wpdb->writes=[];
+trb_resource_poll_dual_acr_job(4);
+check(count($GLOBALS['rescans'])===1,'New provider response cannot erase one-rescan guard');
 $wpdb->writes=[]; $wpdb->row->attempts=126; $scheduled=[];
 trb_resource_poll_dual_acr_job(4);
 check('ACR_PROVIDER_TIMEOUT'===$wpdb->writes[0][1]['last_error'],'Bounded polling ends in timeout');
