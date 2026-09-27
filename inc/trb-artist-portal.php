@@ -4592,9 +4592,24 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes, $file = null ) 
 	}
 	$rules = trailingslashit( $private_dir ) . '.htaccess';
 	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+	// WordPress checks the temporary file's extension during sideload validation.
+	// Staging uses .part so it remains resumable; copy only the verified staged
+	// file to a temporary name with its allowed extension for this final step.
+	$sidecar = '';
+	if ( $is_staged ) {
+		$extension = strtolower( (string) pathinfo( $file['name'], PATHINFO_EXTENSION ) );
+		if ( ! isset( $mimes[ $extension ] ) ) return new WP_Error( 'invalid_upload' );
+		$sidecar = dirname( $file['tmp_name'] ) . '/demo-' . wp_generate_uuid4() . '.' . $extension;
+		if ( ! copy( $file['tmp_name'], $sidecar ) || filesize( $sidecar ) !== (int) $file['size'] ) {
+			if ( is_file( $sidecar ) ) wp_delete_file( $sidecar );
+			return new WP_Error( 'invalid_upload', 'Impossibile preparare il file per la verifica.' );
+		}
+		$file['tmp_name'] = $sidecar;
+	}
 	add_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
 	$handled = $is_staged ? wp_handle_sideload( $file, array( 'test_form' => false, 'mimes' => $mimes ) ) : wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $mimes ) );
 	remove_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
+	if ( $sidecar && is_file( $sidecar ) ) wp_delete_file( $sidecar );
 	if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) return new WP_Error( 'invalid_upload', ! empty( $handled['error'] ) ? $handled['error'] : 'WordPress non ha salvato il file caricato.' );
 	return array( 'name' => basename( $handled['file'] ), 'path' => str_replace( trailingslashit( $uploads['basedir'] ), '', $handled['file'] ), 'type' => $handled['type'], 'size' => (int) $file['size'] );
 }

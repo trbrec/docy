@@ -40,8 +40,8 @@ if ( ! $directory ) {
 $GLOBALS['trb_demo_qa_step'] = 'http';
 try {
  $fixtures = array(
-  array( 'field' => 'trb_demo_text', 'key' => 'f2000', 'name' => 'qa-demo.txt', 'type' => 'text/plain', 'body' => str_repeat( "Testo QA, senza dati artista.\n", 5000 ), 'limit' => 2 * MB_IN_BYTES, 'mimes' => array( 'txt' => 'text/plain' ) ),
   array( 'field' => 'trb_demo_audio', 'key' => 'f2001', 'name' => 'qa-demo.mp3', 'type' => 'audio/mpeg', 'body' => str_repeat( base64_decode( 'SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//tQwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAFAAAE5ABVVVVVVVVVVVVVVVVVVVVVVVVVf39/f39/f39/f39/f39/f39/f3+qqqqqqqqqqqqqqqqqqqqqqqqqqtXV1dXV1dXV1dXV1dXV1dXV1dXV//////////////////////////8AAAAATGF2YzYwLjMxAAAAAAAAAAAAAAAAJAMGAAAAAAAABOSrzcSyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7UMQAA8AAAaQAAAAgAAA0gAAABExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+1LEXYPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/7UsShg8AAAaQAAAAgAAA0gAAABFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//tSxKGDwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+1LEoYPAAAGkAAAAIAAANIAAAARVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==' ), 20000 ), 'limit' => 25 * MB_IN_BYTES, 'mimes' => array( 'mp3' => 'audio/mpeg' ) ),
+  array( 'field' => 'trb_demo_text', 'key' => 'f2000', 'name' => 'qa-demo.txt', 'type' => 'text/plain', 'body' => str_repeat( "Testo QA, senza dati artista.\n", 5000 ), 'limit' => 2 * MB_IN_BYTES, 'mimes' => array( 'txt' => 'text/plain' ) ),
  );
  foreach ( $fixtures as $fixture ) {
   $body = $fixture['body'];
@@ -70,10 +70,6 @@ try {
   $GLOBALS['trb_demo_qa_step'] = 'staging';
   if ( empty( $item['_trb_staged'] ) || $item['size'] !== $size || hash_file( 'sha256', $item['tmp_name'] ) !== hash( 'sha256', $body ) ) throw new RuntimeException( 'QA staged bytes differ' );
   $kind = $fixture['key'] === 'f2000' ? 'text' : 'audio';
-  require_once ABSPATH . 'wp-admin/includes/file.php';
-  $detected = wp_check_filetype_and_ext( $item['tmp_name'], $item['name'], $fixture['mimes'] );
-  if ( empty( $detected['type'] ) ) $GLOBALS['trb_demo_qa_step'] = 'type-' . $kind;
-  if ( empty( $detected['type'] ) ) throw new RuntimeException( 'QA fixture file type rejected' );
   $GLOBALS['trb_demo_qa_step'] = 'store-' . $kind;
   $saved = trb_portal_store_demo_file( $fixture['field'], $fixture['mimes'], $fixture['limit'], $item );
   if ( is_wp_error( $saved ) ) {
