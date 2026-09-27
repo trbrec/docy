@@ -2,6 +2,8 @@
 /** Owner-only end-to-end demo QA. No artist message is delivered. */
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
 $revision = $argv[1] ?? '';
+$mode = $argv[2] ?? 'lyrics';
+if ( ! in_array( $mode, array( 'lyrics', 'audio' ), true ) ) exit( 2 );
 if ( ! preg_match( '/^[a-f0-9]{40}$/D', $revision ) || trim( (string) @file_get_contents( dirname( __DIR__ ) . '/.trb-deployed-sha' ) ) !== $revision ) exit( 2 );
 $status_file = dirname( __DIR__ ) . '/.trb-demo-flow-qa-' . $revision;
 $GLOBALS['trb_demo_flow_step'] = 'bootstrap';
@@ -20,6 +22,21 @@ $text_source = is_array( $original ) ? trb_demo_local_path( $original['text_file
 $text_body = is_array( $original ) ? trb_demo_extract_text( $original['text_file'] ?? array() ) : '';
 $user = $source ? get_user_by( 'id', $source->post_author ) : false;
 if ( ! $source || 'trb_request' !== $source->post_type || ! is_array( $original ) || empty( $original['owner_qa'] ) || ! $text_source || ! $text_body || ! $user ) throw new RuntimeException( 'Owner QA source unavailable' );
+if ( 'audio' === $mode ) {
+ $GLOBALS['trb_demo_flow_step'] = 'fixture';
+ $audio_source = '';
+ foreach ( get_posts( array( 'post_type' => 'trb_request', 'post_status' => array( 'private', 'publish' ), 'author' => $user->ID, 'posts_per_page' => 200, 'meta_key' => '_trb_demo_payload' ) ) as $candidate ) {
+  $candidate_payload = get_post_meta( $candidate->ID, '_trb_demo_payload', true );
+  if ( ! is_array( $candidate_payload ) || empty( $candidate_payload['owner_qa'] ) || empty( $candidate_payload['audio_file'] ) ) continue;
+  $candidate_path = trb_demo_local_path( $candidate_payload['audio_file'] );
+  if ( $candidate_path && strtolower( pathinfo( $candidate_path, PATHINFO_EXTENSION ) ) === 'mp3' && filesize( $candidate_path ) <= 25 * MB_IN_BYTES ) {
+   $audio_source = $candidate_path;
+   $original = $candidate_payload;
+   break;
+  }
+ }
+ if ( ! $audio_source ) throw new RuntimeException( 'No owner audio QA fixture' );
+}
 $previous_user = get_current_user_id();
 $session = wp_generate_uuid4();
 $upload_id = str_replace( '-', '', wp_generate_uuid4() );
@@ -44,19 +61,26 @@ try {
  $GLOBALS['trb_demo_flow_step'] = 'staging';
  $directory = trb_portal_release_staging_session_dir( $session, true );
  if ( ! $directory ) throw new RuntimeException( 'QA staging unavailable' );
- $part = trailingslashit( $directory ) . 'f2000.part';
- $size = strlen( $text_body );
- if ( ! $size || $size > 2 * MB_IN_BYTES || false === file_put_contents( $part, $text_body ) ) throw new RuntimeException( 'QA text fixture unavailable' );
- $meta = array( 'upload_id' => $upload_id, 'field_name' => 'trb_demo_text', 'name' => 'qa-flow.txt', 'type' => 'text/plain', 'size' => $size, 'last_modified' => 123, 'total' => 1, 'next_chunk' => 1, 'complete' => true );
- if ( false === file_put_contents( trailingslashit( $directory ) . 'f2000.json', wp_json_encode( $meta ) ) ) throw new RuntimeException( 'QA manifest unavailable' );
+ $audio_mode = 'audio' === $mode;
+ $file_key = $audio_mode ? 'f2001' : 'f2000';
+ $field_name = $audio_mode ? 'trb_demo_audio' : 'trb_demo_text';
+ $file_name = $audio_mode ? 'qa-flow.mp3' : 'qa-flow.txt';
+ $file_type = $audio_mode ? 'audio/mpeg' : 'text/plain';
+ $part = trailingslashit( $directory ) . $file_key . '.part';
+ $size = $audio_mode ? filesize( $audio_source ) : strlen( $text_body );
+ if ( ! $size || $size > ( $audio_mode ? 25 : 2 ) * MB_IN_BYTES || ( $audio_mode ? ! copy( $audio_source, $part ) : false === file_put_contents( $part, $text_body ) ) ) throw new RuntimeException( 'QA material unavailable' );
+ $chunks = (int) ceil( $size / ( 5 * MB_IN_BYTES ) );
+ $meta = array( 'upload_id' => $upload_id, 'field_name' => $field_name, 'name' => $file_name, 'type' => $file_type, 'size' => $size, 'last_modified' => 123, 'total' => $chunks, 'next_chunk' => $chunks, 'complete' => true );
+ if ( false === file_put_contents( trailingslashit( $directory ) . $file_key . '.json', wp_json_encode( $meta ) ) ) throw new RuntimeException( 'QA manifest unavailable' );
  $genre = in_array( $original['genre'] ?? '', trb_portal_genres(), true ) ? $original['genre'] : ( trb_portal_genres()[0] ?? '' );
  $fields = array(
   'action' => 'trb_portal_submit_demo', 'trb_demo_nonce' => wp_create_nonce( 'trb_portal_submit_demo' ),
-  'trb_release_submission_token' => $session, 'trb_staged_uploads_json' => wp_json_encode( array( 'trb_demo_text' => array( 'key' => 'f2000', 'upload_id' => $upload_id, 'session' => $session ) ) ),
+  'trb_release_submission_token' => $session, 'trb_staged_uploads_json' => wp_json_encode( array( $field_name => array( 'key' => $file_key, 'upload_id' => $upload_id, 'session' => $session ) ) ),
   'trb_demo_async' => '1', 'trb_demo_owner_qa' => '1', 'trb_demo_submission_kind' => 'new',
-  'trb_demo_focus' => 'lyrics', 'trb_demo_origin_lyrics' => 'third_party',
+  'trb_demo_focus' => $audio_mode ? 'composition' : 'lyrics',
   'trb_demo_title' => $title, 'trb_demo_genre' => $genre,
  );
+ $fields[ $audio_mode ? 'trb_demo_origin_music' : 'trb_demo_origin_lyrics' ] = 'third_party';
  $GLOBALS['trb_demo_flow_step'] = 'submit';
  $handle = curl_init( home_url( '/wp-admin/admin-post.php' ) );
  curl_setopt_array( $handle, array( CURLOPT_POST => true, CURLOPT_POSTFIELDS => $fields, CURLOPT_COOKIE => LOGGED_IN_COOKIE . '=' . $_COOKIE[ LOGGED_IN_COOKIE ], CURLOPT_HTTPHEADER => array( 'X-TRB-Upload: 1', 'Accept: application/json' ), CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 90, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_SSL_VERIFYPEER => true ) );
@@ -71,15 +95,16 @@ try {
  $payload = get_post_meta( $request_id, '_trb_demo_payload', true );
  $qa_uuid = (string) ( $payload['uuid'] ?? '' );
  if ( ! is_array( $payload ) || empty( $payload['owner_qa'] ) || 'andrea.tognassi@trbrec.com' !== ( $payload['email'] ?? '' ) || 'queued' !== ( $payload['status'] ?? '' ) ) throw new RuntimeException( 'QA receipt invalid' );
- $saved_file = trb_demo_local_path( $payload['text_file'] ?? array() );
- if ( ! $saved_file || hash_file( 'sha256', $saved_file ) !== hash( 'sha256', $text_body ) ) throw new RuntimeException( 'QA final bytes mismatch' );
+ $saved_file = trb_demo_local_path( $payload[ $audio_mode ? 'audio_file' : 'text_file' ] ?? array() );
+ $expected_hash = $audio_mode ? hash_file( 'sha256', $audio_source ) : hash( 'sha256', $text_body );
+ if ( ! $saved_file || hash_file( 'sha256', $saved_file ) !== $expected_hash ) throw new RuntimeException( 'QA final bytes mismatch' );
  wp_clear_scheduled_hook( 'trb_portal_process_demo', array( $request_id ) );
  $GLOBALS['trb_demo_flow_step'] = 'process';
  trb_demo_process_request( $request_id );
  $payload = get_post_meta( $request_id, '_trb_demo_payload', true );
  $remote = get_post_meta( $request_id, '_trb_demo_remote', true );
  $remote_folder = is_array( $remote ) ? ( $remote['folder'] ?? '' ) : '';
- if ( ! $remote_folder || empty( $remote['verification']['text_file']['sha256'] ) ) {
+ if ( ! $remote_folder || empty( $remote['verification'][ $audio_mode ? 'audio_file' : 'text_file' ]['sha256'] ) ) {
   $code = (string) get_post_meta( $request_id, '_trb_demo_last_error_code', true );
   $allowed = array( 'missing_webdav_settings', 'http_request_failed', 'webdav_mkdir_failed', 'webdav_upload_failed', 'webdav_local_hash_failed', 'webdav_verify_read_failed', 'webdav_verify_mismatch' );
   $GLOBALS['trb_demo_flow_step'] = 'archive-' . ( in_array( $code, $allowed, true ) ? $code : 'other' );
@@ -116,7 +141,7 @@ try {
  }
  if ( $remote_folder && $qa_uuid && str_contains( $remote_folder, $qa_uuid ) ) {
   foreach ( (array) ( $remote['files'] ?? array() ) as $remote_file ) trb_demo_webdav_request( 'DELETE', $remote_file );
-  trb_demo_webdav_request( 'DELETE', $remote_folder . '/qa-flow.txt' );
+  trb_demo_webdav_request( 'DELETE', $remote_folder . '/' . ( 'audio' === $mode ? 'qa-flow.mp3' : 'qa-flow.txt' ) );
   trb_demo_webdav_request( 'DELETE', $remote_folder );
  }
  WP_Session_Tokens::get_instance( $user->ID )->destroy( $token );
