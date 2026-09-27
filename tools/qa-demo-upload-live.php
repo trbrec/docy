@@ -70,9 +70,18 @@ try {
   $GLOBALS['trb_demo_qa_step'] = 'staging';
   if ( empty( $item['_trb_staged'] ) || $item['size'] !== $size || hash_file( 'sha256', $item['tmp_name'] ) !== hash( 'sha256', $body ) ) throw new RuntimeException( 'QA staged bytes differ' );
   $kind = $fixture['key'] === 'f2000' ? 'text' : 'audio';
+  require_once ABSPATH . 'wp-admin/includes/file.php';
+  $detected = wp_check_filetype_and_ext( $item['tmp_name'], $item['name'], $fixture['mimes'] );
+  if ( empty( $detected['type'] ) ) $GLOBALS['trb_demo_qa_step'] = 'type-' . $kind;
+  if ( empty( $detected['type'] ) ) throw new RuntimeException( 'QA fixture file type rejected' );
   $GLOBALS['trb_demo_qa_step'] = 'store-' . $kind;
   $saved = trb_portal_store_demo_file( $fixture['field'], $fixture['mimes'], $fixture['limit'], $item );
-  $GLOBALS['trb_demo_qa_step'] = 'saved-' . $kind;
+  if ( is_wp_error( $saved ) ) {
+   $code = $saved->get_error_code();
+   $message = strtolower( $saved->get_error_message() );
+   $reason = $code !== 'invalid_upload' ? 'guard' : ( preg_match( '/file type|tipo di file|mime|estensione/', $message ) ? 'mime' : ( preg_match( '/mov|spost|directory|cartella|writ|scriv/', $message ) ? 'filesystem' : 'other' ) );
+   $GLOBALS['trb_demo_qa_step'] = 'error-' . $kind . '-' . $reason;
+  } else $GLOBALS['trb_demo_qa_step'] = 'saved-' . $kind;
   if ( ! is_array( $saved ) ) throw new RuntimeException( 'QA private sideload failed: ' . ( is_wp_error( $saved ) ? $saved->get_error_message() : 'unknown' ) );
   $path = trailingslashit( wp_upload_dir()['basedir'] ) . $saved['path'];
   $stored[] = $path;
