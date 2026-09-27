@@ -13,7 +13,7 @@ function trbDemoResponse(request) {
 function trbDemoStageFiles(form, files, onProgress) {
   var token = form.querySelector('[name="trb_release_submission_token"]').value;
   var nonce = form.querySelector('[name="trb_release_stage_nonce"]').value;
-  var chunkSize = 2 * 1024 * 1024;
+  var chunkSize = 5 * 1024 * 1024;
   var totalBytes = files.reduce(function (sum, item) { return sum + item.file.size; }, 0);
   var completeBytes = 0, manifest = {};
   return files.reduce(function (chain, item) {
