@@ -69,11 +69,14 @@ try {
   $item = trb_portal_demo_upload_item( $fixture['field'] );
   $GLOBALS['trb_demo_qa_step'] = 'staging';
   if ( empty( $item['_trb_staged'] ) || $item['size'] !== $size || hash_file( 'sha256', $item['tmp_name'] ) !== hash( 'sha256', $body ) ) throw new RuntimeException( 'QA staged bytes differ' );
+  $kind = $fixture['key'] === 'f2000' ? 'text' : 'audio';
+  $GLOBALS['trb_demo_qa_step'] = 'store-' . $kind;
   $saved = trb_portal_store_demo_file( $fixture['field'], $fixture['mimes'], $fixture['limit'], $item );
-  $GLOBALS['trb_demo_qa_step'] = 'private-storage';
+  $GLOBALS['trb_demo_qa_step'] = 'saved-' . $kind;
   if ( ! is_array( $saved ) ) throw new RuntimeException( 'QA private sideload failed: ' . ( is_wp_error( $saved ) ? $saved->get_error_message() : 'unknown' ) );
   $path = trailingslashit( wp_upload_dir()['basedir'] ) . $saved['path'];
   $stored[] = $path;
+  $GLOBALS['trb_demo_qa_step'] = 'hash-' . $kind;
   if ( ! is_file( $path ) || hash_file( 'sha256', $path ) !== hash( 'sha256', $body ) ) throw new RuntimeException( 'QA saved bytes differ' );
  }
  $GLOBALS['trb_demo_qa_step'] = 'done';
