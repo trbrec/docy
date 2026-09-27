@@ -2009,7 +2009,7 @@ function trb_portal_staged_release_upload_item( $input_name, $index = null ) {
 	$meta_path = $directory ? trailingslashit( $directory ) . $file_key . '.json' : '';
 	$meta = $meta_path && file_exists( $meta_path ) ? json_decode( (string) file_get_contents( $meta_path ), true ) : array(); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	if (isset($entry['upload_id']) && !hash_equals((string)($meta['upload_id']??''),(string)$entry['upload_id'])) { $GLOBALS['trb_discarded_upload_fields'][]=$field_name; return array(); }
-	if ( ! is_array( $meta ) || empty( $meta['complete'] ) || ! trb_portal_release_is_staged_path( $part_path ) || (int) filesize( $part_path ) !== (int) ( $meta['size'] ?? 0 ) ) return array();
+	if ( ! is_array( $meta ) || ( $meta['field_name'] ?? '' ) !== $field_name || empty( $meta['complete'] ) || ! trb_portal_release_is_staged_path( $part_path ) || (int) filesize( $part_path ) !== (int) ( $meta['size'] ?? 0 ) ) return array();
 	return array( 'name' => sanitize_file_name( $meta['name'] ?? '' ), 'type' => sanitize_mime_type( $meta['type'] ?? '' ), 'tmp_name' => $part_path, 'error' => UPLOAD_ERR_OK, 'size' => (int) filesize( $part_path ), '_trb_staged' => true, '_trb_staging_session' => $session, '_trb_field' => $field_name, '_trb_hash' => hash_file('sha256',$part_path) );
 }
 
@@ -4444,6 +4444,8 @@ function trb_portal_render_demo_section() {
 				<form class="trb-portal__request-form trb-portal__demo-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-demo-form>
 					<input type="hidden" name="action" value="trb_portal_submit_demo" />
 					<?php wp_nonce_field( 'trb_portal_submit_demo', 'trb_demo_nonce' ); ?>
+					<input type="hidden" name="trb_release_submission_token" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>" />
+					<input type="hidden" name="trb_release_stage_nonce" value="<?php echo esc_attr( wp_create_nonce( 'trb_portal_stage_release' ) ); ?>" />
 					<div class="trb-portal__demo-intro"><strong>Dati trasmessi automaticamente</strong><p>Nome, cognome, nome d’arte ed e-mail vengono acquisiti dal profilo artista e non devono essere inseriti nuovamente.</p></div>
 					<?php if ( current_user_can( 'manage_options' ) ) : ?><label class="trb-portal__choice"><input type="checkbox" name="trb_demo_owner_qa" value="1" /> Invio QA esclusivamente ad andrea.tognassi@trbrec.com</label><?php endif; ?>
                     <label>Cosa stai inviando? <span>*</span><select name="trb_demo_submission_kind" data-demo-submission-kind required><option value="new">Un nuovo provino</option><option value="revision">Una nuova versione di un provino già valutato</option></select></label>
@@ -4561,10 +4563,21 @@ function trb_portal_add_demo_working_hours( $submitted_at, $hours = null ) {
 	return $current->getTimestamp();
 }
 
-function trb_portal_store_demo_file( $input, $mimes, $max_bytes ) {
-	if ( empty( $_FILES[ $input ]['name'] ) || empty( $_FILES[ $input ]['tmp_name'] ) ) return null;
-	$file = $_FILES[ $input ]; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+function trb_portal_demo_upload_item( $input ) {
+	if ( ! empty( $_FILES[ $input ]['name'] ) ) return $_FILES[ $input ]; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+	$slots = array( 'trb_demo_text' => 'f2000', 'trb_demo_audio' => 'f2001' );
+	if ( ! isset( $slots[ $input ] ) || empty( $_POST['trb_staged_uploads_json'] ) ) return array();
+	$map = json_decode( wp_unslash( $_POST['trb_staged_uploads_json'] ), true );
+	if ( ! is_array( $map ) || ( $map[ $input ]['key'] ?? '' ) !== $slots[ $input ] ) return array();
+	return trb_portal_staged_release_upload_item( $input );
+}
+
+function trb_portal_store_demo_file( $input, $mimes, $max_bytes, $file = null ) {
+	if ( null === $file ) $file = trb_portal_demo_upload_item( $input );
+	if ( empty( $file['name'] ) || empty( $file['tmp_name'] ) ) return null;
 	if ( UPLOAD_ERR_OK !== (int) $file['error'] || (int) $file['size'] > $max_bytes ) return new WP_Error( 'invalid_upload' );
+	$is_staged = ! empty( $file['_trb_staged'] ) && trb_portal_release_is_staged_path( $file['tmp_name'] );
+	if ( ! $is_staged && ! is_uploaded_file( $file['tmp_name'] ) ) return new WP_Error( 'invalid_upload' );
 	if ( function_exists( 'trb_resource_temp_storage_guard' ) ) {
 		$storage_guard = trb_resource_temp_storage_guard( (int) $file['size'] );
 		if ( is_wp_error( $storage_guard ) ) return $storage_guard;
@@ -4580,13 +4593,17 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes ) {
 	$rules = trailingslashit( $private_dir ) . '.htaccess';
 	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	add_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
-	$handled = wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $mimes ) );
+	$handled = $is_staged ? wp_handle_sideload( $file, array( 'test_form' => false, 'mimes' => $mimes ) ) : wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $mimes ) );
 	remove_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
 	if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) return new WP_Error( 'invalid_upload', ! empty( $handled['error'] ) ? $handled['error'] : 'WordPress non ha salvato il file caricato.' );
 	return array( 'name' => basename( $handled['file'] ), 'path' => str_replace( trailingslashit( $uploads['basedir'] ), '', $handled['file'] ), 'type' => $handled['type'], 'size' => (int) $file['size'] );
 }
 
 function trb_portal_demo_finish( $status, $dashboard, $success = false ) {
+	if ( 'processing' !== $status && is_user_logged_in() && ! empty( $_POST['trb_staged_uploads_json'] ) ) {
+		$session = sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ?? '' ) );
+		if ( preg_match( '/^[a-f0-9-]{36}$/i', $session ) ) trb_portal_cleanup_release_staging_session( $session );
+	}
 	$redirect = 'forbidden' === $status ? $dashboard : add_query_arg( 'trb_demo', $status, $dashboard ) . '#demo';
 	$is_async = ( isset( $_SERVER['HTTP_X_TRB_UPLOAD'] ) && '1' === sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRB_UPLOAD'] ) ) )
 		|| ( isset( $_POST['trb_demo_async'] ) && '1' === sanitize_text_field( wp_unslash( $_POST['trb_demo_async'] ) ) );
@@ -4614,9 +4631,6 @@ function trb_portal_submit_demo() {
 	$owner_qa = current_user_can( 'manage_options' ) && isset( $_POST['trb_demo_owner_qa'] );
 	$is_test_account = $owner_qa || trb_portal_is_demo_test_account( $user );
 	$last = (int) get_user_meta( $user_id, '_trb_demo_last_submission', true );
-	if ( ! $is_test_account && $last && time() - $last < WEEK_IN_SECONDS ) {
-		trb_portal_demo_finish( 'weekly_limit', $dashboard );
-	}
 	$title = isset( $_POST['trb_demo_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_title'] ) ) : '';
 	$genre = isset( $_POST['trb_demo_genre'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_genre'] ) ) : '';
 	$kind = isset($_POST['trb_demo_submission_kind']) && is_string($_POST['trb_demo_submission_kind']) ? sanitize_key(wp_unslash($_POST['trb_demo_submission_kind'])) : 'new';
@@ -4639,8 +4653,10 @@ function trb_portal_submit_demo() {
 	}
 	$no_lyrics = 'overall' === $review_context['focus'] && 'absent' === ($review_context['lyrics'] ?? '');
 	$text_only = 'lyrics' === $review_context['focus'] || ( 'overall' === $review_context['focus'] && 'absent' === ($review_context['music'] ?? '') && 'absent' === ($review_context['performance'] ?? '') );
-	$has_text = ! empty( $_FILES['trb_demo_text']['name'] );
-	$has_audio = ! empty( $_FILES['trb_demo_audio']['name'] );
+	$text_upload = trb_portal_demo_upload_item( 'trb_demo_text' );
+	$audio_upload = trb_portal_demo_upload_item( 'trb_demo_audio' );
+	$has_text = ! empty( $text_upload['name'] );
+	$has_audio = ! empty( $audio_upload['name'] );
 	$valid = '' !== $title && in_array( $genre, trb_portal_genres(), true ) && ( $has_text || $has_audio );
 	if ( ! $valid || trb_demo_context_error( $review_context, $has_text, $has_audio, $no_lyrics, $text_only ) ) {
 		trb_portal_demo_finish( 'invalid', $dashboard );
@@ -4658,16 +4674,20 @@ function trb_portal_submit_demo() {
 		trb_portal_demo_finish( 'processing', $dashboard );
 	}
 
-	$fingerprint = hash( 'sha256', wp_json_encode( $revision ) . '|' . wp_json_encode( $review_context ) . '|' . strtolower( $title ) . '|' . strtolower( $genre ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_text']['name'] ) ) . ':' . (int) $_FILES['trb_demo_text']['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( wp_unslash( $_FILES['trb_demo_audio']['name'] ) ) . ':' . (int) $_FILES['trb_demo_audio']['size'] : '-' ) );
+	$fingerprint = hash( 'sha256', wp_json_encode( $revision ) . '|' . wp_json_encode( $review_context ) . '|' . strtolower( $title ) . '|' . strtolower( $genre ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( $text_upload['name'] ) . ':' . (int) $text_upload['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( $audio_upload['name'] ) . ':' . (int) $audio_upload['size'] : '-' ) );
 	$previous = get_user_meta( $user_id, '_trb_demo_last_fingerprint', true );
 	if ( is_array( $previous ) && ! empty( $previous['hash'] ) && hash_equals( (string) $previous['hash'], $fingerprint ) && time() - (int) $previous['time'] < 10 * MINUTE_IN_SECONDS ) {
 		delete_user_meta( $user_id, $lock_key );
 		trb_portal_demo_finish( 'duplicate', $dashboard, true );
 	}
+	if ( ! $is_test_account && $last && time() - $last < WEEK_IN_SECONDS ) {
+		delete_user_meta( $user_id, $lock_key );
+		trb_portal_demo_finish( 'weekly_limit', $dashboard );
+	}
 
-	$text = trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ), 2 * MB_IN_BYTES );
-	$audio = trb_portal_store_demo_file( 'trb_demo_audio', array( 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES );
-	if ( is_wp_error( $text ) || is_wp_error( $audio ) ) {
+	$text = $has_text ? trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ), 2 * MB_IN_BYTES, $text_upload ) : null;
+	$audio = $has_audio ? trb_portal_store_demo_file( 'trb_demo_audio', array( 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES, $audio_upload ) : null;
+	if ( ( $has_text && ! is_array( $text ) ) || ( $has_audio && ! is_array( $audio ) ) ) {
 		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
 		delete_user_meta( $user_id, $lock_key );
 		trb_portal_demo_finish( 'upload_error', $dashboard );

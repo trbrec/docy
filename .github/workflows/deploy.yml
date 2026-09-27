@@ -46,6 +46,8 @@ jobs:
           php tools/test-release-staging-cleanup.php
           php tools/test-demo-delivery-window.php
           php tools/test-demo-context.php
+          php tools/test-demo-staged-upload.php
+          node tests/demo-chunk-upload.test.js
           php tools/test-demo-email.php
           php tools/test-store-benefits.php
           php tools/test-demo-services.php

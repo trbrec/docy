@@ -31,6 +31,8 @@ jobs:
           php tools/test-master-acceptance.php
           php tools/test-demo-delivery-window.php
           php tools/test-demo-runtime-recovery.php
+          php tools/test-demo-staged-upload.php
+          node tests/demo-chunk-upload.test.js
           php tools/test-demo-context.php
           php tools/test-demo-email.php
           node --check assets/js/trb-demo-evaluation.js
