@@ -4596,6 +4596,7 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes, $file = null ) 
 	// Staging uses .part so it remains resumable; copy only the verified staged
 	// file to a temporary name with its allowed extension for this final step.
 	$sidecar = '';
+	$sideload_options = array( 'test_form' => false, 'mimes' => $mimes );
 	if ( $is_staged ) {
 		$extension = strtolower( (string) pathinfo( $file['name'], PATHINFO_EXTENSION ) );
 		if ( ! isset( $mimes[ $extension ] ) ) return new WP_Error( 'invalid_upload' );
@@ -4605,9 +4606,23 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes, $file = null ) 
 			return new WP_Error( 'invalid_upload', 'Impossibile preparare il file per la verifica.' );
 		}
 		$file['tmp_name'] = $sidecar;
+		if ( 'txt' === $extension ) {
+			$inspector = function_exists( 'finfo_open' ) ? finfo_open( FILEINFO_MIME_TYPE ) : false;
+			$detected = $inspector ? finfo_file( $inspector, $sidecar ) : false;
+			if ( $inspector ) finfo_close( $inspector );
+			if ( 'text/plain' !== $detected ) {
+				wp_delete_file( $sidecar );
+				return new WP_Error( 'invalid_upload', 'Il testo allegato non è un file TXT valido.' );
+			}
+			// Core's MIME check rejects this staged text on the production host.
+			// The real bytes were just verified as text/plain, independent of the
+			// browser's content type, so bypass only the duplicate core type test.
+			$file['type'] = 'text/plain';
+			$sideload_options['test_type'] = false;
+		}
 	}
 	add_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
-	$handled = $is_staged ? wp_handle_sideload( $file, array( 'test_form' => false, 'mimes' => $mimes ) ) : wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $mimes ) );
+	$handled = $is_staged ? wp_handle_sideload( $file, $sideload_options ) : wp_handle_upload( $file, $sideload_options );
 	remove_filter( 'upload_dir', 'trb_portal_demo_upload_dir', 99 );
 	if ( $sidecar && is_file( $sidecar ) ) wp_delete_file( $sidecar );
 	if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) return new WP_Error( 'invalid_upload', ! empty( $handled['error'] ) ? $handled['error'] : 'WordPress non ha salvato il file caricato.' );
