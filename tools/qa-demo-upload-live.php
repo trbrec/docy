@@ -17,8 +17,10 @@ if ( rtrim( home_url(), '/' ) !== 'https://artist.trbrec.com' || ! function_exis
 $GLOBALS['trb_demo_qa_step'] = 'account';
 add_filter( 'pre_wp_mail', static function () { throw new RuntimeException( 'QA must not send mail' ); }, PHP_INT_MAX );
 add_filter( 'pre_http_request', static function () { throw new RuntimeException( 'QA must not call external services' ); }, PHP_INT_MAX );
-$user = get_user_by( 'login', 'spotify4' );
-if ( ! $user || ! trb_portal_is_demo_test_account( $user ) ) throw new RuntimeException( 'Dedicated QA account missing' );
+$login = 'trb_demo_upload_qa_' . substr( $revision, 0, 12 );
+$user_id = wp_create_user( $login, wp_generate_password( 40, true, true ), $login . '@example.invalid' );
+if ( is_wp_error( $user_id ) ) throw new RuntimeException( 'Cannot create disposable QA account' );
+$user = get_user_by( 'id', $user_id );
 $previous_user = get_current_user_id();
 $session = wp_generate_uuid4();
 $stored = array();
@@ -76,4 +78,6 @@ try {
  trb_portal_cleanup_release_staging_session( $session, $user->ID );
  WP_Session_Tokens::get_instance( $user->ID )->destroy( $token );
  wp_set_current_user( $previous_user );
+ require_once ABSPATH . 'wp-admin/includes/user.php';
+ wp_delete_user( $user->ID );
 }
