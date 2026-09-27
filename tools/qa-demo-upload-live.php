@@ -17,13 +17,11 @@ if ( rtrim( home_url(), '/' ) !== 'https://artist.trbrec.com' || ! function_exis
 $GLOBALS['trb_demo_qa_step'] = 'account';
 add_filter( 'pre_wp_mail', static function () { throw new RuntimeException( 'QA must not send mail' ); }, PHP_INT_MAX );
 add_filter( 'pre_http_request', static function () { throw new RuntimeException( 'QA must not call external services' ); }, PHP_INT_MAX );
-$login = 'trb_demo_upload_qa';
-$user = get_user_by( 'login', $login );
-if ( ! $user ) {
- $user_id = wp_create_user( $login, wp_generate_password( 40, true, true ), $login . '@example.invalid' );
- if ( is_wp_error( $user_id ) ) throw new RuntimeException( 'Cannot create disposable QA account' );
- $user = get_user_by( 'id', $user_id );
-}
+$qa_source = get_post( 12314 );
+$qa_payload = $qa_source ? get_post_meta( $qa_source->ID, '_trb_demo_payload', true ) : null;
+if ( ! $qa_source || $qa_source->post_type !== 'trb_request' || ! is_array( $qa_payload ) || empty( $qa_payload['owner_qa'] ) ) throw new RuntimeException( 'Owner QA source missing' );
+$user = get_user_by( 'id', $qa_source->post_author );
+if ( ! $user ) throw new RuntimeException( 'Owner QA identity missing' );
 $GLOBALS['trb_demo_qa_step'] = 'session';
 $previous_user = get_current_user_id();
 $session = wp_generate_uuid4();
@@ -36,9 +34,7 @@ $nonce = wp_create_nonce( 'trb_portal_stage_release' );
 $GLOBALS['trb_demo_qa_step'] = 'directory';
 $directory = trb_portal_release_staging_session_dir( $session, true );
 if ( ! $directory ) {
- require_once ABSPATH . 'wp-admin/includes/user.php';
  wp_set_current_user( $previous_user );
- wp_delete_user( $user->ID );
  throw new RuntimeException( 'Staging directory unavailable' );
 }
 $GLOBALS['trb_demo_qa_step'] = 'http';
@@ -88,6 +84,4 @@ try {
  trb_portal_cleanup_release_staging_session( $session, $user->ID );
  WP_Session_Tokens::get_instance( $user->ID )->destroy( $token );
  wp_set_current_user( $previous_user );
- require_once ABSPATH . 'wp-admin/includes/user.php';
- wp_delete_user( $user->ID );
 }
