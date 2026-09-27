@@ -415,6 +415,7 @@ function trb_demo_process_request( $request_id ) {
 		$attempts = (int) get_post_meta( $request_id, '_trb_demo_attempts', true ) + 1;
 		update_post_meta( $request_id, '_trb_demo_attempts', $attempts );
 		update_post_meta( $request_id, '_trb_demo_last_error', is_wp_error( $remote ) ? $remote->get_error_message() : $review_result->get_error_message() );
+		update_post_meta( $request_id, '_trb_demo_last_error_code', is_wp_error( $remote ) ? sanitize_key( $remote->get_error_code() ) : sanitize_key( $review_result->get_error_code() ) );
 		if ( $attempts < 3 ) { $payload['status'] = 'retry'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_process_demo', array( $request_id ) ); }
 		else { $payload['status'] = 'manual_review'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_mail( ! empty($payload['owner_qa']) ? 'andrea.tognassi@trbrec.com' : 'info@trbrec.com', 'Provino da verificare manualmente: ' . $payload['title'], 'La procedura automatica non è riuscita dopo tre tentativi. Richiesta #' . $request_id ); }
 		return;
@@ -428,6 +429,7 @@ function trb_demo_process_request( $request_id ) {
 		wp_schedule_single_event( time() + 15 * MINUTE_IN_SECONDS, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
 	}
 	delete_post_meta( $request_id, '_trb_demo_last_error' );
+	delete_post_meta( $request_id, '_trb_demo_last_error_code' );
 	$payload['status'] = 'ready';
 	update_post_meta( $request_id, '_trb_demo_payload', $payload );
 	$send_at = max( time() + 30, (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true ) );

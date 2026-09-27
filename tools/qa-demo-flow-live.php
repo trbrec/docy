@@ -79,7 +79,12 @@ try {
  $payload = get_post_meta( $request_id, '_trb_demo_payload', true );
  $remote = get_post_meta( $request_id, '_trb_demo_remote', true );
  $remote_folder = is_array( $remote ) ? ( $remote['folder'] ?? '' ) : '';
- if ( ! $remote_folder || empty( $remote['verification']['text_file']['sha256'] ) ) { $GLOBALS['trb_demo_flow_step'] = 'archive'; throw new RuntimeException( 'QA archive failed' ); }
+ if ( ! $remote_folder || empty( $remote['verification']['text_file']['sha256'] ) ) {
+  $code = (string) get_post_meta( $request_id, '_trb_demo_last_error_code', true );
+  $allowed = array( 'missing_webdav_settings', 'http_request_failed', 'webdav_mkdir_failed', 'webdav_upload_failed', 'webdav_local_hash_failed', 'webdav_verify_read_failed', 'webdav_verify_mismatch' );
+  $GLOBALS['trb_demo_flow_step'] = 'archive-' . ( in_array( $code, $allowed, true ) ? $code : 'other' );
+  throw new RuntimeException( 'QA archive failed' );
+ }
  if ( empty( get_post_meta( $request_id, '_trb_demo_review', true ) ) || empty( get_post_meta( $request_id, '_trb_demo_openai_usage', true ) ) ) { $GLOBALS['trb_demo_flow_step'] = 'evaluation'; throw new RuntimeException( 'QA evaluation failed' ); }
  if ( 'ready' !== ( $payload['status'] ?? '' ) ) { $GLOBALS['trb_demo_flow_step'] = 'worker'; throw new RuntimeException( 'QA worker did not finish' ); }
  if ( ! get_post_meta( $request_id, '_trb_demo_sheet_synced', true ) ) { $GLOBALS['trb_demo_flow_step'] = 'sheet'; throw new RuntimeException( 'QA sheet did not sync' ); }
@@ -105,8 +110,13 @@ try {
  }
  if ( $saved_file && is_file( $saved_file ) ) wp_delete_file( $saved_file );
  trb_portal_cleanup_release_staging_session( $session, $user->ID );
+ if ( ! $remote_folder && $qa_uuid && isset( $payload['title'] ) && str_starts_with( $payload['title'], '[QA FLOW]' ) ) {
+  $folder_name = sanitize_file_name( trim( implode( ' ', array_filter( array( $payload['first_name'], $payload['last_name'], $payload['artist_name'], $payload['title'] ) ) ) ) );
+  $remote_folder = '/Upload files - TRB rec/Audio/Demo files/' . $folder_name . ' - ' . sanitize_file_name( $qa_uuid );
+ }
  if ( $remote_folder && $qa_uuid && str_contains( $remote_folder, $qa_uuid ) ) {
   foreach ( (array) ( $remote['files'] ?? array() ) as $remote_file ) trb_demo_webdav_request( 'DELETE', $remote_file );
+  trb_demo_webdav_request( 'DELETE', $remote_folder . '/qa-flow.txt' );
   trb_demo_webdav_request( 'DELETE', $remote_folder );
  }
  WP_Session_Tokens::get_instance( $user->ID )->destroy( $token );

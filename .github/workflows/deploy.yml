@@ -124,7 +124,7 @@ jobs:
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/qa-demo-flow-live.php' >/dev/null; then
             if ! ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/qa-demo-flow-live.php' '${GITHUB_SHA}'" >/dev/null 2>&1; then
               qa_stage=$(ssh "${ssh_opts[@]}" "${remote}" "cat '${DEPLOY_PATH}/.trb-demo-flow-qa-${GITHUB_SHA}' 2>/dev/null; rm -f '${DEPLOY_PATH}/.trb-demo-flow-qa-${GITHUB_SHA}'")
-              case "${qa_stage}" in bootstrap|staging|submit|process|archive|evaluation|worker|sheet|email) echo "Owner demo flow QA failed at ${qa_stage}." ;; *) echo "Owner demo flow QA failed at unknown stage." ;; esac
+              case "${qa_stage}" in bootstrap|staging|submit|process|archive|archive-missing_webdav_settings|archive-http_request_failed|archive-webdav_mkdir_failed|archive-webdav_upload_failed|archive-webdav_local_hash_failed|archive-webdav_verify_read_failed|archive-webdav_verify_mismatch|archive-other|evaluation|worker|sheet|email) echo "Owner demo flow QA failed at ${qa_stage}." ;; *) echo "Owner demo flow QA failed at unknown stage." ;; esac
               exit 1
             fi
             echo "Owner-only demo submission, processing and email composition verified."
