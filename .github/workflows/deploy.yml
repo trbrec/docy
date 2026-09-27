@@ -46,6 +46,8 @@ jobs:
           php tools/test-release-staging-cleanup.php
           php tools/test-demo-delivery-window.php
           php tools/test-demo-context.php
+          php tools/test-demo-staged-upload.php
+          node tests/demo-chunk-upload.test.js
           php tools/test-demo-email.php
           php tools/test-store-benefits.php
           php tools/test-demo-services.php
@@ -110,6 +112,9 @@ jobs:
           fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/qa-demo-footer.php' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/qa-demo-footer.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+          fi
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/audit-demo-upload-live.php' >/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/audit-demo-upload-live.php' '${GITHUB_SHA}'"
           fi
 
   trigger-daily-site-health:

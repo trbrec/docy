@@ -1,3 +1,66 @@
+function trbDemoResponse(request) {
+  try { return JSON.parse(request.responseText); } catch (parseError) {
+    var body = String(request.responseText || '');
+    var start = body.indexOf('{"success":');
+    var end = body.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try { return JSON.parse(body.slice(start, end + 1)); } catch (embeddedError) {}
+    }
+    return null;
+  }
+}
+
+function trbDemoStageFiles(form, files, onProgress) {
+  var token = form.querySelector('[name="trb_release_submission_token"]').value;
+  var nonce = form.querySelector('[name="trb_release_stage_nonce"]').value;
+  var chunkSize = 2 * 1024 * 1024;
+  var totalBytes = files.reduce(function (sum, item) { return sum + item.file.size; }, 0);
+  var completeBytes = 0, manifest = {};
+  return files.reduce(function (chain, item) {
+    return chain.then(function () {
+      var file = item.file, input = item.input, chunks = Math.ceil(file.size / chunkSize), index = 0;
+      if (input._trbDemoUploadFile !== file) {
+        input._trbDemoUploadFile = file;
+        input._trbDemoUploadId = crypto.randomUUID();
+      }
+      manifest[input.name] = {key:item.key,upload_id:input._trbDemoUploadId,session:token};
+      function next() {
+        if (index >= chunks) { completeBytes += file.size; onProgress(completeBytes, totalBytes); return Promise.resolve(); }
+        var start = index * chunkSize, end = Math.min(file.size, start + chunkSize);
+        var data = new FormData();
+        [['action','trb_portal_stage_release_chunk'],['trb_release_stage_nonce',nonce],['session',token],['file_key',item.key],['upload_id',input._trbDemoUploadId],['field_name',input.name],['file_name',file.name],['file_type',file.type || ''],['file_size',String(file.size)],['last_modified',String(file.lastModified || 0)],['chunk_index',String(index)],['chunk_total',String(chunks)]].forEach(function (entry) { data.append(entry[0],entry[1]); });
+        data.append('trb_release_chunk',file.slice(start,end),'chunk.part');
+        return new Promise(function (resolve,reject) {
+          var request = new XMLHttpRequest();
+          request.open('POST',form.getAttribute('action'),true);
+          request.timeout = 120000;
+          request.upload.addEventListener('progress',function (event) { if (event.lengthComputable) onProgress(completeBytes+start+event.loaded,totalBytes); });
+          request.addEventListener('load',function () {
+            var response = trbDemoResponse(request);
+            if (request.status >= 200 && request.status < 300 && response && response.success && response.data && Number(response.data.next_chunk) > index && Number(response.data.next_chunk) <= chunks) {
+              index = Number(response.data.next_chunk); resolve(next()); return;
+            }
+            reject(Error(response && response.data && response.data.message || 'Blocco del file non acquisito (HTTP '+request.status+'). Riprova dallo stesso modulo.'));
+          });
+          request.addEventListener('error',function () { reject(Error('Connessione interrotta durante il caricamento. Riprova dallo stesso modulo: i blocchi confermati saranno riutilizzati.')); });
+          request.addEventListener('timeout',function () { reject(Error('Caricamento del file scaduto. Riprova dallo stesso modulo.')); });
+          request.send(data);
+        });
+      }
+      return next();
+    });
+  },Promise.resolve()).then(function () { return manifest; });
+}
+
+function trbDemoFinalData(form, manifest) {
+  var data = new FormData(form);
+  data.delete('trb_demo_text');
+  data.delete('trb_demo_audio');
+  data.append('trb_staged_uploads_json',JSON.stringify(manifest));
+  data.append('trb_demo_async','1');
+  return data;
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-demo-form]').forEach(function (form) {
     var text = form.querySelector('[data-demo-text]');
@@ -97,6 +160,17 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
 
+      var files = [];
+      if (hasText) files.push({input:text,file:text.files[0],key:'f2000',limit:2*1024*1024,extension:/\.(txt|docx)$/i});
+      if (hasAudio) files.push({input:audio,file:audio.files[0],key:'f2001',limit:25*1024*1024,extension:/\.mp3$/i});
+      var invalidFile = files.find(function (item) { return !item.file.size || item.file.size > item.limit || !item.extension.test(item.file.name); });
+      if (invalidFile) {
+        error.textContent = 'Controlla '+invalidFile.file.name+': testo TXT/DOCX fino a 2 MB, audio MP3 fino a 25 MB.';
+        error.hidden = false;
+        error.scrollIntoView({ behavior:'smooth', block:'center' });
+        return;
+      }
+
       error.hidden = true;
       submitting = true;
       submit.disabled = true;
@@ -104,31 +178,18 @@ document.addEventListener('DOMContentLoaded', function () {
       submit.textContent = 'Caricamento in corso…';
       setProgress(0, 'Preparazione dei file…');
 
-      var request = new XMLHttpRequest();
-      request.open((form.method || 'POST').toUpperCase(), form.getAttribute('action'), true);
-      request.setRequestHeader('X-TRB-Upload', '1');
-      request.setRequestHeader('Accept', 'application/json');
-      request.timeout = 5 * 60 * 1000;
-
-      request.upload.addEventListener('progress', function (uploadEvent) {
-        if (!uploadEvent.lengthComputable) {
-          progressText.textContent = 'Caricamento dei file in corso…';
-          return;
-        }
-        var percent = uploadEvent.loaded / uploadEvent.total * 100;
-        setProgress(percent, percent < 100 ? 'Caricamento dei file in corso…' : 'File caricati. Registrazione della richiesta…');
-      });
-
-      request.addEventListener('load', function () {
-        var payload = null;
-        try { payload = JSON.parse(request.responseText); } catch (parseError) {}
-        if (!payload) {
-          var start = request.responseText.indexOf('{');
-          var end = request.responseText.lastIndexOf('}');
-          if (start !== -1 && end > start) {
-            try { payload = JSON.parse(request.responseText.slice(start, end + 1)); } catch (embeddedParseError) {}
-          }
-        }
+      trbDemoStageFiles(form,files,function (done,total) {
+        setProgress(total ? Math.min(98,done/total*98) : 0,'Caricamento dei file a blocchi…');
+      }).then(function (manifest) {
+        setProgress(99,'File acquisiti. Registrazione della richiesta…');
+        var formData = trbDemoFinalData(form,manifest);
+        var request = new XMLHttpRequest();
+        request.open((form.method || 'POST').toUpperCase(),form.getAttribute('action'),true);
+        request.setRequestHeader('X-TRB-Upload','1');
+        request.setRequestHeader('Accept','application/json');
+        request.timeout = 120000;
+        request.addEventListener('load',function () {
+        var payload = trbDemoResponse(request);
         if (request.status >= 200 && request.status < 300 && payload && payload.success) {
           setProgress(100, payload.status === 'duplicate' ? 'Provino già ricevuto. Apertura della conferma…' : 'Invio completato. Apertura della conferma…');
           window.location.assign(payload.redirect);
@@ -146,21 +207,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var diagnostic = 'HTTP ' + request.status;
         var contentType = request.getResponseHeader('Content-Type');
         if (contentType) diagnostic += ' · ' + contentType.split(';')[0];
-        restore(payload && messages[payload.status] ? messages[payload.status] : 'Il server ha interrotto la registrazione (' + diagnostic + '). Nessun provino è stato acquisito.');
-      });
-
-      request.addEventListener('error', function () {
-        restore('Connessione interrotta durante il caricamento. Nessun nuovo tentativo è stato inviato: riprova una sola volta.');
-      });
-
-      request.addEventListener('timeout', function () {
-        restore('Il caricamento sta impiegando troppo tempo. Verifica la connessione prima di riprovare.');
-      });
-
-      var formData = new FormData(form);
-      formData.append('trb_demo_async', '1');
-      request.send(formData);
+        restore(payload && messages[payload.status] ? messages[payload.status] : 'Esito non confermato (' + diagnostic + '). Controlla lo stato delle valutazioni prima di riprovare.');
+        });
+        request.addEventListener('error',function () { restore('Esito non confermato: la connessione si è interrotta durante la registrazione. Controlla lo stato delle valutazioni prima di riprovare.'); });
+        request.addEventListener('timeout',function () { restore('Esito non confermato: registrazione scaduta. Controlla lo stato delle valutazioni prima di riprovare.'); });
+        request.send(formData);
+      }).catch(function (problem) { restore(problem.message || 'Nessun provino è stato acquisito. Riprova dallo stesso modulo.'); });
     });
   });
 });
-
