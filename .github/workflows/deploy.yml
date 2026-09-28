@@ -93,7 +93,7 @@ jobs:
             "php -l '${DEPLOY_PATH}/functions.php' && php -l '${DEPLOY_PATH}/inc/trb-resource-monitor.php'"
           echo "Successfully deployed and verified ${deployed_sha}."
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/refresh-release-sheet-live.php' >/dev/null; then
-            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/refresh-release-sheet-live.php' '${GITHUB_SHA}'"
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/refresh-release-sheet-live.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/recover-acr-dual-live.php' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/recover-acr-dual-live.php' '${GITHUB_SHA}'" >/dev/null 2>&1
