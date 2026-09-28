@@ -86,11 +86,14 @@ function trb_release_sheet_enrich($id) {
     $lyricInputs=array();$lyricIndexes=array();
     foreach($result['tracks'] as $i=>$entry)if($entry['lyrics']!==''){$lyricInputs[]=function_exists('mb_substr')?mb_substr($entry['lyrics'],0,1200):substr($entry['lyrics'],0,1200);$lyricIndexes[]=$i;}
     if($lyricInputs){$lyricLanguages=trb_release_sheet_languages($lyricInputs);foreach($lyricIndexes as $j=>$i){$actual=$lyricLanguages[$j]??'';$result['tracks'][$i]['lyrics_language']=$actual;$result['tracks'][$i]['language_conflict']=$actual!==''&&$result['tracks'][$i]['language']!==''&&$actual!==$result['tracks'][$i]['language'];}}
-    if($result!==$old)update_post_meta($id,'_trb_release_sheet_auto',$result);
+    if($result!==$old){
+        update_post_meta($id,'_trb_release_sheet_auto',$result);
+        if(function_exists('trb_crm_complete_sync_send_release'))trb_crm_complete_sync_send_release($id);
+    }
 }
 function trb_release_sheet_refresh() {
     $ids=get_posts(array('post_type'=>'trb_release','post_status'=>'any','numberposts'=>20,'offset'=>(int)get_option('trb_release_sheet_cursor',0),'fields'=>'ids','orderby'=>'ID','order'=>'DESC'));
-    foreach($ids as $id)trb_release_sheet_enrich($id);
+    foreach($ids as $i=>$id)if(!wp_next_scheduled('trb_release_sheet_enrich',array((int)$id)))wp_schedule_single_event(time()+5+$i*5,'trb_release_sheet_enrich',array((int)$id));
     update_option('trb_release_sheet_cursor',count($ids)===20?(int)get_option('trb_release_sheet_cursor',0)+20:0,false);
 }
 add_action('trb_crm_complete_sync_every_ten_minutes','trb_release_sheet_refresh',5);
@@ -101,3 +104,8 @@ function trb_release_sheet_changed($meta_id,$id,$key) {
 }
 add_action('updated_post_meta','trb_release_sheet_changed',120,3);
 add_action('added_post_meta','trb_release_sheet_changed',120,3);
+
+add_action('trb_release_sheet_refresh','trb_release_sheet_refresh');
+add_action('init',static function(){
+    if(!wp_next_scheduled('trb_release_sheet_refresh'))wp_schedule_event(time()+5,'hourly','trb_release_sheet_refresh');
+},40);
