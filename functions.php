@@ -65,6 +65,7 @@ if ( ! function_exists( 'docy_fs' ) ) {
 
 
 /** Area Artisti TRB rec */
+require_once get_template_directory() . '/inc/trb-release-sheet-data.php';
 require get_template_directory() . '/inc/trb-artist-portal.php';
 require get_template_directory() . '/inc/trb-store-benefits.php';
 require get_template_directory() . '/inc/trb-demo-services.php';
