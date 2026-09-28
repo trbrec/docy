@@ -1024,14 +1024,14 @@ function trb_release_bridge_spreadsheet_row( $payload ) {
         $row[] = (string) ( $credits['authors'] ?? '' );
         $row[] = (string) ( $credits['composers'] ?? '' );
         $row[] = (string) ( $track['duration'] ?? '' );
-        $row[] = (string) ( $track['advisory'] ?? '' );
+        $row[] = trb_release_value_label( (string) ( $track['advisory'] ?? '' ) );
         $row[] = (string) ( $track['primary_genre'] ?? '' );
         $row[] = (string) ( $track['secondary_genre'] ?? '' );
         $row[] = (string) ( $track['audio_status'] ?? '' );
         $row[] = (string) ( $track['isrc'] ?? '' );
         $row[] = $credit_names( $credits['credits'] ?? array() );
         $row[] = (string) ( $track['content_nature'] ?? '' );
-        $row[] = (string) ( $track['rights_basis'] ?? '' );
+        $row[] = trb_release_value_label( (string) ( $track['rights_basis'] ?? '' ) );
         $row[] = (string) ( $track['rights_reference'] ?? '' );
         $row[] = (string) ( $track['rights_document'] ?? '' );
     }

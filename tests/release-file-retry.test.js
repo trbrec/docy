@@ -26,10 +26,13 @@ const form={dataset:{},action:'/upload',querySelectorAll(){return [cover,audio,l
 const portal=fs.readFileSync('inc/trb-artist-portal.php','utf8');
 const lyricsField={_trbRetained:{name:'lyrics.txt'},required:true};
 const lyricsWrap={querySelector(){return lyricsField;}};
-const lyricsTrack={querySelector(s){return s==='[data-track-advisory]'?{value:'clean'}:lyricsWrap;}};
+const advisoryLabel={},vocalField={value:'vocal'},advisoryField={value:'clean',closest(){return advisoryLabel;}};
+const lyricsTrack={querySelector(s){return s==='[data-track-advisory]'?advisoryField:s==='[data-track-vocal]'?vocalField:s==='[data-track-lyrics]'?lyricsWrap:null;}};
 const lyricsFunction=portal.split('\n').find(l=>l.includes('function updateLyrics(track)'));
 vm.runInNewContext(lyricsFunction+';updateLyrics(track);',{track:lyricsTrack});assert.equal(lyricsField.required,false);
 lyricsField._trbRetained=null;vm.runInNewContext(lyricsFunction+';updateLyrics(track);',{track:lyricsTrack});assert.equal(lyricsField.required,true);
+advisoryField.value='no_lyrics';vm.runInNewContext(lyricsFunction+';updateLyrics(track);',{track:lyricsTrack});assert.equal(lyricsField.required,false);assert.equal(vocalField.value,'instrumental');assert.equal(advisoryLabel.hidden,true);
+advisoryField.value='non_explicit';vm.runInNewContext(lyricsFunction+';updateLyrics(track);',{track:lyricsTrack});assert.equal(lyricsField.required,true);assert.equal(advisoryLabel.hidden,false);
 const rightsField={_trbRetained:{name:'license.pdf'},required:true};
 const rightsTrack={querySelector(s){return s==='[data-content-nature]'?{value:'type_beat'}:s==='[data-rights-basis]'?{value:'licensed',setCustomValidity(){}}:s==='[data-rights-document]'?{querySelector(){return rightsField;}}:null;}};
 const rightsFunction=portal.split('\n').find(l=>l.includes('function syncRightsFields(track)'));
