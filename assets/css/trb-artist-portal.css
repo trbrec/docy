@@ -993,6 +993,11 @@ body.trb-artist-portal-shell { display: flex; flex-direction: column; min-height
 }
 .trb-registration__form #wppb-register-user .wppb-default-contact-info-heading h4 { font-size: 17px; }
 .trb-registration__form #wppb-register-user label { font-size: 13px; margin-bottom: 7px; }
+.trb-registration__form #wppb-register-user .wppb-default-password > label,
+.trb-registration__form #wppb-register-user .wppb-default-repeat-password > label {
+  float: none !important;
+  width: 100% !important;
+}
 .trb-registration__form #wppb-register-user input[type="text"],
 .trb-registration__form #wppb-register-user input[type="email"],
 .trb-registration__form #wppb-register-user input[type="password"] {
