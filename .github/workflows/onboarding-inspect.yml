@@ -1,0 +1,45 @@
+name: Read onboarding integration capabilities
+on:
+  push:
+    branches: [audit/onboarding-capabilities-20260930]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Read server capabilities without customer data
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          install -d -m 700 "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" php <<'PHP'
+          <?php
+          $root='/home/customer/www/crm.trbrec.com/public_html';
+          $result=['app_files'=>array_map('basename',glob($root.'/app/*.php')?:[]),'root_files'=>array_map('basename',glob($root.'/*.php')?:[])];
+          foreach(['index.php','public/index.php','bootstrap.php','app/bootstrap.php'] as $file){
+            if(!is_file($root.'/'.$file))continue;
+            $lines=file($root.'/'.$file);$selected=[];
+            foreach($lines as $line)if(preg_match('/(require|new Controller|new SubmissionRepository|Router|->(get|post|put|patch)\(|Controller\(|Env::load)/',$line))$selected[]=trim($line);
+            $result['routing'][$file]=$selected;
+          }
+          $env=[];foreach([$root.'/.env',dirname($root).'/.env'] as $path)if(is_file($path))foreach(file($path) as $line)if(preg_match('/^([A-Z][A-Z0-9_]+)=(.*)$/',trim($line),$m))$env[$m[1]]=trim($m[2],"\"'");
+          foreach(['PCLOUD_ACCESS_TOKEN','PCLOUD_API_BASE','ARTIST_PORTAL_SYNC_SECRET','ARTIST_PORTAL_SYNC_URL','CONTRACT_APPS_SCRIPT_URL','CONTRACT_APPS_SCRIPT_SECRET','OPENAI_API_KEY','OPENAI_KEY','GOOGLE_OAUTH_CLIENT_ID','GOOGLE_OAUTH_CLIENT_SECRET','GOOGLE_DRIVE_REFRESH_TOKEN'] as $key)$result['configured'][$key]=!empty($env[$key]);
+          $result['environment_key_names']=array_values(array_filter(array_keys($env),fn($k)=>preg_match('/PCLOUD|OPENAI|CONTRACT|GOOGLE|PAYPAL|STRIPE|STORE/',$k)));
+          foreach(['app/Controller.php','app/SubmissionRepository.php','app/View.php','assets/app-20260831-r27.js'] as $f)$result['hashes'][$f]=is_file($root.'/'.$f)?hash_file('sha256',$root.'/'.$f):null;
+          echo 'ONBOARDING_CAPABILITIES '.json_encode($result,JSON_UNESCAPED_SLASHES)."\n";
+          PHP
