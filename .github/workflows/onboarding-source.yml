@@ -1,0 +1,64 @@
+name: Read encrypted onboarding source snapshot
+on:
+  push:
+    branches: [audit/onboarding-source-20260930]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Read server capabilities without customer data
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          install -d -m 700 "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          cat > snapshot.crt <<'CERT'
+          -----BEGIN CERTIFICATE-----
+          MIIEKzCCApOgAwIBAgIUOr+O624fSFnuiF5BzZhhUMT6DzkwDQYJKoZIhvcNAQEL
+          BQAwJTEjMCEGA1UEAwwaT25ib2FyZGluZyBzb3VyY2UgdHJhbnNmZXIwHhcNMjYw
+          OTMwMTg0NzI5WhcNMjYxMDAyMTg0NzI5WjAlMSMwIQYDVQQDDBpPbmJvYXJkaW5n
+          IHNvdXJjZSB0cmFuc2ZlcjCCAaIwDQYJKoZIhvcNAQEBBQADggGPADCCAYoCggGB
+          AOZbre+mtTuJ0vl1E7FqPJe/jsp01DjjHkAm3nH2s/QG7nzEXiZ78l+GEu0dQi4Z
+          FBmLeMhg9ZyBmpQGtse76a7WKYJcjFd7McD/qLdmTcXAmJcR0rplnXOPR/TaciKw
+          bjI7/HP0sinpgVKi9yQ2B9nJcC+ZZkIYPUe/ofCUr6BDG1LansucRtJ79eHWL0rr
+          QkERftL0J6MOtnQnnHUrzXS6miMsUa5cqizrx9HTDPyrT9Hwefa6Q/cPcbZaRyoa
+          2eSX+BlRw/xtvJ65rHnySwAYOzO/bFQW/238BGZMW8IQinH5agye9dmdjiLUNiGd
+          meEFesgCBrxP+KqTpdBELsuULXfF+uyfu1czLCKB7kOpbPZqSXHAzOZQLPxJOu8x
+          GAw2sW6ovJys1Fkj4zK+oTXD7MF/SY+z2kwS0+glzlRpmylBMR2Qgxov8xgelGPf
+          ZUNyKSvzA6WFxV9HVJg7FHXwLap0pTSLZMUEGnVP9JqPoS7DY3qG/s9UPbS/y0xU
+          CQIDAQABo1MwUTAdBgNVHQ4EFgQUbQFrTC2aoahjGVzKPHhzI5ZQuWEwHwYDVR0j
+          BBgwFoAUbQFrTC2aoahjGVzKPHhzI5ZQuWEwDwYDVR0TAQH/BAUwAwEB/zANBgkq
+          hkiG9w0BAQsFAAOCAYEAEd7yIdsZp8gyNjqNroE8lmCUVk4qjwDhof9jCDllFACC
+          3/7NharIOFVcklSBZwWiN+BgYEqjntVNuFzEhvGbUyJvxPQc1dBR/tfezyBU6GAa
+          8bYGrmAvh+39H8BhDifJtNzUL1q4SMnoEqXw5t72IKYaJWDvqspCGJPgWqJhiLqG
+          U0xiKXH7EUEddwWJAVZ+Iw8ZcPZRGPw5Geh+yDWvLQxXpqWhRsqIzl+IQXNSie29
+          eyyvJ5YuHlPtljcaor+tiOoRcdwc5hMLwQbnNOFMMktyT2qt2rAri+dBMNmp2Prw
+          Ph/wiCqY9D5yfLznvufuHZkCtW6j0T/xbZ9oQV9k4gDnP+4AGnpIZ5+Fce4wpMfL
+          JmOiByTUr/f5t8CZwSuK1IIFwO5Ht82BkmXlyd2I3XMJOQWhrdVsITcHILQ6Ro3G
+          nfp3KOFC3yxJQWwzRMQAUR/BIoVcSGanSmNKvjUtpYS3XHzxzNm2+P+K+knaNuhQ
+          33nS6cUG99hN93EL+Jdz
+          -----END CERTIFICATE-----
+          CERT
+          ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
+            "tar -czf - -C /home/customer/www/crm.trbrec.com/public_html app config/routes.php index.php assets/app-20260831-r27.js" \
+            | openssl cms -encrypt -aes-256-cbc -binary -outform DER -out snapshot.enc snapshot.crt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-onboarding-source
+          path: snapshot.enc
+          retention-days: 1
