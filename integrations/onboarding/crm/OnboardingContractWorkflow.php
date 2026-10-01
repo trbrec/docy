@@ -99,12 +99,18 @@ final class OnboardingContractWorkflow
     {
         return str_ireplace(['Carica qui il contratto firmato','Carica il contratto firmato','caricare il contratto firmato'],['Completa l’attivazione sul Portale Artisti','Completa l’attivazione sul Portale Artisti','completare l’attivazione sul Portale Artisti'],$text);
     }
+    /** Resolve the confirmed queue's owner for both CLI and authenticated HTTP workers. */
+    public static function authorizedSender(\PDO $db,array $s,int $userId): array
+    {
+        $q=$db->prepare("SELECT u.* FROM users u JOIN outbound_batches b ON b.created_by=u.id JOIN outbound_batch_items bi ON bi.batch_id=b.id WHERE u.id=? AND u.is_active=1 AND bi.submission_id=? AND bi.recipient=? AND bi.status='sending' AND b.action_type='contract_send' AND b.status='processing' AND b.confirmed_at IS NOT NULL ORDER BY bi.id DESC LIMIT 1");
+        $q->execute([$userId,(int)$s['id'],(string)$s['email']]);
+        $owner=$q->fetch()?: (PHP_SAPI==='cli'?[]:Security::requireUser());
+        if((int)($owner['id']??0)!==$userId||($owner['role']??'')!=='admin'||strcasecmp((string)($owner['email']??''),'andrea.tognassi@trbrec.com')!==0)throw new \RuntimeException('Invio riservato al titolare');
+        return $owner;
+    }
     public static function send(\PDO $db,array $s,int $userId): void
     {
-        if(PHP_SAPI==='cli'){
-            $q=$db->prepare("SELECT u.* FROM users u JOIN outbound_batches b ON b.created_by=u.id JOIN outbound_batch_items bi ON bi.batch_id=b.id WHERE u.id=? AND u.is_active=1 AND bi.submission_id=? AND bi.status='sending' AND b.action_type='contract_send' ORDER BY bi.id DESC LIMIT 1");$q->execute([$userId,(int)$s['id']]);$owner=$q->fetch()?:[];
-        }else $owner=Security::requireUser();
-        if((int)($owner['id']??0)!==$userId||($owner['role']??'')!=='admin'||strcasecmp((string)($owner['email']??''),'andrea.tognassi@trbrec.com')!==0)throw new \RuntimeException('Invio riservato al titolare');
+        self::authorizedSender($db,$s,$userId);
         if(!OutboundMail::canSendContractTo((string)$s['email']))throw new \RuntimeException('Destinatario non autorizzato dal canale di invio');
         $c=$s['contract'];$m=is_array($c['metadata']??null)?$c['metadata']:[];
         if(in_array($c['status'],['sent','opened','otp_pending','accepted'],true))throw new \RuntimeException('Questo contratto risulta già inviato');

@@ -55,6 +55,7 @@ jobs:
           php tools/test-onboarding-drive.php
           php tools/test-onboarding-entry.php
           php tools/test-onboarding-workflow.php
+          php tools/test-crm-contract-mail-queue.php
           php tools/test-onboarding.php
           php tools/test-onboarding-service.php
           php tools/test-onboarding-adapters.php
