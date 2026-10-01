@@ -242,7 +242,11 @@ final class OnboardingLedger
     public function saveDetails(string $id,array $details): void
     {
         $this->locked(function()use($id,$details){$p=$this->practice($id,true);$this->open($p);
-            if(!in_array($p['state'],['invited','identity_review'],true))throw new RuntimeException('Dati amministrativi già confermati');
+            if(!in_array($p['state'],['invited','identity_review','identity_matched'],true))throw new RuntimeException('Dati amministrativi già confermati');
+            if($p['state']==='identity_matched'){
+                $verified=$this->details($id);
+                foreach(['billing','tax_code','invoice','privacy_acknowledged_at','privacy_version'] as $field)if(($verified[$field]??null)!==($details[$field]??null))throw new RuntimeException('Dati verificati: modifica soggetta a revisione');
+            }
             $this->query('DELETE FROM onboarding_details WHERE practice_id=?',[$id]);$this->query('INSERT INTO onboarding_details(practice_id,details) VALUES(?,?)',[$id,$this->json($details)]);
         });
     }
