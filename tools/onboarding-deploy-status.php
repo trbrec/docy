@@ -9,7 +9,7 @@ register_shutdown_function(static function(){
     global $onboardingStatusSuccess,$onboardingStatusBufferLevel,$onboardingStatusReserve,$onboardingStatusRevisionMatch,$deployStage;
     $onboardingStatusReserve=null;$last=error_get_last();
     while(ob_get_level()>$onboardingStatusBufferLevel)ob_end_clean();
-    $allowed=['bootstrap','store-bootstrap','store-bootstrap-wp-exit','store-bootstrap-wp-json','crm-entry','crm-navigation','store-stage','activation-snapshot','activation-snapshot-wp-exit','activation-snapshot-wp-json','file-install','database','archive','archive-config','archive-trb','archive-ddb','configuration','mail-health','signature-health','contract-sources','portal-health','activation','activation-wp-exit','activation-wp-json'];
+    $allowed=['bootstrap','store-bootstrap','store-bootstrap-wp-exit','store-bootstrap-wp-json','crm-entry','crm-navigation','crm-workflow','crm-workflow-repository','crm-workflow-assets','store-stage','activation-snapshot','activation-snapshot-wp-exit','activation-snapshot-wp-json','file-install','database','archive','archive-config','archive-trb','archive-ddb','configuration','signature-health','contract-sources','portal-health','activation','activation-wp-exit','activation-wp-json'];
     $stage=in_array($deployStage??'',$allowed,true)?$deployStage:'unknown';
     if(!$onboardingStatusRevisionMatch)$stage='revision-guard';
     $fatal=$last&&in_array($last['type'],[E_ERROR,E_PARSE,E_CORE_ERROR,E_COMPILE_ERROR],true);
