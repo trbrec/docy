@@ -7,7 +7,7 @@ ob_start();
 register_shutdown_function(static function(){
     global $checks,$readinessBuffer,$readinessReserve;
     $readinessReserve=null;while(ob_get_level()>$readinessBuffer)ob_end_clean();
-    $allowed=['revision','archive_connection','portal_secret','identity_key','signature_secret','invitation_key','signature_adapter','contract_sources','portal_adapter','portal_loaded','portal_route_loaded','portal_key_matches','portal_store_configured','portal_approval_plugin','portal_http_2xx','portal_http_403','portal_http_404','portal_http_5xx'];
+    $allowed=['revision','archive_connection','portal_secret','identity_key','signature_secret','invitation_key','signature_adapter','mail_adapter','contract_sources','portal_adapter','portal_loaded','portal_route_loaded','portal_key_matches','portal_store_configured','portal_approval_plugin','portal_http_2xx','portal_http_403','portal_http_404','portal_http_5xx'];
     $clean=[];foreach($allowed as $key)$clean[$key]=($checks[$key]??false)===true;
     echo json_encode($clean);
 });
@@ -22,6 +22,7 @@ require_once $theme.'/integrations/onboarding/crm/OnboardingContractCatalog.php'
 try{$drive=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_drive_health']);$checks['archive_connection']=($drive['provider']??'')==='google_drive'&&($drive['private']??false)===true;}catch(Throwable $ignored){}
 foreach(['portal_secret'=>'ARTIST_PORTAL_SYNC_SECRET','identity_key'=>'OPENAI_API_KEY','signature_secret'=>'CONTRACT_APPS_SCRIPT_SECRET','invitation_key'=>'APP_KEY'] as $check=>$key)$checks[$check]=strlen((string)\TrbCrm\Env::get($key,''))>=(in_array($check,['portal_secret','invitation_key'],true)?32:16);
 if($checks['signature_secret']){
+    try{$mail=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_candidate_mail_health']);$checks['mail_adapter']=($mail['transport']??'')==='gmail'&&($mail['sent_copy']??false)===true&&strtolower((string)($mail['mailbox']??''))==='andrea.tognassi@trbrec.com';}catch(Throwable $ignored){}
     try{
         $health=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_health']);
         $checks['signature_adapter']=($health['version']??'')==='2026.2'&&($health['otp_configured']??false)===true;
