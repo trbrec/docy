@@ -33,6 +33,7 @@ $stage=static function(string $path,string $next)use(&$changes,$backup){
     $changes[]=compact('path','next','original','temp');
 };
 foreach(glob($theme.'/integrations/onboarding/crm/*.php') as $file)$stage($crm.'/app/'.basename($file),(string)file_get_contents($file));
+$stage($crm.'/assets/onboarding.css',(string)file_get_contents($theme.'/integrations/onboarding/crm/onboarding.css'));
 onboarding_stage('crm-entry');
 $indexPath=$crm.'/index.php';$index=(string)file_get_contents($indexPath);
 $anchor='$router->dispatch($method,rtrim($path,\'/\')?:\'/\');';
