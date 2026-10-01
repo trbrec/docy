@@ -5,6 +5,7 @@ require_once __DIR__.'/OnboardingService.php';
 require_once __DIR__.'/OnboardingDrive.php';
 require_once __DIR__.'/OnboardingIdentity.php';
 require_once __DIR__.'/OnboardingTransport.php';
+require_once __DIR__.'/OnboardingIntake.php';
 
 /** An isolated, authenticated extension of the existing CRM entry point. */
 final class OnboardingRuntime
@@ -116,8 +117,7 @@ final class OnboardingRuntime
     }
     private function preparationChoices(): array
     {
-        $q=$this->db->query("SELECT ct.id,ct.contract_number,ct.template_key,c.artist_name,c.first_name,c.last_name FROM contracts ct JOIN submissions s ON s.id=ct.submission_id JOIN contacts c ON c.id=s.contact_id LEFT JOIN onboarding_practices p ON p.contract_id=ct.id WHERE ct.status IN ('draft','prepared') AND ct.sent_at IS NULL AND ct.accepted_at IS NULL AND p.id IS NULL ORDER BY ct.id DESC LIMIT 100");
-        return ['contracts'=>$q->fetchAll(\PDO::FETCH_ASSOC)];
+        return ['contracts'=>OnboardingIntake::choices($this->db)];
     }
     private function prepare(int $contractId,int $folderId,string $key): array
     {
@@ -125,12 +125,12 @@ final class OnboardingRuntime
         $lockName='trb_onboarding_prepare_'.$contractId;$lock=$this->db->prepare('SELECT GET_LOCK(?,0)');$lock->execute([$lockName]);if((int)$lock->fetchColumn()!==1)throw new \RuntimeException('Proposta in preparazione');
         try{
         if($old=$this->ledger->forContract($contractId)){
-            if($old['snapshot']['template_key']!==$key)throw new \RuntimeException('Adesione già preparata con dati diversi');
+            if($key!==''&&$old['snapshot']['template_key']!==$key)throw new \RuntimeException('Adesione già preparata con dati diversi');
             return ['id'=>$old['id'],'invite_url'=>$this->invitation($old)];
         }
-        $model=OnboardingContractCatalog::model($key);
         $q=$this->db->prepare('SELECT ct.id,ct.contract_number,ct.template_key,ct.status,ct.sent_at,ct.accepted_at,ct.metadata,s.source_tab,c.first_name,c.last_name,c.artist_name,c.email FROM contracts ct JOIN submissions s ON s.id=ct.submission_id JOIN contacts c ON c.id=s.contact_id WHERE ct.id=?');$q->execute([$contractId]);$row=$q->fetch();
-        if(!$row||$row['sent_at']||$row['accepted_at']||!in_array($row['status'],['draft','prepared'],true)||$row['template_key']!==$key)throw new \RuntimeException('Scegli una nuova proposta non ancora inviata, con lo stesso modello');
+        if(!$row||!OnboardingIntake::eligible($row)||($key!==''&&$row['template_key']!==$key))throw new \RuntimeException('Scegli una nuova proposta non ancora inviata, con lo stesso modello');
+        $key=$row['template_key'];$model=OnboardingContractCatalog::model($key);
         if(strtolower((string)Env::get('CRM_WRITE_SCOPE','test'))!=='production'&&(!in_array(strtolower($row['email']),['andrea.tognassi@trbrec.com','store@trbrec.com','spotify10@trbrec.com'],true)||$row['source_tab']!=='CRM_TEST_PERMANENT'))throw new \RuntimeException('La configurazione CRM consente soltanto le pratiche di collaudo');
         $folderId=$this->archive->artistFolder($model['group_code'],$contractId)['id'];
         $preparation=$this->ledger->preparation($contractId);$id=$preparation['id']??bin2hex(random_bytes(16));$url=$this->invitation(['id'=>$id]);$token=substr($url,strpos($url,'#invite=')+8);
