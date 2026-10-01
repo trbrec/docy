@@ -36,6 +36,20 @@ if ($practice) {
     $q->execute([$practice['id'], 'proposal_email']);
     $report['proposal_email_events'] = array_map(static fn($event) => ['kind'=>$enum($event['kind']), 'status'=>$enum($event['status'])], $q->fetchAll());
 }
+$stage = 'preview-binding-read';
+require_once $crm.'/app/OnboardingContractWorkflow.php';
+$q=$db->prepare('SELECT payload_json FROM outbound_batch_payloads bp JOIN outbound_batch_items bi ON bi.id=bp.batch_item_id JOIN outbound_batches b ON b.id=bi.batch_id WHERE b.public_id=? AND bi.submission_id=?');
+$q->execute(['4DF00BA63E205FB204A1EE570C',519]);$payload=json_decode((string)$q->fetchColumn(),true)?:[];
+$subject=(string)($meta['subject']??'');$body=(string)($meta['body']??'');
+$q=$db->prepare('SELECT document_url,template_key FROM contracts WHERE id=?');$q->execute([(int)$contract['id']]);$binding=$q->fetch();
+$personal=(string)$binding['document_url'];$pending=\TrbCrm\OnboardingContractWorkflow::PREVIEW_URL;
+$hash=static fn($url,$emailBody)=>\TrbCrm\OnboardingContractWorkflow::hash(519,'trb_ccde','spotify4@trbrec.com',$url,$subject,$emailBody);
+$report['metadata_hash_matches_personal']=hash_equals((string)($meta['preview_hash']??''),$hash($personal,$body));
+$report['metadata_hash_matches_pending']=hash_equals((string)($meta['preview_hash']??''),$hash($pending,str_replace($personal,$pending,$body)));
+$report['payload_keys']=array_keys($payload);
+$report['approved_email_matches']=hash_equals((string)($payload['expected_email_hash']??''),hash('sha256',$subject."\n".$body));
+$report['payload_token_matches_personal']=hash_equals((string)($payload['preview_token']??''),$hash($personal,$body));
+$report['payload_token_matches_metadata']=hash_equals((string)($payload['preview_token']??''),(string)($meta['preview_hash']??''));
 $stage = 'source-read';
 $source=(string)file_get_contents($crm.'/app/SubmissionRepository.php');
 $report['workflow_v3_marker'] = str_contains($source, '// TRB candidate onboarding workflow v3');

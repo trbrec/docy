@@ -1,8 +1,8 @@
-name: CRM owner self-test delivery verification and recovery
+name: CRM continued delivery diagnosis
 
 on:
   push:
-    branches: [codex/crm-self-test-delivery-audit-20261001]
+    branches: [codex/crm-resume-20261002]
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ jobs:
         run: |
           php -l tools/audit-crm-self-test-delivery.php
           php -l tools/resume-crm-owner-self-test.php
-      - name: Inspect and resume the single previously confirmed owner test
+      - name: Inspect the approved owner test without delivery
         shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
@@ -37,4 +37,3 @@ jobs:
           rm -f "${askpass}"
           ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
           ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" 'php' < tools/audit-crm-self-test-delivery.php
-          ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" 'php' < tools/resume-crm-owner-self-test.php
