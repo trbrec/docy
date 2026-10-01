@@ -1,4 +1,4 @@
-name: CRM continued delivery diagnosis
+name: CRM verified owner delivery closure
 
 on:
   push:
@@ -16,8 +16,8 @@ jobs:
       - name: Validate inspection and guarded recovery
         run: |
           php -l tools/audit-crm-self-test-delivery.php
-          php -l tools/resume-crm-owner-self-test.php
-      - name: Inspect the approved owner test without delivery
+          php -l tools/close-crm-superseded-owner-queue.php
+      - name: Close superseded empty attempt and verify the one successful delivery
         shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
@@ -36,4 +36,5 @@ jobs:
           SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
           rm -f "${askpass}"
           ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" 'php' < tools/close-crm-superseded-owner-queue.php
           ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" 'php' < tools/audit-crm-self-test-delivery.php
