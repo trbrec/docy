@@ -1,0 +1,42 @@
+<?php
+/** Read-only inspection of the one authorized owner self-test. Never dispatches mail. */
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+ini_set('display_errors', '0');
+$stage = 'bootstrap';
+set_exception_handler(static function () use (&$stage) { echo json_encode(['audit' => 'unconfirmed', 'stage' => $stage]); exit(1); });
+$crm = '/home/customer/www/crm.trbrec.com/public_html';
+require_once $crm . '/app/Core.php';
+\TrbCrm\Env::load($crm . '/.env');
+$db = \TrbCrm\Database::connection();
+$stage = 'batch-read';
+$q = $db->prepare('SELECT b.status batch_status, bi.status item_status, bi.error_message, bi.recipient, bi.contract_id FROM outbound_batches b JOIN outbound_batch_items bi ON bi.batch_id=b.id WHERE b.public_id=? AND bi.submission_id=?');
+$q->execute(['4DF00BA63E205FB204A1EE570C', 519]);
+$item = $q->fetch();
+if (!$item || strcasecmp((string)$item['recipient'], 'spotify4@trbrec.com') !== 0) { echo json_encode(['audit'=>'scope-unconfirmed']); exit(2); }
+$enum = static fn($value) => preg_match('/^[a-z_]{1,40}$/D', (string)$value) ? $value : 'other';
+$error = (string)($item['error_message'] ?? '');
+$error = preg_replace(['~https?://\S+~i', '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', '/[A-Za-z0-9_\-]{32,}/'], '[redacted]', $error);
+$report = ['audit'=>'confirmed', 'batch_status'=>$enum($item['batch_status']), 'item_status'=>$enum($item['item_status']), 'error'=>mb_substr($error, 0, 600)];
+$stage = 'contract-read';
+$q = $db->prepare('SELECT id,status,sent_at,metadata,document_sha256 FROM contracts WHERE submission_id=? ORDER BY id DESC LIMIT 1');
+$q->execute([519]); $contract = $q->fetch();
+$report['contract_status'] = $enum($contract['status'] ?? 'missing');
+$report['contract_sent'] = !empty($contract['sent_at']);
+$meta = json_decode((string)($contract['metadata'] ?? '{}'), true) ?: [];
+$report['reviewed_pdf_matches'] = !empty($meta['reviewed_sha256']) && hash_equals((string)$contract['document_sha256'], (string)$meta['reviewed_sha256']);
+$report['gmail_receipt_recorded'] = !empty($meta['onboarding']['gmail_message_id']);
+$stage = 'practice-read';
+$q = $db->prepare('SELECT id,state FROM onboarding_practices WHERE contract_id=?');
+$q->execute([(int)$contract['id']]); $practice=$q->fetch();
+$report['practice_state'] = $enum($practice['state'] ?? 'missing');
+if ($practice) {
+    $q=$db->prepare('SELECT kind,status FROM onboarding_events WHERE practice_id=? AND kind=?');
+    $q->execute([$practice['id'], 'proposal_email']);
+    $report['proposal_email_events'] = array_map(static fn($event) => ['kind'=>$enum($event['kind']), 'status'=>$enum($event['status'])], $q->fetchAll());
+}
+$stage = 'source-read';
+$source=(string)file_get_contents($crm.'/app/SubmissionRepository.php');
+$report['workflow_v3_marker'] = str_contains($source, '// TRB candidate onboarding workflow v3');
+$report['obsolete_batch_wrapper_present'] = str_contains($source, 'OnboardingContractWorkflow::batch(');
+$report['workflow_batch_method_present'] = str_contains((string)file_get_contents($crm.'/app/OnboardingContractWorkflow.php'), 'function batch(');
+echo json_encode($report, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), "\n";
