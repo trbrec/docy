@@ -18,6 +18,10 @@ check(Policy::identity($identity,['legible'=>true,'first_name'=>'Marion','last_n
 check(Policy::identity($identity,['legible'=>true,'first_name'=>'Mario','last_name'=>'De Luca','birth_date'=>'1990-02-31'],'2026-09-30')['status']==='review','invalid OCR date');
 check(Policy::identity($identity,['legible'=>false],'2026-09-30')['status']==='review','unreadable is never approved');
 check(Policy::identity(['first_name'=>'Jean','last_name'=>'Durand'],['legible'=>true,'first_name'=>'Jean-Pierre','last_name'=>'Durand','birth_date'=>'1990-01-01'],'2026-09-30')['status']==='review','hyphenated given name must match whole');
+$twoFronts=['legible'=>true,'first_name'=>'Mario Luigi','last_name'=>'De Luca','birth_date'=>'1990-01-01','expiry_date'=>'2030-01-01','tax_legible'=>true,'tax_first_name'=>'Mario Luigi','tax_last_name'=>'De Luca','tax_birth_date'=>'1990-01-01','tax_code'=>'DLCMRA90A01H501A'];
+check(Policy::documents($identity,$twoFronts,'DLCMRA90A01H501A','2026-09-30')['status']==='matched','two matching fronts accepted');
+foreach(['tax_legible'=>false,'tax_first_name'=>'Carlo','tax_last_name'=>'Rossi','tax_birth_date'=>'1991-01-01','tax_code'=>'DLCMRA90A01H501B','expiry_date'=>'2020-01-01'] as $field=>$value)check(Policy::documents($identity,array_replace($twoFronts,[$field=>$value]),'DLCMRA90A01H501A','2026-09-30')['status']==='review','inconsistent '.$field.' never accepted');
+check(Policy::documents($identity,array_replace($twoFronts,['expiry_date'=>'2026-09-30']),'DLCMRA90A01H501A','2026-09-30')['status']==='matched','identity valid throughout expiry date');
 rejects(fn()=>Policy::validatePlan(array_replace($plan,['total_cents'=>199999])),'cents cannot be lost');
 $practice=['onboarding_version'=>Policy::VERSION,'owner_approved_at'=>'2026-10-01','signed_at'=>'2026-10-01','signed_pcloud_file_id'=>123,'portal_activated_at'=>'2026-10-01'];
 $rows=[['number'=>1,'due_date'=>'2026-10-01','amount_cents'=>20000,'confirmed_cents'=>20000],['number'=>2,'due_date'=>'2026-11-01','amount_cents'=>20000,'confirmed_cents'=>0]];
@@ -41,8 +45,10 @@ rejects(fn()=>$ledger->verifyEmail($invite['token'],'000000',$challenge['salt'])
 $session=$ledger->verifyEmail($invite['token'],$challenge['code'],$challenge['salt']);
 check($ledger->fromSession($session)['id']===$id,'verified session bound to one practice');
 rejects(fn()=>$ledger->verifyEmail($invite['token'],$challenge['code'],$challenge['salt']),'email code consumed once');
-foreach(['identity_front','identity_back','tax_front'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>100+$i,'folder_id'=>200+$i,'hash'=>'pcloud-hash-'.$i]);
-check($ledger->recordIdentity($id,['legible'=>true,'first_name'=>'Mario Luigi','last_name'=>'De Luca','birth_date'=>'1990-01-01'],'2026-09-30')['status']==='matched','actual document state precedes checkout');
+$ledger->saveDetails($id,['privacy_acknowledged_at'=>gmdate('c'),'tax_code'=>'DLCMRA90A01H501A']);
+foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>100+$i,'folder_id'=>200+$i,'hash'=>'pcloud-hash-'.$i]);
+check($ledger->recordIdentity($id,['legible'=>true,'first_name'=>'Mario Luigi','last_name'=>'De Luca','birth_date'=>'1990-01-01','expiry_date'=>'2030-01-01','tax_legible'=>true,'tax_first_name'=>'Mario Luigi','tax_last_name'=>'De Luca','tax_birth_date'=>'1990-01-01','tax_code'=>'DLCMRA90A01H501A'],'2026-09-30')['status']==='matched','actual document state precedes checkout');
+rejects(fn()=>$ledger->saveDetails($id,['tax_code'=>'OTHER']),'verified administrative data cannot change before plan selection');
 $ledger->choosePlan($id,'A');
 rejects(fn()=>$ledger->recordFile($id,'identity_front',['file_id'=>999,'folder_id'=>200,'hash'=>'other']),'documents immutable after identity acceptance');
 $proof=['provider'=>'woocommerce','transaction_id'=>'order:123:txn:456','amount_cents'=>20000,'currency'=>'EUR','paid_on'=>'2026-10-01','status'=>'confirmed'];

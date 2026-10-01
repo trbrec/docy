@@ -8,7 +8,7 @@ $db=new PDO('sqlite::memory:');$db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_
 $snapshot=OnboardingContractCatalog::model('ddb_ccad_600')+['unsigned_document_sha256'=>str_repeat('a',64),'first_name'=>'Mario','last_name'=>'Rossi','artist_name'=>'Artista di collaudo','email'=>'test@example.invalid','artist_folder_id'=>'drive-owner-333','contract_number'=>'TEST-1234'];
 $created=$ledger->create(123,$snapshot,gmdate('c',time()+86400));$id=$created['id'];
 $archive=new class{public int $sequence=0;public bool $auditFailure=true;public function artistFolder($group,$folder){return [];}public function url($file,$folder,$hash){return 'https://files.pcloud.com/example';}public function createUpload($folder,$id,$slot){return ['folder_id'=>'drive-folder-'.(++$this->sequence),'upload_link_id'=>$this->sequence,'expires_at'=>gmdate('c',time()+7200),'slot'=>$slot];}public function verifyArtifact($grant,$sha,$folder){if($grant['slot']==='signature_audit'&&$this->auditFailure){$this->auditFailure=false;throw new RuntimeException('synthetic archive response lost');}return ['file_id'=>'drive-file-'.$grant['upload_link_id'],'folder_id'=>$grant['folder_id'],'hash'=>'remote-hash','sha256'=>$sha,'artist_folder_id'=>$folder,'name'=>$grant['slot'].'.pdf','size'=>200];}};
-$reader=new class{public function extract($docs){return ['legible'=>true,'first_name'=>'Mario Antonio','last_name'=>'Rossi','birth_date'=>'1990-01-01'];}};
+$reader=new class{public function extract($docs){service_check(array_column($docs,'slot')===['identity_front','tax_front'],'only the two labeled fronts reach the reader');return ['legible'=>true,'first_name'=>'Mario Antonio','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_legible'=>true,'tax_first_name'=>'Mario Antonio','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W'];}};
 $order=null;$status='pending';$badEmail=false;$activationCalls=0;
 $portal=function($payload)use(&$order,&$status,&$badEmail,&$activationCalls,$snapshot,$id){
  if($payload['action']==='activate_account'){$activationCalls++;return ['activated'=>true,'practice_id'=>$id,'portal_user_id'=>$payload['portal_user_id']];}
@@ -29,7 +29,7 @@ $script=function($payload)use(&$dispatches,&$dispatchResponseLost,&$completed,&$
 $service=new OnboardingService($ledger,$archive,$reader,$portal,$script);
 $details=['privacy_acknowledged'=>true,'billing'=>['address_1'=>'Via collaudo 1','city'=>'Roma','postcode'=>'00100','country'=>'IT','phone'=>'+393330000000'],'tax_code'=>'RSSMRA90A01H501W'];
 $service->details($ledger->practice($id),$details);
-foreach(['identity_front','identity_back','tax_front'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>10+$i,'folder_id'=>333,'hash'=>'h'.$i,'name'=>$slot.'.pdf']);
+foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>10+$i,'folder_id'=>333,'hash'=>'h'.$i,'name'=>$slot.'.pdf']);
 $service->identity($ledger->practice($id));
 $service_reject=fn()=>null;
 service_reject(fn()=>$service->choose($ledger->practice($id),'C',str_repeat('a',64),false),'proposal acknowledgement necessary');
