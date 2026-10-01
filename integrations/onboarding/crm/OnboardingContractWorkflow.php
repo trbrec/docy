@@ -35,8 +35,9 @@ final class OnboardingContractWorkflow
             $preview['editable_available']=false;$preview['editing']=false;$preview['current_document_sha256']='';
             $preview['attachment_message']='Prepara e controlla il PDF con il collegamento personale al Portale Artisti prima dell’invio.';
         }
-        if(!empty($s['contract']['id'])&&($s['contract']['template_key']??'')===$key){
+        if(!empty($s['contract']['id'])){
             $ledger=new OnboardingLedger($db);$practice=$ledger->forContract((int)$s['contract']['id']);
+            if($practice&&$practice['snapshot']['template_key']!==$key)throw new \RuntimeException('Proposta già preparata con un altro modello: prepara una nuova proposta prima di cambiarlo.');
             if($practice&&$practice['snapshot']['template_key']===$key){
                 if(!empty($practice['cancelled_at'])||strtotime($practice['expires_at'])<=time())throw new \RuntimeException('Collegamento scaduto o proposta annullata: verifica la pratica prima dell’invio.');
                 foreach(['first_name','last_name','artist_name','email','contract_number'] as $field)if(($practice['snapshot'][$field]??'')!==($s[$field]??''))throw new \RuntimeException('I dati sono cambiati dopo la preparazione del PDF: verifica la proposta.');

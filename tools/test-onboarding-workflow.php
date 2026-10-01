@@ -29,6 +29,7 @@ $ready=OnboardingContractWorkflow::preview($db,$s,'ddb_ccad_600',$base);
 workflow_check($ready['attachment_ready']&&$ready['document_sha256']===$sha&&str_contains($ready['pdf_preview_url'],'/submissions/1/contracts/2/document'),'Existing PDF review opens the immutable Drive proposal');
 workflow_check(str_contains($ready['body'],'Testo plurale approvato.')&&!str_contains($ready['body'],'PENDING'),'Existing email wording retained with personal invitation');
 workflow_check($ready===OnboardingContractWorkflow::preview($db,$s,'ddb_ccad_600',$base),'Repeated preview is stable');
+try{OnboardingContractWorkflow::preview($db,$s,'ddb_ccad_800',$base);throw new \LogicException('Changed template accepted');}catch(\RuntimeException $expected){workflow_check(str_contains($expected->getMessage(),'altro modello'),'Template binding rejected before a draft mutation');}
 $changed=$s;$changed['email']='different@example.invalid';
 try{OnboardingContractWorkflow::preview($db,$changed,'ddb_ccad_600',$base);throw new \LogicException('Changed recipient accepted');}catch(\RuntimeException $expected){}
 $db->exec("UPDATE onboarding_practices SET cancelled_at='2026-10-01'");
