@@ -63,10 +63,10 @@ function trb_onboarding_private($request){
         $files=get_user_meta($id,'_trb_artist_private_files',true);$files=is_array($files)?$files:array();
         foreach($labels as $slot=>$label){$file=$p['files'][$slot]??null;if(!$file)continue;$fileId='trb-onboarding-'.$slot;
             if(array_filter($files,static fn($entry)=>($entry['id']??'')===$fileId))continue;
-            $files[]=array('id'=>$fileId,'path'=>'','name'=>sanitize_file_name($file['name']),'type'=>str_ends_with(strtolower($file['name']),'.pdf')?'application/pdf':(str_ends_with(strtolower($file['name']),'.png')?'image/png':'image/jpeg'),'group'=>$label[0],'label'=>$label[1],'time'=>time(),'size'=>absint($file['size']??0),'source'=>'onboarding-pcloud');
+            $files[]=array('id'=>$fileId,'path'=>'','name'=>sanitize_file_name($file['name']),'type'=>str_ends_with(strtolower($file['name']),'.pdf')?'application/pdf':(str_ends_with(strtolower($file['name']),'.png')?'image/png':'image/jpeg'),'group'=>$label[0],'label'=>$label[1],'time'=>time(),'size'=>absint($file['size']??0),'source'=>($p['archive_provider']??'')==='google_drive'?'onboarding-google-drive':'onboarding-pcloud');
         }
         update_user_meta($id,'_trb_artist_private_files',$files);
-        $user->add_role($profiles[$key]['role']);update_user_meta($id,'_trb_artist_contract_profile',$key);update_user_meta($id,'_trb_onboarding_contract_file_id',absint($p['signed_pcloud_file_id']));update_user_meta($id,'_trb_onboarding_stage','active');
+        $user->add_role($profiles[$key]['role']);update_user_meta($id,'_trb_artist_contract_profile',$key);update_user_meta($id,'_trb_onboarding_contract_file_id',sanitize_text_field((string)$p['signed_pcloud_file_id']));update_user_meta($id,'_trb_onboarding_stage','active');
         if(function_exists('pw_new_user_approve'))pw_new_user_approve()->update_user_status($id,'approve');
         return array('portal_user_id'=>$id,'practice_id'=>$practice,'activated'=>true);
     }
@@ -191,6 +191,14 @@ add_action('admin_post_trb_portal_private_file',static function(){
     $slot=substr($fileId,15);if(!in_array($slot,array('identity_front','identity_back','tax_front','tax_back'),true))wp_die('Documento non disponibile.','Documento',array('response'=>404));
     $response=trb_onboarding_crm(array('action'=>'account_document','portal_user_id'=>$user->ID,'email'=>$user->user_email,'slot'=>$slot));
     if(is_wp_error($response))wp_die(esc_html($response->get_error_message()),'Documento',array('response'=>409));
+    if(isset($response['file'])){trb_onboarding_stream_file($response['file']);exit;}
     $url=$response['url']??'';if(!preg_match('~^https://[a-z0-9.-]+\.pcloud\.com/~D',$url))wp_die('Documento non disponibile.','Documento',array('response'=>409));
     nocache_headers();header('Referrer-Policy: no-referrer');wp_redirect($url);exit;
 },-100);
+
+/** Private authenticated documents pass through memory; never written to hosting. */
+function trb_onboarding_stream_file($file){
+    $bytes=base64_decode((string)($file['data']??''),true);$mime=$file['mime']??'';
+    if($bytes===false||strlen($bytes)<1||strlen($bytes)>10485760||!hash_equals((string)($file['sha256']??''),hash('sha256',$bytes))||!in_array($mime,array('application/pdf','image/jpeg','image/png','application/xml'),true))wp_die('Documento non disponibile.','Documento',array('response'=>409));
+    nocache_headers();header('Content-Type: '.$mime);header('X-Content-Type-Options: nosniff');header('Content-Disposition: inline; filename="'.sanitize_file_name($file['name']??'documento').'"');echo $bytes;
+}
