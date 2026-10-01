@@ -7,6 +7,13 @@ wrapper=Path('tools/onboarding-deploy-status.php').read_text()
 for command in commands:
     if '>/dev/null 2>&1' in command:
         continue
+    if '/tools/onboarding-readiness.php' in command:
+        assert '2>/dev/null' in command
+        readiness=Path('tools/onboarding-readiness.php').read_text()
+        for required in ('ob_start();','register_shutdown_function','ob_end_clean();',"$clean[$key]=($checks[$key]??false)===true;",'json_encode($clean)'):
+            assert required in readiness,'Fixed boolean readiness output guard missing'
+        assert 'getMessage' not in readiness
+        continue
     if '/tools/onboarding-deploy-status.php' in command:
         assert '2>/dev/null' in command
         for required in ('ob_start();', 'register_shutdown_function', 'ob_end_clean();', '$allowed=', "in_array($deployStage??'',", "'stage'=>$stage"):

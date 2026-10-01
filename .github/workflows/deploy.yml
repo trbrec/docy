@@ -98,7 +98,9 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" \
             "php -l '${DEPLOY_PATH}/functions.php' && php -l '${DEPLOY_PATH}/inc/trb-resource-monitor.php'"
           echo "Successfully deployed and verified ${deployed_sha}."
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^(integrations/onboarding/|inc/trb-candidate-onboarding|assets/js/onboarding/|tools/(deploy-onboarding|onboarding-deploy-status)\.php)' >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^(integrations/onboarding/|inc/trb-candidate-onboarding|assets/js/onboarding/|tools/(deploy-onboarding|onboarding-deploy-status|onboarding-readiness)\.php)' >/dev/null; then
+            onboarding_readiness=$(ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/onboarding-readiness.php' '${GITHUB_SHA}'" 2>/dev/null || true)
+            printf '%s' "${onboarding_readiness}" | python3 -c 'import sys,json; d=json.load(sys.stdin); keys=("revision","archive_connection","portal_secret","identity_key","signature_secret","invitation_key","signature_adapter","contract_sources","portal_adapter"); [print("Onboarding prerequisite "+k+": "+("verified" if d.get(k) is True else "unconfirmed")) for k in keys]' 2>/dev/null || echo "Onboarding readiness report unavailable."
             if ! ssh "${ssh_opts[@]}" "${remote}" "php -l '${DEPLOY_PATH}/tools/deploy-onboarding.php' && php -l '${DEPLOY_PATH}/tools/onboarding-deploy-status.php'" >/dev/null 2>&1; then
               echo "Onboarding installer failed its server syntax check."
               exit 1
