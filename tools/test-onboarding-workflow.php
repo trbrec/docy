@@ -18,9 +18,21 @@ $db=new \PDO('sqlite::memory:');$db->exec('CREATE TABLE contract_templates(templ
 $db->exec("INSERT INTO contract_templates VALUES('ddb_ccad_600','DDB 600','Proposta {numero_contratto}','Ciao {nome_contatto}, Carica qui il contratto firmato: {link_contratto}','Promemoria','{link_contratto}','https://docs.google.com/document/d/fixture',1)");
 $s=['id'=>1,'first_name'=>'Mario','last_name'=>'Rossi','artist_name'=>'QA','email'=>'qa@example.invalid','contract_number'=>'TRB-QA'];
 $p=OnboardingContractWorkflow::preview($db,$s,'ddb_ccad_600');
+workflow_check($p['submission_id']===1,'Candidate identity retained for PDF preparation');
 workflow_check($p['onboarding']&&$p['plugin_dispatch_available']&&str_contains($p['body'],'Ciao Mario'),'Normal preview personalization');
 workflow_check(!str_contains($p['body'],'Carica qui il contratto firmato'),'Old signed PDF upload instruction removed');
 workflow_check($db->query('SELECT COUNT(*) FROM sqlite_master WHERE name LIKE \'onboarding_%\'')->fetchColumn()===0,'Preview sends no email and creates no practice');
+$ledger=new OnboardingLedger($db);$ledger->install();$snapshot=OnboardingContractCatalog::model('ddb_ccad_600')+array_intersect_key($s,array_flip(['first_name','last_name','artist_name','email','contract_number']));$sha=str_repeat('a',64);$snapshot['artist_folder_id']='qa-private-drive';$snapshot['unsigned_document_sha256']=$sha;
+$ledger->create(2,$snapshot,gmdate('c',time()+86400),str_repeat('b',64),str_repeat('c',32),['file_id'=>'qa-pdf','folder_id'=>'qa-private-drive','sha256'=>$sha,'hash'=>'qa-proof']);
+$s['contract']=['id'=>2,'template_key'=>'ddb_ccad_600'];$base=$p;$base['body']='Testo plurale approvato. '.$p['document_url'];
+$ready=OnboardingContractWorkflow::preview($db,$s,'ddb_ccad_600',$base);
+workflow_check($ready['attachment_ready']&&$ready['document_sha256']===$sha&&str_contains($ready['pdf_preview_url'],'/submissions/1/contracts/2/document'),'Existing PDF review opens the immutable Drive proposal');
+workflow_check(str_contains($ready['body'],'Testo plurale approvato.')&&!str_contains($ready['body'],'PENDING'),'Existing email wording retained with personal invitation');
+workflow_check($ready===OnboardingContractWorkflow::preview($db,$s,'ddb_ccad_600',$base),'Repeated preview is stable');
+$changed=$s;$changed['email']='different@example.invalid';
+try{OnboardingContractWorkflow::preview($db,$changed,'ddb_ccad_600',$base);throw new \LogicException('Changed recipient accepted');}catch(\RuntimeException $expected){}
+$db->exec("UPDATE onboarding_practices SET cancelled_at='2026-10-01'");
+try{OnboardingContractWorkflow::preview($db,$s,'ddb_ccad_600',$base);throw new \LogicException('Cancelled proposal accepted');}catch(\RuntimeException $expected){}
 $fixture=<<<'SOURCE'
 <?php final class SubmissionRepository {
 public function previewContract(int $id,string $templateKey): array {return [];}
@@ -29,6 +41,6 @@ public function sendContractBatch(array $input,int $userId): array {return [];}
 public function find(){ $submission['contract_draft_writable']=true; }
 }
 SOURCE;
-$patched=OnboardingWorkflowInstaller::repository($fixture);workflow_check($patched===OnboardingWorkflowInstaller::repository($patched),'Installer idempotent');workflow_check(str_contains($patched,'OnboardingContractWorkflow::send'),'Single send hook');workflow_check(str_contains($patched,'OnboardingContractWorkflow::batch'),'Batch send hook');
+$patched=OnboardingWorkflowInstaller::repository($fixture);workflow_check($patched===OnboardingWorkflowInstaller::repository($patched),'Installer idempotent');workflow_check(str_contains($patched,'OnboardingContractWorkflow::send'),'Single send hook');workflow_check(str_contains($patched,'public function sendContractBatch'),'Existing async batch preserved');
 try{OnboardingWorkflowInstaller::repository('<?php final class SubmissionRepository {}');throw new \LogicException('Missing anchors accepted');}catch(\RuntimeException $expected){}
 echo "Normal CRM preview/save/send and batch hooks, PDF MIME, personalized instructions, unchanged preview binding and guarded installer verified.\n";
