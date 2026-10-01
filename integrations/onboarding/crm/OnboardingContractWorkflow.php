@@ -67,6 +67,7 @@ final class OnboardingContractWorkflow
             $q=$db->prepare("SELECT u.* FROM users u JOIN outbound_batches b ON b.created_by=u.id JOIN outbound_batch_items bi ON bi.batch_id=b.id WHERE u.id=? AND u.is_active=1 AND bi.submission_id=? AND bi.status='sending' AND b.action_type='contract_send' ORDER BY bi.id DESC LIMIT 1");$q->execute([$userId,(int)$s['id']]);$owner=$q->fetch()?:[];
         }else $owner=Security::requireUser();
         if((int)($owner['id']??0)!==$userId||($owner['role']??'')!=='admin'||strcasecmp((string)($owner['email']??''),'andrea.tognassi@trbrec.com')!==0)throw new \RuntimeException('Invio riservato al titolare');
+        if(!OutboundMail::canSendContractTo((string)$s['email']))throw new \RuntimeException('Destinatario non autorizzato dal canale di invio');
         $c=$s['contract'];$m=is_array($c['metadata']??null)?$c['metadata']:[];
         if(in_array($c['status'],['sent','opened','otp_pending','accepted'],true))throw new \RuntimeException('Questo contratto risulta già inviato');
         $url=(string)($c['document_url']??'');$subject=trim((string)($m['subject']??''));$body=trim((string)($m['body']??''));
@@ -86,6 +87,7 @@ final class OnboardingContractWorkflow
         if(($receipt['sent']??false)!==true||empty($receipt['gmail_message_id'])||empty($receipt['sent_copy']))throw new \RuntimeException('Invio non confermato: verifica la posta inviata prima di riprovare');
         $m['onboarding']=['practice_id'=>$p['id'],'archive_provider'=>'google_drive','proposal_sha256'=>$artifact['sha256'],'gmail_message_id'=>$receipt['gmail_message_id']];
         $db->beginTransaction();try{
+            self::receipt($db,$messageId,$receipt);
             $db->prepare("UPDATE contracts SET status='sent',document_url=?,document_sha256=?,sent_at=UTC_TIMESTAMP(),metadata=? WHERE id=?")->execute([$prepared['invite_url'],$artifact['sha256'],json_encode($m,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)$c['id']]);
             $db->prepare("UPDATE submissions SET status='contract_sent',contract_sent_at=UTC_TIMESTAMP() WHERE id=?")->execute([(int)$s['id']]);
             $db->prepare("UPDATE onboarding_events SET status='completed',payload=?,completed_at=? WHERE event_key=?")->execute([json_encode(['message_id'=>$messageId,'mime_sha256'=>$sha,'document_sha256'=>$artifact['sha256'],'gmail_message_id'=>$receipt['gmail_message_id']]),gmdate('c'),$event]);
@@ -120,7 +122,13 @@ final class OnboardingContractWorkflow
         if($parent!=='')$raw='In-Reply-To: '.$parent."\r\nReferences: ".$parent."\r\n".$raw;
         $receipt=OutboundMail::candidateBridge(['action'=>'crm_candidate_mail_send','confirm'=>true,'operator_confirmed'=>true,'recipient'=>$item['email'],'message_id'=>$messageId,'raw_base64'=>base64_encode($raw),'mime_sha256'=>hash('sha256',$raw)]);
         if(($receipt['sent']??false)!==true||empty($receipt['gmail_message_id'])||empty($receipt['sent_copy']))throw new \RuntimeException('Promemoria non confermato: verifica Gmail prima di riprovare');
+        self::receipt($db,$messageId,$receipt);
         return ['sent'=>true];
+    }
+    private static function receipt(\PDO $db,string $messageId,array $receipt): void
+    {
+        if(empty($receipt['gmail_thread_id'])||empty($receipt['mailbox']))throw new \RuntimeException('Ricevuta Gmail incompleta: verifica la posta inviata');
+        $db->prepare('INSERT INTO candidate_mail_receipts(message_id,gmail_message_id,gmail_thread_id,mailbox) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE gmail_message_id=VALUES(gmail_message_id),gmail_thread_id=VALUES(gmail_thread_id)')->execute([$messageId,$receipt['gmail_message_id'],$receipt['gmail_thread_id'],$receipt['mailbox']]);
     }
     public static function mime(string $email,string $subject,string $body,string $pdf,string $filename,string $messageId,string $createdAt): string
     {
