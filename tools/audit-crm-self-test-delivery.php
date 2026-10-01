@@ -55,6 +55,12 @@ $report['payload_keys']=array_keys($payload);
 $report['approved_email_matches']=hash_equals((string)($payload['expected_email_hash']??''),hash('sha256',$subject."\n".$body));
 $report['payload_token_matches_personal']=hash_equals((string)($payload['preview_token']??''),$hash($personal,$body));
 $report['payload_token_matches_metadata']=hash_equals((string)($payload['preview_token']??''),(string)($meta['preview_hash']??''));
+
+$stage = 'delivery-history';
+$q=$db->prepare("SELECT COUNT(*) FROM mail_messages mm JOIN mail_threads mt ON mt.id=mm.thread_id WHERE mt.contract_id=? AND mm.direction='outbound' AND mm.delivery_status='sent'");$q->execute([(int)$contract['id']]);$report['recorded_sent_messages']=(int)$q->fetchColumn();
+$q=$db->prepare('SELECT sequence_no,status,due_at FROM followups WHERE contract_id=? ORDER BY sequence_no');$q->execute([(int)$contract['id']]);$report['followups']=$q->fetchAll();
+$report['sent_at']=$contract['sent_at'];
+$q=$db->prepare("SELECT status FROM outbound_batch_items bi JOIN outbound_batches b ON b.id=bi.batch_id WHERE b.public_id=? AND bi.submission_id=?");$q->execute(['4DF00BA63E205FB204A1EE570C',519]);$report['older_batch_item_status']=$enum($q->fetchColumn());
 $stage = 'source-read';
 $source=(string)file_get_contents($crm.'/app/SubmissionRepository.php');
 $report['workflow_v3_marker'] = str_contains($source, '// TRB candidate onboarding workflow v3');

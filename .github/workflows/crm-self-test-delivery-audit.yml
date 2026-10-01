@@ -1,4 +1,4 @@
-name: CRM approved proposal recovery
+name: CRM continued delivery diagnosis
 
 on:
   push:
@@ -15,9 +15,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate inspection and guarded recovery
         run: |
-          php -l tools/recover-crm-rejected-proposal.php
+          php -l tools/audit-crm-self-test-delivery.php
           php -l tools/resume-crm-owner-self-test.php
-      - name: Recover the same confirmed proposal after pre-dispatch rejection
+      - name: Inspect the approved owner test without delivery
         shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
@@ -36,4 +36,4 @@ jobs:
           SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
           rm -f "${askpass}"
           ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
-          ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" 'php' < tools/recover-crm-rejected-proposal.php
+          ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" 'php' < tools/audit-crm-self-test-delivery.php
