@@ -5,8 +5,10 @@ ini_set('display_errors','0');
 $deployStage='bootstrap';
 set_exception_handler(static function($e){global $deployStage,$theme,$revision;if(isset($theme,$revision)&&preg_match('/^[a-f0-9]{40}$/D',$revision))file_put_contents($theme.'/.trb-onboarding-stage-'.$revision,$deployStage);fwrite(STDERR,'Onboarding installation not confirmed at '.$deployStage.".\n");exit(1);});
 $revision=$argv[1]??'';$theme=dirname(__DIR__);
-if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents($theme.'/.trb-deployed-sha'))!==$revision)exit(2);
+if(!preg_match('/^[a-f0-9]{40}$/D',$revision))exit(2);
 function onboarding_stage(string $value): void{global $deployStage,$theme,$revision;$deployStage=$value;file_put_contents($theme.'/.trb-onboarding-stage-'.$revision,$value);}
+onboarding_stage('revision');
+if(trim((string)@file_get_contents($theme.'/.trb-deployed-sha'))!==$revision)exit(2);
 onboarding_stage('bootstrap');
 register_shutdown_function(static function(){global $deployStage,$theme,$revision;file_put_contents($theme.'/.trb-onboarding-stage-'.$revision,$deployStage);});
 $crm='/home/customer/www/crm.trbrec.com/public_html';$private=dirname($crm).'/private';
