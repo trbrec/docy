@@ -27,6 +27,7 @@ $report['contract_sent'] = !empty($contract['sent_at']);
 $meta = json_decode((string)($contract['metadata'] ?? '{}'), true) ?: [];
 $report['reviewed_pdf_matches'] = !empty($meta['reviewed_sha256']) && hash_equals((string)$contract['document_sha256'], (string)$meta['reviewed_sha256']);
 $report['gmail_receipt_recorded'] = !empty($meta['onboarding']['gmail_message_id']);
+$report['preview_binding_recorded'] = !empty($meta['preview_hash']);
 $stage = 'practice-read';
 $q = $db->prepare('SELECT id,state FROM onboarding_practices WHERE contract_id=?');
 $q->execute([(int)$contract['id']]); $practice=$q->fetch();
