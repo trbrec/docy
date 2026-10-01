@@ -53,6 +53,7 @@ jobs:
           php tools/test-demo-email.php
           php tools/test-onboarding-pcloud.php
           php tools/test-onboarding-drive.php
+          php tools/test-onboarding-entry.php
           php tools/test-onboarding.php
           php tools/test-onboarding-service.php
           php tools/test-onboarding-adapters.php
@@ -105,7 +106,7 @@ jobs:
           echo "WordPress deployment safety net aligned with the verified SSH revision."
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^(integrations/onboarding/|inc/trb-candidate-onboarding|assets/js/onboarding/|tools/(deploy-onboarding|onboarding-deploy-status|onboarding-readiness)\.php)' >/dev/null; then
             onboarding_readiness=$(ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/onboarding-readiness.php' '${GITHUB_SHA}'" 2>/dev/null || true)
-            printf '%s' "${onboarding_readiness}" | python3 -c 'import sys,json; d=json.load(sys.stdin); keys=("revision","archive_connection","portal_secret","identity_key","signature_secret","invitation_key","signature_adapter","contract_sources","portal_adapter"); [print("Onboarding prerequisite "+k+": "+("verified" if d.get(k) is True else "unconfirmed")) for k in keys]' 2>/dev/null || echo "Onboarding readiness report unavailable."
+            printf '%s' "${onboarding_readiness}" | python3 -c 'import sys,json; d=json.load(sys.stdin); keys=("revision","archive_connection","portal_secret","identity_key","signature_secret","invitation_key","signature_adapter","mail_adapter","contract_sources","portal_adapter"); [print("Onboarding prerequisite "+k+": "+("verified" if d.get(k) is True else "unconfirmed")) for k in keys]' 2>/dev/null || echo "Onboarding readiness report unavailable."
             printf '%s' "${onboarding_readiness}" | python3 -c 'import sys,json; d=json.load(sys.stdin); keys=("portal_loaded","portal_route_loaded","portal_key_matches","portal_store_configured","portal_approval_plugin","portal_http_2xx","portal_http_403","portal_http_404","portal_http_5xx"); [print("Onboarding portal check "+k+": "+("yes" if d.get(k) is True else "no")) for k in keys]' 2>/dev/null || true
             if ! printf '%s' "${onboarding_readiness}" | python3 -c 'import sys,json; d=json.load(sys.stdin);sys.exit(0 if d.get("revision") is True and type(d.get("archive_connection")) is bool else 1)' 2>/dev/null; then
               echo "Onboarding readiness report invalid; activation stopped."

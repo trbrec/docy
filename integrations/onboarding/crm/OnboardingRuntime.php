@@ -5,6 +5,7 @@ require_once __DIR__.'/OnboardingService.php';
 require_once __DIR__.'/OnboardingDrive.php';
 require_once __DIR__.'/OnboardingIdentity.php';
 require_once __DIR__.'/OnboardingTransport.php';
+require_once __DIR__.'/OnboardingEntry.php';
 require_once __DIR__.'/OnboardingIntake.php';
 
 /** An isolated, authenticated extension of the existing CRM entry point. */
@@ -54,6 +55,7 @@ final class OnboardingRuntime
                 Security::verifyCsrf();$action=(string)($_POST['action']??'');$id=(string)($_POST['id']??'');
                 switch($action){
                     case 'invite':$notice='Collegamento personale: '.$runtime->invitation($runtime->ledger->practice($id));break;
+                    case 'candidate':$contractId=(new OnboardingEntry($runtime->db))->draft((int)($_POST['submission_id']??0),(string)($_POST['template_key']??''),(int)$owner['id']);$result=$runtime->prepare($contractId,0,(string)($_POST['template_key']??''));$notice='Proposta preparata. Collegamento personale: '.$result['invite_url'];break;
                     case 'prepare':$result=$runtime->prepare((int)($_POST['contract_id']??0),(int)($_POST['folder_id']??0),(string)($_POST['template_key']??''));$notice='Proposta preparata. Collegamento personale: '.$result['invite_url'];break;
                     case 'approve':$runtime->service->refreshPayments($id);$runtime->ledger->approve($id,$owner,'andrea.tognassi@trbrec.com',self::today());$runtime->service->prepareFinal($runtime->ledger->practice($id));$notice='Approvazione registrata. Verifica il documento definitivo prima dell’invio alla firma.';break;
                     case 'signature':if(($_POST['confirm_signature']??'')!=='1')throw new \RuntimeException('Conferma l’invio alla firma');$result=$runtime->service->dispatchSignature($runtime->ledger->practice($id));$notice=!empty($result['already_reserved'])?'Invio già riservato: nessun nuovo dossier creato.':'Dossier di firma creato.';break;
@@ -106,9 +108,12 @@ final class OnboardingRuntime
     }
     private function mail(string $email,string $subject,string $text): void
     {
-        $body=nl2br(htmlspecialchars($text,ENT_QUOTES,'UTF-8'));
-        $result=OutboundMail::sendMessage($email,$subject,$body,['purpose'=>'candidate_contract']);
-        if(($result['sent']??false)!==true)throw new \RuntimeException('Invio email non confermato');
+        if(!self::enabled()||!filter_var($email,FILTER_VALIDATE_EMAIL)||preg_match('/[\r\n]/',$email))throw new \RuntimeException('Invio adesione non autorizzato');
+        $messageId='<trbonboarding.'.bin2hex(random_bytes(16)).'@crm.trbrec.com>';$boundary='=_trbonboarding_'.bin2hex(random_bytes(12));
+        $subject=mb_encode_mimeheader(trim(preg_replace('/[\r\n]+/',' ',$subject)), 'UTF-8','B', "\r\n");
+        $raw='To: '.$email."\r\n".'From: Andrea Tognassi - TRB rec <andrea.tognassi@trbrec.com>'."\r\n".'Reply-To: andrea.tognassi@trbrec.com'."\r\n".'Subject: '.$subject."\r\n".'Date: '.gmdate('D, d M Y H:i:s O')."\r\n".'Message-ID: '.$messageId."\r\n".'MIME-Version: 1.0'."\r\n".'X-Auto-Response-Suppress: All'."\r\n".'Content-Type: multipart/alternative; boundary="'.$boundary.'"'."\r\n\r\n".OutboundMail::alternativePayload(OutboundMail::withSignature($text),$boundary);
+        $result=OutboundMail::candidateBridge(['action'=>'crm_candidate_mail_send','confirm'=>true,'operator_confirmed'=>true,'recipient'=>$email,'message_id'=>$messageId,'raw_base64'=>base64_encode($raw),'mime_sha256'=>hash('sha256',$raw)]);
+        if(($result['sent']??false)!==true||empty($result['gmail_message_id'])||empty($result['sent_copy']))throw new \RuntimeException('Invio email non confermato');
     }
     private function invitation(array $p): string
     {
@@ -117,10 +122,11 @@ final class OnboardingRuntime
     }
     private function preparationChoices(): array
     {
-        return ['contracts'=>OnboardingIntake::choices($this->db)];
+        return ['contracts'=>OnboardingIntake::choices($this->db),'candidates'=>(new OnboardingEntry($this->db))->candidates()];
     }
     private function prepare(int $contractId,int $folderId,string $key): array
     {
+        if(!self::enabled())throw new \RuntimeException('Nuove adesioni non ancora abilitate');
         $folderId=$contractId;
         $lockName='trb_onboarding_prepare_'.$contractId;$lock=$this->db->prepare('SELECT GET_LOCK(?,0)');$lock->execute([$lockName]);if((int)$lock->fetchColumn()!==1)throw new \RuntimeException('Proposta in preparazione');
         try{
@@ -131,7 +137,6 @@ final class OnboardingRuntime
         $q=$this->db->prepare('SELECT ct.id,ct.contract_number,ct.template_key,ct.status,ct.sent_at,ct.accepted_at,ct.metadata,s.source_tab,c.first_name,c.last_name,c.artist_name,c.email FROM contracts ct JOIN submissions s ON s.id=ct.submission_id JOIN contacts c ON c.id=s.contact_id WHERE ct.id=?');$q->execute([$contractId]);$row=$q->fetch();
         if(!$row||!OnboardingIntake::eligible($row)||($key!==''&&$row['template_key']!==$key))throw new \RuntimeException('Scegli una nuova proposta non ancora inviata, con lo stesso modello');
         $key=$row['template_key'];$model=OnboardingContractCatalog::model($key);
-        if(strtolower((string)Env::get('CRM_WRITE_SCOPE','test'))!=='production'&&(!in_array(strtolower($row['email']),['andrea.tognassi@trbrec.com','store@trbrec.com','spotify10@trbrec.com'],true)||$row['source_tab']!=='CRM_TEST_PERMANENT'))throw new \RuntimeException('La configurazione CRM consente soltanto le pratiche di collaudo');
         $folderId=$this->archive->artistFolder($model['group_code'],$contractId)['id'];
         $preparation=$this->ledger->preparation($contractId);$id=$preparation['id']??bin2hex(random_bytes(16));$url=$this->invitation(['id'=>$id]);$token=substr($url,strpos($url,'#invite=')+8);
         $snapshot=$model+array_intersect_key($row,array_flip(['contract_number','first_name','last_name','artist_name','email']));$snapshot['artist_folder_id']=$folderId;$snapshot['archive_provider']='google_drive';

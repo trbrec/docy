@@ -4,8 +4,8 @@ require_once __DIR__.'/../integrations/onboarding/crm/OnboardingIntake.php';
 require_once __DIR__.'/../integrations/onboarding/crm/OnboardingLedger.php';
 use TrbCrm\OnboardingIntake;
 $db=new PDO('sqlite::memory:');$db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
-$db->exec('CREATE TABLE contacts(id INTEGER PRIMARY KEY,artist_name TEXT,first_name TEXT,last_name TEXT); CREATE TABLE submissions(id INTEGER PRIMARY KEY,contact_id INTEGER); CREATE TABLE contracts(id INTEGER PRIMARY KEY,submission_id INTEGER,contract_number TEXT,template_key TEXT,status TEXT,sent_at TEXT,accepted_at TEXT);');
-$db->exec("INSERT INTO contacts VALUES(1,'Collaudo','Nome','Cognome'); INSERT INTO submissions VALUES(1,1);");
+$db->exec('CREATE TABLE contacts(id INTEGER PRIMARY KEY,artist_name TEXT,first_name TEXT,last_name TEXT); CREATE TABLE submissions(id INTEGER PRIMARY KEY,contact_id INTEGER,source_tab TEXT); CREATE TABLE contracts(id INTEGER PRIMARY KEY,submission_id INTEGER,contract_number TEXT,template_key TEXT,status TEXT,sent_at TEXT,accepted_at TEXT);');
+$db->exec("INSERT INTO contacts VALUES(1,'Collaudo','Nome','Cognome'); INSERT INTO submissions VALUES(1,1,'fluent_form_7');");
 $ledger=new TrbCrm\OnboardingLedger($db);$ledger->install();
 $insert=$db->prepare('INSERT INTO contracts VALUES(?,1,?,?,?, ?,?)');
 foreach([

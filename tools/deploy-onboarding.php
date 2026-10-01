@@ -72,6 +72,9 @@ try{
  if(($drive['provider']??'')!=='google_drive'||($drive['private']??false)!==true)throw new RuntimeException('Private Drive archive not ready');
  onboarding_stage('configuration');
  foreach(['ARTIST_PORTAL_SYNC_SECRET','OPENAI_API_KEY','CONTRACT_APPS_SCRIPT_SECRET','APP_KEY'] as $key)if(strlen((string)\TrbCrm\Env::get($key,''))<(in_array($key,['APP_KEY','ARTIST_PORTAL_SYNC_SECRET'],true)?32:16))throw new RuntimeException('Required configuration missing');
+ onboarding_stage('mail-health');
+ $mail=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_candidate_mail_health']);
+ if(($mail['transport']??'')!=='gmail'||($mail['sent_copy']??false)!==true||strtolower((string)($mail['mailbox']??''))!=='andrea.tognassi@trbrec.com')throw new RuntimeException('Adhesion email adapter not ready');
  onboarding_stage('signature-health');
  $health=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_health']);
  if(($health['version']??'')!=='2026.2'||($health['otp_configured']??false)!==true)throw new RuntimeException('Signature adapter not ready');
