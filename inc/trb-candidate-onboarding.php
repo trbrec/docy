@@ -3,6 +3,13 @@
 if(!defined('ABSPATH'))exit;
 
 function trb_onboarding_enabled(){return (bool)get_option('trb_candidate_onboarding_enabled',false);}
+/** These POST routes authenticate in their HMAC/browser permission callbacks. */
+function trb_onboarding_protocol_authentication($result){
+    $path=rtrim((string)parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH),'/');
+    if(($_SERVER['REQUEST_METHOD']??'')==='POST'&&in_array($path,array('/wp-json/trb/v1/onboarding/private','/wp-json/trb/v1/onboarding/public'),true))return null;
+    return $result;
+}
+add_filter('rest_authentication_errors','trb_onboarding_protocol_authentication',PHP_INT_MAX);
 function trb_onboarding_crm($payload){
     $settings=trb_crm_connector_settings();$body=wp_json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$time=(string)time();$nonce=bin2hex(random_bytes(16));
     if(strlen($settings['secret'])<32)return new WP_Error('onboarding_config','Collegamento adesioni non disponibile.');
