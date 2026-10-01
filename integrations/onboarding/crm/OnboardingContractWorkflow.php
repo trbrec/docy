@@ -108,14 +108,18 @@ final class OnboardingContractWorkflow
         if((int)($owner['id']??0)!==$userId||($owner['role']??'')!=='admin'||strcasecmp((string)($owner['email']??''),'andrea.tognassi@trbrec.com')!==0)throw new \RuntimeException('Invio riservato al titolare');
         return $owner;
     }
-    public static function send(\PDO $db,array $s,int $userId): void
+    public static function verifyPreview(array $metadata,string $expectedPreviewHash): void
+    {
+        if(trim((string)($metadata['subject']??''))===''||trim((string)($metadata['body']??''))===''||!preg_match('/^[a-f0-9]{64}$/D',$expectedPreviewHash)||!hash_equals($expectedPreviewHash,(string)($metadata['preview_hash']??'')))throw new \RuntimeException('Genera e conferma una nuova anteprima prima dell’invio');
+    }
+    public static function send(\PDO $db,array $s,int $userId,string $expectedPreviewHash): void
     {
         self::authorizedSender($db,$s,$userId);
         if(!OutboundMail::canSendContractTo((string)$s['email']))throw new \RuntimeException('Destinatario non autorizzato dal canale di invio');
         $c=$s['contract'];$m=is_array($c['metadata']??null)?$c['metadata']:[];
         if(in_array($c['status'],['sent','opened','otp_pending','accepted'],true))throw new \RuntimeException('Questo contratto risulta già inviato');
         $url=(string)($c['document_url']??'');$subject=trim((string)($m['subject']??''));$body=trim((string)($m['body']??''));
-        if($subject===''||$body===''||!hash_equals(self::hash((int)$s['id'],$c['template_key'],$s['email'],$url,$subject,$body),(string)($m['preview_hash']??'')))throw new \RuntimeException('Genera e conferma una nuova anteprima prima dell’invio');
+        self::verifyPreview($m,$expectedPreviewHash);
         $runtime=new OnboardingRuntime($db);$prepared=$runtime->prepare((int)$c['id'],0,$c['template_key']);$ledger=new OnboardingLedger($db);$p=$ledger->practice($prepared['id']);
         if(strcasecmp($p['email'],$s['email'])!==0||$p['snapshot']['first_name']!==$s['first_name']||$p['snapshot']['last_name']!==$s['last_name']||$p['snapshot']['artist_name']!==$s['artist_name'])throw new \RuntimeException('I dati anagrafici sono cambiati dopo la preparazione: verifica la pratica prima dell’invio');
         $artifact=$ledger->artifact($p['id'],'proposal');$archive=new OnboardingDrive(static fn($payload)=>OnboardingTransport::script((string)Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),$payload));$file=$archive->read($artifact['file_id'],$artifact['folder_id'],(string)$artifact['hash']);
