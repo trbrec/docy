@@ -38,7 +38,11 @@ if(!str_contains($index,"require_once __DIR__.'/app/OnboardingRuntime.php';")){
 $stage($indexPath,$index);
 $deployStage='crm-navigation';
 $viewPath=$crm.'/app/View.php';$view=(string)file_get_contents($viewPath);$anchor='<a href="#contracts" data-view="contracts">Contratti</a>';
-if(!str_contains($view,'href="/onboarding"')){if(substr_count($view,$anchor)!==1)throw new RuntimeException('Navigation anchor changed');$view=str_replace($anchor,$anchor.'<a href="/onboarding">Nuove adesioni</a>',$view);}
+if(!str_contains($view,'href="/onboarding"')){
+ $navigationPattern='~<a href="\#contracts" data-view="contracts">Contratti\s*</a>~';
+ if(preg_match_all($navigationPattern,$view,$navigationMatches)!==1)throw new RuntimeException('Navigation anchor changed');
+ $anchor=$navigationMatches[0][0];$view=str_replace($anchor,$anchor.'<a href="/onboarding">Nuove adesioni</a>',$view);
+}
 $stage($viewPath,$view);
 $deployStage='store-stage';
 $stage($store['directory'].'/inc/trb-onboarding-payments.php',(string)file_get_contents($theme.'/integrations/onboarding/store/trb-onboarding-payments.php'));
