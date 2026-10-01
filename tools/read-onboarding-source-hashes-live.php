@@ -10,4 +10,5 @@ require_once $crm.'/app/Core.php';\TrbCrm\Env::load($crm.'/.env');require_once $
 $health=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_health']);
 $out=[];
 foreach(\TrbCrm\OnboardingContractCatalog::all() as $model){$actual=$health['models'][$model['template_key']]??[];if(($actual['id']??'')!==$model['template_document_id']||($actual['anchors']??false)!==true||!preg_match('/^[a-f0-9]{64}$/D',(string)($actual['sha256']??'')))throw new RuntimeException('Model integrity unconfirmed');$out[$model['template_key']]=$actual['sha256'];}
-echo 'CONTRACT_SOURCE_HASHES '.json_encode($out,JSON_THROW_ON_ERROR)."\n";
+$path=dirname($crm).'/private/onboarding-source-hashes-'.$revision.'.json';
+if(file_put_contents($path,json_encode($out,JSON_THROW_ON_ERROR),LOCK_EX)===false)throw new RuntimeException('Integrity report unavailable');chmod($path,0600);
