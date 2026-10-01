@@ -22,16 +22,20 @@ try{
     if(!$item||$item['recipient']!=='spotify4@trbrec.com'||$item['owner_role']!=='admin'||strcasecmp($item['owner_email'],'andrea.tognassi@trbrec.com')!==0||!(int)$item['owner_active']||empty($item['confirmed_at']))throw new RuntimeException('Approval scope changed');
     if(in_array($item['status'],['pending','sending','sent'],true)){$db->rollBack();echo json_encode(['resumed'=>false,'already_resumed_or_sent'=>true]);exit;}
     if($item['status']!==''||$item['batch_status']!=='processing'||!empty($item['sent_at'])||empty($item['attempt_at'])||strtotime($item['attempt_at'].' UTC')>time()-300)throw new RuntimeException('Queue attempt is not eligible for repair');
-    $stage='unchanged-reviewed-pdf';
+    $stage='reviewed-contract-query';
     $q=$db->prepare('SELECT c.*,s.status submission_status,co.email operative_email FROM contracts c JOIN submissions s ON s.id=c.submission_id JOIN contacts co ON co.id=s.contact_id WHERE c.submission_id=? ORDER BY c.id DESC LIMIT 1 FOR UPDATE');
     $q->execute([519]);$contract=$q->fetch(PDO::FETCH_ASSOC);
     $meta=json_decode((string)($contract['metadata']??''),true)?:[];
     $payload=json_decode((string)$item['payload_json'],true)?:[];
     $sha='2dd4f558b33bffa96ca930f350f5c12a28c4c1476169cfc90289beba40aea5ee';
+    $stage='proposal-state';
     if(!$contract||$contract['operative_email']!=='spotify4@trbrec.com'||$contract['template_key']!=='trb_ccde'||!empty($contract['sent_at'])||$contract['status']!=='generated'||!empty($meta['onboarding']['gmail_message_id']))throw new RuntimeException('Proposal state changed');
-    foreach([(string)$contract['document_sha256'],(string)($meta['reviewed_sha256']??''),(string)($payload['reviewed_sha256']??'')] as $actual)if(!hash_equals($sha,$actual))throw new RuntimeException('Reviewed PDF changed');
+    foreach(['document-pdf'=>(string)$contract['document_sha256'],'metadata-pdf'=>(string)($meta['reviewed_sha256']??''),'payload-pdf'=>(string)($payload['reviewed_sha256']??'')] as $stage=>$actual)if(!hash_equals($sha,$actual))throw new RuntimeException('Reviewed PDF changed');
+    $stage='approved-payload';
     if(($payload['expected_recipient']??'')!=='spotify4@trbrec.com'||($payload['template_key']??'')!=='trb_ccde'||(int)($payload['submission_id']??0)!==519)throw new RuntimeException('Approved payload changed');
+    $stage='approved-email-body';
     if(!hash_equals((string)($payload['expected_email_hash']??''),hash('sha256',(string)$meta['subject']."\n".(string)$meta['body'])))throw new RuntimeException('Approved email changed');
+    $stage='preview-binding';
     if(!hash_equals((string)($meta['preview_hash']??''),\TrbCrm\OnboardingContractWorkflow::hash(519,'trb_ccde','spotify4@trbrec.com',(string)$contract['document_url'],(string)$meta['subject'],(string)$meta['body'])))throw new RuntimeException('Preview binding changed');
     $stage='no-previous-delivery';
     $q=$db->prepare('SELECT * FROM onboarding_practices WHERE contract_id=? FOR UPDATE');$q->execute([(int)$contract['id']]);$p=$q->fetch(PDO::FETCH_ASSOC);
