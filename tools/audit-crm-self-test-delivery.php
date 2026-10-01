@@ -13,10 +13,12 @@ $q = $db->prepare('SELECT b.status batch_status, bi.status item_status, bi.error
 $q->execute(['4DF00BA63E205FB204A1EE570C', 519]);
 $item = $q->fetch();
 if (!$item || strcasecmp((string)$item['recipient'], 'spotify4@trbrec.com') !== 0) { echo json_encode(['audit'=>'scope-unconfirmed']); exit(2); }
-$enum = static fn($value) => preg_match('/^[a-z_]{1,40}$/D', (string)$value) ? $value : 'other';
+$enum = static fn($value) => $value === '' ? 'empty' : (preg_match('/^[a-z_]{1,40}$/D', (string)$value) ? $value : 'other');
 $error = (string)($item['error_message'] ?? '');
 $error = preg_replace(['~https?://\S+~i', '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', '/[A-Za-z0-9_\-]{32,}/'], '[redacted]', $error);
 $report = ['audit'=>'confirmed', 'batch_status'=>$enum($item['batch_status']), 'item_status'=>$enum($item['item_status']), 'error'=>mb_substr($error, 0, 600)];
+$q=$db->query("SELECT COLUMN_TYPE,COLUMN_DEFAULT,IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='outbound_batch_items' AND COLUMN_NAME='status'");
+$report['status_column']=$q->fetch();
 $stage = 'contract-read';
 $q = $db->prepare('SELECT id,status,sent_at,metadata,document_sha256 FROM contracts WHERE submission_id=? ORDER BY id DESC LIMIT 1');
 $q->execute([519]); $contract = $q->fetch();
