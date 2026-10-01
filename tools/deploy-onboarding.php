@@ -3,7 +3,7 @@
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 ini_set('display_errors','0');
 $deployStage='bootstrap';
-set_exception_handler(static function($e){global $deployStage;fwrite(STDERR,'Onboarding installation not confirmed at '.$deployStage.".\n");exit(1);});
+set_exception_handler(static function($e){global $deployStage,$theme,$revision;if(isset($theme,$revision)&&preg_match('/^[a-f0-9]{40}$/D',$revision))file_put_contents($theme.'/.trb-onboarding-stage-'.$revision,$deployStage);fwrite(STDERR,'Onboarding installation not confirmed at '.$deployStage.".\n");exit(1);});
 $revision=$argv[1]??'';$theme=dirname(__DIR__);
 if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents($theme.'/.trb-deployed-sha'))!==$revision)exit(2);
 $crm='/home/customer/www/crm.trbrec.com/public_html';$private=dirname($crm).'/private';
@@ -14,7 +14,7 @@ function onboarding_wp(string $root,string $code): array{
     $script='define("WP_USE_THEMES",false);require '.var_export($root.'/wp-load.php',true).';'.$code;
     exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($script).' 2>/dev/null',$out,$status);
     $result=json_decode(implode("\n",$out),true);
-    if($status!==0||!is_array($result))throw new RuntimeException('WordPress operation unconfirmed');return $result;
+    if($status!==0||!is_array($result)){global $deployStage;$deployStage.=$status!==0?'-wp-exit':'-wp-json';throw new RuntimeException('WordPress operation unconfirmed');}return $result;
 }
 $storeRoot='/home/customer/www/store.trbrec.com/public_html';$portalRoot='/home/customer/www/artist.trbrec.com/public_html';
 $deployStage='store-bootstrap';
@@ -28,6 +28,7 @@ $stage=static function(string $path,string $next)use(&$changes,$backup){
     $changes[]=compact('path','next','original','temp');
 };
 foreach(glob($theme.'/integrations/onboarding/crm/*.php') as $file)$stage($crm.'/app/'.basename($file),(string)file_get_contents($file));
+$deployStage='crm-entry';
 $indexPath=$crm.'/index.php';$index=(string)file_get_contents($indexPath);
 $anchor='$router->dispatch($method,rtrim($path,\'/\')?:\'/\');';
 $hook="require_once __DIR__.'/app/OnboardingRuntime.php';\nif(\\TrbCrm\\OnboardingRuntime::dispatch(\$method,rtrim(\$path,'/')?:'/'))exit;\n";
@@ -35,9 +36,11 @@ if(!str_contains($index,"require_once __DIR__.'/app/OnboardingRuntime.php';")){
  if(substr_count($index,$anchor)!==1)throw new RuntimeException('Entry anchor changed');$index=str_replace($anchor,$hook.$anchor,$index);
 }
 $stage($indexPath,$index);
+$deployStage='crm-navigation';
 $viewPath=$crm.'/app/View.php';$view=(string)file_get_contents($viewPath);$anchor='<a href="#contracts" data-view="contracts">Contratti</a>';
 if(!str_contains($view,'href="/onboarding"')){if(substr_count($view,$anchor)!==1)throw new RuntimeException('Navigation anchor changed');$view=str_replace($anchor,$anchor.'<a href="/onboarding">Nuove adesioni</a>',$view);}
 $stage($viewPath,$view);
+$deployStage='store-stage';
 $stage($store['directory'].'/inc/trb-onboarding-payments.php',(string)file_get_contents($theme.'/integrations/onboarding/store/trb-onboarding-payments.php'));
 $functionsPath=$store['directory'].'/functions.php';$functions=(string)file_get_contents($functionsPath);
 if(!str_contains($functions,"'/inc/trb-onboarding-payments.php'"))$functions.="\n/** New contract installment checkout. */\nrequire_once get_stylesheet_directory() . '/inc/trb-onboarding-payments.php';\n";
