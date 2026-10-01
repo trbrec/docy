@@ -10,7 +10,7 @@ require_once $crm . '/app/Core.php';
 $db = \TrbCrm\Database::connection();
 $stage = 'batch-read';
 $q = $db->prepare('SELECT b.status batch_status, bi.status item_status, bi.error_message, bi.recipient, bi.contract_id FROM outbound_batches b JOIN outbound_batch_items bi ON bi.batch_id=b.id WHERE b.public_id=? AND bi.submission_id=?');
-$q->execute(['4DF00BA63E205FB204A1EE570C', 519]);
+$q->execute(['26C15375BED9E554E7462BA5F4', 519]);
 $item = $q->fetch();
 if (!$item || strcasecmp((string)$item['recipient'], 'spotify4@trbrec.com') !== 0) { echo json_encode(['audit'=>'scope-unconfirmed']); exit(2); }
 $enum = static fn($value) => $value === '' ? 'empty' : (preg_match('/^[a-z_]{1,40}$/D', (string)$value) ? $value : 'other');
@@ -19,6 +19,11 @@ $error = preg_replace(['~https?://\S+~i', '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{
 $report = ['audit'=>'confirmed', 'batch_status'=>$enum($item['batch_status']), 'item_status'=>$enum($item['item_status']), 'error'=>mb_substr($error, 0, 600)];
 $q=$db->query("SELECT COLUMN_TYPE,COLUMN_DEFAULT,IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='outbound_batch_items' AND COLUMN_NAME='status'");
 $report['status_column']=$q->fetch();
+$stage = 'queue-details-read';
+$q=$db->prepare('SELECT b.* FROM outbound_batches b JOIN outbound_batch_items bi ON bi.batch_id=b.id WHERE b.public_id=? AND bi.submission_id=?');
+$q->execute(['26C15375BED9E554E7462BA5F4',519]);$details=$q->fetch();
+foreach(['created_at','started_at','completed_at','confirmed_at','next_run_at','scheduled_at','updated_at'] as $field)if(array_key_exists($field,$details)&&($details[$field]===null||preg_match('/^[0-9T:\-+. Z]{1,40}$/D',(string)$details[$field])))$report['batch_'.$field]=$details[$field];
+$source=(string)file_get_contents($crm.'/app/SubmissionRepository.php');preg_match_all('/(?:public|private|protected)\s+(?:static\s+)?function\s+([A-Za-z0-9_]+)\s*\(/',$source,$methods);$report['queue_methods']=array_values(array_filter($methods[1],static fn($name)=>preg_match('/batch|outbound|queue|mail/i',$name)));
 $stage = 'contract-read';
 $q = $db->prepare('SELECT id,status,sent_at,metadata,document_sha256 FROM contracts WHERE submission_id=? ORDER BY id DESC LIMIT 1');
 $q->execute([519]); $contract = $q->fetch();
@@ -39,7 +44,7 @@ if ($practice) {
 $stage = 'preview-binding-read';
 require_once $crm.'/app/OnboardingContractWorkflow.php';
 $q=$db->prepare('SELECT payload_json FROM outbound_batch_payloads bp JOIN outbound_batch_items bi ON bi.id=bp.batch_item_id JOIN outbound_batches b ON b.id=bi.batch_id WHERE b.public_id=? AND bi.submission_id=?');
-$q->execute(['4DF00BA63E205FB204A1EE570C',519]);$payload=json_decode((string)$q->fetchColumn(),true)?:[];
+$q->execute(['26C15375BED9E554E7462BA5F4',519]);$payload=json_decode((string)$q->fetchColumn(),true)?:[];
 $subject=(string)($meta['subject']??'');$body=(string)($meta['body']??'');
 $q=$db->prepare('SELECT document_url,template_key FROM contracts WHERE id=?');$q->execute([(int)$contract['id']]);$binding=$q->fetch();
 $personal=(string)$binding['document_url'];$pending=\TrbCrm\OnboardingContractWorkflow::PREVIEW_URL;
