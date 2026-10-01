@@ -100,7 +100,8 @@ jobs:
           echo "Successfully deployed and verified ${deployed_sha}."
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^(integrations/onboarding/|inc/trb-candidate-onboarding|assets/js/onboarding/|tools/deploy-onboarding\.php)' >/dev/null; then
             if ! ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/deploy-onboarding.php' '${GITHUB_SHA}' --enable" >/dev/null 2>&1; then
-              onboarding_stage=$(ssh "${ssh_opts[@]}" "${remote}" "cat '${DEPLOY_PATH}/.trb-onboarding-stage-${GITHUB_SHA}' 2>/dev/null")
+              echo "Onboarding installer returned ${?}."
+              onboarding_stage=$(ssh "${ssh_opts[@]}" "${remote}" "cat '${DEPLOY_PATH}/.trb-onboarding-stage-${GITHUB_SHA}' 2>/dev/null || true")
               case "${onboarding_stage}" in bootstrap|store-bootstrap|store-bootstrap-wp-exit|store-bootstrap-wp-json|crm-entry|crm-navigation|store-stage|activation-snapshot|activation-snapshot-wp-exit|activation-snapshot-wp-json|file-install|database|archive|signature-health|contract-sources|portal-health|activation|activation-wp-exit|activation-wp-json) echo "Onboarding installation unconfirmed at ${onboarding_stage}." ;; *) echo "Onboarding installation unconfirmed at unknown stage." ;; esac
               exit 1
             fi
