@@ -120,7 +120,7 @@ final class OnboardingRuntime
     private function mail(string $email,string $subject,string $text): void
     {
         if(!self::enabled()||!filter_var($email,FILTER_VALIDATE_EMAIL)||preg_match('/[\r\n]/',$email))throw new \RuntimeException('Invio adesione non autorizzato');
-        $messageId='<trbonboarding.'.bin2hex(random_bytes(16)).'@crm.trbrec.com>';$boundary='=_trbonboarding_'.bin2hex(random_bytes(12));
+        $messageId='<trbcrm.onboarding.'.bin2hex(random_bytes(16)).'@crm.trbrec.com>';$boundary='=_trbonboarding_'.bin2hex(random_bytes(12));
         $subject=mb_encode_mimeheader(trim(preg_replace('/[\r\n]+/',' ',$subject)), 'UTF-8','B', "\r\n");
         $raw='To: '.$email."\r\n".'From: Andrea Tognassi - TRB rec <andrea.tognassi@trbrec.com>'."\r\n".'Reply-To: andrea.tognassi@trbrec.com'."\r\n".'Subject: '.$subject."\r\n".'Date: '.gmdate('D, d M Y H:i:s O')."\r\n".'Message-ID: '.$messageId."\r\n".'MIME-Version: 1.0'."\r\n".'X-Auto-Response-Suppress: All'."\r\n".'Content-Type: multipart/alternative; boundary="'.$boundary.'"'."\r\n\r\n".OutboundMail::alternativePayload(OutboundMail::withSignature($text),$boundary);
         $result=OutboundMail::candidateBridge(['action'=>'crm_candidate_mail_send','confirm'=>true,'operator_confirmed'=>true,'recipient'=>$email,'message_id'=>$messageId,'raw_base64'=>base64_encode($raw),'mime_sha256'=>hash('sha256',$raw)]);

@@ -126,7 +126,7 @@ final class OnboardingContractWorkflow
         if(!hash_equals((string)$artifact['sha256'],(string)($m['reviewed_sha256']??'')))throw new \RuntimeException('Conferma di aver controllato il PDF prima dell’invio');
         $bytes=base64_decode((string)($file['data']??''),true);if($bytes===false||!str_starts_with($bytes,'%PDF-')||!hash_equals($artifact['sha256'],hash('sha256',$bytes)))throw new \RuntimeException('Allegato privato non verificato');
         $body=self::wording(str_replace($url,$prepared['invite_url'],$body));$subject=str_replace($url,$prepared['invite_url'],$subject);
-        $event='onboarding:'.$p['id'].':proposal-email';$messageId='<trbproposal.'.$p['id'].'@crm.trbrec.com>';
+        $event='onboarding:'.$p['id'].':proposal-email';$messageId=self::proposalMessageId($p['id']);
         $raw=self::mime($p['email'],$subject,$body,$bytes,'Contratto-'.$c['contract_number'].'.pdf',$messageId,$p['created_at']);$sha=hash('sha256',$raw);
         $q=$db->prepare('SELECT status,payload FROM onboarding_events WHERE event_key=?');$q->execute([$event]);$previous=$q->fetch();
         if($previous)throw new \RuntimeException($previous['status']==='completed'?'Proposta già inviata: aggiorna la scheda.':'Esito del precedente invio da verificare: nessuna nuova email è stata inviata.');
@@ -177,6 +177,11 @@ final class OnboardingContractWorkflow
     {
         if(empty($receipt['gmail_thread_id'])||empty($receipt['mailbox']))throw new \RuntimeException('Ricevuta Gmail incompleta: verifica la posta inviata');
         $db->prepare('INSERT INTO candidate_mail_receipts(message_id,gmail_message_id,gmail_thread_id,mailbox) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE gmail_message_id=VALUES(gmail_message_id),gmail_thread_id=VALUES(gmail_thread_id)')->execute([$messageId,$receipt['gmail_message_id'],$receipt['gmail_thread_id'],$receipt['mailbox']]);
+    }
+    public static function proposalMessageId(string $practiceId): string
+    {
+        if(!preg_match('/^[a-f0-9]{32}$/D',$practiceId))throw new \RuntimeException('Identificativo pratica non valido');
+        return '<trbcrm.proposal.'.$practiceId.'@crm.trbrec.com>';
     }
     public static function mime(string $email,string $subject,string $body,string $pdf,string $filename,string $messageId,string $createdAt): string
     {
