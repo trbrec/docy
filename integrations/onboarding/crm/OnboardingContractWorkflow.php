@@ -37,7 +37,10 @@ final class OnboardingContractWorkflow
         }
         if(!empty($s['contract']['id'])){
             $ledger=new OnboardingLedger($db);$practice=$ledger->forContract((int)$s['contract']['id']);
-            if($practice&&$practice['snapshot']['template_key']!==$key)throw new \RuntimeException('Proposta già preparata con un altro modello: prepara una nuova proposta prima di cambiarlo.');
+            if($practice&&self::revisionNeeded($practice,$s,$key)){
+                if(!self::revisionAllowed($practice,$s['contract'],false))throw new \RuntimeException('La proposta già inviata o utilizzata conserva il documento originale: prepara una nuova proposta esplicita.');
+                $practice=null;$preview['attachment_message']='La bozza deve essere rigenerata con le procedure contrattuali aggiornate prima dell’invio.';
+            }
             if($practice&&$practice['snapshot']['template_key']===$key){
                 if(!empty($practice['cancelled_at'])||strtotime($practice['expires_at'])<=time())throw new \RuntimeException('Collegamento scaduto o proposta annullata: verifica la pratica prima dell’invio.');
                 foreach(['first_name','last_name','artist_name','email','contract_number'] as $field)if(($practice['snapshot'][$field]??'')!==($s[$field]??''))throw new \RuntimeException('I dati sono cambiati dopo la preparazione del PDF: verifica la proposta.');
@@ -53,6 +56,40 @@ final class OnboardingContractWorkflow
         }
         $preview['preview_token']=self::hash((int)$s['id'],$key,$s['email'],$preview['document_url'],$preview['subject'],$preview['body']);
         return $preview;
+    }
+    public static function revisionNeeded(array $practice,array $s,string $key): bool
+    {
+        $model=OnboardingContractCatalog::model($key);
+        if(($practice['snapshot']['template_key']??'')!==$key||($practice['snapshot']['source_sha256']??'')!==$model['source_sha256'])return true;
+        foreach(['first_name','last_name','artist_name','email','contract_number'] as $field)if(($practice['snapshot'][$field]??'')!==($s[$field]??''))return true;
+        return false;
+    }
+    public static function revisionAllowed(array $practice,array $contract,bool $interacted): bool
+    {
+        return !$interacted&&empty($contract['sent_at'])&&in_array($contract['status']??'',['draft','prepared','generated'],true)
+            &&($practice['state']??'')==='invited'&&empty($practice['cancelled_at'])&&empty($practice['selected_plan'])&&empty($practice['first_payment_date'])&&empty($practice['owner_approved_at'])&&empty($practice['signed_at']);
+    }
+    /** Called under the existing per-candidate send lock. Preserve every old PDF and issued proposal. */
+    public static function renewDraft(\PDO $db,array $s,string $key,int $userId): bool
+    {
+        $c=$s['contract']??[];if(empty($c['id']))return false;
+        $ledger=new OnboardingLedger($db);$p=$ledger->forContract((int)$c['id']);if(!$p||!self::revisionNeeded($p,$s,$key))return false;
+        if(!empty($c['metadata']['candidate_editable_doc'])||!empty($c['metadata']['candidate_review']['reason']))throw new \RuntimeException('La proposta contiene personalizzazioni: verifica le condizioni prima di rigenerarla.');
+        $suffix=$db->getAttribute(\PDO::ATTR_DRIVER_NAME)==='sqlite'?'':' FOR UPDATE';
+        $db->beginTransaction();try{
+            $q=$db->prepare('SELECT id,status,sent_at FROM contracts WHERE submission_id=? ORDER BY id DESC LIMIT 1'.$suffix);$q->execute([(int)$s['id']]);$current=$q->fetch();
+            $p=$ledger->practice($p['id'],true);
+            if((int)($current['id']??0)!==(int)$c['id'])throw new \RuntimeException('La proposta è cambiata: riapri l’anteprima');
+            $interacted=false;
+            foreach(['onboarding_email_challenges','onboarding_sessions','onboarding_events','onboarding_payments','onboarding_signatures'] as $table){$q=$db->prepare('SELECT COUNT(*) FROM '.$table.' WHERE practice_id=?');$q->execute([$p['id']]);if((int)$q->fetchColumn()>0)$interacted=true;}
+            if(!self::revisionAllowed($p,$current,$interacted))throw new \RuntimeException('La proposta è già stata inviata o utilizzata: richiede una nuova proposta esplicita, senza modificare il documento precedente.');
+            $meta=['revision'=>['previous_contract_id'=>(int)$c['id'],'reason'=>'Aggiornamento della bozza prima dell’invio','created_by'=>$userId]];
+            $db->prepare("INSERT INTO contracts(submission_id,contract_number,template_key,status,metadata) VALUES(?,?,?,'draft',?)")->execute([(int)$s['id'],$c['contract_number'],$key,json_encode($meta,JSON_THROW_ON_ERROR)]);$newId=(int)$db->lastInsertId();
+            $q=$db->prepare("UPDATE contracts SET status='void' WHERE id=? AND sent_at IS NULL AND status IN ('draft','prepared','generated')");$q->execute([(int)$c['id']]);if($q->rowCount()!==1)throw new \RuntimeException('La proposta precedente è cambiata');
+            $q=$db->prepare("UPDATE onboarding_practices SET state='cancelled',cancelled_at=? WHERE id=? AND state='invited' AND first_payment_date IS NULL");$q->execute([gmdate('c'),$p['id']]);if($q->rowCount()!==1)throw new \RuntimeException('La pratica precedente è cambiata');
+            $db->prepare('INSERT INTO audit_log(user_id,entity_type,entity_id,action,before_json,after_json,ip_hash) VALUES(?,?,?,?,?,?,?)')->execute([$userId,'contract',(string)$newId,'contract_draft_revised',json_encode(['contract_id'=>(int)$c['id']]),json_encode(['contract_id'=>$newId,'template_key'=>$key,'send_performed'=>false]),Security::ipHash()]);
+            $db->commit();return true;
+        }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
     }
     public static function hash(int $id,string $key,string $email,string $url,string $subject,string $body): string
     {

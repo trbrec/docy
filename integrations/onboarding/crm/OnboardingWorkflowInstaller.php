@@ -18,9 +18,17 @@ final class OnboardingWorkflowInstaller
         $original=$matches[0][0];$renamed=preg_replace('/function\\s+'.preg_quote($name,'/').'/','function trbLegacy'.ucfirst($name),$original);
         return str_replace($original,$wrapper."\n".$renamed,$source);
     }
+    private static function revisionHook(string $source): string
+    {
+        if(str_contains($source,'prepareCandidateContractReview as trbLegacyPrepareCandidateContractReview')){
+            $source=self::once($source,'$s=$this->candidateDraft($id,$key);$p=$this->previewContract($id,$key);', '$s=$this->candidateDraft($id,$key);OnboardingContractWorkflow::renewDraft($this->db,$s,$key,$userId);$s=$this->candidateDraft($id,$key);$p=$this->previewContract($id,$key);');
+        }
+        return str_replace('// TRB candidate onboarding workflow v2','// TRB candidate onboarding workflow v3',$source);
+    }
     public static function repository(string $source): string
     {
-        if(str_contains($source,'// TRB candidate onboarding workflow v2'))return $source;
+        if(str_contains($source,'// TRB candidate onboarding workflow v3'))return $source;
+        if(str_contains($source,'// TRB candidate onboarding workflow v2'))return self::revisionHook($source);
         if(str_contains($source,'// TRB candidate onboarding workflow v1')){
             foreach(['previewContract','sendContract','sendContractBatch'] as $method){
                 $pattern='~public\\s+function\\s+'.preg_quote($method,'~').'\\s*\\([^)]*\\)\\s*:\\s*array\\s*\\{.*?(?=public function trbLegacy'.ucfirst($method).'\\()~s';
@@ -91,7 +99,7 @@ PHP;
         if(!str_contains($source,"\$submission['contract_send_writable']"))$source=preg_replace('/(\\$submission\\[\\x27contract_draft_writable\\x27\\]\\s*=\\s*true;)/','$1'."\n        \$submission['contract_send_writable']=OnboardingContractWorkflow::candidate(\$submission);",$source,1,$count);
         if(!str_contains($source,"\$submission['contract_send_writable']"))throw new \RuntimeException('CRM candidate detail changed');
         $source=preg_replace('/(\\$item\\[\\x27contract_batch_eligible\\x27\\]\\s*=)([^;]+);/', '$1($2)||OnboardingContractWorkflow::candidate($item);', $source);
-        return str_replace('final class SubmissionRepository',"// TRB candidate onboarding workflow v2\nfinal class SubmissionRepository",$source);
+        return self::revisionHook(str_replace('final class SubmissionRepository',"// TRB candidate onboarding workflow v2\nfinal class SubmissionRepository",$source));
     }
     public static function javascript(string $source): string
     {

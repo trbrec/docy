@@ -7,16 +7,16 @@ require_once __DIR__.'/OnboardingPolicy.php';
 final class OnboardingContractCatalog
 {
     private const MODELS=[
-        'dds_pimd_49'=>['DDS','1uiETHRrjQXHSI7wMyuYXF8RNrBq18oa3ffDZuuk-Yiw','52b4811f3e8c17d4097e11a6e84af5713166535e7ab9e435d7a20a7cff75d19f',49,1,0,0],
-        'ddb_csae_600'=>['DDB12','1xsUOkcDT9LjwAXR7qjrTGH9OxEsH7MqSjxEQWkwgnkc','db94870fcd612ad3c763d7a2ef3d2529cbea723ee6f95151f550e61e939c2889',600,4,500,1000],
-        'ddb_ccad_600'=>['DDB','1JtCIYt7g64eusvVCQdWE_ghM292ibY71N8R3moDqrPQ','ef1a802e272b9a34d6334d43eb145c2535cb22e7d915aff1bf17e14bbf9fe3cc',600,4,500,1000],
-        'ddb_ccad_800'=>['DDB','1CeWuvHPA2d6fv8w_wXosDX4WmNIrWuLYydANHTOa9IA','2d4bc302408caef7e24d260f8d2a3bfc9a47ec89bf3dd2232960e329fd08a47f',800,5,500,1000],
-        'ddb_ccad_1200'=>['DDB','1l_4ENK1B5tcEulWjyAs5Byd-LedlgkiH2QeAqmhYe_U','423b14d3dec92e76eee9b933d8dc640f7c7095851cf114faf73cdb20bc58759a',1200,6,500,1000],
-        'ddb_trb_ccad_2000'=>['DDB-TRB','1Bm-ZOIabbdjANAP8ZFeE59E1Ajo9yvT-oi7VCK4OH3Y','527c2760dfb28c8c938fbd9bfbcedde6088c178bf2cba398bd2340c22892689e',2000,10,1000,2000],
-        'ddb_trb_ccad_3000'=>['DDB-TRB','1M25Fr0oaJu7Ld1QI_VD_zAyeAEqoSX12GPi31OL_-wI','572fccc2ffeb4ed4636f404f75890028538156f7f49faca64697ee7587e2dbfe',3000,12,1000,2000],
-        'ddb_trb_ccad_4000'=>['DDB-TRB','1OKkazZXljhR7n8wuxVW_tNG5zGZcTo3Mx8IUs25ti0o','0504c659064b3858b418ae604b17b647353862ed991102c6ca6bc026dc5e1c1d',4000,16,1000,2000],
-        'ddb_trb_ccad_6000'=>['DDB-TRB','1nwkUgDhcvGf5D8pRLuBDCtPl6LJVNQ9elk5Dt58V3JI','3e684b9e05dbe6466615dd55d766c33b05788505653a6f5404137762bd2a4e3e',6000,15,1000,2000],
-        'trb_ccde'=>['TRB','11QreYLe5GW4PsMW5pNR55MFxWR9N9PAj-1BfgLNAY3Q','4c699fdf7a422eba7743a9a16b3b97060d4b39d9645146e3ebb11a543e45be1a',0,0,0,0],
+        'dds_pimd_49'=>['DDS','1uiETHRrjQXHSI7wMyuYXF8RNrBq18oa3ffDZuuk-Yiw','15d6d6440b521e415c013dba31c5cd2567e9f3b37b918db3e38b9bb2e60c77a5',49,1,0,0],
+        'ddb_csae_600'=>['DDB12','1xsUOkcDT9LjwAXR7qjrTGH9OxEsH7MqSjxEQWkwgnkc','8b77ab75eabe048be62ae2a4af2e15e2d1eaf9e353782c187a03acaf49fa5b68',600,4,500,1000],
+        'ddb_ccad_600'=>['DDB','1JtCIYt7g64eusvVCQdWE_ghM292ibY71N8R3moDqrPQ','11e68cd83f73905a8b1bc869e069fde3fe9c7ce58d3d950081081c1bf5970dba',600,4,500,1000],
+        'ddb_ccad_800'=>['DDB','1CeWuvHPA2d6fv8w_wXosDX4WmNIrWuLYydANHTOa9IA','75e275a73cc1e8d7f42ef94fa3d8e4e884fc006e3cdea3525d723c3abfddbccb',800,5,500,1000],
+        'ddb_ccad_1200'=>['DDB','1l_4ENK1B5tcEulWjyAs5Byd-LedlgkiH2QeAqmhYe_U','c4d65aad90f3aa8d1a845aa49b0129ee86e23361f9e8f64630450c89367278c1',1200,6,500,1000],
+        'ddb_trb_ccad_2000'=>['DDB-TRB','1Bm-ZOIabbdjANAP8ZFeE59E1Ajo9yvT-oi7VCK4OH3Y','4ac0b16e01617245ec61ad050133e464dea9ae58b7b23b0a469553bda1a50d84',2000,10,1000,2000],
+        'ddb_trb_ccad_3000'=>['DDB-TRB','1M25Fr0oaJu7Ld1QI_VD_zAyeAEqoSX12GPi31OL_-wI','810a59b6d73d31d6b272e614e7dccacbaa4700032adfe94ee633ab90cd9acedb',3000,12,1000,2000],
+        'ddb_trb_ccad_4000'=>['DDB-TRB','1OKkazZXljhR7n8wuxVW_tNG5zGZcTo3Mx8IUs25ti0o','3103e9044c3af5a0a1fabcef34e993a110fbb1e0b403dc46071d57b9732376c3',4000,16,1000,2000],
+        'ddb_trb_ccad_6000'=>['DDB-TRB','1nwkUgDhcvGf5D8pRLuBDCtPl6LJVNQ9elk5Dt58V3JI','8183445bcb36423fbcb47bad137ba1bab66142d14a534dcc9ff505453d3bc2e8',6000,15,1000,2000],
+        'trb_ccde'=>['TRB','11QreYLe5GW4PsMW5pNR55MFxWR9N9PAj-1BfgLNAY3Q','0a17a9218d81187ecaa43037a0cc8c6bb5d048c90fe35d39b810eb4b414427e7',0,0,0,0],
     ];
     public static function all(): array {return array_map(self::model(...),array_keys(self::MODELS));}
     public static function model(string $key): array
