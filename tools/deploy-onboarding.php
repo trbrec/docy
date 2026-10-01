@@ -20,6 +20,7 @@ $storeRoot='/home/customer/www/store.trbrec.com/public_html';$portalRoot='/home/
 $deployStage='store-bootstrap';
 $store=onboarding_wp($storeRoot,'echo json_encode(["directory"=>get_stylesheet_directory(),"bridge"=>function_exists("trb_store_dds_bridge_secret")&&strlen(trb_store_dds_bridge_secret())>=32,"woocommerce"=>function_exists("wc_create_order")]);');
 if(!$store['bridge']||!$store['woocommerce']||!str_starts_with($store['directory'],$storeRoot.'/wp-content/themes/'))throw new RuntimeException('Store readiness missing');
+$deployStage='stage-files';
 $changes=[];
 $stage=static function(string $path,string $next)use(&$changes,$backup){
     $original=is_file($path)?file_get_contents($path):null;$temp=$backup.'/'.hash('sha256',$path).'.new';
@@ -28,6 +29,7 @@ $stage=static function(string $path,string $next)use(&$changes,$backup){
     $changes[]=compact('path','next','original','temp');
 };
 foreach(glob($theme.'/integrations/onboarding/crm/*.php') as $file)$stage($crm.'/app/'.basename($file),(string)file_get_contents($file));
+$deployStage='crm-routing';
 $indexPath=$crm.'/index.php';$index=(string)file_get_contents($indexPath);
 $anchor='$router->dispatch($method,rtrim($path,\'/\')?:\'/\');';
 $hook="require_once __DIR__.'/app/OnboardingRuntime.php';\nif(\\TrbCrm\\OnboardingRuntime::dispatch(\$method,rtrim(\$path,'/')?:'/'))exit;\n";
@@ -35,9 +37,11 @@ if(!str_contains($index,"require_once __DIR__.'/app/OnboardingRuntime.php';")){
  if(substr_count($index,$anchor)!==1)throw new RuntimeException('Entry anchor changed');$index=str_replace($anchor,$hook.$anchor,$index);
 }
 $stage($indexPath,$index);
+$deployStage='crm-navigation';
 $viewPath=$crm.'/app/View.php';$view=(string)file_get_contents($viewPath);$anchor='<a href="#contracts" data-view="contracts">Contratti</a>';
 if(!str_contains($view,'href="/onboarding"')){if(substr_count($view,$anchor)!==1)throw new RuntimeException('Navigation anchor changed');$view=str_replace($anchor,$anchor.'<a href="/onboarding">Nuove adesioni</a>',$view);}
 $stage($viewPath,$view);
+$deployStage='store-stage';
 $stage($store['directory'].'/inc/trb-onboarding-payments.php',(string)file_get_contents($theme.'/integrations/onboarding/store/trb-onboarding-payments.php'));
 $functionsPath=$store['directory'].'/functions.php';$functions=(string)file_get_contents($functionsPath);
 if(!str_contains($functions,"'/inc/trb-onboarding-payments.php'"))$functions.="\n/** New contract installment checkout. */\nrequire_once get_stylesheet_directory() . '/inc/trb-onboarding-payments.php';\n";
@@ -58,6 +62,7 @@ try{
  $deployStage='archive';
  $archive=new \TrbCrm\OnboardingPcloud($private.'/pcloud-demo-oauth.json');
  foreach(['/Discografia - TRB rec','/Discografia - DDB'] as $path)$archive->api('listfolder',['path'=>$path,'recursive'=>0]);
+ $deployStage='configuration';
  foreach(['ARTIST_PORTAL_SYNC_SECRET','OPENAI_API_KEY','CONTRACT_APPS_SCRIPT_SECRET','APP_KEY'] as $key)if(strlen((string)\TrbCrm\Env::get($key,''))<(in_array($key,['APP_KEY','ARTIST_PORTAL_SYNC_SECRET'],true)?32:16))throw new RuntimeException('Required configuration missing');
  $deployStage='signature-health';
  $health=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_health']);
