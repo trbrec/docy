@@ -16,7 +16,7 @@ $backup=$private.'/onboarding-'.$revision;
 if(!is_dir($backup)&&!mkdir($backup,0700,true))throw new RuntimeException('Backup unavailable');
 $lock=fopen($private.'/onboarding-deploy.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Busy');
 function onboarding_wp(string $root,string $code): array{
-    $script='define("WP_USE_THEMES",false);require '.var_export($root.'/wp-load.php',true).';'.$code;
+    $script='define("WP_USE_THEMES",false);define("DISABLE_WP_CRON",true);require '.var_export($root.'/wp-load.php',true).';'.$code;
     exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($script).' 2>/dev/null',$out,$status);
     $result=json_decode(implode("\n",$out),true);
     if($status!==0||!is_array($result)){global $deployStage;$deployStage.=$status!==0?'-wp-exit':'-wp-json';throw new RuntimeException('WordPress operation unconfirmed');}return $result;

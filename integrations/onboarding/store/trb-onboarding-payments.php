@@ -1,6 +1,13 @@
 <?php
-/** Purpose-bound WooCommerce checkout for NEW contract installments only. */
 if(!defined('ABSPATH'))exit;
+/** Use the dedicated HMAC permissions on precisely these Store POST routes. */
+function trb_onboarding_store_protocol_authentication($result){
+    $path=rtrim((string)parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH),'/');
+    if(($_SERVER['REQUEST_METHOD']??'')==='POST'&&in_array($path,array('/wp-json/trb/v1/onboarding/order','/wp-json/trb/v1/onboarding/payment-status'),true))return null;
+    return $result;
+}
+add_filter('rest_authentication_errors','trb_onboarding_store_protocol_authentication',PHP_INT_MAX);
+/** Purpose-bound WooCommerce checkout for NEW contract installments only. */
 
 function trb_onboarding_store_permission($request){
     $secret=function_exists('trb_store_dds_bridge_secret')?trb_store_dds_bridge_secret():'';
