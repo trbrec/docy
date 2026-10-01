@@ -20,7 +20,8 @@ final class OnboardingService
         $details=$this->ledger->details($p['id']);if(empty($details['privacy_acknowledged_at']))throw new \RuntimeException('Leggi prima le informazioni sulla lettura automatizzata dei documenti');
         $this->archive->artistFolder($p['snapshot']['group_code'],$p['snapshot']['artist_folder_id']);
         $grant=$this->ledger->upload($p['id'],$slot);
-        if(!$grant||strtotime($grant['expires_at'])<=time()||($grant['file']??null)!==$fileInfo){$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],$slot,$fileInfo);$grant['file']=$fileInfo;$this->ledger->saveUpload($p['id'],$slot,$grant);}
+        $files=$this->ledger->files($p['id']);$completed=$grant&&isset($files[$slot])&&(string)$files[$slot]['folder_id']===(string)$grant['folder_id'];
+        if(!$grant||$completed||strtotime($grant['expires_at'])<=time()||($grant['file']??null)!==$fileInfo){$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],$slot,$fileInfo);$grant['file']=$fileInfo;$this->ledger->saveUpload($p['id'],$slot,$grant);}
         return array_intersect_key($grant,array_flip(['provider','code','upload_endpoint','upload_method','expires_at','max_bytes']));
     }
     public function uploaded(array $p,string $slot): array
@@ -46,13 +47,13 @@ final class OnboardingService
         if($invoice['sdi_code']!==''&&!preg_match('/^[A-Za-z0-9]{7}$/D',$invoice['sdi_code']))throw new \RuntimeException('Il codice SDI deve contenere sette caratteri');
         if($invoice['pec']!==''&&!filter_var($invoice['pec'],FILTER_VALIDATE_EMAIL))throw new \RuntimeException('PEC non valida');
         foreach($invoice as $value)if(mb_strlen($value)>255)throw new \RuntimeException('Dato fiscale troppo lungo');
-        $details=['billing'=>$billing,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>gmdate('c'),'privacy_version'=>'2026.2'];
+        $details=['billing'=>$billing,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>gmdate('c'),'privacy_version'=>'2026.2-documents-20261002'];
         $this->ledger->saveDetails($p['id'],$details);return $this->view($this->ledger->practice($p['id']));
     }
     public function identity(array $p): array
     {
         $files=$this->ledger->files($p['id']);$documents=[];
-        foreach(['identity_front','identity_back'] as $slot){$file=$files[$slot]??null;if(!$file)throw new \RuntimeException('Completa documento fronte e retro');$documents[]=method_exists($this->archive,'identityDocument')?$this->archive->identityDocument($file):['url'=>$this->archive->url($file['file_id'],$file['folder_id'],(string)$file['hash']),'name'=>$file['name']];}
+        foreach(['identity_front','tax_front'] as $slot){$file=$files[$slot]??null;if(!$file)throw new \RuntimeException('Carica il fronte della carta d’identità e della tessera sanitaria o codice fiscale');$documents[]=['slot'=>$slot]+(method_exists($this->archive,'identityDocument')?$this->archive->identityDocument($file):['url'=>$this->archive->url($file['file_id'],$file['folder_id'],(string)$file['hash']),'name'=>$file['name']]);}
         $fields=$this->reader->extract($documents);$decision=$this->ledger->recordIdentity($p['id'],$fields,$this->today());
         return ['identity'=>$decision,'practice'=>$this->view($this->ledger->practice($p['id']))];
     }
@@ -118,7 +119,8 @@ final class OnboardingService
         $old=$this->ledger->artifact($p['id'],'final_pdf');if($old)return $old;
         $appendix=OnboardingContractCatalog::appendix($p);
         $grant=$this->ledger->upload($p['id'],'final_pdf');
-        if(!$grant||strtotime($grant['expires_at'])<=time()){$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],'final_pdf');$this->ledger->saveUpload($p['id'],'final_pdf',$grant);}
+        $files=$this->ledger->files($p['id']);$completed=$grant&&isset($files[$slot])&&(string)$files[$slot]['folder_id']===(string)$grant['folder_id'];
+        if(!$grant||$completed||strtotime($grant['expires_at'])<=time()){$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],'final_pdf');$this->ledger->saveUpload($p['id'],'final_pdf',$grant);}
         $payload=['action'=>'crm_onboarding_document','phase'=>'final','practice_id'=>$p['id'],'snapshot'=>$p['snapshot'],'details'=>$this->ledger->details($p['id']),'appendix'=>$appendix,'upload'=>$grant];
         try{$result=($this->script)($payload);}catch(\Throwable $e){$result=($this->script)($payload+['metadata_only'=>true]);}
         $file=$this->archive->verifyArtifact($grant,(string)($result['sha256']??''),$p['snapshot']['artist_folder_id']);

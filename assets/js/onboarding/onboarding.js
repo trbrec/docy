@@ -1,7 +1,8 @@
 (() => {
   'use strict';
   const cfg=window.TRBOnboarding, $=id=>document.getElementById(id);
-  let practice=null, busy=false;
+  let practice=null, busy=false, formPractice=null;
+  const documentSlots={identity_front:"Carta d’identità — fronte",tax_front:"Tessera sanitaria o tesserino del codice fiscale — fronte"}, confirmedFiles={};
   let invite=new URLSearchParams(location.hash.slice(1)).get('invite')||'';
   if(invite)history.replaceState(null,'',location.pathname+location.search);
   const money=cents=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(cents/100);
@@ -11,24 +12,38 @@
   async function run(fn){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){notice(e.message,true);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
   function show(id,yes){$(id).hidden=!yes;}
   function render(p){practice=p;show('email-step',false);show('practice-summary',true);$('artist-title').textContent=p.artist_name||`${p.first_name} ${p.last_name}`;$('practice-status').textContent=`${p.contract_number} · ${states[p.state]||'Pratica da verificare.'}`;
-    const editable=['invited','identity_review'].includes(p.state);show('details-step',editable&&!cfg.account);show('documents-step',editable&&!cfg.account&&!!p.details?.privacy_acknowledged_at);show('plans-step',p.state==='identity_matched'&&!cfg.account);show('register-step',p.state==='activation_ready'&&!cfg.account);show('signed-contract',['activation_ready','active'].includes(p.state));show('signature-audit',['activation_ready','active'].includes(p.state));
-    if(editable){for(const [k,v] of Object.entries(p.details?.billing||{})){const field=$('details-form').elements.namedItem(k);if(field)field.value=v;}for(const [k,v] of Object.entries({...p.details?.invoice,tax_code:p.details?.tax_code||''})){const field=$('details-form').elements.namedItem(k);if(field)field.value=v;}}
-    const uploadList=$('upload-list');uploadList.replaceChildren();for(const [slot,label] of Object.entries({identity_front:'Documento di identità · fronte',identity_back:'Documento di identità · retro',tax_front:'Documento fiscale · fronte',tax_back:'Documento fiscale · retro (facoltativo)'})){const div=document.createElement('div');div.className='upload-row';const labelEl=document.createElement('label');labelEl.textContent=label;const input=document.createElement('input');input.type='file';input.accept='.jpg,.jpeg,.png,.pdf';input.dataset.slot=slot;labelEl.append(input);div.append(labelEl);const button=document.createElement('button');button.type='button';button.textContent=p.files?.[slot]?'Sostituisci documento':'Carica documento';button.addEventListener('click',()=>run(()=>upload(slot,input.files?.[0])));div.append(button);if(p.files?.[slot]){const span=document.createElement('p');span.className='muted';span.textContent=`Caricato: ${p.files[slot].name}`;div.append(span);}uploadList.append(div);}
+    const editable=['invited','identity_review'].includes(p.state);show('details-step',editable&&!cfg.account);show('plans-step',p.state==='identity_matched'&&!cfg.account);show('register-step',p.state==='activation_ready'&&!cfg.account);show('signed-contract',['activation_ready','active'].includes(p.state));show('signature-audit',['activation_ready','active'].includes(p.state));
+    if(editable&&formPractice!==p.id){for(const [k,v] of Object.entries(p.details?.billing||{})){const field=$('details-form').elements.namedItem(k);if(field)field.value=v;}for(const [k,v] of Object.entries({...p.details?.invoice,tax_code:p.details?.tax_code||''})){const field=$('details-form').elements.namedItem(k);if(field)field.value=v;}}
+    const uploadList=$('upload-list');
+    if(formPractice!==p.id){
+      uploadList.replaceChildren();for(const [slot,label] of Object.entries(documentSlots)){
+        delete confirmedFiles[slot];
+        const div=document.createElement('div');div.className='upload-row';const labelEl=document.createElement('label');labelEl.textContent=label;
+        const input=document.createElement('input');input.type='file';input.accept='.jpg,.jpeg,.png,.pdf';input.dataset.slot=slot;input.id=`document-${slot}`;labelEl.append(input);div.append(labelEl);
+        const status=document.createElement('span');status.className='upload-status muted';status.id=`status-${slot}`;status.setAttribute('aria-live','polite');div.append(status);uploadList.append(div);
+      }formPractice=p.id;
+    }
+    for(const slot of Object.keys(documentSlots)){
+      $(`document-${slot}`).required=!p.files?.[slot];
+      $(`status-${slot}`).textContent=p.files?.[slot]?'Documento caricato e confermato.':'Nessun documento caricato.';
+    }
+    show('plan-schedule-note',Object.values(p.plans||{}).some(plan=>['monthly','recurring','two_installments'].includes(plan.kind)));
     const list=$('plan-list');list.replaceChildren();for(const [key,plan] of Object.entries(p.plans||{})){const label=document.createElement('label');label.className='plan';const radio=document.createElement('input');radio.type='radio';radio.name='plan_key';radio.value=key;radio.required=true;label.append(radio,document.createTextNode(plan.label));const small=document.createElement('p');small.className='muted';small.textContent=plan.kind==='free'?'Nessun versamento previsto.':plan.kind==='recurring'?`${money(plan.amounts_cents[0])} al mese, IVA inclusa.`:`${plan.amounts_cents.length} ${plan.amounts_cents.length===1?'versamento':'versamenti'} da ${money(plan.amounts_cents[0])} · totale ${money(plan.total_cents)}, IVA inclusa.`;label.append(small);list.append(label);}
     const payable=p.selected_plan&&p.selected_plan.kind!=='free'&&!['invited','identity_review','identity_matched','minor_blocked','cancelled'].includes(p.state);show('payment-step',!!payable);$('payment-note').textContent=p.access?.reason==='overdue'?'Una quota è scaduta. I servizi riprendono dopo il versamento confermato. Accesso, documenti e assistenza restano disponibili.':p.access?.reason==='payment_review'?'Un versamento richiede verifica. Contatta TRB rec prima di un nuovo tentativo.':'Le quote confermate e le scadenze sono riportate qui sotto.';
     const target=$('installments');target.replaceChildren();const rows=p.installments||[];if(rows.length){const table=document.createElement('table'),head=document.createElement('thead'),tr=document.createElement('tr');for(const t of ['Quota','Scadenza','Da versare']){const th=document.createElement('th');th.textContent=t;tr.append(th);}head.append(tr);table.append(head);const body=document.createElement('tbody');for(const row of rows){const r=document.createElement('tr');for(const v of [row.number,row.due_date,money(Math.max(0,row.amount_cents-row.confirmed_cents))]){const td=document.createElement('td');td.textContent=v;r.append(td);}body.append(r);}table.append(body);target.append(table);}
     const unpaid=rows.find(r=>+r.confirmed_cents<+r.amount_cents),today=(()=>{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Rome',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=t=>parts.find(p=>p.type===t).value;return `${get('year')}-${get('month')}-${get('day')}`;})();show('checkout',!!payable&&p.access?.reason!=='payment_review'&&(!rows.length||unpaid&&unpaid.due_date<=today));
   }
+  function validateFile(file){if(!/\.(jpg|jpeg|png|pdf)$/i.test(file.name)||file.size<1||file.size>10485760)throw new Error('Usa un’immagine o un PDF fino a 10 MB per documento.');}
   async function upload(slot,file){
-    if(!file)throw new Error('Seleziona prima il documento.');
-    if(!/\.(jpg|jpeg|png|pdf)$/i.test(file.name)||file.size<1||file.size>10485760)throw new Error('Usa un’immagine o un PDF fino a 10 MB.');
+    validateFile(file);
     const extension=file.name.split('.').pop().toLowerCase(),mime=extension==='pdf'?'application/pdf':extension==='png'?'image/png':'image/jpeg';
     const name=`${slot}.${extension}`;
     const grant=await api('upload',{slot,file:{name,size:file.size,mime}}),url=new URL(grant.upload_endpoint);
     if(grant.provider!=='google_drive'||url.protocol!=='https:'||url.hostname!=='www.googleapis.com'||!/^\/upload\/drive\/v3\/files\/[A-Za-z0-9_-]+$/.test(url.pathname)||!url.searchParams.has('upload_id'))throw new Error('Destinazione caricamento non valida.');
-    notice('Caricamento diretto su Google Drive in corso…');
+    notice(`Caricamento ${documentSlots[slot].toLowerCase()}…`);
+    $(`status-${slot}`).textContent='Caricamento in corso…';
     let uploaded=false;try{const response=await fetch(url.href,{method:'PUT',body:file,headers:{'Content-Type':mime},credentials:'omit',referrerPolicy:'no-referrer'});uploaded=response.ok;}catch(_){}
-    try{render(await api('uploaded',{slot}));notice('Documento caricato e verificato.');}catch(e){if(!uploaded)throw new Error('Caricamento non confermato. Aggiorna lo stato prima di ripetere il caricamento.');throw e;}
+    try{render(await api('uploaded',{slot}));confirmedFiles[slot]=file;}catch(e){$(`status-${slot}`).textContent='Caricamento da riprovare. Gli altri documenti confermati restano salvati.';if(!uploaded)throw new Error('Caricamento non confermato. I dati restano salvati: premi «Salva e continua» per riprovare.');throw e;}
   }
   function openDocument(file){
     if(!file||!['application/pdf','image/jpeg','image/png','application/xml'].includes(file.mime)||!file.data||file.size<1||file.size>10485760)throw new Error('Documento non disponibile.');
@@ -37,8 +52,17 @@
   }
   $('send-code').addEventListener('click',()=>run(async()=>{await api('challenge',{token:invite||undefined});show('email-form',true);notice('Codice inviato all’indirizzo della proposta.');}));
   $('email-form').addEventListener('submit',e=>{e.preventDefault();run(async()=>{render(await api('verify_email',{code:e.target.elements.code.value}));notice('Email confermata.');});});
-  $('details-form').addEventListener('submit',e=>{e.preventDefault();run(async()=>{const values=Object.fromEntries(new FormData(e.target));render(await api('details',{billing:{address_1:values.address_1,city:values.city,postcode:values.postcode,country:values.country,state:values.state,phone:values.phone},tax_code:values.tax_code,invoice:{vat_number:values.vat_number,sdi_code:values.sdi_code,pec:values.pec},privacy_acknowledged:values.privacy_acknowledged==='on'}));notice('Dati amministrativi salvati.');});});
-  $('verify-identity').addEventListener('click',()=>run(async()=>{notice('Lettura dei dati in corso…');const result=await api('identity');render(result.practice);notice(states[result.practice.state]);}));
+  $('details-form').addEventListener('submit',e=>{e.preventDefault();run(async()=>{
+    const selected={};for(const slot of Object.keys(documentSlots)){
+      const file=$(`document-${slot}`).files?.[0];if(file)validateFile(file);
+      if(!file&&!practice.files?.[slot])throw new Error(`Seleziona ${documentSlots[slot].toLowerCase()}.`);selected[slot]=file;
+    }
+    const values=Object.fromEntries(new FormData(e.target));
+    notice('Salvataggio dei dati in corso…');
+    render(await api('details',{billing:{address_1:values.address_1,city:values.city,postcode:values.postcode,country:values.country,state:values.state,phone:values.phone},tax_code:values.tax_code,invoice:{vat_number:values.vat_number,sdi_code:values.sdi_code,pec:values.pec},privacy_acknowledged:values.privacy_acknowledged==='on'}));
+    for(const slot of Object.keys(documentSlots))if(selected[slot]&&confirmedFiles[slot]!==selected[slot])await upload(slot,selected[slot]);
+    notice('Controllo dei dati dei due documenti in corso…');const result=await api('identity');render(result.practice);notice(states[result.practice.state]);
+  });});
   $('plans-form').addEventListener('submit',e=>{e.preventDefault();run(async()=>{const f=new FormData(e.target);render(await api('choose',{plan_key:f.get('plan_key'),proposal_read:f.get('proposal_read')==='on',proposal_sha256:practice.proposal_sha256}));notice('Formula confermata.');});});
   $('refresh').addEventListener('click',()=>run(async()=>{render(await api(cfg.account?'account':'refresh'));notice('Stato aggiornato.');}));
   $('checkout').addEventListener('click',()=>run(async()=>{const result=await api(cfg.account?'account_checkout':'checkout');if(result.practice)render(result.practice);if(result.checkout_url){const url=new URL(result.checkout_url);if(url.protocol!=='https:'||url.hostname!=='store.trbrec.com')throw new Error('Collegamento pagamento non valido.');location.assign(url.href);}else notice(result.next_due_date?`La prossima quota scade il ${result.next_due_date}.`:'Versamento confermato.');}));

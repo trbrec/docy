@@ -242,7 +242,7 @@ final class OnboardingLedger
     public function saveDetails(string $id,array $details): void
     {
         $this->locked(function()use($id,$details){$p=$this->practice($id,true);$this->open($p);
-            if(!in_array($p['state'],['invited','identity_review','identity_matched'],true))throw new RuntimeException('Dati amministrativi già confermati');
+            if(!in_array($p['state'],['invited','identity_review'],true))throw new RuntimeException('Dati amministrativi già confermati');
             $this->query('DELETE FROM onboarding_details WHERE practice_id=?',[$id]);$this->query('INSERT INTO onboarding_details(practice_id,details) VALUES(?,?)',[$id,$this->json($details)]);
         });
     }
@@ -275,8 +275,9 @@ final class OnboardingLedger
     {
         return $this->locked(function()use($id,$fields,$today){$p=$this->practice($id,true);$this->open($p);
             if(!in_array($p['state'],['invited','identity_review'],true))throw new RuntimeException('Verifica documenti non disponibile');
-            $files=$this->files($id);foreach(['identity_front','identity_back','tax_front'] as $slot)if(empty($files[$slot]))throw new RuntimeException('Completa documento di identità fronte/retro e documento fiscale');
-            $result=OnboardingPolicy::identity($p['snapshot'],$fields,$today);
+            $files=$this->files($id);foreach(['identity_front','tax_front'] as $slot)if(empty($files[$slot]))throw new RuntimeException('Completa il fronte della carta d’identità e della tessera sanitaria o codice fiscale');
+            $details=$this->details($id);if(empty($details['privacy_acknowledged_at']))throw new RuntimeException('Completa prima i dati e le informazioni sul trattamento');
+            $result=OnboardingPolicy::documents($p['snapshot'],$fields,(string)($details['tax_code']??''),$today);
             $this->query('DELETE FROM onboarding_identity_checks WHERE practice_id=?',[$id]);
             $this->query('INSERT INTO onboarding_identity_checks(practice_id,result,document_fingerprint,checked_at) VALUES(?,?,?,?)',[$id,$this->json($result),hash('sha256',$this->json($files)),gmdate('c')]);
             $state=['matched'=>'identity_matched','blocked'=>'minor_blocked','review'=>'identity_review'][$result['status']];

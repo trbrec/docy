@@ -47,6 +47,7 @@ jobs:
           node tests/onboarding-signature.test.js
           node tests/onboarding-document.test.js
           node tests/onboarding-drive.test.js
+          node tests/onboarding-form.test.js
           node --check assets/js/trb-demo-evaluation.js
           php tools/test-audio-inventory.php
           php tools/test-rights-owner-review.php

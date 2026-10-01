@@ -43,6 +43,23 @@ final class OnboardingPolicy
         return ['status'=>'matched', 'reason'=>'name_and_age', 'birth_date'=>$birth->format('Y-m-d')];
     }
 
+    /** The two fronts must agree with each other and the supplied tax code. */
+    public static function documents(array $contract,array $document,string $taxCode,string $today): array
+    {
+        $identity=self::identity($contract,$document,$today);
+        if($identity['status']!=='matched')return $identity;
+        try{$expiry=self::date((string)($document['expiry_date']??''));}
+        catch(InvalidArgumentException $e){return ['status'=>'review','reason'=>'identity_expiry_unreadable'];}
+        if($expiry<self::date($today))return ['status'=>'review','reason'=>'identity_expired'];
+        if(($document['tax_legible']??false)!==true)return ['status'=>'review','reason'=>'tax_document_unreadable'];
+        $taxIdentity=self::identity(['first_name'=>$document['first_name'],'last_name'=>$document['last_name']],['legible'=>true,'first_name'=>$document['tax_first_name']??'','last_name'=>$document['tax_last_name']??'','birth_date'=>$document['tax_birth_date']??''],$today);
+        if($taxIdentity['status']!=='matched'||($document['tax_birth_date']??'')!==$document['birth_date'])return ['status'=>'review','reason'=>'tax_identity_mismatch'];
+        $normalize=static fn(string $value):string=>mb_strtoupper(preg_replace('/\s+/u','',trim($value))??'');
+        $typed=$normalize($taxCode);$read=$normalize((string)($document['tax_code']??''));
+        if(!preg_match('/^(?:[A-Z0-9]{16}|[0-9]{11})$/D',$typed)||$typed!==$read)return ['status'=>'review','reason'=>'tax_code_mismatch'];
+        return ['status'=>'matched','reason'=>'identity_and_tax','birth_date'=>$document['birth_date'],'expiry_date'=>$document['expiry_date'],'tax_code'=>$read];
+    }
+
     private static function givenNames(string $value): array
     {
         if(class_exists('Normalizer'))$value=\Normalizer::normalize($value,\Normalizer::FORM_C)?:$value;
