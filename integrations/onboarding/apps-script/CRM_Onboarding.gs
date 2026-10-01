@@ -24,9 +24,16 @@ function TRBONB_command_(p){
  if(uploads.signature_audit){var audit=TRBONB_otpGet_('/dossiers/'+receipt.dossier_id+'/audit_trail',true);if(!/<AuditTrail[ >]/.test(audit))throw new Error('Prova di firma non disponibile.');var auditBlob=Utilities.newBlob(audit,'application/xml','Contratto-'+receipt.contract_number+'-prova-firma.xml');TRBONB_upload_(auditBlob,uploads.signature_audit);out.signature_audit_sha256=TRBONB_sha_(auditBlob.getBytes());}
  return out;
 }
+function TRBONB_activationLabels_(text){
+ var legacy='AVVIA LA PROCEDURA DI ATTIVAZIONE',lines=['CLICCA QUI PER AVVIARE','LA PROCEDURA DI ATTIVAZIONE'];
+ var count=function(label){return text.split(label).length-1;};
+ if(count(legacy)===1&&count(lines[0])===0&&count(lines[1])===1)return [legacy];
+ if(count(legacy)===0&&count(lines[0])===1&&count(lines[1])===1&&text.indexOf(lines.join('\n'))>=0)return lines;
+ throw new Error('Pulsante di attivazione mancante o duplicato.');
+}
 function TRBONB_document_(p){
  var s=p.snapshot||{},model=TRBONB_MODELS[s.template_key];if(!model||model!==s.template_document_id||!['proposal','final'].includes(p.phase))throw new Error('Modello adesione non autorizzato.');
- var original=DocumentApp.openById(model),text=[original.getBody(),original.getHeader(),original.getFooter()].filter(Boolean).map(function(x){return x.getText();}).join('\n');if(TRBONB_sha_(text)!==s.source_sha256)throw new Error('Il modello è cambiato: verifica le condizioni prima di preparare la proposta.');if(text.split('AVVIA LA PROCEDURA DI ATTIVAZIONE').length!==2)throw new Error('Pulsante di attivazione mancante o duplicato.');
+ var original=DocumentApp.openById(model),text=[original.getBody(),original.getHeader(),original.getFooter()].filter(Boolean).map(function(x){return x.getText();}).join('\n');if(TRBONB_sha_(text)!==s.source_sha256)throw new Error('Il modello è cambiato: verifica le condizioni prima di preparare la proposta.');var activationLabels=TRBONB_activationLabels_(text);
  var invite=String(p.invite_url||'');if(!/^https:\/\/artist\.trbrec\.com\/adesione\/#invite=[a-f0-9]{64}$/.test(invite))throw new Error('Collegamento adesione non valido.');
  var binding=TRBONB_sha_(JSON.stringify([p.practice_id,p.phase,s,p.appendix||null,p.details||null,invite])),key='TRBONB_DOC_'+p.practice_id+'_'+p.phase,props=PropertiesService.getScriptProperties(),lock=LockService.getScriptLock();lock.waitLock(30000);
  try{var old=JSON.parse(props.getProperty(key)||'null'),pdf;
@@ -34,7 +41,7 @@ function TRBONB_document_(p){
   else{
    var copy=p.upload&&p.upload.provider==='google_drive'?DriveApp.getFileById(model).makeCopy('Adesione '+s.contract_number+' '+p.phase,TRBONB_driveOwner_(p.upload.artist_folder_id)):DriveApp.getFileById(model).makeCopy('Adesione '+s.contract_number+' '+p.phase),privateCopy=p.upload&&p.upload.provider==='google_drive'?copy.setSharing(DriveApp.Access.PRIVATE,DriveApp.Permission.NONE):copy,doc=DocumentApp.openById(copy.getId()),sections=[doc.getBody(),doc.getHeader(),doc.getFooter()].filter(Boolean);
    var merge={'@colB@':Utilities.formatDate(new Date(),'Europe/Rome','dd/MM/yyyy'),'@colC@':s.contract_number,'@colD@':s.artist_name,'@colE@':s.first_name,'@colF@':s.last_name,'@onboarding_plan@':p.phase==='final'?String((p.appendix||{}).plan&&p.appendix.plan.label||'')+'; importi e scadenze riportati nell’allegato integrante del contratto.':'Da selezionare nel portale prima del primo versamento; il documento definitivo riporterà la formula confermata e le relative scadenze.'};
-   sections.forEach(function(section){Object.keys(merge).forEach(function(k){if(!String(merge[k]||'').trim())throw new Error('Campo proposta mancante.');section.replaceText(k,String(merge[k]));});var label='AVVIA LA PROCEDURA DI ATTIVAZIONE',hit=section.findText(label);if(hit){var t=hit.getElement().asText(),start=hit.getStartOffset(),end=hit.getEndOffsetInclusive();t.setLinkUrl(start,end,invite);t.setFontSize(start,end,11);t.setBold(start,end,true);t.setForegroundColor(start,end,'#ffffff');t.setUnderline(start,end,false);}if(/@col[A-Za-z]+@|@upload_url@|@onboarding_plan@/.test(section.getText()))throw new Error('Il documento contiene campi non compilati.');});
+   sections.forEach(function(section){Object.keys(merge).forEach(function(k){if(!String(merge[k]||'').trim())throw new Error('Campo proposta mancante.');section.replaceText(k,String(merge[k]));});activationLabels.forEach(function(label){var hit=section.findText(label);if(hit){var t=hit.getElement().asText(),start=hit.getStartOffset(),end=hit.getEndOffsetInclusive();t.setLinkUrl(start,end,invite);t.setFontSize(start,end,11);t.setBold(start,end,true);t.setForegroundColor(start,end,'#ffffff');t.setUnderline(start,end,false);}});if(/@col[A-Za-z]+@|@upload_url@|@onboarding_plan@/.test(section.getText()))throw new Error('Il documento contiene campi non compilati.');});
    if(p.phase==='final'){
     var a=p.appendix||{},details=p.details||{},plan=a.plan||{};if(a.practice_id!==p.practice_id||!a.sha256||!plan.label||!['single','two_installments','monthly','recurring','free'].includes(plan.kind))throw new Error('Formula contrattuale non fissata.');
     var body=doc.getBody();body.appendPageBreak();body.appendParagraph('ALLEGATO ALLA PROPOSTA '+s.contract_number).setHeading(DocumentApp.ParagraphHeading.HEADING1);body.appendParagraph('Formula scelta e dati amministrativi').setHeading(DocumentApp.ParagraphHeading.HEADING2);body.appendParagraph('La formula scelta è parte integrante del presente accordo: '+plan.label+'.');
@@ -71,3 +78,4 @@ function TRBONB_proof_(d,r){
  var done=d.state==='completed'&&!!d.signed_at&&!!artist[0].signed_at&&!!company[0].signed_at;
  return {success:true,dossier_id:r.dossier_id,status:done?'completed':'pending',artist_signed:!!artist[0].signed_at,company_signed:!!company[0].signed_at};
 }
+
