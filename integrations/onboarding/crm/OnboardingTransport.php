@@ -24,7 +24,7 @@ final class OnboardingTransport
     {
         $curl=curl_init($url);curl_setopt_array($curl,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$body,CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>55,CURLOPT_FOLLOWLOCATION=>$follow,CURLOPT_MAXREDIRS=>3,CURLOPT_REDIR_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_HTTPHEADER=>$headers]);
         $raw=curl_exec($curl);$status=(int)curl_getinfo($curl,CURLINFO_RESPONSE_CODE);curl_close($curl);$result=is_string($raw)?json_decode($raw,true):null;
-        if($status<200||$status>=300||!is_array($result)||isset($result['error'])||($result['success']??true)!==true)throw new \RuntimeException('Il sistema remoto non ha confermato l’operazione. La pratica resta recuperabile; nessuna attivazione automatica.');
+        if($status<200||$status>=300||!is_array($result)||isset($result['error'])||($result['success']??true)!==true)throw new \RuntimeException('Il sistema remoto non ha confermato l’operazione. La pratica resta recuperabile; nessuna attivazione automatica.',$status);
         return $result;
     }
     public static function verify(string $body,string $time,string $nonce,string $signature,string $secret,string $scope='onboarding-v1'): bool
