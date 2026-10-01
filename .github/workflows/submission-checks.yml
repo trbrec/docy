@@ -37,6 +37,14 @@ jobs:
           php tools/test-demo-context.php
           php tools/test-demo-email.php
           php tools/test-onboarding-pcloud.php
+          php tools/test-onboarding-drive.php
+          php tools/test-onboarding.php
+          php tools/test-onboarding-service.php
+          php tools/test-onboarding-adapters.php
+          php tools/test-onboarding-intake.php
+          node tests/onboarding-signature.test.js
+          node tests/onboarding-document.test.js
+          node tests/onboarding-drive.test.js
           node --check assets/js/trb-demo-evaluation.js
           php tools/test-audio-inventory.php
           php tools/test-rights-owner-review.php
