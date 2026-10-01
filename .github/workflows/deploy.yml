@@ -98,6 +98,10 @@ jobs:
             "php -l '${DEPLOY_PATH}/functions.php' && php -l '${DEPLOY_PATH}/inc/trb-resource-monitor.php'"
           echo "Successfully deployed and verified ${deployed_sha}."
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^(integrations/onboarding/|inc/trb-candidate-onboarding|assets/js/onboarding/|tools/(deploy-onboarding|onboarding-deploy-status)\.php)' >/dev/null; then
+            if ! ssh "${ssh_opts[@]}" "${remote}" "php -l '${DEPLOY_PATH}/tools/deploy-onboarding.php' && php -l '${DEPLOY_PATH}/tools/onboarding-deploy-status.php'" >/dev/null 2>&1; then
+              echo "Onboarding installer failed its server syntax check."
+              exit 1
+            fi
             if onboarding_result=$(ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/onboarding-deploy-status.php' '${GITHUB_SHA}' --enable" 2>/dev/null) && printf '%s' "${onboarding_result}" | python3 -c 'import sys,json;sys.exit(0 if json.load(sys.stdin).get("success") is True else 1)' 2>/dev/null; then
               echo "Onboarding installer completed."
             else
