@@ -43,13 +43,16 @@ if(!str_contains($index,"require_once __DIR__.'/app/OnboardingRuntime.php';")){
 }
 $stage($indexPath,$index);
 onboarding_stage('crm-navigation');
-$viewPath=$crm.'/app/View.php';$view=(string)file_get_contents($viewPath);$anchor='<a href="#contracts" data-view="contracts">Contratti</a>';
-if(!str_contains($view,'href="/onboarding"')){
- $navigationPattern='~<a href="\#contracts" data-view="contracts">Contratti\s*</a>~';
- if(preg_match_all($navigationPattern,$view,$navigationMatches)!==1)throw new RuntimeException('Navigation anchor changed');
- $anchor=$navigationMatches[0][0];$view=str_replace($anchor,$anchor.'<a href="/onboarding">Nuove adesioni</a>',$view);
-}
+$viewPath=$crm.'/app/View.php';$view=(string)file_get_contents($viewPath);
+$view=preg_replace('~<a href="/onboarding">[^<]*</a>~','',$view);
 $stage($viewPath,$view);
+onboarding_stage('crm-workflow');
+require_once $theme.'/integrations/onboarding/crm/OnboardingWorkflowInstaller.php';
+$repositoryPath=$crm.'/app/SubmissionRepository.php';
+$stage($repositoryPath,\TrbCrm\OnboardingWorkflowInstaller::repository((string)file_get_contents($repositoryPath)));
+$assetPaths=glob($crm.'/assets/app-*.js');$patchedAssets=0;
+foreach($assetPaths as $assetPath){$js=(string)file_get_contents($assetPath);if(!str_contains($js,"document.getElementById('sendContract')"))continue;$stage($assetPath,\TrbCrm\OnboardingWorkflowInstaller::javascript($js));$patchedAssets++;}
+if(!$patchedAssets)throw new RuntimeException('CRM send UI not found');
 onboarding_stage('store-stage');
 $stage($store['directory'].'/inc/trb-onboarding-payments.php',(string)file_get_contents($theme.'/integrations/onboarding/store/trb-onboarding-payments.php'));
 $functionsPath=$store['directory'].'/functions.php';$functions=(string)file_get_contents($functionsPath);
