@@ -51,10 +51,29 @@ final class OnboardingWorkflowInstaller
         }
         return str_replace('// TRB candidate onboarding workflow v2','// TRB candidate onboarding workflow v3',$source);
     }
+    private static function previewIntegrityHook(string $source): string
+    {
+        $source=self::once($source,<<<'OLD'
+if($s&&OnboardingContractWorkflow::handles($s,trim($templateKey)))return OnboardingContractWorkflow::preview($this->db,$s,trim($templateKey),$this->trbLegacyPreviewContract($id,$templateKey));
+OLD,<<<'NEW'
+if($s&&OnboardingContractWorkflow::handles($s,trim($templateKey))){
+            $preview=OnboardingContractWorkflow::preview($this->db,$s,trim($templateKey),$this->trbLegacyPreviewContract($id,$templateKey));
+            $preview['preview_token']=$this->previewHash($id,trim($templateKey),(string)$s['email'],(string)$preview['document_url'],(string)$preview['subject'],(string)$preview['body']);
+            return $preview;
+        }
+NEW);
+        $source=self::once($source,<<<'OLD'
+OnboardingContractWorkflow::send($this->db,$s,$userId);
+OLD,<<<'NEW'
+OnboardingContractWorkflow::send($this->db,$s,$userId,$this->previewHash($id,(string)$s['contract']['template_key'],(string)$s['email'],(string)$s['contract']['document_url'],(string)($s['contract']['metadata']['subject']??''),(string)($s['contract']['metadata']['body']??'')));
+NEW);
+        return str_replace('// TRB candidate onboarding workflow v3','// TRB candidate onboarding workflow v4',$source);
+    }
     public static function repository(string $source): string
     {
-        if(str_contains($source,'// TRB candidate onboarding workflow v3'))return $source;
-        if(str_contains($source,'// TRB candidate onboarding workflow v2'))return self::revisionHook($source);
+        if(str_contains($source,'// TRB candidate onboarding workflow v4'))return $source;
+        if(str_contains($source,'// TRB candidate onboarding workflow v3'))return self::previewIntegrityHook($source);
+        if(str_contains($source,'// TRB candidate onboarding workflow v2'))return self::previewIntegrityHook(self::revisionHook($source));
         if(str_contains($source,'// TRB candidate onboarding workflow v1')){
             foreach(['previewContract','sendContract','sendContractBatch'] as $method){
                 $pattern='~public\\s+function\\s+'.preg_quote($method,'~').'\\s*\\([^)]*\\)\\s*:\\s*array\\s*\\{.*?(?=public function trbLegacy'.ucfirst($method).'\\()~s';
@@ -125,7 +144,7 @@ PHP;
         if(!str_contains($source,"\$submission['contract_send_writable']"))$source=preg_replace('/(\\$submission\\[\\x27contract_draft_writable\\x27\\]\\s*=\\s*true;)/','$1'."\n        \$submission['contract_send_writable']=OnboardingContractWorkflow::candidate(\$submission);",$source,1,$count);
         if(!str_contains($source,"\$submission['contract_send_writable']"))throw new \RuntimeException('CRM candidate detail changed');
         $source=preg_replace('/(\\$item\\[\\x27contract_batch_eligible\\x27\\]\\s*=)([^;]+);/', '$1($2)||OnboardingContractWorkflow::candidate($item);', $source);
-        return self::revisionHook(str_replace('final class SubmissionRepository',"// TRB candidate onboarding workflow v2\nfinal class SubmissionRepository",$source));
+        return self::previewIntegrityHook(self::revisionHook(str_replace('final class SubmissionRepository',"// TRB candidate onboarding workflow v2\nfinal class SubmissionRepository",$source)));
     }
     public static function javascript(string $source): string
     {

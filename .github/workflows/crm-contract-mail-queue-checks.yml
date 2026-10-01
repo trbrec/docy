@@ -1,7 +1,7 @@
 name: CRM contract mail queue regression checks
 on:
   push:
-    branches: [codex/fix-crm-contract-mail-queue-20261001]
+    branches: [codex/fix-crm-contract-mail-queue-20261001, codex/fix-crm-preview-integrity-20261001]
 permissions:
   contents: read
 jobs:

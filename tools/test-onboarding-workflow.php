@@ -15,6 +15,13 @@ workflow_check($mime===OnboardingContractWorkflow::mime('qa@example.invalid','Pr
 try{OnboardingContractWorkflow::mime("qa@example.invalid\r\nBcc: other@example.invalid",'Proposta','Test',$pdf,'QA.pdf',$id,'2026-10-01');throw new \LogicException('Header injection accepted');}catch(\RuntimeException $expected){}
 $expected=hash_hmac('sha256',implode("\n",[1,'ddb_ccad_600','qa@example.invalid',OnboardingContractWorkflow::PREVIEW_URL,'Proposta','Corpo']),str_repeat('s',64));
 workflow_check(OnboardingContractWorkflow::hash(1,'ddb_ccad_600',' QA@example.invalid ',OnboardingContractWorkflow::PREVIEW_URL,'Proposta','Corpo')===$expected,'Existing CRM preview hash compatible');
+$coreFingerprint=hash_hmac('sha256','fixture-current-crm-policy-pdf-address-mode',str_repeat('s',64));
+$verifiedMeta=['subject'=>'Proposta','body'=>'Corpo','preview_hash'=>$coreFingerprint];
+OnboardingContractWorkflow::verifyPreview($verifiedMeta,$coreFingerprint);
+foreach([null,$expected,hash_hmac('sha256','changed-pdf-or-address-mode',str_repeat('s',64))] as $invalid){
+    $changedMeta=$verifiedMeta;$changedMeta['preview_hash']=$invalid;
+    try{OnboardingContractWorkflow::verifyPreview($changedMeta,$coreFingerprint);throw new \LogicException('Incomplete or stale CRM preview fingerprint accepted');}catch(\RuntimeException $expectedFailure){}
+}
 $db=new \PDO('sqlite::memory:');$db->exec('CREATE TABLE contract_templates(template_key TEXT,display_name TEXT,email_subject TEXT,email_body TEXT,followup_subject TEXT,followup_body TEXT,document_source_url TEXT,is_active INTEGER)');
 $db->exec("INSERT INTO contract_templates VALUES('ddb_ccad_600','DDB 600','Proposta {numero_contratto}','Ciao {nome_contatto}, Carica qui il contratto firmato: {link_contratto}','Promemoria','{link_contratto}','https://docs.google.com/document/d/fixture',1)");
 $s=['id'=>1,'first_name'=>'Mario','last_name'=>'Rossi','artist_name'=>'QA','email'=>'qa@example.invalid','contract_number'=>'TRB-QA'];
@@ -67,7 +74,22 @@ public function find(){ $submission['contract_draft_writable']=true; }
 }
 SOURCE;
 $patched=OnboardingWorkflowInstaller::repository($fixture);workflow_check($patched===OnboardingWorkflowInstaller::repository($patched),'Installer idempotent');workflow_check(str_contains($patched,'OnboardingContractWorkflow::send'),'Single send hook');workflow_check(str_contains($patched,'public function sendContractBatch'),'Existing async batch preserved');
-$v2=str_replace('// TRB candidate onboarding workflow v3','// TRB candidate onboarding workflow v2',str_replace('OnboardingContractWorkflow::renewDraft($this->db,$s,$key,$userId);$s=$this->candidateDraft($id,$key);','',$patched));workflow_check(OnboardingWorkflowInstaller::repository($v2)===$patched,'Existing v2 installation upgrades to the revision guard');
+$v3=str_replace([<<<'NEW_PREVIEW'
+if($s&&OnboardingContractWorkflow::handles($s,trim($templateKey))){
+            $preview=OnboardingContractWorkflow::preview($this->db,$s,trim($templateKey),$this->trbLegacyPreviewContract($id,$templateKey));
+            $preview['preview_token']=$this->previewHash($id,trim($templateKey),(string)$s['email'],(string)$preview['document_url'],(string)$preview['subject'],(string)$preview['body']);
+            return $preview;
+        }
+NEW_PREVIEW,<<<'NEW_SEND'
+OnboardingContractWorkflow::send($this->db,$s,$userId,$this->previewHash($id,(string)$s['contract']['template_key'],(string)$s['email'],(string)$s['contract']['document_url'],(string)($s['contract']['metadata']['subject']??''),(string)($s['contract']['metadata']['body']??'')));
+NEW_SEND,'// TRB candidate onboarding workflow v4'],[<<<'OLD_PREVIEW'
+if($s&&OnboardingContractWorkflow::handles($s,trim($templateKey)))return OnboardingContractWorkflow::preview($this->db,$s,trim($templateKey),$this->trbLegacyPreviewContract($id,$templateKey));
+OLD_PREVIEW,<<<'OLD_SEND'
+OnboardingContractWorkflow::send($this->db,$s,$userId);
+OLD_SEND,'// TRB candidate onboarding workflow v3'],$patched);
+workflow_check(OnboardingWorkflowInstaller::repository($v3)===$patched,'Existing v3 installation retains current CRM fingerprint rules');
+workflow_check(str_contains($patched,"\$preview['preview_token']=\$this->previewHash"),'Personalized preview is bound by the existing CRM validator');
+$v2=str_replace('// TRB candidate onboarding workflow v3','// TRB candidate onboarding workflow v2',str_replace('OnboardingContractWorkflow::renewDraft($this->db,$s,$key,$userId);$s=$this->candidateDraft($id,$key);','',$v3));workflow_check(OnboardingWorkflowInstaller::repository($v2)===$patched,'Existing v2 installation upgrades to the revision guard');
 try{OnboardingWorkflowInstaller::repository('<?php final class SubmissionRepository {
 use CandidateContractReview;}');throw new \LogicException('Missing anchors accepted');}catch(\RuntimeException $expected){}
 echo "Normal CRM preview/save/send and batch hooks, PDF MIME, personalized instructions, unchanged preview binding and guarded installer verified.\n";
