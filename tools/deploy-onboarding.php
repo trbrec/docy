@@ -74,6 +74,7 @@ try{
  require_once $crm.'/app/OnboardingLedger.php';require_once $crm.'/app/OnboardingDrive.php';require_once $crm.'/app/OnboardingTransport.php';require_once $crm.'/app/OnboardingContractCatalog.php';
  onboarding_stage('database');
  $ledger=new \TrbCrm\OnboardingLedger(\TrbCrm\Database::connection());$ledger->install();
+ \TrbCrm\OnboardingWorkflowInstaller::ensureQueueStatus(\TrbCrm\Database::connection());
  onboarding_stage('archive-config');
  $drive=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_drive_health']);
  if(($drive['provider']??'')!=='google_drive'||($drive['private']??false)!==true)throw new RuntimeException('Private Drive archive not ready');
