@@ -16,7 +16,7 @@ jobs:
           MYSQL_DATABASE: queue_fixture
         ports: [33306:3306]
         options: >-
-          --health-cmd="mysqladmin ping -h localhost -pqueue-fixture"
+          --health-cmd="mysql --protocol=TCP -h127.0.0.1 -uroot -pqueue-fixture -e 'SELECT 1' queue_fixture"
           --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
