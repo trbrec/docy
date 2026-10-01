@@ -124,7 +124,7 @@ final class OnboardingRuntime
     {
         return ['contracts'=>OnboardingIntake::choices($this->db),'candidates'=>(new OnboardingEntry($this->db))->candidates()];
     }
-    private function prepare(int $contractId,int $folderId,string $key): array
+    public function prepare(int $contractId,int $folderId=0,string $key=''): array
     {
         if(!self::enabled())throw new \RuntimeException('Nuove adesioni non ancora abilitate');
         $folderId=$contractId;
