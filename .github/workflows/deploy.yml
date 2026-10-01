@@ -108,6 +108,12 @@ jobs:
             echo 'Synthetic OpenAI document reading verified.'
           fi
 
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" -- tools/read-onboarding-source-hashes-live.php | grep -qx 'tools/read-onboarding-source-hashes-live.php'; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/read-onboarding-source-hashes-live.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+            source_hashes=$(ssh "${ssh_opts[@]}" "${remote}" "cat '/home/customer/www/crm.trbrec.com/private/onboarding-source-hashes-${GITHUB_SHA}.json'" 2>/dev/null || true)
+            printf '%s' "${source_hashes}" | python3 -c 'import json,re,sys; d=json.load(sys.stdin); keys=("dds_pimd_49","ddb_csae_600","ddb_ccad_600","ddb_ccad_800","ddb_ccad_1200","ddb_trb_ccad_2000","ddb_trb_ccad_3000","ddb_trb_ccad_4000","ddb_trb_ccad_6000","trb_ccde"); assert set(d)==set(keys) and all(isinstance(d[k],str) and re.fullmatch("[a-f0-9]{64}",d[k]) for k in keys); [print("CONTRACT_SOURCE_HASH "+k+" "+d[k]) for k in keys]'
+            ssh "${ssh_opts[@]}" "${remote}" "rm -f '/home/customer/www/crm.trbrec.com/private/onboarding-source-hashes-${GITHUB_SHA}.json'" >/dev/null 2>&1
+          fi
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/record-ssh-deployment.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           echo "WordPress deployment safety net aligned with the verified SSH revision."
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^(integrations/onboarding/|inc/trb-candidate-onboarding|assets/js/onboarding/|tools/(deploy-onboarding|onboarding-deploy-status|onboarding-readiness)\.php)' >/dev/null; then

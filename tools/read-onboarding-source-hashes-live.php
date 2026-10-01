@@ -1,5 +1,5 @@
 <?php
-/** Revision-bound, read-only model integrity inspection. No customer records or document contents. */
+/** Revision-bound, read-only model integrity inspection after the activation callout edit. No customer records or document contents. */
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 ini_set('display_errors','0');
 set_exception_handler(static function(){fwrite(STDERR,"Contract source hashes unconfirmed.\n");exit(1);});
