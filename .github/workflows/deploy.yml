@@ -103,11 +103,10 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" \
             "php -l '${DEPLOY_PATH}/functions.php' && php -l '${DEPLOY_PATH}/inc/trb-resource-monitor.php'"
           echo "Successfully deployed and verified ${deployed_sha}."
-          # Read functional source only; no config, database, user files or credentials.
-          mkdir -m 700 -p "${RUNNER_TEMP}/crm-workflow-inspection"
-          ssh "${ssh_opts[@]}" "${remote}" "cat /home/customer/www/crm.trbrec.com/public_html/app/SubmissionRepository.php" > "${RUNNER_TEMP}/crm-workflow-inspection/SubmissionRepository.php" 2>/dev/null
-          ssh "${ssh_opts[@]}" "${remote}" "cat /home/customer/www/crm.trbrec.com/public_html/assets/app-20260831-r27.js" > "${RUNNER_TEMP}/crm-workflow-inspection/app.js" 2>/dev/null
-          ssh "${ssh_opts[@]}" "${remote}" "cat /home/customer/www/crm.trbrec.com/public_html/app/Controller.php" > "${RUNNER_TEMP}/crm-workflow-inspection/Controller.php" 2>/dev/null
+          if git diff --name-only "${GITHUB_SHA}^" "${GITHUB_SHA}" -- tools/verify-onboarding-reader-live.php | grep -qx 'tools/verify-onboarding-reader-live.php'; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/verify-onboarding-reader-live.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+            echo 'Synthetic OpenAI document reading verified.'
+          fi
 
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/record-ssh-deployment.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           echo "WordPress deployment safety net aligned with the verified SSH revision."
@@ -183,12 +182,7 @@ jobs:
             echo "Owner-only demo submission, processing and email composition verified."
           fi
 
-      - name: Retain functional CRM workflow inspection for this repair
-        uses: actions/upload-artifact@v4
-        with:
-          name: crm-workflow-inspection
-          path: ${{ runner.temp }}/crm-workflow-inspection
-          retention-days: 1
+
           if-no-files-found: error
 
   trigger-daily-site-health:

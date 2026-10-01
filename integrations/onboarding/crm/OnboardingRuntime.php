@@ -35,6 +35,17 @@ final class OnboardingRuntime
     private static function today(): string{return (new \DateTimeImmutable('now',new \DateTimeZone('Europe/Rome')))->format('Y-m-d');}
     public static function dispatch(string $method,string $path): bool
     {
+        if($method==='GET'&&self::enabled()&&preg_match('~^/api/submissions/(\d+)/contracts/(\d+)/document$~D',$path,$match)){
+            $owner=Security::requireUser();if(!in_array($owner['role']??'',['admin','operator'],true))Response::json(['error'=>'Accesso non consentito'],403);
+            $db=Database::connection();$q=$db->prepare('SELECT id FROM contracts WHERE id=? AND submission_id=?');$q->execute([(int)$match[2],(int)$match[1]]);
+            if(!$q->fetchColumn())Response::json(['error'=>'Contratto non trovato'],404);
+            $runtime=new self($db);$practice=$runtime->ledger->forContract((int)$match[2]);
+            if($practice){
+                try{$file=$runtime->service->document($practice,'proposal')['file'];
+                    header('Content-Type: application/pdf');header('Content-Disposition: inline; filename="Contratto.pdf"');header('Cache-Control: private, no-store');header('Referrer-Policy: no-referrer');header('X-Content-Type-Options: nosniff');echo base64_decode($file['data'],true);return true;
+                }catch(\Throwable $e){Response::json(['error'=>'PDF privato non disponibile: riprova o verifica la pratica'],409);return true;}
+            }
+        }
         if(!in_array($path,['/onboarding','/webhooks/artist-portal/onboarding'],true))return false;
         if(!self::enabled()){Response::json(['error'=>'Nuove adesioni non ancora abilitate'],503);return true;}
         try{
