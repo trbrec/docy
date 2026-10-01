@@ -6,7 +6,13 @@ final class Env{public static function get($key,$default=''){return $key==='APP_
 require_once __DIR__.'/../integrations/onboarding/crm/OnboardingContractWorkflow.php';
 require_once __DIR__.'/../integrations/onboarding/crm/OnboardingWorkflowInstaller.php';
 function workflow_check($ok,$message){if(!$ok)throw new \RuntimeException($message);}
-$pdf='%PDF-synthetic';$id='<trbproposal.'.str_repeat('a',32).'@crm.trbrec.com>';
+$pdf='%PDF-synthetic';$id=OnboardingContractWorkflow::proposalMessageId(str_repeat('a',32));
+workflow_check(preg_match('/^<trbcrm\.[a-zA-Z0-9.]+@crm\.trbrec\.com>$/D',$id)===1,'Proposal ID accepted by the published Gmail bridge');
+workflow_check($id===OnboardingContractWorkflow::proposalMessageId(str_repeat('a',32)),'Proposal ID remains stable across attempts');
+workflow_check($id!==OnboardingContractWorkflow::proposalMessageId(str_repeat('b',32)),'Separate practices have separate message IDs');
+foreach(['',str_repeat('a',31),str_repeat('a',32)."\r\nBcc: qa@example.invalid"] as $invalid){
+    try{OnboardingContractWorkflow::proposalMessageId($invalid);throw new \LogicException('Invalid practice accepted');}catch(\RuntimeException $expectedFailure){}
+}
 $mime=OnboardingContractWorkflow::mime('qa@example.invalid','Proposta contratto','Apri la tua adesione',$pdf,'Contratto-QA.pdf',$id,'2026-10-01T10:00:00Z');
 workflow_check(str_contains($mime,'multipart/mixed; boundary="'),'MIME mixed header');
 workflow_check(str_contains($mime,'Content-Disposition: attachment; filename="Contratto-QA.pdf"'),'PDF attachment');
