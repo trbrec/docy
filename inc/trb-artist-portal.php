@@ -1082,7 +1082,7 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 			unset( $requirement );
 		}
 	}
-	return $requirements;
+	return apply_filters( 'trb_portal_artist_profile_requirements', $requirements, $user_id );
 }
 
 /** Return a transparent completion score and the exact missing requirements. */
