@@ -108,6 +108,9 @@ jobs:
             echo 'Synthetic OpenAI document reading verified.'
           fi
 
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" -- tools/read-onboarding-source-hashes-live.php | grep -qx 'tools/read-onboarding-source-hashes-live.php'; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/read-onboarding-source-hashes-live.php' '${GITHUB_SHA}'"
+          fi
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/record-ssh-deployment.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           echo "WordPress deployment safety net aligned with the verified SSH revision."
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^(integrations/onboarding/|inc/trb-candidate-onboarding|assets/js/onboarding/|tools/(deploy-onboarding|onboarding-deploy-status|onboarding-readiness)\.php)' >/dev/null; then
