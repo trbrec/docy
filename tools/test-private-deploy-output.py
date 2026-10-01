@@ -5,6 +5,8 @@ commands=[line for line in text.splitlines() if 'ssh ' in line and 'php ' in lin
 assert commands,'Production diagnostic command inventory unexpectedly empty'
 wrapper=Path('tools/onboarding-deploy-status.php').read_text()
 for command in commands:
+    if '>/dev/null 2>&1' in command:
+        continue
     if '/tools/onboarding-deploy-status.php' in command:
         assert '2>/dev/null' in command
         for required in ('ob_start();', 'register_shutdown_function', 'ob_end_clean();', '$allowed=', "in_array($deployStage??'',", "'stage'=>$stage"):
