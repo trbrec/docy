@@ -183,8 +183,6 @@ jobs:
           fi
 
 
-          if-no-files-found: error
-
   trigger-daily-site-health:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
