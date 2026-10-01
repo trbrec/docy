@@ -45,12 +45,15 @@ $stage($indexPath,$index);
 onboarding_stage('crm-navigation');
 $viewPath=$crm.'/app/View.php';$view=(string)file_get_contents($viewPath);
 $view=preg_replace('~<a href="/onboarding">[^<]*</a>~','',$view);
+$view=preg_replace('~(/assets/app-[A-Za-z0-9_.-]+\.js)([^\"]*)~', '$1$2&onboardingWorkflow=20261001r2',$view);
 $stage($viewPath,$view);
 onboarding_stage('crm-workflow');
 require_once $theme.'/integrations/onboarding/crm/OnboardingWorkflowInstaller.php';
+onboarding_stage('crm-workflow-repository');
 $repositoryPath=$crm.'/app/SubmissionRepository.php';
 $stage($repositoryPath,\TrbCrm\OnboardingWorkflowInstaller::repository((string)file_get_contents($repositoryPath)));
-$assetPaths=glob($crm.'/assets/app-*.js');$patchedAssets=0;
+onboarding_stage('crm-workflow-assets');
+preg_match_all('~/assets/(app-[A-Za-z0-9_.-]+\.js)~',$view,$scriptMatches);$assetPaths=array_map(static fn($name)=>$crm.'/assets/'.$name,array_unique($scriptMatches[1]));$patchedAssets=0;
 foreach($assetPaths as $assetPath){$js=(string)file_get_contents($assetPath);if(!str_contains($js,"document.getElementById('sendContract')"))continue;$stage($assetPath,\TrbCrm\OnboardingWorkflowInstaller::javascript($js));$patchedAssets++;}
 if(!$patchedAssets)throw new RuntimeException('CRM send UI not found');
 onboarding_stage('store-stage');

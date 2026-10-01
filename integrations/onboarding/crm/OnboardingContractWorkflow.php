@@ -36,6 +36,27 @@ final class OnboardingContractWorkflow
     {
         return str_ireplace(['Carica qui il contratto firmato','Carica il contratto firmato','caricare il contratto firmato'],['Completa l’attivazione sul Portale Artisti','Completa l’attivazione sul Portale Artisti','completare l’attivazione sul Portale Artisti'],$text);
     }
+    public static function batch(object $repository,\PDO $db,array $input,int $userId): array
+    {
+        $items=$input['items']??[];
+        if(($input['confirm']??false)!==true||!is_array($items)||!$items||count($items)>10)throw new \RuntimeException('Conferma da 1 a 10 candidature per il lotto');
+        $preview=$repository->previewContractBatch($items);$token=(string)($input['batch_token']??'');
+        if($token===''||!hash_equals($preview['batch_token'],$token))throw new \RuntimeException('Rigenera l’anteprima del lotto prima dell’invio');
+        if($preview['blocked']>0)throw new \RuntimeException('Il lotto contiene proposte non disponibili');
+        $public=strtoupper(substr(bin2hex(random_bytes(16)),0,26));
+        $q=$db->prepare('SELECT public_id,status FROM outbound_batches WHERE idempotency_key=?');$q->execute([$token]);$old=$q->fetch();if($old)return ['batch_id'=>$old['public_id'],'status'=>$old['status'],'duplicate'=>true];
+        $db->prepare("INSERT INTO outbound_batches(public_id,created_by,action_type,mode,status,idempotency_key,confirmed_at) VALUES(?,?,'contract_send','production','processing',?,CURRENT_TIMESTAMP)")->execute([$public,$userId,$token]);$batchId=(int)$db->lastInsertId();$sent=0;$failed=0;
+        foreach($preview['items'] as $index=>$p){
+            $id=(int)$items[$index]['submission_id'];$db->prepare("INSERT INTO outbound_batch_items(batch_id,submission_id,recipient,status) VALUES(?,?,?,'pending')")->execute([$batchId,$id,$p['recipient']]);$itemId=(int)$db->lastInsertId();
+            try{
+                $saved=$repository->saveContract($id,['template_key'=>$p['template_key'],'document_url'=>$p['document_url'],'subject'=>$p['subject'],'body'=>$p['body'],'followup_subject'=>$p['followup_subject'],'followup_1_days'=>7,'followup_2_days'=>14,'followup_1_body'=>$p['followup_body'],'followup_2_body'=>$p['followup_body'],'preview_token'=>$p['preview_token']],$userId);
+                $repository->sendContract($id,$userId);
+                $db->prepare("UPDATE outbound_batch_items SET contract_id=?,status='sent',sent_at=CURRENT_TIMESTAMP WHERE id=?")->execute([(int)$saved['contract']['id'],$itemId]);$sent++;
+            }catch(\Throwable $e){$db->prepare("UPDATE outbound_batch_items SET status='failed',error_message=? WHERE id=?")->execute([mb_substr($e->getMessage(),0,2000),$itemId]);$failed++;}
+        }
+        $status=$failed===0?'completed':($sent?'partial':'failed');$db->prepare('UPDATE outbound_batches SET status=?,completed_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$status,$batchId]);
+        return ['batch_id'=>$public,'status'=>$status,'sent'=>$sent,'failed'=>$failed,'duplicate'=>false];
+    }
     public static function send(\PDO $db,array $s,int $userId): void
     {
         $owner=Security::requireUser();if((int)$owner['id']!==$userId||($owner['role']??'')!=='admin'||strcasecmp($owner['email'],'andrea.tognassi@trbrec.com')!==0)throw new \RuntimeException('Invio riservato al titolare');

@@ -124,7 +124,7 @@ jobs:
                 echo "Onboarding installer completed."
               else
                 onboarding_stage=$(printf '%s' "${onboarding_result}" | python3 -c 'import sys,json; d=json.load(sys.stdin); s=d.get("stage", "unknown"); print(s if isinstance(s,str) and len(s)<50 and all(c.islower() or c=="-" for c in s) else "unknown")' 2>/dev/null || true)
-                case "${onboarding_stage}" in revision-guard|bootstrap|store-bootstrap|store-bootstrap-wp-exit|store-bootstrap-wp-json|crm-entry|crm-navigation|store-stage|activation-snapshot|activation-snapshot-wp-exit|activation-snapshot-wp-json|file-install|database|archive|archive-config|archive-trb|archive-ddb|configuration|signature-health|contract-sources|portal-health|activation|activation-wp-exit|activation-wp-json) echo "Onboarding installation unconfirmed at ${onboarding_stage}." ;; *) echo "Onboarding installation unconfirmed at unknown stage." ;; esac
+                case "${onboarding_stage}" in revision-guard|bootstrap|store-bootstrap|store-bootstrap-wp-exit|store-bootstrap-wp-json|crm-entry|crm-navigation|crm-workflow|crm-workflow-repository|crm-workflow-assets|store-stage|activation-snapshot|activation-snapshot-wp-exit|activation-snapshot-wp-json|file-install|database|archive|archive-config|archive-trb|archive-ddb|configuration|signature-health|contract-sources|portal-health|activation|activation-wp-exit|activation-wp-json) echo "Onboarding installation unconfirmed at ${onboarding_stage}." ;; *) echo "Onboarding installation unconfirmed at unknown stage." ;; esac
                 exit 1
               fi
               echo "New onboarding adapters, contract sources and scheduled worker verified."

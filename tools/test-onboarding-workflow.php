@@ -21,7 +21,14 @@ $p=OnboardingContractWorkflow::preview($db,$s,'ddb_ccad_600');
 workflow_check($p['onboarding']&&$p['plugin_dispatch_available']&&str_contains($p['body'],'Ciao Mario'),'Normal preview personalization');
 workflow_check(!str_contains($p['body'],'Carica qui il contratto firmato'),'Old signed PDF upload instruction removed');
 workflow_check($db->query('SELECT COUNT(*) FROM sqlite_master WHERE name LIKE \'onboarding_%\'')->fetchColumn()===0,'Preview sends no email and creates no practice');
-$fixture='<?php final class SubmissionRepository {public function previewContract($id,$templateKey){' . "\n        \$templateKey=trim(\$templateKey);\n        if(\$templateKey==='')throw new RuntimeException('Scegli un modello contrattuale');" . '} public function sendContract($submission,$userId){' . "if(!\$submission||!\$submission['contract']) throw new RuntimeException('Salva prima la bozza del contratto');" . '}public function batch($items){' . "\n            \$this->contractWriteContext((int)(\$item['submission_id']??0));" . '} public function find(){' . "\n        \$submission['contract_draft_writable']=true;" . '}}';
-$patched=OnboardingWorkflowInstaller::repository($fixture);workflow_check($patched===OnboardingWorkflowInstaller::repository($patched),'Installer idempotent');workflow_check(str_contains($patched,'OnboardingContractWorkflow::send'),'Single send hook');workflow_check(str_contains($patched,'OnboardingContractWorkflow::handles($candidate'),'Batch send hook');
+$fixture=<<<'SOURCE'
+<?php final class SubmissionRepository {
+public function previewContract(int $id,string $templateKey): array {return [];}
+public function sendContract(int $id,int $userId): array {return [];}
+public function sendContractBatch(array $input,int $userId): array {return [];}
+public function find(){ $submission['contract_draft_writable']=true; }
+}
+SOURCE;
+$patched=OnboardingWorkflowInstaller::repository($fixture);workflow_check($patched===OnboardingWorkflowInstaller::repository($patched),'Installer idempotent');workflow_check(str_contains($patched,'OnboardingContractWorkflow::send'),'Single send hook');workflow_check(str_contains($patched,'OnboardingContractWorkflow::batch'),'Batch send hook');
 try{OnboardingWorkflowInstaller::repository('<?php final class SubmissionRepository {}');throw new \LogicException('Missing anchors accepted');}catch(\RuntimeException $expected){}
 echo "Normal CRM preview/save/send and batch hooks, PDF MIME, personalized instructions, unchanged preview binding and guarded installer verified.\n";
