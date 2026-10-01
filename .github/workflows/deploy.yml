@@ -52,11 +52,13 @@ jobs:
           node tests/demo-chunk-upload.test.js
           php tools/test-demo-email.php
           php tools/test-onboarding-pcloud.php
+          php tools/test-onboarding-drive.php
           php tools/test-onboarding.php
           php tools/test-onboarding-service.php
           php tools/test-onboarding-adapters.php
           node tests/onboarding-signature.test.js
           node tests/onboarding-document.test.js
+          node tests/onboarding-drive.test.js
           php tools/test-store-benefits.php
           php tools/test-demo-services.php
           php tools/test-rights-owner-review.php
@@ -109,7 +111,7 @@ jobs:
               exit 1
             fi
             if printf '%s' "${onboarding_readiness}" | python3 -c 'import sys,json;sys.exit(0 if json.load(sys.stdin).get("archive_connection") is False else 1)' 2>/dev/null; then
-              echo "Onboarding activation pending: contract archive API authorization is required. Existing features continue to deploy."
+              echo "Onboarding activation pending: private Google Drive archive verification is required. Existing features continue to deploy."
             else
               if ! ssh "${ssh_opts[@]}" "${remote}" "php -l '${DEPLOY_PATH}/tools/deploy-onboarding.php' && php -l '${DEPLOY_PATH}/tools/onboarding-deploy-status.php'" >/dev/null 2>&1; then
                 echo "Onboarding installer failed its server syntax check."

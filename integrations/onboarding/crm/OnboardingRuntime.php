@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace TrbCrm;
 require_once __DIR__.'/OnboardingService.php';
-require_once __DIR__.'/OnboardingPcloud.php';
+require_once __DIR__.'/OnboardingDrive.php';
 require_once __DIR__.'/OnboardingIdentity.php';
 require_once __DIR__.'/OnboardingTransport.php';
 
@@ -11,17 +11,17 @@ final class OnboardingRuntime
 {
     private OnboardingLedger $ledger;
     private OnboardingService $service;
-    private OnboardingPcloud $archive;
+    private OnboardingDrive $archive;
     private \Closure $script;
     public function __construct(private \PDO $db)
     {
         $this->ledger=new OnboardingLedger($db);
-        $this->archive=new OnboardingPcloud(dirname(__DIR__,2).'/private/pcloud-demo-oauth.json');
         $portal=static fn(array $p)=>OnboardingTransport::signed('https://artist.trbrec.com/wp-json/trb/v1/onboarding/private',(string)Env::get('ARTIST_PORTAL_SYNC_SECRET',''),$p,'onboarding-portal-v1');
         $this->script=static function(array $p):array{
             if(($p['action']??'')==='crm_onboarding_document'&&empty($p['invite_url']))$p['invite_url']='https://artist.trbrec.com/adesione/#invite='.hash_hmac('sha256','onboarding-invite-v1|'.$p['practice_id'],(string)Env::get('APP_KEY',''));
             return OnboardingTransport::script((string)Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),$p);
         };
+        $this->archive=new OnboardingDrive($this->script);
         $this->service=new OnboardingService($this->ledger,$this->archive,new OnboardingIdentity((string)Env::get('OPENAI_API_KEY','')),$portal,$this->script);
     }
     public static function enabled(): bool
@@ -59,7 +59,7 @@ final class OnboardingRuntime
                     case 'refresh':$runtime->service->refreshPayments($id);$runtime->service->refreshSignature($runtime->ledger->practice($id));$notice='Verifica completata.';break;
                     case 'cancel':$runtime->ledger->cancel($id,$owner);$notice='Adesione annullata. Nessuna nuova scadenza sarà generata.';break;
                     case 'review_identity':$runtime->ledger->recordIdentity($id,['first_name'=>(string)($_POST['first_name']??''),'last_name'=>(string)($_POST['last_name']??''),'birth_date'=>(string)($_POST['birth_date']??''),'legible'=>true],self::today());$runtime->ledger->recordEvent($id,'identity_reviewed',['owner_id'=>(int)$owner['id']]);$notice='Trascrizione revisionata con gli stessi controlli su nome e maggiore età.';break;
-                    case 'document':$url=$runtime->service->document($runtime->ledger->practice($id),(string)($_POST['slot']??''))['url'];Response::redirect($url);break;
+                    case 'document':$file=$runtime->service->document($runtime->ledger->practice($id),(string)($_POST['slot']??''))['file'];header('Content-Type: '.$file['mime']);header('Content-Disposition: inline; filename="'.preg_replace('/[^A-Za-z0-9._-]/','_',$file['name']).'"');header('Cache-Control: private, no-store');header('X-Content-Type-Options: nosniff');echo base64_decode($file['data'],true);exit;
                     default:throw new \RuntimeException('Operazione non disponibile');
                 }
             }elseif($method!=='GET')Response::json(['error'=>'Metodo non consentito'],405);
@@ -87,7 +87,7 @@ final class OnboardingRuntime
         return match($action){
             'view'=>$this->service->view($p),
             'details'=>$this->service->details($p,$input),
-            'upload'=>$this->service->upload($p,(string)($input['slot']??'')),
+            'upload'=>$this->service->upload($p,(string)($input['slot']??''),(array)($input['file']??[])),
             'uploaded'=>$this->service->uploaded($p,(string)($input['slot']??'')),
             'identity'=>$this->service->identity($p),
             'choose'=>$this->service->choose($p,(string)($input['plan_key']??''),(string)($input['proposal_sha256']??''),($input['proposal_read']??false)===true),
@@ -117,25 +117,24 @@ final class OnboardingRuntime
     private function preparationChoices(): array
     {
         $q=$this->db->query("SELECT ct.id,ct.contract_number,ct.template_key,c.artist_name,c.first_name,c.last_name FROM contracts ct JOIN submissions s ON s.id=ct.submission_id JOIN contacts c ON c.id=s.contact_id LEFT JOIN onboarding_practices p ON p.contract_id=ct.id WHERE ct.status IN ('draft','prepared') AND ct.sent_at IS NULL AND ct.accepted_at IS NULL AND p.id IS NULL ORDER BY ct.id DESC LIMIT 100");
-        $contracts=$q->fetchAll(\PDO::FETCH_ASSOC);$folders=[];$folderError=false;
-        foreach(['/Discografia - TRB rec','/Discografia - DDB'] as $root){try{$list=$this->archive->api('listfolder',['path'=>$root,'recursive'=>0]);foreach($list['metadata']['contents']??[] as $entry)if(!empty($entry['isfolder']))$folders[]=['id'=>(int)$entry['folderid'],'label'=>basename($root).' · '.$entry['name']];}catch(\Throwable $e){$folderError=true;}}
-        return compact('contracts','folders','folderError');
+        return ['contracts'=>$q->fetchAll(\PDO::FETCH_ASSOC)];
     }
     private function prepare(int $contractId,int $folderId,string $key): array
     {
+        $folderId=$contractId;
         $lockName='trb_onboarding_prepare_'.$contractId;$lock=$this->db->prepare('SELECT GET_LOCK(?,0)');$lock->execute([$lockName]);if((int)$lock->fetchColumn()!==1)throw new \RuntimeException('Proposta in preparazione');
         try{
         if($old=$this->ledger->forContract($contractId)){
-            if($old['snapshot']['template_key']!==$key||(int)$old['snapshot']['artist_folder_id']!==$folderId)throw new \RuntimeException('Adesione già preparata con dati diversi');
+            if($old['snapshot']['template_key']!==$key)throw new \RuntimeException('Adesione già preparata con dati diversi');
             return ['id'=>$old['id'],'invite_url'=>$this->invitation($old)];
         }
         $model=OnboardingContractCatalog::model($key);
         $q=$this->db->prepare('SELECT ct.id,ct.contract_number,ct.template_key,ct.status,ct.sent_at,ct.accepted_at,ct.metadata,s.source_tab,c.first_name,c.last_name,c.artist_name,c.email FROM contracts ct JOIN submissions s ON s.id=ct.submission_id JOIN contacts c ON c.id=s.contact_id WHERE ct.id=?');$q->execute([$contractId]);$row=$q->fetch();
         if(!$row||$row['sent_at']||$row['accepted_at']||!in_array($row['status'],['draft','prepared'],true)||$row['template_key']!==$key)throw new \RuntimeException('Scegli una nuova proposta non ancora inviata, con lo stesso modello');
         if(strtolower((string)Env::get('CRM_WRITE_SCOPE','test'))!=='production'&&(!in_array(strtolower($row['email']),['andrea.tognassi@trbrec.com','store@trbrec.com','spotify10@trbrec.com'],true)||$row['source_tab']!=='CRM_TEST_PERMANENT'))throw new \RuntimeException('La configurazione CRM consente soltanto le pratiche di collaudo');
-        $this->archive->artistFolder($model['group_code'],$folderId);
+        $folderId=$this->archive->artistFolder($model['group_code'],$contractId)['id'];
         $preparation=$this->ledger->preparation($contractId);$id=$preparation['id']??bin2hex(random_bytes(16));$url=$this->invitation(['id'=>$id]);$token=substr($url,strpos($url,'#invite=')+8);
-        $snapshot=$model+array_intersect_key($row,array_flip(['contract_number','first_name','last_name','artist_name','email']));$snapshot['artist_folder_id']=$folderId;
+        $snapshot=$model+array_intersect_key($row,array_flip(['contract_number','first_name','last_name','artist_name','email']));$snapshot['artist_folder_id']=$folderId;$snapshot['archive_provider']='google_drive';
         if($preparation&&$preparation['snapshot']!==$snapshot)throw new \RuntimeException('Proposta già in preparazione con dati diversi');
         if(!$preparation){$grant=$this->archive->createUpload($folderId,$id,'proposal');$this->ledger->savePreparation($contractId,['id'=>$id,'snapshot'=>$snapshot,'grant'=>$grant]);}else $grant=$preparation['grant'];
         if(strtotime($grant['expires_at'])<=time()){$grant=$this->archive->createUpload($folderId,$id,'proposal');$this->ledger->renewPreparationUpload($contractId,$grant);}

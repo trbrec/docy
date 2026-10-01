@@ -64,13 +64,12 @@ try{
  onboarding_stage('file-install');
  foreach($changes as $c){if($c['original']!==null){file_put_contents($backup.'/'.hash('sha256',$c['path']).'.before',$c['original']);chmod($backup.'/'.hash('sha256',$c['path']).'.before',0600);}chmod($c['temp'],0644);if(!rename($c['temp'],$c['path']))throw new RuntimeException('Install failed');$installed[]=$c;if(function_exists('opcache_invalidate'))opcache_invalidate($c['path'],true);}
  require_once $crm.'/app/Core.php';\TrbCrm\Env::load($crm.'/.env');
- require_once $crm.'/app/OnboardingLedger.php';require_once $crm.'/app/OnboardingPcloud.php';require_once $crm.'/app/OnboardingTransport.php';require_once $crm.'/app/OnboardingContractCatalog.php';
+ require_once $crm.'/app/OnboardingLedger.php';require_once $crm.'/app/OnboardingDrive.php';require_once $crm.'/app/OnboardingTransport.php';require_once $crm.'/app/OnboardingContractCatalog.php';
  onboarding_stage('database');
  $ledger=new \TrbCrm\OnboardingLedger(\TrbCrm\Database::connection());$ledger->install();
  onboarding_stage('archive-config');
- $archive=new \TrbCrm\OnboardingPcloud($private.'/pcloud-demo-oauth.json');
- onboarding_stage('archive-trb');$archive->api('listfolder',['path'=>'/Discografia - TRB rec','recursive'=>0]);
- onboarding_stage('archive-ddb');$archive->api('listfolder',['path'=>'/Discografia - DDB','recursive'=>0]);
+ $drive=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_drive_health']);
+ if(($drive['provider']??'')!=='google_drive'||($drive['private']??false)!==true)throw new RuntimeException('Private Drive archive not ready');
  onboarding_stage('configuration');
  foreach(['ARTIST_PORTAL_SYNC_SECRET','OPENAI_API_KEY','CONTRACT_APPS_SCRIPT_SECRET','APP_KEY'] as $key)if(strlen((string)\TrbCrm\Env::get($key,''))<(in_array($key,['APP_KEY','ARTIST_PORTAL_SYNC_SECRET'],true)?32:16))throw new RuntimeException('Required configuration missing');
  onboarding_stage('signature-health');

@@ -14,22 +14,22 @@ final class OnboardingService
         $files=[];foreach($this->ledger->files($p['id']) as $slot=>$file)$files[$slot]=['name'=>$file['name']??$slot,'uploaded'=>true];
         return ['id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'plans'=>$p['snapshot']['plans'],'selected_plan'=>$p['selected_plan'],'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
     }
-    public function upload(array $p,string $slot): array
+    public function upload(array $p,string $slot,array $fileInfo=[]): array
     {
         if(!in_array($slot,['identity_front','identity_back','tax_front','tax_back'],true)||!in_array($p['state'],['invited','identity_review'],true))throw new \RuntimeException('Caricamento documenti non disponibile');
         $details=$this->ledger->details($p['id']);if(empty($details['privacy_acknowledged_at']))throw new \RuntimeException('Leggi prima le informazioni sulla lettura automatizzata dei documenti');
         $this->archive->artistFolder($p['snapshot']['group_code'],$p['snapshot']['artist_folder_id']);
         $grant=$this->ledger->upload($p['id'],$slot);
-        if(!$grant||strtotime($grant['expires_at'])<=time()){$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],$slot);$this->ledger->saveUpload($p['id'],$slot,$grant);}
-        return array_intersect_key($grant,array_flip(['code','upload_endpoint','expires_at','max_bytes']));
+        if(!$grant||strtotime($grant['expires_at'])<=time()||($grant['file']??null)!==$fileInfo){$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],$slot,$fileInfo);$grant['file']=$fileInfo;$this->ledger->saveUpload($p['id'],$slot,$grant);}
+        return array_intersect_key($grant,array_flip(['provider','code','upload_endpoint','upload_method','expires_at','max_bytes']));
     }
     public function uploaded(array $p,string $slot): array
     {
         if(!in_array($slot,['identity_front','identity_back','tax_front','tax_back'],true))throw new \RuntimeException('Documento non valido');
         $grant=$this->ledger->upload($p['id'],$slot);if(!$grant)throw new \RuntimeException('Caricamento non avviato');
         // Retry after a lost response returns existing verified metadata without another write.
-        $files=$this->ledger->files($p['id']);if(isset($files[$slot])&&(int)$files[$slot]['folder_id']===(int)$grant['folder_id'])return $this->view($this->ledger->practice($p['id']));
-        $file=$this->archive->verifyUpload((int)$grant['folder_id'],(int)$grant['upload_link_id']);$this->ledger->recordFile($p['id'],$slot,$file);
+        $files=$this->ledger->files($p['id']);if(isset($files[$slot])&&(string)$files[$slot]['folder_id']===(string)$grant['folder_id'])return $this->view($this->ledger->practice($p['id']));
+        $file=$this->archive->verifyUpload($grant['folder_id'],$grant['upload_link_id']);$this->ledger->recordFile($p['id'],$slot,$file);
         return $this->view($this->ledger->practice($p['id']));
     }
     public function details(array $p,array $input): array
@@ -52,7 +52,7 @@ final class OnboardingService
     public function identity(array $p): array
     {
         $files=$this->ledger->files($p['id']);$documents=[];
-        foreach(['identity_front','identity_back'] as $slot){$file=$files[$slot]??null;if(!$file)throw new \RuntimeException('Completa documento fronte e retro');$documents[]=['url'=>$this->archive->url((int)$file['file_id'],(int)$file['folder_id'],(string)$file['hash']),'name'=>$file['name']];}
+        foreach(['identity_front','identity_back'] as $slot){$file=$files[$slot]??null;if(!$file)throw new \RuntimeException('Completa documento fronte e retro');$documents[]=method_exists($this->archive,'identityDocument')?$this->archive->identityDocument($file):['url'=>$this->archive->url($file['file_id'],$file['folder_id'],(string)$file['hash']),'name'=>$file['name']];}
         $fields=$this->reader->extract($documents);$decision=$this->ledger->recordIdentity($p['id'],$fields,$this->today());
         return ['identity'=>$decision,'practice'=>$this->view($this->ledger->practice($p['id']))];
     }
@@ -110,7 +110,7 @@ final class OnboardingService
             $file=$this->ledger->artifact($p['id'],$slot==='contract'?'signed_pdf':$slot);
         }else{$files=$this->ledger->files($p['id']);$file=$files[$slot]??[];}
         if(!$file)throw new \RuntimeException('Documento non disponibile');
-        return ['url'=>$this->archive->url((int)$file['file_id'],(int)$file['folder_id'],(string)$file['hash'])];
+        return method_exists($this->archive,'read')?['file'=>$this->archive->read($file['file_id'],$file['folder_id'],(string)$file['hash'])]:['url'=>$this->archive->url($file['file_id'],$file['folder_id'],(string)$file['hash'])];
     }
     public function prepareFinal(array $p): array
     {
@@ -162,7 +162,7 @@ final class OnboardingService
         $start=OnboardingPolicy::date($this->ledger->activationStart($p['id'],$this->today()));$group=$p['snapshot']['group_code'];
         $months=in_array($group,['DDB12','DDB'],true)?12:($group==='DDB-TRB'?24:0);
         $term=$start->format('d/m/y').' - '.($months?OnboardingPolicy::date(OnboardingPolicy::dueDate($start->format('Y-m-d'),$months))->modify('-1 day')->format('d/m/y'):'INFINITO');
-        $result=($this->portal)(['action'=>'activate_account','practice_id'=>$p['id'],'portal_user_id'=>$userId,'email'=>$p['email'],'group_code'=>$group,'owner_approved'=>true,'signed'=>true,'signed_pcloud_file_id'=>(int)$p['signed_pcloud_file_id'],'contract_number'=>$p['snapshot']['contract_number'],'contract_term'=>$term,'details'=>$this->ledger->details($p['id']),'birth_date'=>$this->ledger->identityResult($p['id'])['birth_date']??'','files'=>$this->ledger->files($p['id'])]);
+        $result=($this->portal)(['action'=>'activate_account','practice_id'=>$p['id'],'portal_user_id'=>$userId,'email'=>$p['email'],'group_code'=>$group,'owner_approved'=>true,'signed'=>true,'signed_pcloud_file_id'=>(string)$p['signed_pcloud_file_id'],'archive_provider'=>$p['snapshot']['archive_provider']??'pcloud','contract_number'=>$p['snapshot']['contract_number'],'contract_term'=>$term,'details'=>$this->ledger->details($p['id']),'birth_date'=>$this->ledger->identityResult($p['id'])['birth_date']??'','files'=>$this->ledger->files($p['id'])]);
         if(($result['activated']??false)!==true||($result['practice_id']??'')!==$p['id']||(int)($result['portal_user_id']??0)!==$userId)throw new \RuntimeException('Attivazione account non confermata');
         $this->ledger->markActivated($p['id'],$userId);return ['registered'=>true];
     }

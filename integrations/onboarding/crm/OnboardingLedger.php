@@ -15,11 +15,11 @@ final class OnboardingLedger
     public function install(): void
     {
         foreach ([
-            'CREATE TABLE IF NOT EXISTS onboarding_practices (id VARCHAR(64) PRIMARY KEY, contract_id BIGINT NOT NULL UNIQUE, onboarding_version VARCHAR(16) NOT NULL, email VARCHAR(255) NOT NULL, snapshot TEXT NOT NULL, state VARCHAR(40) NOT NULL, token_hash VARCHAR(64) NOT NULL UNIQUE, expires_at VARCHAR(32) NOT NULL, selected_plan TEXT NULL, first_payment_date VARCHAR(10) NULL, owner_approved_at VARCHAR(32) NULL, signed_at VARCHAR(32) NULL, signed_pcloud_file_id BIGINT NULL, portal_activated_at VARCHAR(32) NULL, cancelled_at VARCHAR(32) NULL, created_at VARCHAR(32) NOT NULL)',
+            'CREATE TABLE IF NOT EXISTS onboarding_practices (id VARCHAR(64) PRIMARY KEY, contract_id BIGINT NOT NULL UNIQUE, onboarding_version VARCHAR(16) NOT NULL, email VARCHAR(255) NOT NULL, snapshot TEXT NOT NULL, state VARCHAR(40) NOT NULL, token_hash VARCHAR(64) NOT NULL UNIQUE, expires_at VARCHAR(32) NOT NULL, selected_plan TEXT NULL, first_payment_date VARCHAR(10) NULL, owner_approved_at VARCHAR(32) NULL, signed_at VARCHAR(32) NULL, signed_pcloud_file_id VARCHAR(128) NULL, portal_activated_at VARCHAR(32) NULL, cancelled_at VARCHAR(32) NULL, created_at VARCHAR(32) NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_installments (practice_id VARCHAR(64) NOT NULL, number INT NOT NULL, due_date VARCHAR(10) NOT NULL, amount_cents BIGINT NOT NULL, PRIMARY KEY(practice_id,number))',
             'CREATE TABLE IF NOT EXISTS onboarding_payments (provider VARCHAR(32) NOT NULL, transaction_id VARCHAR(128) NOT NULL, practice_id VARCHAR(64) NOT NULL, installment_number INT NOT NULL, amount_cents BIGINT NOT NULL, refunded_cents BIGINT NOT NULL DEFAULT 0, currency VARCHAR(3) NOT NULL, status VARCHAR(24) NOT NULL, confirmed_at VARCHAR(32) NOT NULL, PRIMARY KEY(provider,transaction_id))',
             'CREATE TABLE IF NOT EXISTS onboarding_events (event_key VARCHAR(190) PRIMARY KEY, practice_id VARCHAR(64) NOT NULL, kind VARCHAR(40) NOT NULL, payload TEXT NOT NULL, status VARCHAR(24) NOT NULL, created_at VARCHAR(32) NOT NULL, completed_at VARCHAR(32) NULL)',
-            'CREATE TABLE IF NOT EXISTS onboarding_files (practice_id VARCHAR(64) NOT NULL, slot VARCHAR(40) NOT NULL, folder_id BIGINT NOT NULL, pcloud_file_id BIGINT NULL, upload_link_id BIGINT NULL, metadata TEXT NOT NULL, PRIMARY KEY(practice_id,slot))',
+            'CREATE TABLE IF NOT EXISTS onboarding_files (practice_id VARCHAR(64) NOT NULL, slot VARCHAR(40) NOT NULL, folder_id VARCHAR(128) NOT NULL, pcloud_file_id VARCHAR(128) NULL, upload_link_id VARCHAR(128) NULL, metadata TEXT NOT NULL, PRIMARY KEY(practice_id,slot))',
             'CREATE TABLE IF NOT EXISTS onboarding_identity_checks (practice_id VARCHAR(64) PRIMARY KEY, result TEXT NOT NULL, document_fingerprint VARCHAR(64) NOT NULL, checked_at VARCHAR(32) NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_email_challenges (practice_id VARCHAR(64) PRIMARY KEY, code_hash VARCHAR(64) NOT NULL, expires_at BIGINT NOT NULL, attempts INT NOT NULL DEFAULT 0, issued_at BIGINT NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_sessions (token_hash VARCHAR(64) PRIMARY KEY, practice_id VARCHAR(64) NOT NULL, expires_at BIGINT NOT NULL)',
@@ -33,6 +33,12 @@ final class OnboardingLedger
             'CREATE TABLE IF NOT EXISTS onboarding_preparations (contract_id BIGINT PRIMARY KEY, metadata TEXT NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_worker_checks (practice_id VARCHAR(64) PRIMARY KEY, checked_at VARCHAR(32) NOT NULL)',
         ] as $sql) $this->db->exec($sql);
+        if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'){
+            foreach(['onboarding_practices'=>['signed_pcloud_file_id'],'onboarding_files'=>['folder_id','pcloud_file_id','upload_link_id']] as $table=>$columns)foreach($columns as $column){
+                $info=$this->db->query("SHOW COLUMNS FROM `{$table}` LIKE '{$column}'")->fetch(PDO::FETCH_ASSOC);
+                if(!str_starts_with(strtolower($info['Type']??''),'varchar'))$this->db->exec("ALTER TABLE `{$table}` MODIFY `{$column}` VARCHAR(128) ".($column==='folder_id'?'NOT NULL':'NULL'));
+            }
+        }
     }
 
     private function json(array $value): string { return json_encode($value, JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); }
@@ -70,7 +76,7 @@ final class OnboardingLedger
     }
     public function saveArtifact(string $id,string $slot,array $file): void
     {
-        if(!in_array($slot,['proposal','final_pdf','signed_pdf','signature_audit'],true)||!is_int($file['file_id']??null)||$file['file_id']<1||!preg_match('/^[a-f0-9]{64}$/D',(string)($file['sha256']??'')))throw new RuntimeException('Documento contrattuale non verificato');
+        if(!in_array($slot,['proposal','final_pdf','signed_pdf','signature_audit'],true)||!preg_match('/^[A-Za-z0-9_-]{1,128}$/D',(string)($file['file_id']??''))||!preg_match('/^[a-f0-9]{64}$/D',(string)($file['sha256']??'')))throw new RuntimeException('Documento contrattuale non verificato');
         $this->locked(function()use($id,$slot,$file){$p=$this->practice($id,true);$this->open($p);
             $old=$this->artifact($id,$slot);
             if($old){if($old!==$file)throw new RuntimeException('Documento contrattuale già fissato');return;}
@@ -135,13 +141,13 @@ final class OnboardingLedger
     }
     public function create(int $contractId,array $snapshot,string $expiresAt,?string $preparedToken=null,?string $preparedId=null,?array $proposal=null): array
     {
-        if ($contractId<1 || ($snapshot['onboarding_version']??'')!==OnboardingPolicy::VERSION || !preg_match('/^[a-f0-9]{64}$/D',(string)($snapshot['unsigned_document_sha256']??'')) || empty($snapshot['first_name']) || empty($snapshot['last_name']) || !filter_var($snapshot['email']??'',FILTER_VALIDATE_EMAIL) || !is_int($snapshot['artist_folder_id']??null) || $snapshot['artist_folder_id']<1) throw new RuntimeException('Proposta incompleta');
+        if ($contractId<1 || ($snapshot['onboarding_version']??'')!==OnboardingPolicy::VERSION || !preg_match('/^[a-f0-9]{64}$/D',(string)($snapshot['unsigned_document_sha256']??'')) || empty($snapshot['first_name']) || empty($snapshot['last_name']) || !filter_var($snapshot['email']??'',FILTER_VALIDATE_EMAIL) || !preg_match('/^[A-Za-z0-9_-]{1,128}$/D',(string)($snapshot['artist_folder_id']??''))) throw new RuntimeException('Proposta incompleta');
         if (!in_array($snapshot['group_code']??'', ['DDS','DDB','DDB12','DDB-TRB','TRB'], true)) throw new RuntimeException('Tipologia contratto non valida');
         foreach($snapshot['plans']??[] as $plan) OnboardingPolicy::validatePlan($plan);
         if(empty($snapshot['plans'])) throw new RuntimeException('Formule di versamento mancanti');
         if(strtotime($expiresAt)===false||strtotime($expiresAt)<=time()) throw new RuntimeException('Scadenza proposta non valida');
         $token=$preparedToken??bin2hex(random_bytes(32));if(!preg_match('/^[a-f0-9]{64}$/D',$token))throw new RuntimeException('Invito non valido');$id=$preparedId??bin2hex(random_bytes(16));if(!preg_match('/^[a-f0-9]{32}$/D',$id))throw new RuntimeException('Identificativo non valido');
-        if($proposal&&(!is_int($proposal['file_id']??null)||!hash_equals($snapshot['unsigned_document_sha256'],(string)($proposal['sha256']??''))))throw new RuntimeException('Proposta non verificata');
+        if($proposal&&(!preg_match('/^[A-Za-z0-9_-]{1,128}$/D',(string)($proposal['file_id']??''))||!hash_equals($snapshot['unsigned_document_sha256'],(string)($proposal['sha256']??''))))throw new RuntimeException('Proposta non verificata');
         $this->locked(function()use($id,$contractId,$snapshot,$token,$expiresAt,$proposal){
             $this->query('INSERT INTO onboarding_practices(id,contract_id,onboarding_version,email,snapshot,state,token_hash,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?,?)',[$id,$contractId,OnboardingPolicy::VERSION,$snapshot['email'],$this->json($snapshot),'invited',hash('sha256',$token),$expiresAt,gmdate('c')]);
             if($proposal)$this->query('INSERT INTO onboarding_artifacts(practice_id,slot,metadata) VALUES(?,?,?)',[$id,'proposal',$this->json($proposal)]);
@@ -198,7 +204,7 @@ final class OnboardingLedger
     }
     public function recordFile(string $id,string $slot,array $file): void
     {
-        if(!in_array($slot,['identity_front','identity_back','tax_front','tax_back'],true)||empty($file['file_id'])||empty($file['folder_id'])||empty($file['hash']))throw new RuntimeException('Documento pCloud incompleto');
+        if(!in_array($slot,['identity_front','identity_back','tax_front','tax_back'],true)||empty($file['file_id'])||empty($file['folder_id'])||empty($file['hash']))throw new RuntimeException('Documento archivio incompleto');
         $this->locked(function()use($id,$slot,$file){$p=$this->practice($id,true);$this->open($p);
             if(!in_array($p['state'],['invited','identity_review'],true))throw new RuntimeException('Documenti già confermati: modifica soggetta a revisione');
             $this->query('DELETE FROM onboarding_files WHERE practice_id=? AND slot=?',[$id,$slot]);
@@ -383,8 +389,8 @@ final class OnboardingLedger
         $this->locked(function()use($id,$proof){$p=$this->practice($id,true);$s=$this->query('SELECT * FROM onboarding_signatures WHERE practice_id=?',[$id])->fetch(PDO::FETCH_ASSOC);
             if(!$s||!$p['owner_approved_at']||$p['cancelled_at']||($proof['status']??'')!=='completed'||($proof['artist_signed']??false)!==true||($proof['company_signed']??false)!==true||!hash_equals((string)$s['request_key'],(string)($proof['request_key']??''))||!hash_equals((string)$s['document_sha256'],(string)($proof['document_sha256']??''))||!$s['dossier_id']||$s['dossier_id']!==($proof['dossier_id']??''))throw new RuntimeException('Completamento firma non verificato');
             $file=$proof['file']??[];
-            if(!is_int($file['file_id']??null)||$file['file_id']<1||!is_int($file['artist_folder_id']??null)||$file['artist_folder_id']<1||$file['artist_folder_id']!==$p['snapshot']['artist_folder_id']||!preg_match('/^[a-f0-9]{64}$/D',(string)($file['sha256']??'')))throw new RuntimeException('Archiviazione contratto firmato non verificata');
-            if($s['state']==='completed'){if(!hash_equals($s['signed_file_sha256'],$file['sha256'])||(int)$p['signed_pcloud_file_id']!==$file['file_id'])throw new RuntimeException('Callback firma discordante');return;}
+            if(!preg_match('/^[A-Za-z0-9_-]{1,128}$/D',(string)($file['file_id']??''))||!preg_match('/^[A-Za-z0-9_-]{1,128}$/D',(string)($file['artist_folder_id']??''))||(string)$file['artist_folder_id']!==(string)$p['snapshot']['artist_folder_id']||!preg_match('/^[a-f0-9]{64}$/D',(string)($file['sha256']??'')))throw new RuntimeException('Archiviazione contratto firmato non verificata');
+            if($s['state']==='completed'){if(!hash_equals($s['signed_file_sha256'],$file['sha256'])||(string)$p['signed_pcloud_file_id']!==(string)$file['file_id'])throw new RuntimeException('Callback firma discordante');return;}
             $this->query("UPDATE onboarding_signatures SET state='completed',signed_file_sha256=? WHERE practice_id=?",[$file['sha256'],$id]);
             $this->query("UPDATE onboarding_practices SET signed_at=?,signed_pcloud_file_id=?,state='activation_ready' WHERE id=?",[gmdate('c'),$file['file_id'],$id]);
         });
