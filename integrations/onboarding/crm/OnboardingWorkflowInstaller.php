@@ -61,6 +61,7 @@ PHP);
         try{
             $s=$this->candidateDraft($id,$key);$p=$this->previewContract($id,$key);
             if($p['attachment_ready'])return ['preview'=>$p,'duplicate'=>true,'send_performed'=>false];
+            if(!empty($s['contract']['metadata']['candidate_editable_doc'])||!empty($s['contract']['metadata']['candidate_review']['reason']))throw new RuntimeException('La proposta contiene personalizzazioni: verifica le condizioni prima di attivare il nuovo percorso.');
             $saved=$this->saveContract($id,['template_key'=>$key,'document_url'=>$p['document_url'],'subject'=>$p['subject'],'body'=>$p['body'],'followup_subject'=>$p['followup_subject'],'preview_token'=>$p['preview_token']],$userId);
             $this->ensureLifecycleFromTemplate($id,$key,$userId);
             $result=(new OnboardingRuntime($this->db))->prepare((int)$saved['contract']['id'],0,$key);

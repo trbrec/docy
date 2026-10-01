@@ -32,7 +32,7 @@ final class OnboardingContractWorkflow
             $preview=$base+['onboarding'=>true];
             foreach(['body','followup_body','followup_1_body','followup_2_body','followup_3_body'] as $field)$preview[$field]=self::wording(str_replace($oldUrl,$url,(string)($base[$field]??'')));
             $preview['document_url']=$url;$preview['attachment_ready']=false;$preview['document_sha256']='';$preview['pdf_preview_url']=null;
-            $preview['editable_available']=false;$preview['editing']=false;
+            $preview['editable_available']=false;$preview['editing']=false;$preview['current_document_sha256']='';
             $preview['attachment_message']='Prepara e controlla il PDF con il collegamento personale al Portale Artisti prima dell’invio.';
         }
         if(!empty($s['contract']['id'])&&($s['contract']['template_key']??'')===$key){
@@ -44,7 +44,7 @@ final class OnboardingContractWorkflow
                 if($artifact){
                     $realUrl='https://artist.trbrec.com/adesione/#invite='.hash_hmac('sha256','onboarding-invite-v1|'.$practice['id'],(string)Env::get('APP_KEY',''));
                     foreach(['body','followup_body','followup_1_body','followup_2_body','followup_3_body'] as $field)$preview[$field]=str_replace($url,$realUrl,(string)($preview[$field]??''));
-                    $preview['document_url']=$realUrl;$preview['attachment_ready']=true;$preview['document_sha256']=$artifact['sha256'];$preview['current_document_sha256']=$artifact['sha256'];
+                    $preview['document_url']=$realUrl;$preview['attachment_ready']=true;$preview['document_sha256']=$artifact['sha256'];
                     $preview['pdf_preview_url']='/api/submissions/'.(int)$s['id'].'/contracts/'.(int)$s['contract']['id'].'/document?v='.$artifact['sha256'];
                     $preview['attachment_message']='PDF con collegamento personale pronto: aprilo e conferma di averlo controllato.';
                 }
