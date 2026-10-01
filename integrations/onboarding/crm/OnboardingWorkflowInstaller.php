@@ -5,6 +5,32 @@ namespace TrbCrm;
 /** Small, guarded edits to the current production CRM; no repository snapshot replacement. */
 final class OnboardingWorkflowInstaller
 {
+    /** Preserve existing enum members and their positions; add the worker's missing state. */
+    public static function queueStatusDefinition(array $column): ?string
+    {
+        $type=(string)($column['Type']??'');
+        if(preg_match('/^varchar\((\d+)\)$/D',$type,$length)&&(int)$length[1]>=7)return null;
+        if(!preg_match("/^enum\('[a-z_]+'(?:,'[a-z_]+')*\)$/D",$type))throw new \RuntimeException('Unsupported contract queue status column');
+        foreach(['pending','sent','failed'] as $required)if(!str_contains($type,"'".$required."'"))throw new \RuntimeException('Contract queue states changed');
+        if(str_contains($type,"'sending'"))return null;
+        if(($column['Null']??'')!=='NO'||($column['Default']??'')!=='pending')throw new \RuntimeException('Contract queue column attributes changed');
+        return substr($type,0,-1).",'sending') NOT NULL DEFAULT 'pending'";
+    }
+    public static function ensureQueueStatus(\PDO $db): void
+    {
+        $lock=$db->query("SELECT GET_LOCK('trb_crm_contract_mail_queue',10)");
+        if((int)$lock->fetchColumn()!==1)throw new \RuntimeException('Contract queue is busy');
+        try{
+            $column=$db->query("SHOW COLUMNS FROM outbound_batch_items LIKE 'status'")->fetch(\PDO::FETCH_ASSOC);
+            if(!$column)throw new \RuntimeException('Contract queue status column missing');
+            $definition=self::queueStatusDefinition($column);
+            if($definition!==null){
+                $db->exec('ALTER TABLE outbound_batch_items MODIFY COLUMN status '.$definition);
+                $verified=$db->query("SHOW COLUMNS FROM outbound_batch_items LIKE 'status'")->fetch(\PDO::FETCH_ASSOC);
+                if(!$verified||self::queueStatusDefinition($verified)!==null)throw new \RuntimeException('Contract queue status migration unconfirmed');
+            }
+        }finally{$db->query("SELECT RELEASE_LOCK('trb_crm_contract_mail_queue')");}
+    }
     private static function once(string $source,string $old,string $new): string
     {
         if(str_contains($source,$new))return $source;
