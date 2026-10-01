@@ -25,7 +25,7 @@
     const extension=file.name.split('.').pop().toLowerCase(),mime=extension==='pdf'?'application/pdf':extension==='png'?'image/png':'image/jpeg';
     const name=`${slot}.${extension}`;
     const grant=await api('upload',{slot,file:{name,size:file.size,mime}}),url=new URL(grant.upload_endpoint);
-    if(grant.provider!=='google_drive'||url.protocol!=='https:'||url.hostname!=='www.googleapis.com'||url.pathname!=='/upload/drive/v3/files'||!url.searchParams.has('upload_id'))throw new Error('Destinazione caricamento non valida.');
+    if(grant.provider!=='google_drive'||url.protocol!=='https:'||url.hostname!=='www.googleapis.com'||!/^\/upload\/drive\/v3\/files\/[A-Za-z0-9_-]+$/.test(url.pathname)||!url.searchParams.has('upload_id'))throw new Error('Destinazione caricamento non valida.');
     notice('Caricamento diretto su Google Drive in corso…');
     let uploaded=false;try{const response=await fetch(url.href,{method:'PUT',body:file,headers:{'Content-Type':mime},credentials:'omit',referrerPolicy:'no-referrer'});uploaded=response.ok;}catch(_){}
     try{render(await api('uploaded',{slot}));notice('Documento caricato e verificato.');}catch(e){if(!uploaded)throw new Error('Caricamento non confermato. Aggiorna lo stato prima di ripetere il caricamento.');throw e;}
