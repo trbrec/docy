@@ -10,6 +10,13 @@ final class OnboardingPcloud
     private string $base;
     public function __construct(string $oauthFile)
     {
+        // Contract documents use the CRM's established contract archive connection.
+        $contractToken=class_exists(Env::class)?trim((string)Env::get('PCLOUD_ACCESS_TOKEN','')):'';
+        if($contractToken!==''){
+            $endpoint=parse_url((string)Env::get('PCLOUD_API_BASE','https://eapi.pcloud.com'));
+            if(!is_array($endpoint)||($endpoint['scheme']??'')!=='https'||!in_array($endpoint['host']??'',['api.pcloud.com','eapi.pcloud.com'],true)||isset($endpoint['user'])||isset($endpoint['pass'])||isset($endpoint['query'])||isset($endpoint['fragment'])||($endpoint['port']??443)!==443||!in_array($endpoint['path']??'',['','/'],true))throw new RuntimeException('Endpoint archivio pCloud non valido');
+            $this->base='https://'.$endpoint['host'];$this->token=$contractToken;return;
+        }
         $config=is_file($oauthFile)?json_decode((string)file_get_contents($oauthFile),true):[];
         if(empty($config['enabled'])||empty($config['access_token'])||!in_array($config['hostname']??'', ['api.pcloud.com','eapi.pcloud.com'],true))throw new RuntimeException('Archivio pCloud non abilitato');
         $this->base='https://'.$config['hostname'];$this->token=$config['access_token'];

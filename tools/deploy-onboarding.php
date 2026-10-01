@@ -67,9 +67,11 @@ try{
  require_once $crm.'/app/OnboardingLedger.php';require_once $crm.'/app/OnboardingPcloud.php';require_once $crm.'/app/OnboardingTransport.php';require_once $crm.'/app/OnboardingContractCatalog.php';
  onboarding_stage('database');
  $ledger=new \TrbCrm\OnboardingLedger(\TrbCrm\Database::connection());$ledger->install();
- onboarding_stage('archive');
+ onboarding_stage('archive-config');
  $archive=new \TrbCrm\OnboardingPcloud($private.'/pcloud-demo-oauth.json');
- foreach(['/Discografia - TRB rec','/Discografia - DDB'] as $path)$archive->api('listfolder',['path'=>$path,'recursive'=>0]);
+ onboarding_stage('archive-trb');$archive->api('listfolder',['path'=>'/Discografia - TRB rec','recursive'=>0]);
+ onboarding_stage('archive-ddb');$archive->api('listfolder',['path'=>'/Discografia - DDB','recursive'=>0]);
+ onboarding_stage('configuration');
  foreach(['ARTIST_PORTAL_SYNC_SECRET','OPENAI_API_KEY','CONTRACT_APPS_SCRIPT_SECRET','APP_KEY'] as $key)if(strlen((string)\TrbCrm\Env::get($key,''))<(in_array($key,['APP_KEY','ARTIST_PORTAL_SYNC_SECRET'],true)?32:16))throw new RuntimeException('Required configuration missing');
  onboarding_stage('signature-health');
  $health=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_health']);

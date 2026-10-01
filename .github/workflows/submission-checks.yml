@@ -36,6 +36,7 @@ jobs:
           node tests/demo-chunk-upload.test.js
           php tools/test-demo-context.php
           php tools/test-demo-email.php
+          php tools/test-onboarding-pcloud.php
           node --check assets/js/trb-demo-evaluation.js
           php tools/test-audio-inventory.php
           php tools/test-rights-owner-review.php
