@@ -2,7 +2,7 @@
 /** Revision-bound live probes use fictional data only. */
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 ini_set('display_errors','0');
-set_exception_handler(static function(){fwrite(STDERR,"Synthetic onboarding probe unconfirmed.\n");exit(1);});
+$probeStage='bootstrap';set_exception_handler(static function()use(&$probeStage){fwrite(STDERR,'Synthetic onboarding probe unconfirmed at '.$probeStage.".\n");exit(1);});
 $theme=dirname(__DIR__);$revision=$argv[1]??'';
 if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents($theme.'/.trb-deployed-sha'))!==$revision)exit(2);
 $crm='/home/customer/www/crm.trbrec.com/public_html';
@@ -13,12 +13,12 @@ $script=static fn(array $payload)=>\TrbCrm\OnboardingTransport::script((string)\
 $archive=new \TrbCrm\OnboardingDrive($script);$folder=$archive->artistFolder('TRB','9000020261002');$origin='https://artist.trbrec.com';
 foreach($documents as $document){
  $bytes=base64_decode($document['data'],true);$grant=$archive->createUpload($folder['id'],bin2hex(random_bytes(16)),$document['slot'],['name'=>$document['name'],'size'=>strlen($bytes),'mime'=>$document['mime']]);
- $headers=[];$ch=curl_init($grant['upload_endpoint']);curl_setopt_array($ch,[CURLOPT_CUSTOMREQUEST=>'OPTIONS',CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>25,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>['Origin: '.$origin,'Access-Control-Request-Method: PUT','Access-Control-Request-Headers: content-type'],CURLOPT_HEADERFUNCTION=>static function($ch,$line)use(&$headers){if(str_contains($line,':')){[$key,$value]=explode(':',$line,2);$headers[strtolower(trim($key))]=trim($value);}return strlen($line);}]);curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);curl_close($ch);
+ $probeStage='browser-preflight';$headers=[];$ch=curl_init($grant['upload_endpoint']);curl_setopt_array($ch,[CURLOPT_CUSTOMREQUEST=>'OPTIONS',CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>25,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>['Origin: '.$origin,'Access-Control-Request-Method: PUT','Access-Control-Request-Headers: content-type'],CURLOPT_HEADERFUNCTION=>static function($ch,$line)use(&$headers){if(str_contains($line,':')){[$key,$value]=explode(':',$line,2);$headers[strtolower(trim($key))]=trim($value);}return strlen($line);}]);curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);curl_close($ch);
  $cors=$status>=200&&$status<300&&in_array($headers['access-control-allow-origin']??'',['*',$origin],true)&&str_contains(strtoupper($headers['access-control-allow-methods']??''),'PUT');
  if(!$cors)throw new RuntimeException('Synthetic browser preflight unconfirmed');
- $ch=curl_init($grant['upload_endpoint']);curl_setopt_array($ch,[CURLOPT_CUSTOMREQUEST=>'PUT',CURLOPT_POSTFIELDS=>$bytes,CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>30,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>['Origin: '.$origin,'Content-Type: application/pdf']]);curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);curl_close($ch);if($status<200||$status>=300)throw new RuntimeException('Synthetic upload unconfirmed');
- $file=$archive->verifyUpload($grant['folder_id'],$grant['code']);if(!hash_equals(hash('sha256',$bytes),(string)$file['hash']))throw new RuntimeException('Synthetic archive mismatch');
+ $probeStage='direct-upload';$ch=curl_init($grant['upload_endpoint']);curl_setopt_array($ch,[CURLOPT_CUSTOMREQUEST=>'PUT',CURLOPT_POSTFIELDS=>$bytes,CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>30,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>['Origin: '.$origin,'Content-Type: application/pdf']]);curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);curl_close($ch);if($status<200||$status>=300)throw new RuntimeException('Synthetic upload unconfirmed');
+ $probeStage='private-archive';$file=$archive->verifyUpload($grant['folder_id'],$grant['code']);if(!hash_equals(hash('sha256',$bytes),(string)$file['hash']))throw new RuntimeException('Synthetic archive mismatch');
  echo 'Synthetic '.$document['slot']." browser preflight, direct Drive PUT and private hash verification passed.\n";
 }
-$response=file_get_contents($origin.'/adesione/');if(!is_string($response)||!str_contains($response,'id="save-and-continue"')||str_contains($response,'Accedi al portale')||str_contains($response,'Documento fiscale'))throw new RuntimeException('Live candidate form mismatch');
+$probeStage='live-page';$response=file_get_contents($origin.'/adesione/');if(!is_string($response)||!str_contains($response,'id="save-and-continue"')||str_contains($response,'Accedi al portale')||str_contains($response,'Documento fiscale'))throw new RuntimeException('Live candidate form mismatch');
 echo "Live unified candidate page and relevant footer verified.\n";

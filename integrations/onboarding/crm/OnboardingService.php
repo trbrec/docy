@@ -119,8 +119,7 @@ final class OnboardingService
         $old=$this->ledger->artifact($p['id'],'final_pdf');if($old)return $old;
         $appendix=OnboardingContractCatalog::appendix($p);
         $grant=$this->ledger->upload($p['id'],'final_pdf');
-        $files=$this->ledger->files($p['id']);$completed=$grant&&isset($files[$slot])&&(string)$files[$slot]['folder_id']===(string)$grant['folder_id'];
-        if(!$grant||$completed||strtotime($grant['expires_at'])<=time()){$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],'final_pdf');$this->ledger->saveUpload($p['id'],'final_pdf',$grant);}
+        if(!$grant||strtotime($grant['expires_at'])<=time()){$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],'final_pdf');$this->ledger->saveUpload($p['id'],'final_pdf',$grant);}
         $payload=['action'=>'crm_onboarding_document','phase'=>'final','practice_id'=>$p['id'],'snapshot'=>$p['snapshot'],'details'=>$this->ledger->details($p['id']),'appendix'=>$appendix,'upload'=>$grant];
         try{$result=($this->script)($payload);}catch(\Throwable $e){$result=($this->script)($payload+['metadata_only'=>true]);}
         $file=$this->archive->verifyArtifact($grant,(string)($result['sha256']??''),$p['snapshot']['artist_folder_id']);
