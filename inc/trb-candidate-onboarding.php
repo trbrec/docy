@@ -158,6 +158,13 @@ add_filter('rest_pre_dispatch',static function($result,$server,$request){
     $gate=trb_onboarding_access();if(!$gate['allowed'])return new WP_Error('onboarding_payment_required','I servizi richiedono la verifica dei versamenti.',array('status'=>402));return $result;
 },-2000,3);
 
+/** Only the configured, published TRB notice is public before registration. */
+function trb_onboarding_is_privacy_page(){
+    $id=(int)get_option('wp_page_for_privacy_policy');if(!$id)return false;
+    $page=get_post($id);if(!$page||$page->post_type!=='page'||$page->post_status!=='publish'||get_post_meta($id,'_trb_onboarding_privacy_version',true)!=='20261002c')return false;
+    $path=rtrim((string)parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH),'/');
+    return $path==='/privacy-policy'&&rtrim((string)parse_url(get_permalink($id),PHP_URL_PATH),'/')===$path;
+}
 function trb_onboarding_is_page(){return rtrim((string)parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH),'/')==='/adesione';}
 add_action('init',static function(){
     if(!trb_onboarding_is_page())return;
@@ -170,6 +177,7 @@ add_action('init',static function(){
 },-3000);
 add_action('template_redirect',static function(){
     if(trb_onboarding_is_page()){status_header(200);require __DIR__.'/trb-candidate-onboarding-page.php';exit;}
+    if(trb_onboarding_is_privacy_page()){status_header(200);require __DIR__.'/trb-candidate-privacy-page.php';exit;}
     if(!trb_onboarding_enabled()||!is_user_logged_in()||is_admin())return;
     $path=rtrim((string)parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH),'/');
     if(in_array($path,array('/accedi','/segnalazione','/registrazione'),true))return;
