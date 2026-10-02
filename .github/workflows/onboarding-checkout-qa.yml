@@ -1,4 +1,4 @@
-name: Onboarding test preparation inspection
+name: Onboarding native send inspection
 
 on:
   push:
