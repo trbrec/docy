@@ -10,8 +10,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Install audio measurement dependency
-        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - name: Install validation dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg python3-yaml
+      - name: Validate workflow YAML and duplicate keys
+        run: /usr/bin/python3 tools/check-workflow-yaml.py
       - name: PHP syntax and submission diagnostics
         run: |
           find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
