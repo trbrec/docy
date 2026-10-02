@@ -51,7 +51,7 @@ final class OnboardingService
         if($invoice['sdi_code']!==''&&!preg_match('/^[A-Za-z0-9]{7}$/D',$invoice['sdi_code']))throw new \RuntimeException('Il codice SDI deve contenere sette caratteri');
         if($invoice['pec']!==''&&!filter_var($invoice['pec'],FILTER_VALIDATE_EMAIL))throw new \RuntimeException('PEC non valida');
         foreach($invoice as $value)if(mb_strlen($value)>255)throw new \RuntimeException('Dato fiscale troppo lungo');
-        $details=['billing'=>$billing,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>gmdate('c'),'privacy_version'=>'2026.2-documents-20261002b'];
+        $details=['billing'=>$billing,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>gmdate('c'),'privacy_version'=>'2026.2-documents-20261002c'];
         $this->ledger->saveDetails($p['id'],$details);return $this->view($this->ledger->practice($p['id']));
     }
     public function identity(array $p): array
