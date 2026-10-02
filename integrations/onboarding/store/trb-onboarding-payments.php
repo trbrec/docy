@@ -155,14 +155,14 @@ add_action('woocommerce_order_action_trb_confirm_bank',static function($order){
 // Name the actual card alternative clearly before an artist has an account.
 add_filter('woocommerce_gateway_title',static function($title,$gateway){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $title;
-    return array('ppcp-gateway'=>'PayPal (consigliato)','stripe'=>'Carta di credito o debito · senza conto PayPal','ppcp-credit-card-gateway'=>'Carta di credito o debito · tramite PayPal','ppcp-card-button-gateway'=>'Carta di credito o debito · tramite PayPal','bacs'=>'Bonifico bancario')[$gateway]??$title;
+    return array('ppcp-gateway'=>'PayPal (consigliato)','stripe'=>'Carta di credito o debito (Bancomat Visa/Mastercard) · senza conto PayPal','ppcp-credit-card-gateway'=>'Carta di credito o debito · tramite PayPal','ppcp-card-button-gateway'=>'Carta di credito o debito · tramite PayPal','bacs'=>'Bonifico bancario')[$gateway]??$title;
 },100,2);
 
 // Stripe UPE rebuilds its label in JavaScript from its localized title.
 add_filter('wc_stripe_upe_params',static function($params){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
     if(!is_array($params)||!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $params;
-    $params['title']='Carta di credito o debito · senza conto PayPal';
+    $params['title']='Carta di credito o debito (Bancomat Visa/Mastercard) · senza conto PayPal';
     $params['optimizedCheckoutClassicTitle']=$params['title'];
     if(isset($params['paymentMethodsConfig']['card']))$params['paymentMethodsConfig']['card']['title']=$params['title'];
     return $params;
@@ -172,5 +172,5 @@ add_filter('wc_stripe_upe_params',static function($params){
 add_action('wp_footer',static function(){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
     if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return;
-    echo '<script>(function(){var title="Carta di credito o debito · senza conto PayPal";function label(){var e=document.querySelector("label[for=payment_method_stripe]");if(e&&e.textContent.trim()!==title)e.textContent=title;}label();if(window.MutationObserver){new MutationObserver(label).observe(document.body,{childList:true,subtree:true,characterData:true});}})();</script>';
+    echo '<script>(function(){var title="Carta di credito o debito (Bancomat Visa/Mastercard) · senza conto PayPal";function label(){var e=document.querySelector("label[for=payment_method_stripe]");if(e&&e.textContent.trim()!==title)e.textContent=title;}label();if(window.MutationObserver){new MutationObserver(label).observe(document.body,{childList:true,subtree:true,characterData:true});}})();</script>';
 },100);
