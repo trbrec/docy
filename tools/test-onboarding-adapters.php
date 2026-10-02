@@ -11,6 +11,9 @@ function wp_json_encode($x,...$args){return json_encode($x,...$args);}function w
 $meta=[];$options=['trb_candidate_onboarding_enabled'=>true];$transients=[];$user=new WP_User();
 function get_option($key,$default=false){return $GLOBALS['options'][$key]??$default;}function add_option($key,$value,...$extra){if(isset($GLOBALS['options'][$key]))return false;$GLOBALS['options'][$key]=$value;return true;}
 function get_user_meta($id,$key,$single=true){return $GLOBALS['meta'][$id][$key]??'';}function update_user_meta($id,$key,$value){$GLOBALS['meta'][$id][$key]=$value;}
+function get_post($id){return (int)$id===(int)($GLOBALS['adapter_privacy_page']->ID??0)?$GLOBALS['adapter_privacy_page']:null;}
+function get_post_meta($id,$key,$single=true){return $GLOBALS['adapter_privacy_meta'][$id][$key]??'';}
+function get_permalink($id){return $GLOBALS['adapter_privacy_permalink']??'https://artist.trbrec.com/privacy-policy/';}
 function get_userdata($id){return $id===$GLOBALS['user']->ID?$GLOBALS['user']:false;}function get_transient($key){return $GLOBALS['transients'][$key]??false;}
 function trb_crm_connector_settings(){return ['secret'=>str_repeat('s',64)];}function trb_portal_dds_store_secret(){return str_repeat('s',64);}function trb_store_dds_bridge_secret(){return str_repeat('s',64);}
 function trb_portal_profiles(){return ['ddb'=>['role'=>'artista_b']];}function pw_new_user_approve(){return new class{public function update_user_status($id,$status){$GLOBALS['approved']=$status;}};}
@@ -19,6 +22,20 @@ function wp_next_scheduled($x){return true;}function wp_date($format,$stamp,$zon
 function check_adapter($ok,$message){if(!$ok)throw new RuntimeException($message);}
 require dirname(__DIR__).'/inc/trb-candidate-onboarding.php';
 require dirname(__DIR__).'/integrations/onboarding/store/trb-onboarding-payments.php';
+// A login exception must expose only the managed published notice, never other content.
+$_SERVER['REQUEST_URI']='/privacy-policy/';
+check_adapter(!trb_onboarding_is_privacy_page(),'An unconfigured notice cannot bypass portal access');
+$options['wp_page_for_privacy_policy']=9258;
+$GLOBALS['adapter_privacy_page']=(object)['ID'=>9258,'post_type'=>'page','post_status'=>'publish'];
+$GLOBALS['adapter_privacy_meta'][9258]['_trb_onboarding_privacy_version']='20261002c';
+check_adapter(trb_onboarding_is_privacy_page(),'Published managed notice is public before registration');
+foreach(['/area-artisti/','/docs/private/','/privacy-policy/extra','/wp-admin/','/adesione/'] as $path){$_SERVER['REQUEST_URI']=$path;check_adapter(!trb_onboarding_is_privacy_page(),'Unrelated paths retain access controls');}
+$_SERVER['REQUEST_URI']='/privacy-policy/?from=onboarding';check_adapter(trb_onboarding_is_privacy_page(),'Notice remains accessible with an ordinary query string');
+$GLOBALS['adapter_privacy_page']->post_status='draft';check_adapter(!trb_onboarding_is_privacy_page(),'A draft notice is not public');
+$GLOBALS['adapter_privacy_page']->post_status='publish';$GLOBALS['adapter_privacy_page']->post_type='docs';check_adapter(!trb_onboarding_is_privacy_page(),'A private resource cannot become the public notice');
+$GLOBALS['adapter_privacy_page']->post_type='page';$GLOBALS['adapter_privacy_meta'][9258]['_trb_onboarding_privacy_version']='other';check_adapter(!trb_onboarding_is_privacy_page(),'An unmanaged page retains portal access');
+$GLOBALS['adapter_privacy_meta'][9258]['_trb_onboarding_privacy_version']='20261002c';$GLOBALS['adapter_privacy_permalink']='https://artist.trbrec.com/other/';check_adapter(!trb_onboarding_is_privacy_page(),'A different configured route is not exposed');
+unset($options['wp_page_for_privacy_policy'],$GLOBALS['adapter_privacy_page'],$GLOBALS['adapter_privacy_meta'],$GLOBALS['adapter_privacy_permalink']);
 $siteLoginError=new WP_Error('rest_login','Site login required');$_SERVER['REQUEST_METHOD']='POST';
 foreach(array('/wp-json/trb/v1/onboarding/private','/wp-json/trb/v1/onboarding/public') as $route){$_SERVER['REQUEST_URI']=$route;check_adapter(trb_onboarding_protocol_authentication($siteLoginError)===null,'Portal protocol reaches its own permission callback');}
 foreach(array('/wp-json/trb/v1/onboarding/order','/wp-json/trb/v1/onboarding/payment-status') as $route){$_SERVER['REQUEST_URI']=$route;check_adapter(trb_onboarding_store_protocol_authentication($siteLoginError)===null,'Store protocol reaches its own permission callback');}
