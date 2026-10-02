@@ -76,8 +76,18 @@ jobs:
 
       - name: Render synthetic service email preview
         run: php tools/test-onboarding-mail.php --preview
+      - name: Install browser for mobile layout validation
+        run: |
+          npm install --prefix /tmp/trb-browser-qa --no-save playwright@1.62.1
+          /tmp/trb-browser-qa/node_modules/.bin/playwright install --with-deps chromium
+      - name: Validate mobile form and service email layouts
+        run: NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/onboarding-responsive.test.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: onboarding-mail-preview
-          path: mail-preview.html
+          path: |
+            mail-preview.html
+            form-mobile.png
+            waiting-mobile.png
+            mail-mobile.png
           retention-days: 3
