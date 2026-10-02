@@ -1,4 +1,4 @@
-name: Onboarding isolated guest checkout QA
+name: Onboarding final residual audit
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Validate isolated checkout probe
+      - name: Validate final read-only probe
         run: |
           php -l tools/audit-onboarding-final-live.php
       - name: Read-only onboarding readiness, privacy and payment audit

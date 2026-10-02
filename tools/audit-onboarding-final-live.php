@@ -1,11 +1,39 @@
 <?php
+/** Read-only post-deployment checks. No sends, payments or account changes. */
 if(PHP_SAPI!=='cli')exit;ini_set('display_errors','0');ob_start();
-$code= <<<'CODE'
+set_exception_handler(static function(){while(ob_get_level())ob_end_clean();fwrite(STDERR,"Final residual audit unconfirmed.\n");exit(1);});
+$theme='/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy';
+$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/onboarding-readiness.php').' 864a35fe23776d2700fdc3a84cb215ed26e470c3 2>/dev/null',$lines,$readyExit);
+$out=['connections'=>$readyExit===0?json_decode(implode("\n",$lines),true):null];
+$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/finish-onboarding-privacy.php').' 864a35fe23776d2700fdc3a84cb215ed26e470c3 --verify 2>/dev/null',$lines,$privacyExit);
+$out['privacy']=$privacyExit===0?json_decode(implode("\n",$lines),true):null;
+require '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';\TrbCrm\Env::load('/home/customer/www/crm.trbrec.com/public_html/.env');
+require '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingContractCatalog.php';
+$out['privacy_version_current']=str_contains(file_get_contents('/home/customer/www/crm.trbrec.com/public_html/app/OnboardingService.php'),'2026.2-documents-20261002c');
+$db=\TrbCrm\Database::connection();$out['pending_cases']=[];$out['non_qa_old_sources']=0;
+foreach($db->query('SELECT p.id,p.state,p.snapshot,c.status,c.sent_at,c.metadata FROM onboarding_practices p JOIN contracts c ON c.id=p.contract_id WHERE p.signed_at IS NULL AND p.cancelled_at IS NULL')->fetchAll() as $p){
+$s=json_decode($p['snapshot'],true);$m=\TrbCrm\OnboardingContractCatalog::model($s['template_key']);$email=strtolower($s['email']??'');$label=strtoupper(implode(' ',[$s['contract_number']??'',$s['artist_name']??'',$p['metadata']??'']));
+$qa=str_contains($label,'QA-')||str_contains($label,'NONVALIDO')||str_contains($label,'COLLAUDO')||in_array($email,['a.tognassi@gmail.com','spotify4@trbrec.com'],true);
+$current=hash_equals($m['source_sha256'],$s['source_sha256']);if(!$qa&&!$current)$out['non_qa_old_sources']++;
+$out['pending_cases'][]=['case'=>substr(hash('sha256',$p['id']),0,8),'qa'=>$qa,'group'=>$s['group_code'],'source_current'=>$current,'state'=>$p['state'],'contract_status'=>$p['status'],'sent'=>(bool)$p['sent_at']];
+}
+$out['uncertain_overdue_emails']=(int)$db->query("SELECT COUNT(*) FROM onboarding_events WHERE kind='overdue_reminder' AND status='uncertain'")->fetchColumn();
+$out['pending_signature_dispatches']=(int)$db->query("SELECT COUNT(*) FROM onboarding_signatures WHERE state<>'completed'")->fetchColumn();
+$store= <<<'STORE'
+$_SERVER['HTTP_HOST']='store.trbrec.com';$_SERVER['REQUEST_URI']='/';$_SERVER['HTTPS']='on';define('WP_USE_THEMES',false);define('DISABLE_WP_CRON',true);ob_start();require '/home/customer/www/store.trbrec.com/public_html/wp-load.php';
+$g=WC()->payment_gateways()->payment_gateways();$s=(array)get_option('woocommerce_stripe_settings',[]);
+$r=['paypal_enabled'=>isset($g['ppcp-gateway'])&&$g['ppcp-gateway']->enabled==='yes','stripe_enabled'=>isset($g['stripe'])&&$g['stripe']->enabled==='yes','stripe_live'=>($s['testmode']??'no')!=='yes','direct_bank_disabled'=>!isset($g['bacs'])||$g['bacs']->enabled!=='yes','bank_accounts_empty'=>!(array)get_option('woocommerce_bacs_accounts',[]),'onboarding_enabled'=>(bool)get_option('trb_onboarding_payments_enabled')];
+if(class_exists('WC_Stripe_API')&&$r['stripe_live']){$a=WC_Stripe_API::request([],'account','GET');$r['stripe_account_read']=!is_wp_error($a)&&is_object($a)&&($a->object??'')==='account';if($r['stripe_account_read']){$r['charges_enabled']=(bool)$a->charges_enabled;$r['payouts_enabled']=(bool)$a->payouts_enabled;$r['payouts_daily']=($a->settings->payouts->schedule->interval??null)==='daily';}}
+while(ob_get_level())ob_end_clean();echo json_encode($r);
+STORE;
+$artist= <<<'ARTIST'
 $_SERVER['HTTP_HOST']='artist.trbrec.com';$_SERVER['REQUEST_URI']='/';$_SERVER['HTTPS']='on';define('WP_USE_THEMES',false);define('DISABLE_WP_CRON',true);ob_start();require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
-$id=(int)get_option('wp_page_for_privacy_policy');$p=$id?get_post($id):get_post(9258);$url=get_privacy_policy_url();$src=file_get_contents('/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy/tools/finish-onboarding-privacy.php');preg_match("/\$notice= <<<'NOTICE'\n(.*?)\nNOTICE;/s",$src,$match);
-$r=['page_id'=>$p?$p->ID:null,'status'=>$p?$p->post_status:null,'configured_id'=>$id,'version'=>$p?get_post_meta($p->ID,'_trb_onboarding_privacy_version',true):null,'url'=>$url,'content_length'=>$p?strlen($p->post_content):null,'expected_found'=>isset($match[1]),'content_matches'=>$p&&isset($match[1])&&$p->post_content===$match[1]];
-if($p&&isset($match[1])&&!$r['content_matches']){$a=$p->post_content;$b=$match[1];$i=0;while($i<min(strlen($a),strlen($b))&&$a[$i]===$b[$i])$i++;$r['difference']=['offset'=>$i,'stored'=>substr($a,max(0,$i-40),180),'expected'=>substr($b,max(0,$i-40),180)];}
-foreach(['privacy'=>$url,'candidate'=>'https://artist.trbrec.com/adesione/?trb_privacy_check=20261002c'] as $key=>$u){$response=wp_remote_get($u,['timeout'=>30,'redirection'=>0,'headers'=>['Cache-Control'=>'no-cache']]);$body=is_wp_error($response)?'':wp_remote_retrieve_body($response);$r[$key]=['error'=>is_wp_error($response),'code'=>is_wp_error($response)?null:wp_remote_retrieve_response_code($response),'location'=>is_wp_error($response)?null:wp_remote_retrieve_header($response,'location'),'privacy_marker'=>str_contains($body,'trb-onboarding-privacy'),'privacy_link'=>$url!==''&&str_contains($body,esc_url($url)),'instant_copy'=>str_contains($body,'PayPal o una carta di credito/debito'),'old_bank_copy'=>str_contains($body,'Per il bonifico')];}
-while(ob_get_level())ob_end_clean();echo json_encode($r,JSON_UNESCAPED_SLASHES);
-CODE;
-exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($code).' 2>/dev/null',$lines,$status);while(ob_get_level())ob_end_clean();echo json_encode(['privacy_diagnostic'=>implode("\n",$lines),'exit'=>$status])."\n";
+$r=['worker_scheduled'=>(bool)wp_next_scheduled('trb_onboarding_worker'),'onboarding_enabled'=>function_exists('trb_onboarding_enabled')&&trb_onboarding_enabled(),'privacy_url_present'=>get_privacy_policy_url()!==''];
+while(ob_get_level())ob_end_clean();echo json_encode($r);
+ARTIST;
+foreach(['store'=>$store,'artist'=>$artist] as $key=>$code){$lines=[];exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($code).' 2>/dev/null',$lines,$exit);$out[$key]=$exit===0?json_decode(implode("\n",$lines),true):null;}
+$connectionsReady=is_array($out['connections']);foreach(['revision','archive_connection','portal_secret','identity_key','signature_secret','invitation_key','signature_adapter','mail_adapter','contract_sources','portal_adapter','portal_loaded','portal_route_loaded','portal_key_matches','portal_store_configured','portal_approval_plugin','portal_http_2xx'] as $key)$connectionsReady=$connectionsReady&&($out['connections'][$key]??false)===true;
+foreach(['portal_http_403','portal_http_404','portal_http_5xx'] as $key)$connectionsReady=$connectionsReady&&($out['connections'][$key]??true)===false;
+$good=$out['non_qa_old_sources']===0&&$out['privacy_version_current']&&$connectionsReady&&($out['privacy']['success']??false)===true
+&&is_array($out['store'])&&!in_array(false,$out['store'],true)&&is_array($out['artist'])&&!in_array(false,$out['artist'],true);
+$out['success']=$good;while(ob_get_level())ob_end_clean();echo json_encode($out,JSON_UNESCAPED_SLASHES)."\n";exit($good?0:1);
