@@ -13,7 +13,13 @@ if(class_exists('WC_Stripe_API')&&$out['stripe_live_mode']){
     $out['stripe_account_read']=!is_wp_error($account)&&is_object($account)&&($account->object??'')==='account';
     if($out['stripe_account_read']){
         $out['stripe_charges_enabled']=(bool)($account->charges_enabled??false);$out['stripe_payouts_enabled']=(bool)($account->payouts_enabled??false);$out['stripe_eur_bank']=[];
-        foreach(($account->external_accounts->data??[]) as $bank)if(($bank->object??'')==='bank_account'&&($bank->currency??'')==='eur')$out['stripe_eur_bank'][]=['bank_name'=>$bank->bank_name??'','last4'=>$bank->last4??'','matches_authorized_hype_suffix'=>($bank->last4??'')==='7943','default_for_currency'=>(bool)($bank->default_for_currency??false),'status'=>$bank->status??''];
+        $banks=$account->external_accounts->data??[];
+        if(!$banks&&preg_match('/^acct_[A-Za-z0-9]+$/D',(string)($account->id??''))){
+            $external=WC_Stripe_API::request(['object'=>'bank_account'],'accounts/'.$account->id.'/external_accounts','GET');
+            $out['stripe_bank_details_read']=!is_wp_error($external)&&is_object($external)&&($external->object??'')==='list';
+            if($out['stripe_bank_details_read'])$banks=$external->data??[];
+        }
+        foreach($banks as $bank)if(($bank->object??'')==='bank_account'&&($bank->currency??'')==='eur')$out['stripe_eur_bank'][]=['bank_name'=>$bank->bank_name??'','last4'=>$bank->last4??'','matches_authorized_hype_suffix'=>($bank->last4??'')==='7943','default_for_currency'=>(bool)($bank->default_for_currency??false),'status'=>$bank->status??''];
         $out['stripe_payout_schedule']=$account->settings->payouts->schedule->interval??null;
     }
 }
