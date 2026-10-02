@@ -4,7 +4,8 @@ define('ABSPATH',__DIR__);define('HOUR_IN_SECONDS',3600);
 class WP_Error{public function __construct(public $code,public $message,public $data=[]){}public function get_error_message(){return $this->message;}}
 class WP_User{public $roles=[];public $user_email='artist@example.invalid';public function __construct(public $ID=101){}public function has_cap($cap){return false;}public function add_role($role){$this->roles[]=$role;}}
 function is_wp_error($x){return $x instanceof WP_Error;}
-function add_action(...$args){}function add_filter(...$args){}
+function add_action(...$args){}function add_filter($tag,$callback,...$args){$GLOBALS['adapter_filters'][$tag][]=$callback;}
+function get_query_var($key){return $key==='order-pay'?($GLOBALS['adapter_pay_order']??0):0;}function wc_get_order($id){return $GLOBALS['adapter_orders'][$id]??false;}
 function absint($x){return abs((int)$x);}function sanitize_text_field($x){return trim($x);}function sanitize_file_name($x){return basename($x);}function wp_unslash($x){return $x;}
 function wp_json_encode($x,...$args){return json_encode($x,...$args);}function wp_salt($x){return str_repeat('a',64);}function home_url(){return 'https://artist.trbrec.com';}
 $meta=[];$options=['trb_candidate_onboarding_enabled'=>true];$transients=[];$user=new WP_User();
@@ -44,6 +45,13 @@ $order=new class{public $gateway='stripe',$transaction='qa-capture',$date,$amoun
 check_adapter(trb_onboarding_store_capture($order)['captured'],'Exact provider capture accepted');$order->gateway='bacs';check_adapter(!trb_onboarding_store_capture($order)['captured'],'Manual bank transfer not capture');$order->gateway='stripe';$order->transaction='';check_adapter(!trb_onboarding_store_capture($order)['captured'],'Transaction proof required');$order->transaction='qa';$order->amount=50;check_adapter(!trb_onboarding_store_capture($order)['captured'],'Gross contract cents enforced');
 foreach(array('ppcp-card-button-gateway','ppcp-credit-card-gateway','stripe') as $gateway){$order->gateway=$gateway;$order->amount=49;check_adapter(trb_onboarding_store_capture($order)['captured'],'Direct card captures accepted with their own gateway IDs');}
 check_adapter(!trb_onboarding_bank_configured(),'No bank checkout without an IBAN');$options['woocommerce_bacs_accounts']=[['account_name'=>'QA TEST','iban'=>'IT60 X054 2811 1010 0000 0123 456']];check_adapter(trb_onboarding_bank_configured(),'Bank checkout requires an IBAN checksum');$options['woocommerce_bacs_accounts'][0]['iban']='IT00X0542811101000000123456';check_adapter(!trb_onboarding_bank_configured(),'Invalid bank details rejected');
+$gatewayFilter=end($GLOBALS['adapter_filters']['woocommerce_available_payment_gateways']);$gateways=['ppcp-gateway'=>(object)[],'stripe'=>(object)[],'ppcp-card-button-gateway'=>(object)[],'bacs'=>(object)[]];
+check_adapter($gatewayFilter($gateways)===$gateways,'Ordinary store checkout retains every available gateway');check_adapter(trb_onboarding_checkout_button_text('Original')==='Original','Ordinary store button is untouched');
+$GLOBALS['adapter_pay_order']=903;$GLOBALS['adapter_orders'][903]=new class{public function get_meta($key){return $key==='_trb_onboarding_practice_id'?'qa':'';}};
+check_adapter(array_keys($gatewayFilter($gateways))===['ppcp-gateway','stripe'],'Onboarding offers one card alternative and hides an unconfigured bank');
+$fallback=$gateways;unset($fallback['stripe']);check_adapter(array_keys($gatewayFilter($fallback))===['ppcp-gateway','ppcp-card-button-gateway'],'PayPal card option remains when direct cards are unavailable');
+check_adapter(trb_onboarding_checkout_button_text('Paga per l’ordine')==='EFFETTUA IL VERSAMENTO','Contract checkout uses the requested action');
+$GLOBALS['adapter_pay_order']=0;
 class WC_DateTime extends DateTimeImmutable{}
 class BankTestOrder{
  public $meta=['_trb_onboarding_practice_id'=>'qa','_trb_onboarding_amount_cents'=>4900],$transaction='',$date=null,$status='on-hold',$gateway='bacs',$completions=0;public function __construct(public $id){}

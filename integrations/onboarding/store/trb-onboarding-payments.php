@@ -102,8 +102,28 @@ add_filter('woocommerce_available_payment_gateways',static function($gateways){
     if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $gateways;
     $allowed=trb_onboarding_instant_gateways();if(trb_onboarding_bank_configured())$allowed[]='bacs';
     $preferred=array_merge(array('ppcp-gateway','stripe','ppcp-credit-card-gateway','ppcp-card-button-gateway','paypal','woocommerce_payments'),array('bacs'));$ordered=array();
-    foreach($preferred as $id)if(in_array($id,$allowed,true)&&isset($gateways[$id]))$ordered[$id]=$gateways[$id];return $ordered;
+    foreach($preferred as $id)if(in_array($id,$allowed,true)&&isset($gateways[$id]))$ordered[$id]=$gateways[$id];
+    // One clear card choice. Keep PayPal's card gateway as the fallback.
+    if(isset($ordered['stripe']))unset($ordered['ppcp-credit-card-gateway'],$ordered['ppcp-card-button-gateway']);
+    return $ordered;
 },100);
+
+function trb_onboarding_checkout_order(){
+    $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
+    return $order&&$order->get_meta('_trb_onboarding_practice_id')?$order:false;
+}
+function trb_onboarding_checkout_button_text($text){return trb_onboarding_checkout_order()?'EFFETTUA IL VERSAMENTO':$text;}
+add_filter('woocommerce_pay_order_button_text','trb_onboarding_checkout_button_text',100);
+add_filter('woocommerce_order_button_text','trb_onboarding_checkout_button_text',100);
+add_filter('woocommerce_endpoint_order-pay_title',static function($title){return trb_onboarding_checkout_order()?'Versamento della quota contrattuale':$title;},100);
+add_action('before_woocommerce_pay',static function(){
+    if(!trb_onboarding_checkout_order())return;
+    echo '<p class="trb-verse-intro">La formula è quella che hai già confermato nella tua adesione. Qui versi soltanto la quota dovuta: scegli PayPal oppure una carta di credito o debito abilitata agli acquisti online.</p>';
+});
+add_action('wp_head',static function(){
+    if(!trb_onboarding_checkout_order())return;
+    echo '<style>.trb-verse-intro{font-size:1rem;line-height:1.6;margin:0 0 1.5rem}#payment .wc_payment_methods{padding:0;list-style:none}#payment .wc_payment_method{border:1px solid #d7dee6;border-radius:12px;padding:16px;margin:0 0 12px}#payment .wc_payment_method>label{line-height:1.5;cursor:pointer}#payment .payment_box{margin-top:12px}#place_order{width:100%;min-height:52px;white-space:normal;line-height:1.4}@media(max-width:600px){#payment .wc_payment_method{padding:14px}#payment .wc_payment_method>label{font-size:16px}}</style>';
+});
 
 /** These gateways provide transaction IDs; enabling one remains a Store setting. */
 function trb_onboarding_instant_gateways(){return array('ppcp-gateway','ppcp-credit-card-gateway','ppcp-card-button-gateway','stripe','paypal','woocommerce_payments');}
@@ -157,7 +177,6 @@ add_filter('woocommerce_gateway_title',static function($title,$gateway){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $title;
     return array('ppcp-gateway'=>'PayPal (consigliato)','stripe'=>'Carta di credito o debito (Bancomat Visa/Mastercard) · senza conto PayPal','ppcp-credit-card-gateway'=>'Carta di credito o debito · tramite PayPal','ppcp-card-button-gateway'=>'Carta di credito o debito · tramite PayPal','bacs'=>'Bonifico bancario')[$gateway]??$title;
 },100,2);
-
 // Stripe UPE rebuilds its label in JavaScript from its localized title.
 add_filter('wc_stripe_upe_params',static function($params){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
@@ -167,10 +186,9 @@ add_filter('wc_stripe_upe_params',static function($params){
     if(isset($params['paymentMethodsConfig']['card']))$params['paymentMethodsConfig']['card']['title']=$params['title'];
     return $params;
 },100);
-
 // Keep the accessible label explicit on older optimized-checkout builds too.
 add_action('wp_footer',static function(){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
     if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return;
-    echo '<script>(function(){var title="Carta di credito o debito (Bancomat Visa/Mastercard) · senza conto PayPal";function label(){var e=document.querySelector("label[for=payment_method_stripe]");if(e&&e.textContent.trim()!==title)e.textContent=title;}label();if(window.MutationObserver){new MutationObserver(label).observe(document.body,{childList:true,subtree:true,characterData:true});}})();</script>';
+    echo '<script>(function(){var title="Carta di credito o debito (Bancomat Visa/Mastercard) · senza conto PayPal",action="EFFETTUA IL VERSAMENTO";function label(){var e=document.querySelector("label[for=payment_method_stripe]");if(e&&e.textContent.trim()!==title)e.textContent=title;var b=document.querySelector("#place_order");if(b){if(b.textContent.trim()!==action)b.textContent=action;if(b.value!==action)b.value=action;if(b.getAttribute("data-value")!==action)b.setAttribute("data-value",action);}}label();if(window.MutationObserver){new MutationObserver(label).observe(document.body,{childList:true,subtree:true,characterData:true});}})();</script>';
 },100);
