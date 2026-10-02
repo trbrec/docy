@@ -157,3 +157,12 @@ add_filter('woocommerce_gateway_title',static function($title,$gateway){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $title;
     return array('ppcp-gateway'=>'PayPal (consigliato)','stripe'=>'Carta di credito o debito · senza conto PayPal','ppcp-credit-card-gateway'=>'Carta di credito o debito · tramite PayPal','ppcp-card-button-gateway'=>'Carta di credito o debito · tramite PayPal','bacs'=>'Bonifico bancario')[$gateway]??$title;
 },100,2);
+
+// Stripe UPE rebuilds its label in JavaScript from its localized title.
+add_filter('wc_stripe_upe_params',static function($params){
+    $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
+    if(!is_array($params)||!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $params;
+    $params['title']='Carta di credito o debito · senza conto PayPal';
+    if(isset($params['paymentMethodsConfig']['card']))$params['paymentMethodsConfig']['card']['title']=$params['title'];
+    return $params;
+},100);
