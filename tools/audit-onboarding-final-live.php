@@ -1,36 +1,23 @@
 <?php
-/** Read-only final audit: no payments, emails, contracts or account changes. */
-if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
-ini_set('display_errors','0');ob_start();
-set_exception_handler(static function(){while(ob_get_level())ob_end_clean();fwrite(STDERR,"Final onboarding audit unconfirmed.\n");exit(1);});
-$theme='/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy';
-exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/onboarding-readiness.php').' 61e61b968e8d0f11ad65d3f08e985d8e929e2283 2>/dev/null',$readyLines,$readyExit);
-$out=['connections'=>$readyExit===0?json_decode(implode("\n",$readyLines),true):null];
-require_once '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';
+/** Read-only discovery of residual configuration, no writes or sends. */
+if(PHP_SAPI!=='cli')exit;
+ini_set('display_errors','0');ob_start();set_exception_handler(static function(){while(ob_get_level())ob_end_clean();fwrite(STDERR,"Residual discovery failed.\n");exit(1);});
+require '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';
 \TrbCrm\Env::load('/home/customer/www/crm.trbrec.com/public_html/.env');
-require_once '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingContractCatalog.php';
-$db=\TrbCrm\Database::connection();
-$models=[];foreach(\TrbCrm\OnboardingContractCatalog::all() as $m)$models[$m['template_key']]=$m;
-$out['pending_practices']=0;$out['pending_stale_sources']=0;$out['pending_unknown_models']=0;$out['pending_source_cases']=[];
-foreach($db->query('SELECT snapshot FROM onboarding_practices WHERE signed_at IS NULL AND cancelled_at IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $raw){
- $out['pending_practices']++;$s=json_decode($raw,true);$model=$models[$s['template_key']??'']??null;$out['pending_source_cases'][]=['is_qa'=>str_contains(strtoupper((string)($s['contract_number']??'')),'QA-')||str_contains(strtoupper((string)($s['contract_number']??'')),'NONVALIDO'),'group'=>$s['group_code']??'unknown','source_hash_present'=>preg_match('/^[a-f0-9]{64}$/D',(string)($s['source_sha256']??''))===1,'matches_current'=>$model&&hash_equals($model['source_sha256'],(string)($s['source_sha256']??''))];
- if(!$model){$out['pending_unknown_models']++;continue;}
- if(!hash_equals($model['source_sha256'],(string)($s['source_sha256']??'')))$out['pending_stale_sources']++;
+require '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingContractCatalog.php';
+$db=\TrbCrm\Database::connection();$cases=[];
+foreach($db->query('SELECT p.id,p.state,p.snapshot,p.selected_plan,p.expires_at,c.status,c.sent_at,c.metadata FROM onboarding_practices p JOIN contracts c ON c.id=p.contract_id WHERE p.signed_at IS NULL AND p.cancelled_at IS NULL')->fetchAll() as $p){
+$s=json_decode($p['snapshot'],true);$m=\TrbCrm\OnboardingContractCatalog::model($s['template_key']);$plan=json_decode($p['selected_plan']??'null',true);$email=strtolower($s['email']??'');$meta=json_decode($p['metadata']??'{}',true);
+$label=strtoupper(implode(' ',[$s['contract_number']??'',$s['artist_name']??'',json_encode($meta)]));
+$qa=str_contains($label,'QA-')||str_contains($label,'NONVALIDO')||str_contains($label,'COLLAUDO')||in_array($email,['a.tognassi@gmail.com','spotify4@trbrec.com'],true);
+$counts=[];foreach(['onboarding_events','onboarding_payments','onboarding_signatures'] as $table){$q=$db->prepare("SELECT COUNT(*) FROM ".$table." WHERE practice_id=?");$q->execute([$p['id']]);$counts[$table]=(int)$q->fetchColumn();}
+$cases[]=['case'=>substr(hash('sha256',$p['id']),0,8),'qa'=>$qa,'group'=>$s['group_code']??null,'state'=>$p['state'],'contract_status'=>$p['status'],'sent'=>(bool)$p['sent_at'],'expires_at'=>$p['expires_at'],'source_current'=>hash_equals($m['source_sha256'],$s['source_sha256']),'snapshot_keys'=>array_keys($s),'plan_kind'=>$plan['kind']??null,'current_plan_amounts'=>array_map(static fn($x)=>$x['amounts_cents'],$m['plans']),'selected_amounts'=>$plan['amounts_cents']??null,'counts'=>$counts];
 }
-$out['uncertain_overdue_emails']=(int)$db->query("SELECT COUNT(*) FROM onboarding_events WHERE kind='overdue_reminder' AND status='uncertain'")->fetchColumn();
-$out['pending_signature_dispatches']=(int)$db->query("SELECT COUNT(*) FROM onboarding_signatures WHERE state<>'completed'")->fetchColumn();
-$store= <<<'STORE'
-$_SERVER['HTTP_HOST']='store.trbrec.com';$_SERVER['REQUEST_URI']='/';$_SERVER['HTTPS']='on';define('WP_USE_THEMES',false);define('DISABLE_WP_CRON',true);ob_start();require '/home/customer/www/store.trbrec.com/public_html/wp-load.php';
-$gateways=WC()->payment_gateways()->payment_gateways();$s=(array)get_option('woocommerce_stripe_settings',[]);
-$r=['stripe_enabled'=>isset($gateways['stripe'])&&$gateways['stripe']->enabled==='yes','paypal_enabled'=>isset($gateways['ppcp-gateway'])&&$gateways['ppcp-gateway']->enabled==='yes','stripe_live_mode'=>($s['testmode']??'no')!=='yes','guest_checkout_enabled'=>get_option('woocommerce_enable_guest_checkout')==='yes','bank_transfer_enabled'=>isset($gateways['bacs'])&&$gateways['bacs']->enabled==='yes','bank_transfer_configured'=>function_exists('trb_onboarding_bank_configured')&&trb_onboarding_bank_configured(),'currency_eur'=>get_woocommerce_currency()==='EUR','onboarding_enabled'=>(bool)get_option('trb_onboarding_payments_enabled')];
-if(class_exists('WC_Stripe_API')&&$r['stripe_live_mode']){$a=WC_Stripe_API::request([],'account','GET');$r['stripe_account_read']=!is_wp_error($a)&&is_object($a)&&($a->object??'')==='account';if($r['stripe_account_read']){$r['stripe_charges_enabled']=(bool)($a->charges_enabled??false);$r['stripe_payouts_enabled']=(bool)($a->payouts_enabled??false);$r['stripe_payout_schedule']=$a->settings->payouts->schedule->interval??null;}}
-while(ob_get_level())ob_end_clean();echo json_encode($r);
-STORE;
-$artist= <<<'ARTIST'
-$_SERVER['HTTP_HOST']='artist.trbrec.com';$_SERVER['REQUEST_URI']='/';$_SERVER['HTTPS']='on';define('WP_USE_THEMES',false);define('DISABLE_WP_CRON',true);ob_start();require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
-$url=get_privacy_policy_url();$page=get_post((int)get_option('wp_page_for_privacy_policy'));
-$r=['privacy_url_present'=>$url!=='','privacy_page_published'=>$page&&$page->post_status==='publish','worker_scheduled'=>(bool)wp_next_scheduled('trb_onboarding_worker'),'onboarding_enabled'=>function_exists('trb_onboarding_enabled')&&trb_onboarding_enabled()];
-while(ob_get_level())ob_end_clean();echo json_encode($r);
-ARTIST;
-foreach(['store'=>$store,'artist'=>$artist] as $key=>$code){$lines=[];exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($code).' 2>/dev/null',$lines,$exit);$out[$key]=$exit===0?json_decode(implode("\n",$lines),true):null;}
+$out=['cases'=>$cases,'sites'=>[]];
+foreach(['artist','store','main'] as $site){
+$host=$site==='main'?'trbrec.com':$site.'.trbrec.com';
+$code='$_SERVER["HTTP_HOST"]='.var_export($host,true).';$_SERVER["REQUEST_URI"]="/";$_SERVER["HTTPS"]="on";define("WP_USE_THEMES",false);define("DISABLE_WP_CRON",true);ob_start();require '.var_export('/home/customer/www/'.$host.'/public_html/wp-load.php',true).';'.
+'$id=(int)get_option("wp_page_for_privacy_policy");$p=$id?get_post($id):null;$r=["privacy_url"=>get_privacy_policy_url(),"configured_page"=>$p?["id"=>$p->ID,"status"=>$p->post_status,"content"=>$p->post_content]:null,"other_privacy_pages"=>[]];foreach(get_posts(["post_type"=>"page","post_status"=>["publish","draft"],"s"=>"privacy","numberposts"=>10]) as $p){$r["other_privacy_pages"][]=["id"=>$p->ID,"slug"=>$p->post_name,"status"=>$p->post_status,"content"=>$p->post_content];}if(function_exists("WC")){$r["bank_accounts"]=array_map(static function($a){$iban=preg_replace("/\\s+/","",strtoupper($a["iban"]??""));return ["holder"=>$a["account_name"]??"","iban_last4"=>substr($iban,-4),"matches_hype"=>$iban==="IT84W03268223000EM002707943","bank_name"=>$a["bank_name"]??""] ;},(array)get_option("woocommerce_bacs_accounts",[]));}while(ob_get_level())ob_end_clean();echo json_encode($r);';
+$lines=[];exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($code).' 2>/dev/null',$lines,$exit);$out['sites'][$site]=$exit===0?json_decode(implode("\n",$lines),true):null;
+}
 while(ob_get_level())ob_end_clean();echo json_encode($out,JSON_UNESCAPED_SLASHES)."\n";
