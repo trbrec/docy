@@ -3612,7 +3612,7 @@ function trb_portal_eazydocs_manuals() {
 }
 
 function trb_portal_sync_eazydocs_manuals() {
-	if ( ! post_type_exists( 'docs' ) || get_option( 'trb_portal_eazydocs_manuals_v4' ) ) {
+	if ( ! post_type_exists( 'docs' ) || get_option( 'trb_portal_eazydocs_manuals_v5' ) ) {
 		return;
 	}
 	foreach ( trb_portal_eazydocs_manuals() as $key => $manual ) {
@@ -3631,7 +3631,7 @@ function trb_portal_sync_eazydocs_manuals() {
 			update_post_meta( $doc_id, '_trb_portal_profiles', $manual['profiles'] );
 		}
 	}
-	update_option( 'trb_portal_eazydocs_manuals_v4', time(), false );
+	update_option( 'trb_portal_eazydocs_manuals_v5', time(), false );
 }
 add_action( 'init', 'trb_portal_sync_eazydocs_manuals', 39 );
 
