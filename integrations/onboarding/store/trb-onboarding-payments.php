@@ -163,6 +163,7 @@ add_filter('wc_stripe_upe_params',static function($params){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
     if(!is_array($params)||!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $params;
     $params['title']='Carta di credito o debito · senza conto PayPal';
+    $params['optimizedCheckoutClassicTitle']=$params['title'];
     if(isset($params['paymentMethodsConfig']['card']))$params['paymentMethodsConfig']['card']['title']=$params['title'];
     return $params;
 },100);
