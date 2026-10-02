@@ -5,6 +5,7 @@ require_once __DIR__.'/OnboardingService.php';
 require_once __DIR__.'/OnboardingDrive.php';
 require_once __DIR__.'/OnboardingIdentity.php';
 require_once __DIR__.'/OnboardingTransport.php';
+require_once __DIR__.'/OnboardingMail.php';
 require_once __DIR__.'/OnboardingEntry.php';
 require_once __DIR__.'/OnboardingIntake.php';
 
@@ -89,7 +90,7 @@ final class OnboardingRuntime
         $action=(string)($input['action']??'');
         if($action==='health')return ['enabled'=>self::enabled(),'version'=>OnboardingPolicy::VERSION];
         if($action==='worker')return $this->worker();
-        if($action==='challenge'){$c=$this->ledger->challenge((string)($input['token']??''));$p=$this->ledger->practice($c['practice_id']);$this->mail($c['email'],'Codice per la tua adesione TRB rec','Gentile '.$p['snapshot']['first_name'].",\n\nil codice per accedere alla tua adesione è ".$c['code'].". Scade tra 10 minuti.\nSe non hai richiesto l’accesso, ignora questo messaggio.");return ['salt'=>$c['salt']];}
+        if($action==='challenge'){$c=$this->ledger->challenge((string)($input['token']??''));$p=$this->ledger->practice($c['practice_id']);$message=OnboardingMail::accessCode($p['snapshot']['first_name'],$c['code']);$this->mail($c['email'],$message['subject'],$message['text'],$message['html']);return ['salt'=>$c['salt']];}
         if($action==='verify_email'){$session=$this->ledger->verifyEmail((string)($input['token']??''),(string)($input['code']??''),(string)($input['salt']??''));return ['session'=>$session,'practice'=>$this->service->view($this->ledger->fromSession($session))];}
         if(in_array($action,['account','account_checkout','account_document'],true)){
             $p=$this->ledger->portalPractice((int)($input['portal_user_id']??0),(string)($input['email']??''));
@@ -117,12 +118,11 @@ final class OnboardingRuntime
     {
         $this->service->refreshPayments($p['id']);return $this->service->view($this->service->refreshSignature($this->ledger->practice($p['id'])));
     }
-    private function mail(string $email,string $subject,string $text): void
+    private function mail(string $email,string $subject,string $text,?string $html=null): void
     {
         if(!self::enabled()||!filter_var($email,FILTER_VALIDATE_EMAIL)||preg_match('/[\r\n]/',$email))throw new \RuntimeException('Invio adesione non autorizzato');
         $messageId='<trbcrm.onboarding.'.bin2hex(random_bytes(16)).'@crm.trbrec.com>';$boundary='=_trbonboarding_'.bin2hex(random_bytes(12));
-        $subject=mb_encode_mimeheader(trim(preg_replace('/[\r\n]+/',' ',$subject)), 'UTF-8','B', "\r\n");
-        $raw='To: '.$email."\r\n".'From: Andrea Tognassi - TRB rec <andrea.tognassi@trbrec.com>'."\r\n".'Reply-To: andrea.tognassi@trbrec.com'."\r\n".'Subject: '.$subject."\r\n".'Date: '.gmdate('D, d M Y H:i:s O')."\r\n".'Message-ID: '.$messageId."\r\n".'MIME-Version: 1.0'."\r\n".'X-Auto-Response-Suppress: All'."\r\n".'Content-Type: multipart/alternative; boundary="'.$boundary.'"'."\r\n\r\n".OutboundMail::alternativePayload(OutboundMail::withSignature($text),$boundary);
+        $raw=OnboardingMail::mime($email,$subject,$text,$html,$messageId,$boundary);
         $result=OutboundMail::candidateBridge(['action'=>'crm_candidate_mail_send','confirm'=>true,'operator_confirmed'=>true,'recipient'=>$email,'message_id'=>$messageId,'raw_base64'=>base64_encode($raw),'mime_sha256'=>hash('sha256',$raw)]);
         if(($result['sent']??false)!==true||empty($result['gmail_message_id'])||empty($result['sent_copy']))throw new \RuntimeException('Invio email non confermato');
     }
@@ -180,3 +180,4 @@ final class OnboardingRuntime
         }finally{$this->db->query("SELECT RELEASE_LOCK('trb_onboarding_worker')");}
     }
 }
+

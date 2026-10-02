@@ -59,11 +59,14 @@ jobs:
           php tools/test-onboarding.php
           php tools/test-onboarding-service.php
           php tools/test-onboarding-adapters.php
+          php tools/test-onboarding-mail.php
+          php tools/test-onboarding-profile.php
           php tools/test-onboarding-intake.php
           node tests/onboarding-signature.test.js
           node tests/onboarding-document.test.js
           node tests/onboarding-drive.test.js
           node tests/onboarding-form.test.js
+          node tests/artist-profile-validation.test.js
           php tools/test-store-benefits.php
           php tools/test-demo-services.php
           php tools/test-rights-owner-review.php
@@ -205,3 +208,4 @@ jobs:
             -H "Cache-Control: no-cache" \
             -H "User-Agent: TRB-Daily-Site-Health/1.0" \
             "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s)" >/dev/null
+

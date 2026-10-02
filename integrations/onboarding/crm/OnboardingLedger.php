@@ -282,6 +282,9 @@ final class OnboardingLedger
             $files=$this->files($id);foreach(['identity_front','tax_front'] as $slot)if(empty($files[$slot]))throw new RuntimeException('Completa il fronte della carta d’identità e della tessera sanitaria o codice fiscale');
             $details=$this->details($id);if(empty($details['privacy_acknowledged_at']))throw new RuntimeException('Completa prima i dati e le informazioni sul trattamento');
             $result=OnboardingPolicy::documents($p['snapshot'],$fields,(string)($details['tax_code']??''),$today);
+            if($result['status']==='matched')foreach(['birth_date'=>'birth_date','document_expiry'=>'expiry_date'] as $declared=>$read){
+                if(!empty($details['profile'][$declared])&&$details['profile'][$declared]!==($fields[$read]??'')){$result=['status'=>'review','reason'=>'declared_'.$declared.'_mismatch'];break;}
+            }
             $this->query('DELETE FROM onboarding_identity_checks WHERE practice_id=?',[$id]);
             $this->query('INSERT INTO onboarding_identity_checks(practice_id,result,document_fingerprint,checked_at) VALUES(?,?,?,?)',[$id,$this->json($result),hash('sha256',$this->json($files)),gmdate('c')]);
             $state=['matched'=>'identity_matched','blocked'=>'minor_blocked','review'=>'identity_review'][$result['status']];
