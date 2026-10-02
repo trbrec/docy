@@ -167,3 +167,10 @@ add_filter('wc_stripe_upe_params',static function($params){
     if(isset($params['paymentMethodsConfig']['card']))$params['paymentMethodsConfig']['card']['title']=$params['title'];
     return $params;
 },100);
+
+// Keep the accessible label explicit on older optimized-checkout builds too.
+add_action('wp_footer',static function(){
+    $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
+    if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return;
+    echo '<script>(function(){var title="Carta di credito o debito · senza conto PayPal";function label(){var e=document.querySelector("label[for=payment_method_stripe]");if(e&&e.textContent.trim()!==title)e.textContent=title;}label();if(window.MutationObserver){new MutationObserver(label).observe(document.body,{childList:true,subtree:true,characterData:true});}})();</script>';
+},100);
