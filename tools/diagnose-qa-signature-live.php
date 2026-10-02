@@ -1,0 +1,14 @@
+<?php
+if(PHP_SAPI!=='cli')exit;ini_set('display_errors','0');ob_start();
+set_exception_handler(static function(){while(ob_get_level())ob_end_clean();fwrite(STDERR,"Targeted onboarding diagnostic unconfirmed.\n");exit(1);});
+$root='/home/customer/www/crm.trbrec.com/public_html';
+require $root.'/app/Core.php';\TrbCrm\Env::load($root.'/.env');require $root.'/app/OnboardingLedger.php';
+$db=\TrbCrm\Database::connection();$ledger=new \TrbCrm\OnboardingLedger($db);$p=$ledger->forContract(26);
+if(!$p||($p['snapshot']['contract_number']??'')!=='QA-TRB-NONVALIDO-20261002-2235'||$p['email']!=='a.tognassi@gmail.com')throw new RuntimeException('QA scope mismatch');
+$q=$db->prepare('SELECT submission_id FROM contracts WHERE id=?');$q->execute([26]);if((int)$q->fetchColumn()!==719)throw new RuntimeException('QA scope mismatch');
+$q=$db->prepare('SELECT result,document_fingerprint,checked_at FROM onboarding_identity_checks WHERE practice_id=?');$q->execute([$p['id']]);$check=$q->fetch();$decision=$check?json_decode($check['result'],true):[];$files=$ledger->files($p['id']);
+$out=['state'=>$p['state'],'recipient_exact'=>true,'identity'=>['recorded'=>(bool)$check,'status'=>$decision['status']??null,'reason'=>$decision['reason']??null,'checked_at'=>$check['checked_at']??null,'same_documents'=>$check?hash_equals($check['document_fingerprint'],hash('sha256',json_encode($files,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR))):false,'tax_comparison_recorded'=>!empty($decision['tax_code']),'birth_date_recorded'=>!empty($decision['birth_date']),'expiry_recorded'=>!empty($decision['expiry_date'])],'files'=>array_keys($files),'owner_approved'=>(bool)$p['owner_approved_at'],'signature'=>$ledger->signature($p['id'])?array_intersect_key($ledger->signature($p['id']),array_flip(['state','created_at'])):null,'final_pdf'=>(bool)$ledger->artifact($p['id'],'final_pdf'),'signed_pdf'=>(bool)$ledger->artifact($p['id'],'signed_pdf'),'worker_last_check'=>null,'owner_present'=>false];
+$q=$db->prepare('SELECT checked_at FROM onboarding_worker_checks WHERE practice_id=?');$q->execute([$p['id']]);$out['worker_last_check']=$q->fetchColumn()?:null;
+$q=$db->prepare("SELECT id,role FROM users WHERE LOWER(email)=?");$q->execute(['andrea.tognassi@trbrec.com']);$owner=$q->fetch();$out['owner_present']=$owner&&$owner['role']==='admin';
+$out['deployed_main']=trim(file_get_contents('/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy/.trb-deployed-sha'))==='3e20c3eb62b574682fb349188216410f5d225728';
+while(ob_get_level())ob_end_clean();echo json_encode($out,JSON_UNESCAPED_SLASHES)."\n";
