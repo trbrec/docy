@@ -55,6 +55,11 @@ def check(name: str, condition: bool) -> None:
 
 
 
+profile_requirements = PORTAL.split("function trb_portal_artist_profile_requirements(", 1)[1].split("function trb_portal_artist_profile_completion(", 1)[0]
+check("due fronti sufficienti anche dopo la registrazione", "Carta d’identità — fronte" in profile_requirements and "Codice fiscale o tessera sanitaria — fronte" in profile_requirements and "— retro" not in profile_requirements)
+profile_form = PORTAL.split("function trb_portal_render_artist_profile", 1)[1].split("function trb_portal_private_file_url", 1)[0] if "function trb_portal_render_artist_profile" in PORTAL else PORTAL[PORTAL.index('name="trb_artist_document_number"'):PORTAL.index('function trb_portal_private_file_url')]
+check("modulo profilo e rinnovo senza richiesta dei retro", 'name="trb_artist_id_front"' in profile_form and 'name="trb_artist_tax_front"' in profile_form and 'name="trb_artist_id_back"' not in profile_form and 'name="trb_artist_tax_back"' not in profile_form and "fronte e retro" not in profile_form)
+
 for profile, role in {
     "dds": "artista_a",
     "ddb12": "artista_ddb12",
