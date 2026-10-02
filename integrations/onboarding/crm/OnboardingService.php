@@ -11,13 +11,17 @@ final class OnboardingService
     private function today(): string {return (new \DateTimeImmutable('now',new \DateTimeZone('Europe/Rome')))->format('Y-m-d');}
     public function view(array $p): array
     {
+        // The only TRB route has no commercial choice. Resume existing verified
+        // invitations too; owner approval and both signatures remain mandatory.
+        $plans=$p['snapshot']['plans'];
+        if($p['state']==='identity_matched'&&$p['snapshot']['group_code']==='TRB'&&count($plans)===1&&reset($plans)['kind']==='free')$p=$this->ledger->choosePlan($p['id'],(string)array_key_first($plans));
         $files=[];foreach($this->ledger->files($p['id']) as $slot=>$file)$files[$slot]=['name'=>$file['name']??$slot,'uploaded'=>true];
         return ['id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'plans'=>$p['snapshot']['plans'],'selected_plan'=>$p['selected_plan'],'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
     }
     public function upload(array $p,string $slot,array $fileInfo=[]): array
     {
         if(!in_array($slot,['identity_front','identity_back','tax_front','tax_back'],true)||!in_array($p['state'],['invited','identity_review'],true))throw new \RuntimeException('Caricamento documenti non disponibile');
-        $details=$this->ledger->details($p['id']);if(empty($details['privacy_acknowledged_at']))throw new \RuntimeException('Leggi prima le informazioni sulla lettura automatizzata dei documenti');
+        $details=$this->ledger->details($p['id']);if(empty($details['privacy_acknowledged_at']))throw new \RuntimeException('Leggi prima le informazioni sul trattamento dei documenti');
         $this->archive->artistFolder($p['snapshot']['group_code'],$p['snapshot']['artist_folder_id']);
         $grant=$this->ledger->upload($p['id'],$slot);
         $files=$this->ledger->files($p['id']);$completed=$grant&&isset($files[$slot])&&(string)$files[$slot]['folder_id']===(string)$grant['folder_id'];
@@ -47,7 +51,7 @@ final class OnboardingService
         if($invoice['sdi_code']!==''&&!preg_match('/^[A-Za-z0-9]{7}$/D',$invoice['sdi_code']))throw new \RuntimeException('Il codice SDI deve contenere sette caratteri');
         if($invoice['pec']!==''&&!filter_var($invoice['pec'],FILTER_VALIDATE_EMAIL))throw new \RuntimeException('PEC non valida');
         foreach($invoice as $value)if(mb_strlen($value)>255)throw new \RuntimeException('Dato fiscale troppo lungo');
-        $details=['billing'=>$billing,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>gmdate('c'),'privacy_version'=>'2026.2-documents-20261002'];
+        $details=['billing'=>$billing,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>gmdate('c'),'privacy_version'=>'2026.2-documents-20261002b'];
         $this->ledger->saveDetails($p['id'],$details);return $this->view($this->ledger->practice($p['id']));
     }
     public function identity(array $p): array

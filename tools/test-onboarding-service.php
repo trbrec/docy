@@ -48,4 +48,11 @@ service_check($ledger->artifact($id,'signed_pdf')!==null&&$ledger->artifact($id,
 $service->register($ledger->practice($id),1234);$service->register($ledger->practice($id),1234);service_reject(fn()=>$service->register($ledger->practice($id),4321),'another account cannot take the practice');service_check($ledger->portalPractice(1234,$snapshot['email'])['id']===$id,'correct portal identity bound');
 service_check($ledger->access($id,$today)['allowed'],'services enabled only after final registration');
 $ledger->cancel($id,$owner);service_check(!$ledger->access($id,$today)['allowed'],'cancellation suspends future services');
+$freeSnapshot=OnboardingContractCatalog::model('trb_ccde')+['unsigned_document_sha256'=>str_repeat('b',64),'first_name'=>'Mario','last_name'=>'Rossi','email'=>'free@example.invalid','artist_folder_id'=>'drive-owner-free','contract_number'=>'QA-TRB'];
+$free=$ledger->create(124,$freeSnapshot,gmdate('c',time()+86400));$freeId=$free['id'];$service->details($ledger->practice($freeId),$details);
+foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($freeId,$slot,['file_id'=>30+$i,'folder_id'=>333,'hash'=>'free-h'.$i,'name'=>$slot.'.pdf']);
+$freeResult=$service->identity($ledger->practice($freeId));service_check($freeResult['practice']['state']==='owner_review'&&$freeResult['practice']['selected_plan']['kind']==='free','TRB proceeds without asking for a commercial choice');
+service_check(empty($ledger->details($freeId)['proposal_read_at']),'automatic TRB routing is not consent or signature');service_reject(fn()=>$service->checkout($ledger->practice($freeId)),'TRB cannot create payment orders');
+service_reject(fn()=>$service->dispatchSignature($ledger->practice($freeId)),'owner approval still precedes the chargeable signature dossier');
+$service->view($ledger->practice($freeId));service_check($ledger->practice($freeId)['state']==='owner_review','TRB refresh is idempotent');
 echo "Onboarding orchestration, trusted receipts, one dossier, both signatures, archive and account binding verified.\n";
