@@ -101,7 +101,8 @@ add_filter('woocommerce_available_payment_gateways',static function($gateways){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
     if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $gateways;
     $allowed=trb_onboarding_instant_gateways();if(trb_onboarding_bank_configured())$allowed[]='bacs';
-    return array_intersect_key($gateways,array_flip($allowed));
+    $preferred=array_merge(array('ppcp-gateway','stripe','ppcp-credit-card-gateway','ppcp-card-button-gateway','paypal','woocommerce_payments'),array('bacs'));$ordered=array();
+    foreach($preferred as $id)if(in_array($id,$allowed,true)&&isset($gateways[$id]))$ordered[$id]=$gateways[$id];return $ordered;
 },100);
 
 /** These gateways provide transaction IDs; enabling one remains a Store setting. */
@@ -150,3 +151,9 @@ add_action('woocommerce_order_action_trb_confirm_bank',static function($order){
     $result=trb_onboarding_confirm_bank_receipt($order,sanitize_text_field(wp_unslash($_POST['trb_bank_reference']??'')),sanitize_text_field(wp_unslash($_POST['trb_bank_paid_on']??'')),get_current_user_id());
     if(is_wp_error($result)){if(class_exists('WC_Admin_Meta_Boxes'))WC_Admin_Meta_Boxes::add_error($result->get_error_message());$order->add_order_note('Accredito non confermato: '.$result->get_error_message());}
 });
+
+// Name the actual card alternative clearly before an artist has an account.
+add_filter('woocommerce_gateway_title',static function($title,$gateway){
+    $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $title;
+    return array('ppcp-gateway'=>'PayPal (consigliato)','stripe'=>'Carta di credito o debito · senza conto PayPal','ppcp-credit-card-gateway'=>'Carta di credito o debito · tramite PayPal','ppcp-card-button-gateway'=>'Carta di credito o debito · tramite PayPal','bacs'=>'Bonifico bancario')[$gateway]??$title;
+},100,2);
