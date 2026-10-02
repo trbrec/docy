@@ -67,15 +67,15 @@ function trb_onboarding_store_order($request){
             if((int)round((float)$order->get_total()*100)!==$amount){$order->update_status('cancelled','Importo fiscale non coerente: nessun addebito richiesto.');throw new RuntimeException('Calcolo fiscale da verificare prima del pagamento.');}
             $order->save();$ids[]=$order->get_id();update_option($key,$ids,false);
         }
-        if($order->has_status(array('cancelled','refunded','on-hold')))throw new RuntimeException('Ordine con esito da verificare: richiedi assistenza prima di un nuovo versamento.');
-        return array('order_id'=>$order->get_id(),'checkout_url'=>$order->get_checkout_payment_url(),'paid'=>$order->is_paid(),'amount_cents'=>$amount,'currency'=>'EUR');
+        if($order->has_status(array('cancelled','refunded'))||($order->has_status('on-hold')&&$order->get_payment_method()!=='bacs'))throw new RuntimeException('Ordine con esito da verificare: richiedi assistenza prima di un nuovo versamento.');
+        return array('order_id'=>$order->get_id(),'checkout_url'=>$order->has_status('on-hold')&&$order->get_payment_method()==='bacs'?$order->get_checkout_order_received_url():$order->get_checkout_payment_url(),'paid'=>trb_onboarding_store_capture($order)['captured'],'awaiting_bank_transfer'=>$order->has_status('on-hold')&&$order->get_payment_method()==='bacs','amount_cents'=>$amount,'currency'=>'EUR');
     }catch(Throwable $e){return new WP_Error('onboarding_checkout',$e->getMessage(),array('status'=>409));}
     finally{global $wpdb;$wpdb->delete($wpdb->options,array('option_name'=>$lock,'option_value'=>$lockValue));wp_cache_delete($lock,'options');}
 }
 
 function trb_onboarding_store_capture($order){
     $amount=(int)$order->get_meta('_trb_onboarding_amount_cents');$gateway=(string)$order->get_payment_method();$date=$order->get_date_paid();$transaction=(string)$order->get_transaction_id();
-    $captured=$date&&$transaction!==''&&in_array($gateway,array('ppcp-gateway','stripe','paypal'),true)&&$order->get_currency()==='EUR'&&(int)round((float)$order->get_total()*100)===$amount;
+    $captured=$date&&$transaction!==''&&(in_array($gateway,trb_onboarding_instant_gateways(),true)||trb_onboarding_bank_receipt_matches($order))&&$order->get_currency()==='EUR'&&(int)round((float)$order->get_total()*100)===$amount;
     return array('captured'=>(bool)$captured,'amount_cents'=>$amount,'date'=>$date,'transaction'=>$transaction);
 }
 
@@ -83,10 +83,10 @@ function trb_onboarding_store_payment_status($request){
     $p=$request->get_json_params();$order=wc_get_order((int)($p['order_id']??0));
     if(!$order||!$order->get_meta('_trb_onboarding_practice_id')||!hash_equals((string)$order->get_meta('_trb_onboarding_practice_id'),(string)($p['practice_id']??'')))return new WP_Error('onboarding_order','Ordine non disponibile.',array('status'=>404));
     $amount=(int)$order->get_meta('_trb_onboarding_amount_cents');$refunded=(int)round((float)$order->get_total_refunded()*100);
-    // Manual bank-transfer order-status changes aren't provider capture evidence.
+    // A bank transfer requires its separate, immutable administrative receipt.
     $capture=trb_onboarding_store_capture($order);$date=$capture['date'];$transaction=$capture['transaction'];
     $verified=$order->is_paid()&&$capture['captured'];
-    return array('practice_id'=>(string)$order->get_meta('_trb_onboarding_practice_id'),'number'=>(int)$order->get_meta('_trb_onboarding_number'),'amount_cents'=>$amount,'refunded_cents'=>$refunded,'currency'=>$order->get_currency(),'snapshot_sha256'=>(string)$order->get_meta('_trb_onboarding_snapshot_sha256'),'email'=>strtolower($order->get_billing_email()),'provider'=>'woocommerce','transaction_id'=>'order:'.$order->get_id().':'.hash('sha256',$transaction),'paid_on'=>$date?wp_date('Y-m-d',$date->getTimestamp(),new DateTimeZone('Europe/Rome')):null,'captured'=>$capture['captured'],'status'=>$refunded>0&&$capture['captured']?'reversed':($verified?'confirmed':($capture['captured']?'review':'pending')));
+    return array('practice_id'=>(string)$order->get_meta('_trb_onboarding_practice_id'),'number'=>(int)$order->get_meta('_trb_onboarding_number'),'amount_cents'=>$amount,'refunded_cents'=>$refunded,'currency'=>$order->get_currency(),'snapshot_sha256'=>(string)$order->get_meta('_trb_onboarding_snapshot_sha256'),'email'=>strtolower($order->get_billing_email()),'provider'=>'woocommerce','transaction_id'=>'order:'.$order->get_id().':'.hash('sha256',$transaction),'paid_on'=>$date?wp_date('Y-m-d',$date->getTimestamp(),new DateTimeZone('Europe/Rome')):null,'captured'=>$capture['captured'],'awaiting_bank_transfer'=>$order->get_payment_method()==='bacs'&&$order->has_status('on-hold')&&!$capture['captured'],'status'=>$refunded>0&&$capture['captured']?'reversed':($verified?'confirmed':($capture['captured']?'review':'pending')));
 }
 
 add_action('rest_api_init',static function(){
@@ -96,9 +96,57 @@ add_action('rest_api_init',static function(){
 // Clean expired replay protection entries, never order/contract records.
 add_action('trb_onboarding_nonce_cleanup',static function(){global $wpdb;$wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND CAST(option_value AS UNSIGNED)<%d",$wpdb->esc_like('trb_onboarding_nonce_').'%',time()));});
 add_action('init',static function(){if(get_option('trb_onboarding_payments_enabled',false)&&!wp_next_scheduled('trb_onboarding_nonce_cleanup'))wp_schedule_event(time()+3600,'daily','trb_onboarding_nonce_cleanup');});
-// Only configured instant-payment gateways are offered for the dedicated order.
+// Offer configured card gateways, and bank transfer only with complete bank details.
 add_filter('woocommerce_available_payment_gateways',static function($gateways){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
     if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $gateways;
-    return array_intersect_key($gateways,array_flip(array('ppcp-gateway','stripe','paypal')));
+    $allowed=trb_onboarding_instant_gateways();if(trb_onboarding_bank_configured())$allowed[]='bacs';
+    return array_intersect_key($gateways,array_flip($allowed));
 },100);
+
+/** These gateways provide transaction IDs; enabling one remains a Store setting. */
+function trb_onboarding_instant_gateways(){return array('ppcp-gateway','ppcp-credit-card-gateway','ppcp-card-button-gateway','stripe','paypal','woocommerce_payments');}
+function trb_onboarding_bank_configured(){
+    foreach((array)get_option('woocommerce_bacs_accounts',array()) as $account){
+        $iban=preg_replace('/\s+/','',strtoupper((string)($account['iban']??'')));
+        if(trim((string)($account['account_name']??''))===''||!preg_match('/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/D',$iban))continue;
+        $digits='';foreach(str_split(substr($iban,4).substr($iban,0,4)) as $char)$digits.=ctype_alpha($char)?(string)(ord($char)-55):$char;
+        $mod=0;foreach(str_split($digits) as $digit)$mod=($mod*10+(int)$digit)%97;if($mod===1)return true;
+    }return false;
+}
+function trb_onboarding_bank_receipt_matches($order){
+    $receipt=$order->get_meta('_trb_onboarding_bank_receipt');$date=$order->get_date_paid();
+    return $order->get_payment_method()==='bacs'&&is_array($receipt)&&($receipt['order_id']??0)===$order->get_id()
+        &&($receipt['amount_cents']??0)===(int)$order->get_meta('_trb_onboarding_amount_cents')
+        &&($receipt['reference']??'')!==''&&hash_equals($receipt['reference'],(string)$order->get_transaction_id())
+        &&!empty($receipt['confirmed_by'])&&$date&&($receipt['paid_on']??'')===wp_date('Y-m-d',$date->getTimestamp(),new DateTimeZone('Europe/Rome'));
+}
+/** No customer self-confirmation, payment-status toggle or uploaded receipt unlocks the practice. */
+function trb_onboarding_confirm_bank_receipt($order,$reference,$paidOn,$confirmedBy){
+    if($confirmedBy&&$order&&trb_onboarding_bank_receipt_matches($order)&&hash_equals((string)$order->get_transaction_id(),trim((string)$reference)))return true;
+    if(!$confirmedBy||!$order||!$order->get_meta('_trb_onboarding_practice_id')||$order->get_payment_method()!=='bacs'||!$order->has_status('on-hold'))return new WP_Error('onboarding_bank_state','Ordine bonifico non in attesa di accredito.');
+    $reference=trim((string)$reference);$date=DateTimeImmutable::createFromFormat('!Y-m-d',(string)$paidOn,new DateTimeZone('Europe/Rome'));$today=new DateTimeImmutable('today',new DateTimeZone('Europe/Rome'));
+    if(!preg_match('/^[A-Za-z0-9][A-Za-z0-9 .:_\/-]{5,79}$/D',$reference)||!$date||$date->format('Y-m-d')!==$paidOn||$date>$today)return new WP_Error('onboarding_bank_proof','Inserisci il riferimento bancario e la data effettiva di accredito.');
+    $amount=(int)$order->get_meta('_trb_onboarding_amount_cents');
+    if($order->get_currency()!=='EUR'||$amount<1||(int)round((float)$order->get_total()*100)!==$amount||(float)$order->get_total_refunded()>0)return new WP_Error('onboarding_bank_amount','Importo o storico bonifico da verificare.');
+    $existing=$order->get_meta('_trb_onboarding_bank_receipt');if($existing&&(!is_array($existing)||($existing['order_id']??0)!==$order->get_id()||($existing['amount_cents']??0)!==$amount||($existing['reference']??'')!==$reference||($existing['paid_on']??'')!==$paidOn||empty($existing['confirmed_by'])))return new WP_Error('onboarding_bank_receipt','Conferma precedente discordante: verifica amministrativa necessaria.');
+    $key='trb_onboarding_bank_ref_'.hash('sha256',strtoupper($reference));
+    if(!add_option($key,$order->get_id(),'','no')&&(int)get_option($key)!==$order->get_id())return new WP_Error('onboarding_bank_duplicate','Riferimento bancario già associato a un altro ordine.');
+    $receipt=$existing?:array('order_id'=>$order->get_id(),'amount_cents'=>$amount,'reference'=>$reference,'paid_on'=>$paidOn,'confirmed_by'=>(int)$confirmedBy,'confirmed_at'=>gmdate('c'));
+    $order->update_meta_data('_trb_onboarding_bank_receipt',$receipt);$order->set_date_paid(new WC_DateTime($paidOn.' 12:00:00',new DateTimeZone('Europe/Rome')));$order->save();$order->payment_complete($reference);
+    $order->add_order_note('Accredito bonifico verificato per adesione TRB: '.$reference.'; data '.$paidOn.'.');return true;
+}
+add_action('add_meta_boxes',static function(){
+    foreach(array('shop_order','woocommerce_page_wc-orders') as $screen)add_meta_box('trb-onboarding-bank','Accredito bonifico · adesione TRB',static function($object){
+        $order=is_a($object,'WC_Order')?$object:wc_get_order($object->ID??0);if(!$order||!$order->get_meta('_trb_onboarding_practice_id')||$order->get_payment_method()!=='bacs')return;
+        if(trb_onboarding_bank_receipt_matches($order)){echo '<p>Accredito già verificato e registrato.</p>';return;}
+        echo '<p>Verifica sul conto l’accredito dell’intero importo dovuto. Poi seleziona «Conferma accredito bonifico TRB» nelle azioni ordine.</p><p><label>Riferimento bancario (TRN/CRO)<input name="trb_bank_reference" maxlength="80" type="text"></label></p><p><label>Data di accredito<input name="trb_bank_paid_on" type="date"></label></p><p><label><input name="trb_bank_verified" value="1" type="checkbox"> Confermo l’accredito effettivo sul conto, per l’importo completo dell’ordine.</label></p>';
+    },$screen,'side');
+});
+add_filter('woocommerce_order_actions',static function($actions,$order){if($order&&$order->get_meta('_trb_onboarding_practice_id')&&$order->get_payment_method()==='bacs'&&$order->has_status('on-hold'))$actions['trb_confirm_bank']='Conferma accredito bonifico TRB';return $actions;},10,2);
+add_action('woocommerce_order_action_trb_confirm_bank',static function($order){
+    // WooCommerce also checks its order editor nonce before dispatching an order action.
+    if(!current_user_can('manage_woocommerce')||empty($_POST['trb_bank_verified'])||!isset($_POST['woocommerce_meta_nonce'])||!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['woocommerce_meta_nonce'])),'woocommerce_save_data'))return;
+    $result=trb_onboarding_confirm_bank_receipt($order,sanitize_text_field(wp_unslash($_POST['trb_bank_reference']??'')),sanitize_text_field(wp_unslash($_POST['trb_bank_paid_on']??'')),get_current_user_id());
+    if(is_wp_error($result)){if(class_exists('WC_Admin_Meta_Boxes'))WC_Admin_Meta_Boxes::add_error($result->get_error_message());$order->add_order_note('Accredito non confermato: '.$result->get_error_message());}
+});
