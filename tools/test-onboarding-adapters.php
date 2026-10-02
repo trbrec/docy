@@ -82,3 +82,29 @@ check_adapter(trb_onboarding_confirm_bank_receipt($bank,'QA-TRN-123',$paidOn,1)=
 check_adapter(trb_onboarding_confirm_bank_receipt($bank,'QA-TRN-123',$paidOn,1)===true&&$bank->completions===1,'Repeated confirmation does not duplicate the accounting');$other=new BankTestOrder(902);check_adapter(is_wp_error(trb_onboarding_confirm_bank_receipt($other,'QA-TRN-123',$paidOn,1)),'One bank credit cannot settle two orders');$bank->transaction='wrong';check_adapter(!trb_onboarding_store_capture($bank)['captured'],'Edited transaction fails the bank receipt comparison');
 echo "Onboarding boundary authentication, replay, legacy isolation, profile transfer and capture proof verified.\n";
 
+// Actual first-password route: no auth cookie until the private CRM activation succeeds.
+function wp_remote_post($url,$args){$p=json_decode($args['body'],true);$GLOBALS['registration_rpc'][]=$p;
+ if($p['action']==='registration_authorization')return ['status'=>200,'data'=>$GLOBALS['registration_ready']];
+ if($p['action']==='register'){if(!empty($GLOBALS['registration_fail']))return new WP_Error('test','Synthetic activation unavailable');update_user_meta((int)$p['portal_user_id'],'_trb_onboarding_stage','active');return ['status'=>200,'data'=>['registered'=>true]];}
+ throw new RuntimeException('Unexpected registration RPC');}
+function wp_remote_retrieve_body($r){return json_encode($r['data']);}function wp_remote_retrieve_response_code($r){return $r['status'];}
+function get_user_by($type,$value){return $GLOBALS['registration_existing']??false;}
+function wp_check_password($password,$hash,$id){return $password==='synthetic-password-123';}
+function wp_insert_user($data){$GLOBALS['registration_insert']=$data;$ready=$GLOBALS['trb_onboarding_register_context'];update_user_meta(101,'_trb_onboarding_version','2026.2');update_user_meta(101,'_trb_onboarding_practice',$ready['id']);update_user_meta(101,'_trb_onboarding_stage','account_preparing');return 101;}
+function wp_set_current_user($id){$GLOBALS['registration_current']=$id;}function wp_set_auth_cookie($id,$remember,$secure){$GLOBALS['registration_cookie']=[$id,$remember,$secure];}
+function delete_transient($key){unset($GLOBALS['transients'][$key]);}
+$GLOBALS['registration_ready']=['id'=>$practice,'email'=>'artist@example.invalid','first_name'=>'Mario','last_name'=>'Rossi','artist_name'=>'QA','qa'=>false];
+$passwordRequest=new AdapterRequest(['action'=>'register','password'=>'synthetic-password-123','repeat_password'=>'synthetic-password-123']);
+$transients[trb_onboarding_browser_key()]=['session'=>str_repeat('f',64)];$GLOBALS['registration_fail']=true;
+check_adapter(is_wp_error(trb_onboarding_public($passwordRequest))&&!isset($GLOBALS['registration_cookie']),'Unconfirmed activation never logs in');
+$GLOBALS['registration_existing']=$user;$user->user_pass='synthetic-hash';$GLOBALS['registration_fail']=false;
+$registered=trb_onboarding_public($passwordRequest);
+check_adapter($registered['registered']&&$GLOBALS['registration_cookie']===[101,false,true],'Activated artist gets a secure session after password setup');
+check_adapter(!isset($GLOBALS['trb_onboarding_register_context'])&&!isset($transients[trb_onboarding_browser_key()]),'Registration context and browser challenge cleared');
+foreach($GLOBALS['registration_rpc'] as $rpc)check_adapter(!isset($rpc['password'],$rpc['repeat_password']),'Password never crosses the CRM bridge');
+// Legacy mail suppression is recipient-specific and only inside onboarding operations.
+$suppress=end($GLOBALS['adapter_filters']['pre_wp_mail']);$GLOBALS['trb_onboarding_approve_email']='artist@example.invalid';
+check_adapter($suppress(null,['to'=>'artist@example.invalid'])===true,'Legacy approval mail replaced by branded welcome');
+check_adapter($suppress(null,['to'=>'other@example.invalid'])===null,'Other artists keep their system emails');unset($GLOBALS['trb_onboarding_approve_email']);
+check_adapter($suppress(null,['to'=>'artist@example.invalid'])===null,'Mail suppression scope is cleared');
+echo "First password setup, secure login, retry binding and scoped welcome mail verified.\n";

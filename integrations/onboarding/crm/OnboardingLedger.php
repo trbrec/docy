@@ -32,6 +32,7 @@ final class OnboardingLedger
             'CREATE TABLE IF NOT EXISTS onboarding_artifacts (practice_id VARCHAR(64) NOT NULL, slot VARCHAR(40) NOT NULL, metadata TEXT NOT NULL, PRIMARY KEY(practice_id,slot))',
             'CREATE TABLE IF NOT EXISTS onboarding_preparations (contract_id BIGINT PRIMARY KEY, metadata TEXT NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_worker_checks (practice_id VARCHAR(64) PRIMARY KEY, checked_at VARCHAR(32) NOT NULL)',
+            'CREATE TABLE IF NOT EXISTS onboarding_welcomes (practice_id VARCHAR(64) PRIMARY KEY, state VARCHAR(24) NOT NULL, created_at VARCHAR(32) NOT NULL, sent_at VARCHAR(32) NULL, gmail_message_id VARCHAR(128) NULL)',
         ] as $sql) $this->db->exec($sql);
         if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'){
             foreach(['onboarding_practices'=>['signed_pcloud_file_id'],'onboarding_files'=>['folder_id','pcloud_file_id','upload_link_id']] as $table=>$columns)foreach($columns as $column){
@@ -41,6 +42,23 @@ final class OnboardingLedger
         }
     }
 
+    /** Reserve before delivery: concurrent refreshes and lost replies cannot send twice. */
+    public function reserveWelcome(string $id): bool
+    {
+        return $this->locked(function()use($id){$p=$this->practice($id,true);
+            if($p['state']!=='activation_ready'||!$p['owner_approved_at']||!$p['signed_at']||!$p['signed_pcloud_file_id']||$p['cancelled_at']||!$this->artifact($id,'signed_pdf')||!$this->artifact($id,'signature_audit'))return false;
+            if($this->query('SELECT 1 FROM onboarding_welcomes WHERE practice_id=?',[$id])->fetchColumn())return false;
+            $this->query('INSERT INTO onboarding_welcomes(practice_id,state,created_at) VALUES(?,?,?)',[$id,'dispatching',gmdate('c')]);return true;
+        });
+    }
+    public function finishWelcome(string $id,?string $receipt): void
+    {
+        $this->query("UPDATE onboarding_welcomes SET state=?,sent_at=?,gmail_message_id=? WHERE practice_id=? AND state='dispatching'",[$receipt?'sent':'uncertain',$receipt?gmdate('c'):null,$receipt,$id]);
+    }
+    public function welcomeStatus(string $id): ?array
+    {
+        return $this->query('SELECT state,sent_at,gmail_message_id FROM onboarding_welcomes WHERE practice_id=?',[$id])->fetch(PDO::FETCH_ASSOC)?:null;
+    }
     private function json(array $value): string { return json_encode($value, JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); }
     private function query(string $sql,array $params=[]): \PDOStatement {$s=$this->db->prepare($sql);$s->execute($params);return $s;}
     private function ownerReviewEvent(string $id): void
@@ -164,7 +182,7 @@ final class OnboardingLedger
     }
     private function open(array $p): void
     {
-        if($p['cancelled_at'] || (!$p['first_payment_date'] && strtotime($p['expires_at'])<time()))throw new RuntimeException('Proposta scaduta o annullata');
+        if($p['cancelled_at'] || (!$p['first_payment_date'] && !$p['signed_at'] && strtotime($p['expires_at'])<time()))throw new RuntimeException('Proposta scaduta o annullata');
     }
     /** The invite alone never discloses personal data. Mail delivery receives the code once. */
     public function challenge(string $token): array

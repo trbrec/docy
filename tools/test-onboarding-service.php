@@ -44,19 +44,26 @@ $status='confirmed';$badEmail=true;service_reject(fn()=>$service->refreshPayment
 $badEmail=false;$service->refreshPayments($id);$ledger->approve($id,$owner,$owner['email'],$today);
 service_check($service->view($ledger->practice($id))['signature_email']===null,'approved practice does not claim a signature email');service_reject(fn()=>$service->dispatchSignature($ledger->practice($id)),'lost dispatch response is surfaced');service_check($service->view($ledger->practice($id))['signature_email']===null,'reserved dossier never claims an email receipt');$service->dispatchSignature($ledger->practice($id));service_check($dispatches===1,'one chargeable dossier across lost response retry');
 $service->refreshSignature($ledger->practice($id));$mail=$service->view($ledger->practice($id))['signature_email'];service_check($mail['sender']==='OTP service <please-do-not-reply@otpservice.io>'&&str_starts_with($mail['subject'],'Il documento 98765 da firmare'),'reconciled receipt exposes exact signature email metadata');
-$completed=true;service_reject(fn()=>$service->refreshSignature($ledger->practice($id)),'one signature cannot activate');service_check($ledger->practice($id)['state']==='signature_pending','missing company signature stays pending');
+$completed=true;service_reject(fn()=>$service->refreshSignature($ledger->practice($id)),'one signature cannot activate');service_check($ledger->practice($id)['state']==='signature_pending','missing company signature stays pending');service_check(!$ledger->reserveWelcome($id),'one signature cannot send welcome');
 $companySigned=true;service_reject(fn()=>$service->refreshSignature($ledger->practice($id)),'partial archive does not activate');service_check($ledger->practice($id)['state']==='signature_pending','partial archive stays pending');$service->refreshSignature($ledger->practice($id));$service->refreshSignature($ledger->practice($id));service_check($archiveCalls===2,'verified archive is reused and missing proof recovered');
 service_check(str_starts_with((string)$ledger->practice($id)['signed_pcloud_file_id'],'drive-file-'),'signed Drive ID survives account activation');
 service_check($ledger->artifact($id,'signed_pdf')!==null&&$ledger->artifact($id,'signature_audit')!==null,'contract and proof archived before registration');
+service_check($service->registrationAuthorization($ledger->practice($id))['qa']===false,'normal contracts cannot claim owner QA privileges');
+service_check($ledger->reserveWelcome($id),'verified both signatures and archive permit one welcome');
+service_check(!$ledger->reserveWelcome($id),'concurrent or repeat request cannot send another welcome');
+$ledger->finishWelcome($id,'synthetic-receipt');service_check($ledger->welcomeStatus($id)['state']==='sent','welcome receipt persisted');
+service_check(!$ledger->reserveWelcome($id),'confirmed delivery never repeats');
+$db->exec('DELETE FROM onboarding_welcomes');service_check($ledger->reserveWelcome($id),'synthetic lost-reply reservation');$ledger->finishWelcome($id,null);
+service_check($ledger->welcomeStatus($id)['state']==='uncertain'&&!$ledger->reserveWelcome($id),'lost send reply requires reconciliation instead of duplicate delivery');
 $service->register($ledger->practice($id),1234);$service->register($ledger->practice($id),1234);service_reject(fn()=>$service->register($ledger->practice($id),4321),'another account cannot take the practice');service_check($ledger->portalPractice(1234,$snapshot['email'])['id']===$id,'correct portal identity bound');
 service_check($ledger->access($id,$today)['allowed'],'services enabled only after final registration');
 $ledger->cancel($id,$owner);service_check(!$ledger->access($id,$today)['allowed'],'cancellation suspends future services');
 $freeSnapshot=OnboardingContractCatalog::model('trb_ccde')+['unsigned_document_sha256'=>str_repeat('b',64),'first_name'=>'Mario','last_name'=>'Rossi','email'=>'free@example.invalid','artist_folder_id'=>'drive-owner-free','contract_number'=>'QA-TRB'];
 $free=$ledger->create(124,$freeSnapshot,gmdate('c',time()+86400));$freeId=$free['id'];$service->details($ledger->practice($freeId),$details);
+service_check(!$ledger->reserveWelcome($freeId),'unsigned candidate cannot receive a welcome');
 foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($freeId,$slot,['file_id'=>30+$i,'folder_id'=>333,'hash'=>'free-h'.$i,'name'=>$slot.'.pdf']);
 $freeResult=$service->identity($ledger->practice($freeId));service_check($freeResult['practice']['state']==='owner_review'&&$freeResult['practice']['selected_plan']['kind']==='free','TRB proceeds without asking for a commercial choice');
 service_check(empty($ledger->details($freeId)['proposal_read_at']),'automatic TRB routing is not consent or signature');service_reject(fn()=>$service->checkout($ledger->practice($freeId)),'TRB cannot create payment orders');
 service_reject(fn()=>$service->dispatchSignature($ledger->practice($freeId)),'owner approval still precedes the chargeable signature dossier');
 $service->view($ledger->practice($freeId));service_check($ledger->practice($freeId)['state']==='owner_review','TRB refresh is idempotent');
 echo "Onboarding orchestration, trusted receipts, one dossier, both signatures, archive and account binding verified.\n";
-

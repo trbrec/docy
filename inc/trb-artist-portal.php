@@ -4258,7 +4258,8 @@ function trb_portal_is_release_qa_account( $user = null ) {
 	$login = strtolower( (string) $user->user_login );
 	$email = strtolower( (string) $user->user_email );
 	return in_array( $login, array( 'spotify4', 'spotify9' ), true )
-		|| in_array( $email, array( 'spotify4@trbrec.com', 'spotify9@trbrec.com' ), true );
+		|| in_array( $email, array( 'spotify4@trbrec.com', 'spotify9@trbrec.com' ), true )
+		|| ( $email === 'a.tognassi@gmail.com' && get_user_meta( $user->ID, '_trb_onboarding_qa', true ) === '1' && get_user_meta( $user->ID, '_trb_onboarding_version', true ) === '2026.2' );
 }
 
 /** True only for a release authored by a dedicated QA identity. */
@@ -6463,3 +6464,4 @@ function trb_portal_document_title( $title ) {
 	return $title;
 }
 add_filter( 'pre_get_document_title', 'trb_portal_document_title', 99 );
+
