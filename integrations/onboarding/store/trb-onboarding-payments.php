@@ -100,7 +100,7 @@ add_action('init',static function(){if(get_option('trb_onboarding_payments_enabl
 add_filter('woocommerce_available_payment_gateways',static function($gateways){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
     if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $gateways;
-        $allowed=trb_onboarding_instant_gateways();if(trb_onboarding_bank_configured())$allowed[]='bacs';
+    $allowed=trb_onboarding_instant_gateways();if(trb_onboarding_bank_configured())$allowed[]='bacs';
     return array_intersect_key($gateways,array_flip($allowed));
 },100);
 
@@ -123,14 +123,16 @@ function trb_onboarding_bank_receipt_matches($order){
 }
 /** No customer self-confirmation, payment-status toggle or uploaded receipt unlocks the practice. */
 function trb_onboarding_confirm_bank_receipt($order,$reference,$paidOn,$confirmedBy){
+    if($confirmedBy&&$order&&trb_onboarding_bank_receipt_matches($order)&&hash_equals((string)$order->get_transaction_id(),trim((string)$reference)))return true;
     if(!$confirmedBy||!$order||!$order->get_meta('_trb_onboarding_practice_id')||$order->get_payment_method()!=='bacs'||!$order->has_status('on-hold'))return new WP_Error('onboarding_bank_state','Ordine bonifico non in attesa di accredito.');
     $reference=trim((string)$reference);$date=DateTimeImmutable::createFromFormat('!Y-m-d',(string)$paidOn,new DateTimeZone('Europe/Rome'));$today=new DateTimeImmutable('today',new DateTimeZone('Europe/Rome'));
     if(!preg_match('/^[A-Za-z0-9][A-Za-z0-9 .:_\/-]{5,79}$/D',$reference)||!$date||$date->format('Y-m-d')!==$paidOn||$date>$today)return new WP_Error('onboarding_bank_proof','Inserisci il riferimento bancario e la data effettiva di accredito.');
     $amount=(int)$order->get_meta('_trb_onboarding_amount_cents');
-    if($order->get_currency()!=='EUR'||$amount<1||(int)round((float)$order->get_total()*100)!==$amount||(float)$order->get_total_refunded()>0||$order->get_meta('_trb_onboarding_bank_receipt'))return new WP_Error('onboarding_bank_amount','Importo o storico bonifico da verificare.');
+    if($order->get_currency()!=='EUR'||$amount<1||(int)round((float)$order->get_total()*100)!==$amount||(float)$order->get_total_refunded()>0)return new WP_Error('onboarding_bank_amount','Importo o storico bonifico da verificare.');
+    $existing=$order->get_meta('_trb_onboarding_bank_receipt');if($existing&&(!is_array($existing)||($existing['order_id']??0)!==$order->get_id()||($existing['amount_cents']??0)!==$amount||($existing['reference']??'')!==$reference||($existing['paid_on']??'')!==$paidOn||empty($existing['confirmed_by'])))return new WP_Error('onboarding_bank_receipt','Conferma precedente discordante: verifica amministrativa necessaria.');
     $key='trb_onboarding_bank_ref_'.hash('sha256',strtoupper($reference));
     if(!add_option($key,$order->get_id(),'','no')&&(int)get_option($key)!==$order->get_id())return new WP_Error('onboarding_bank_duplicate','Riferimento bancario già associato a un altro ordine.');
-    $receipt=array('order_id'=>$order->get_id(),'amount_cents'=>$amount,'reference'=>$reference,'paid_on'=>$paidOn,'confirmed_by'=>(int)$confirmedBy,'confirmed_at'=>gmdate('c'));
+    $receipt=$existing?:array('order_id'=>$order->get_id(),'amount_cents'=>$amount,'reference'=>$reference,'paid_on'=>$paidOn,'confirmed_by'=>(int)$confirmedBy,'confirmed_at'=>gmdate('c'));
     $order->update_meta_data('_trb_onboarding_bank_receipt',$receipt);$order->set_date_paid(new WC_DateTime($paidOn.' 12:00:00',new DateTimeZone('Europe/Rome')));$order->save();$order->payment_complete($reference);
     $order->add_order_note('Accredito bonifico verificato per adesione TRB: '.$reference.'; data '.$paidOn.'.');return true;
 }
