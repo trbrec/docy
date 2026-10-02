@@ -16,7 +16,10 @@ final class OnboardingService
         $plans=$p['snapshot']['plans'];
         if($p['state']==='identity_matched'&&$p['snapshot']['group_code']==='TRB'&&count($plans)===1&&reset($plans)['kind']==='free')$p=$this->ledger->choosePlan($p['id'],(string)array_key_first($plans));
         $files=[];foreach($this->ledger->files($p['id']) as $slot=>$file)$files[$slot]=['name'=>$file['name']??$slot,'uploaded'=>true];
-        return ['id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'plans'=>$p['snapshot']['plans'],'selected_plan'=>$p['selected_plan'],'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
+        $signature=$this->ledger->signature($p['id']);$signatureEmail=null;
+        // A reservation or an uncertain provider response is not an email receipt.
+        if($signature&&$signature['state']==='dispatched'&&preg_match('/^[0-9]+$/D',(string)$signature['dossier_id']))$signatureEmail=['sender'=>'OTP service <please-do-not-reply@otpservice.io>','subject'=>'Il documento '.$signature['dossier_id'].' da firmare per TRB rec di Andrea Tognassi - Music Publishing'];
+        return ['signature_email'=>$signatureEmail,'id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'plans'=>$p['snapshot']['plans'],'selected_plan'=>$p['selected_plan'],'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
     }
     public function upload(array $p,string $slot,array $fileInfo=[]): array
     {
