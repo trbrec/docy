@@ -18,11 +18,11 @@ const values={street:'Via QA',street_number:'1',city:'Roma',postcode:'00100',cou
 Object.entries(values).forEach(([k,v])=>{if(fields[k])fields[k].value=v;});
 nodes.get('details-form').elements={namedItem:k=>fields[k]};
 let practice={id:'qa-practice',state:'invited',group_code:'TRB',contract_number:'QA-NONVALIDO',first_name:'Mario',last_name:'Rossi',files:{},details:{},plans:{A:{kind:'free',label:'Nessun versamento',amounts_cents:[],total_cents:0}},installments:[]};
-let failTax=true,identityRelease=null,delayIdentity=false;const calls=[],puts=[],progressValues=[];
+let failTax=true,identityRelease=null,delayIdentity=false,delayRefresh=false,refreshRelease=null;const calls=[],puts=[],progressValues=[];
 class XHR{constructor(){this.upload={addEventListener:(type,fn)=>this.progress=fn};}open(method,url){this.method=method;this.url=url;}setRequestHeader(){}send(file){assert.equal(this.method,'PUT');assert.equal(this.withCredentials,false);puts.push(file);setImmediate(()=>{this.progress({lengthComputable:true,loaded:file.size/2,total:file.size});progressValues.push(nodes.get('upload-progress-bar').value);assert.equal(nodes.get('upload-progress').hidden,false);assert.match(nodes.get('upload-progress-label').textContent,/Caricamento in corso/);this.status=200;this.onload();});}}
 const ctx={XMLHttpRequest:XHR,console,URL,URLSearchParams,Intl,Date,setTimeout,setInterval:fn=>{ctx.poll=fn;},window:{addEventListener(){},TRBOnboarding:{enabled:true,account:false,endpoint:'https://artist.trbrec.com/api',csrf:'qa'}},location:{hash:'',pathname:'/adesione/',search:''},history:{replaceState(){}},document:{getElementById:id=>nodes.get(id),createElement:tag=>new El(tag),createTextNode:text=>({text}),querySelectorAll:()=>[]},FormData:class{constructor(){this.values={...values,...Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]))};}[Symbol.iterator](){return Object.entries(this.values)[Symbol.iterator]();}},fetch:async(url,opts)=>{
  if(url.startsWith('https://www.googleapis.com/')){puts.push(opts.body);return {ok:true};}
- const data=JSON.parse(opts.body);calls.push(data);
+ const data=JSON.parse(opts.body);calls.push(data);if(data.action==='refresh'&&delayRefresh)await new Promise(resolve=>refreshRelease=resolve);
  if(data.action==='details')practice={...practice,details:{billing:data.billing,tax_code:data.tax_code,privacy_acknowledged_at:'today'}};
  if(data.action==='upload')return {ok:true,json:async()=>({provider:'google_drive',upload_endpoint:'https://www.googleapis.com/upload/drive/v3/files/file123?upload_id=qa'})};
  if(data.action==='uploaded'){
@@ -64,6 +64,7 @@ const settle=async()=>{for(let i=0;i<20;i++)await new Promise(r=>setImmediate(r)
  practice={...practice,installments:[{number:1,due_date:'2026-10-02',amount_cents:28500,confirmed_cents:28500},{number:2,due_date:'2026-11-02',amount_cents:28500,confirmed_cents:0}]};nodes.get('refresh').events.click();await settle();
  const history=nodes.get('installments').children[0].children[1].children;const euro=cents=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(cents/100);
  assert.equal(history[0].children[3].textContent,euro(28500),'previously confirmed amount stays visible');assert.equal(history[0].children[4].textContent,euro(0),'paid quota has no residual');assert.equal(history[1].children[4].textContent,euro(28500),'next quota retains its exact balance');
+ delayRefresh=true;const background=ctx.poll();await settle();nodes.get('checkout').events.click();await settle();assert.equal(calls.some(c=>c.action==='checkout'),true,'background polling cannot swallow a payment click');delayRefresh=false;refreshRelease();await background;
  practice={...practice,state:'signature_pending'};await ctx.poll();assert.match(nodes.get('next-step-title').textContent,/Firma il contratto/);assert.equal(nodes.get('register-step').hidden,true,'signature in progress never exposes account creation');practice={...practice,state:'activation_ready'};await ctx.poll();assert.equal(nodes.get('register-step').hidden,false,'signed/archive transition opens account creation automatically');
  console.log('Unified form, upload recovery, formula selection and confirmed installment history verified.');
 })().catch(e=>{console.error(e);process.exit(1);});
