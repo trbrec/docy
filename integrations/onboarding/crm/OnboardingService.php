@@ -40,18 +40,19 @@ final class OnboardingService
     public function details(array $p,array $input): array
     {
         if(($input['privacy_acknowledged']??false)!==true)throw new \RuntimeException('Informazioni sul trattamento dei documenti da leggere');
-        $billing=[];foreach(['address_1','address_2','city','postcode','country','state','phone'] as $field){$value=trim((string)($input['billing'][$field]??''));if(mb_strlen($value)>200||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dati amministrativi non validi');$billing[$field]=$value;}
+        $billing=[];foreach(['address_1','address_2','street','street_number','city','postcode','country','state','phone'] as $field){$value=trim((string)($input['billing'][$field]??''));if(mb_strlen($value)>200||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dati amministrativi non validi');$billing[$field]=$value;}
         foreach(['address_1','city','postcode','country','phone'] as $required)if($billing[$required]==='')throw new \RuntimeException('Completa domicilio, paese e telefono');
         $billing['country']=strtoupper($billing['country']);if(!preg_match('/^[A-Z]{2}$/D',$billing['country']))throw new \RuntimeException('Paese non valido');
         $phone=preg_replace('/[\s.()\-]+/','',$billing['phone']);if(str_starts_with($phone,'0039'))$phone='+39'.substr($phone,4);
         if(!preg_match('/^(?:\+39)?3\d{9}$/D',$phone))throw new \RuntimeException('Inserisci un cellulare italiano valido per ricevere gli SMS di firma');$billing['phone']=$phone;
         $billing['first_name']=$p['snapshot']['first_name'];$billing['last_name']=$p['snapshot']['last_name'];
         $tax=mb_strtoupper(trim((string)($input['tax_code']??'')));if(!preg_match('/^[A-Z0-9 -]{3,32}$/D',$tax))throw new \RuntimeException('Identificativo fiscale non valido');
-        $invoice=[];foreach(['vat_number','sdi_code','pec'] as $field)$invoice[$field]=trim((string)($input['invoice'][$field]??''));
+        $invoice=[];foreach(['company_name','company_address','vat_number','sdi_code','pec'] as $field)$invoice[$field]=trim((string)($input['invoice'][$field]??''));
         if($invoice['sdi_code']!==''&&!preg_match('/^[A-Za-z0-9]{7}$/D',$invoice['sdi_code']))throw new \RuntimeException('Il codice SDI deve contenere sette caratteri');
         if($invoice['pec']!==''&&!filter_var($invoice['pec'],FILTER_VALIDATE_EMAIL))throw new \RuntimeException('PEC non valida');
-        foreach($invoice as $value)if(mb_strlen($value)>255)throw new \RuntimeException('Dato fiscale troppo lungo');
-        $details=['billing'=>$billing,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>gmdate('c'),'privacy_version'=>'2026.2-documents-20261002c'];
+        foreach($invoice as $value)if(mb_strlen($value)>255||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dato fiscale troppo lungo');
+        $profile=[];foreach(['birth_date','birth_place','birth_province','document_number','document_expiry'] as $field){$value=trim((string)($input['profile'][$field]??''));if(mb_strlen($value)>200||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dati anagrafici non validi');$profile[$field]=$value;}
+        $details=['billing'=>$billing,'profile'=>$profile,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>gmdate('c'),'privacy_version'=>'2026.2-documents-20261002c'];
         $this->ledger->saveDetails($p['id'],$details);return $this->view($this->ledger->practice($p['id']));
     }
     public function identity(array $p): array

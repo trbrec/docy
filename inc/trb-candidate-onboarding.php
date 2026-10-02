@@ -52,13 +52,18 @@ function trb_onboarding_private($request){
         if(strpos($number,'TRB-')!==0||is_wp_error(trb_release_bridge_contract_term_dates($term)))return new WP_Error('onboarding_contract','Decorrenza o numero contrattuale non validi.',array('status'=>422));
         update_user_meta($id,'_trb_artist_preliminary_contract',$number);update_user_meta($id,'_trb_artist_contract_term',$term);
         $details=(array)($p['details']??array());$billing=(array)($details['billing']??array());
-        foreach(array('phone'=>'phone','city'=>'city','postcode'=>'postal_code','state'=>'province','country'=>'country') as $from=>$to)if(!empty($billing[$from]))update_user_meta($id,'_trb_artist_'.$to,sanitize_text_field($billing[$from]));
-        if(!empty($billing['address_1'])){
+        foreach(array('phone'=>'phone','city'=>'city','postcode'=>'postal_code','state'=>'province','country'=>'country') as $from=>$to)if(!empty($billing[$from]))update_user_meta($id,'_trb_artist_'.$to,sanitize_text_field($from==='country'&&$billing[$from]==='IT'?'Italia':$billing[$from]));
+        if(!empty($billing['street'])){
+            update_user_meta($id,'_trb_artist_street',sanitize_text_field($billing['street']));
+            update_user_meta($id,'_trb_artist_street_number',sanitize_text_field($billing['street_number']??''));
+        }elseif(!empty($billing['address_1'])){
             $address=trim($billing['address_1']);$street=$address;$civic='';
             if(preg_match('/^(.+?)\s+(\d+[A-Za-z0-9\/ -]*)$/u',$address,$parts)){$street=$parts[1];$civic=$parts[2];}
             update_user_meta($id,'_trb_artist_street',sanitize_text_field($street));if($civic!=='')update_user_meta($id,'_trb_artist_street_number',sanitize_text_field($civic));
         }
         foreach(array('tax_code'=>$details['tax_code']??'','birth_date'=>$p['birth_date']??'') as $field=>$value)if($value!=='')update_user_meta($id,'_trb_artist_'.$field,sanitize_text_field($value));
+        foreach(array('birth_place','birth_province','document_number','document_expiry') as $field)if(!empty($details['profile'][$field]))update_user_meta($id,'_trb_artist_'.$field,sanitize_text_field($details['profile'][$field]));
+        if($key!=='trb')foreach(array('company_name'=>'company_name','company_address'=>'company_address','vat_number'=>'company_vat','sdi_code'=>'company_sdi','pec'=>'company_pec') as $from=>$to)if(!empty($details['invoice'][$from]))update_user_meta($id,'_trb_artist_'.$to,sanitize_text_field($details['invoice'][$from]));
         $labels=array('identity_front'=>array('identity','Carta d’identità — fronte'),'identity_back'=>array('identity','Carta d’identità — retro'),'tax_front'=>array('tax_card','Codice fiscale o tessera sanitaria — fronte'),'tax_back'=>array('tax_card','Codice fiscale o tessera sanitaria — retro'));
         $files=get_user_meta($id,'_trb_artist_private_files',true);$files=is_array($files)?$files:array();
         foreach($labels as $slot=>$label){$file=$p['files'][$slot]??null;if(!$file)continue;$fileId='trb-onboarding-'.$slot;
@@ -104,6 +109,12 @@ function trb_onboarding_public($request){
         return trb_onboarding_crm(array('action'=>$action,'portal_user_id'=>$user->ID,'email'=>$user->user_email,'slot'=>(string)($p['slot']??'')));
     }
     if(empty($browser['session']))return new WP_Error('onboarding_email','Conferma prima l’indirizzo email.',array('status'=>401));
+    // Reuse the portal's canonical Italian archive without exposing logged-in routes.
+    if($action==='postcode'){
+        $postcode=(string)($p['postcode']??'');if(!preg_match('/^[0-9]{5}$/D',$postcode))return new WP_Error('invalid_postcode','Inserisci un CAP italiano di 5 cifre.',array('status'=>422));
+        $places=trb_portal_lookup_postcode($postcode);return is_wp_error($places)?$places:array('places'=>$places,'country'=>'Italia');
+    }
+    if($action==='municipalities')return array('places'=>trb_portal_find_municipalities(mb_substr((string)($p['search']??''),0,100)));
     if($action==='register'){
         $ready=trb_onboarding_crm(array('action'=>'registration_authorization','session'=>$browser['session']));if(is_wp_error($ready))return $ready;
         $password=(string)($p['password']??'');if(mb_strlen($password)<14||mb_strlen($password)>128||str_contains($password,"\0")||$password!==(string)($p['repeat_password']??''))return new WP_Error('onboarding_password','Inserisci due password uguali di almeno 14 caratteri.',array('status'=>422));
@@ -121,8 +132,23 @@ function trb_onboarding_public($request){
         delete_transient($key);return array('registered'=>true,'login_url'=>home_url('/accedi/'));
     }
     $allowed=array('view','details','upload','uploaded','identity','choose','checkout','refresh','document');if(!in_array($action,$allowed,true))return new WP_Error('onboarding_action','Operazione non disponibile.',array('status'=>422));
-    if($action==='details'&&strtoupper($p['billing']['country']??'')==='IT'){
+    if($action==='details'){
+        if(strtoupper($p['billing']['country']??'')!=='IT')return new WP_Error('onboarding_country','Controlla il paese e il CAP della residenza.',array('status'=>422));
         $tax=trb_portal_validate_tax_code($p['tax_code']??'');if(!$tax)return new WP_Error('onboarding_tax','Codice fiscale non valido. Controlla i dati prima di proseguire.',array('status'=>422));$p['tax_code']=$tax;
+        $phone=trb_portal_validate_mobile($p['billing']['phone']??'');if(!$phone)return new WP_Error('onboarding_phone','Inserisci un cellulare italiano valido per ricevere il codice di firma.',array('status'=>422));$p['billing']['phone']=$phone;
+        $postcode=(string)($p['billing']['postcode']??'');$places=preg_match('/^[0-9]{5}$/D',$postcode)?trb_portal_lookup_postcode($postcode):array();$matched=false;
+        if(!is_wp_error($places))foreach($places as $place)if(strtolower(remove_accents((string)($p['billing']['city']??'')))===strtolower(remove_accents($place['city']))){$matched=$place;break;}
+        if(!$matched)return new WP_Error('onboarding_address','Controlla il CAP e seleziona il Comune corretto.',array('status'=>422));
+        $p['billing']['city']=$matched['city'];$p['billing']['state']=$matched['province'];
+        $street=trim((string)($p['billing']['street']??''));$civic=trim((string)($p['billing']['street_number']??''));
+        if($street===''||$civic===''||mb_strlen($street)>160||mb_strlen($civic)>30)return new WP_Error('onboarding_address','Inserisci indirizzo e numero civico nei rispettivi campi.',array('status'=>422));
+        $p['billing']['address_1']=$street.' '.$civic;
+        $profile=(array)($p['profile']??array());$birth=trb_portal_find_municipality_exact($profile['birth_place']??'',$profile['birth_province']??'');
+        if(!$birth)return new WP_Error('onboarding_birthplace','Seleziona un Comune di nascita valido.',array('status'=>422));
+        $date=(string)($profile['birth_date']??'');if(!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D',$date,$parts)||!checkdate((int)$parts[2],(int)$parts[3],(int)$parts[1])||$date>wp_date('Y-m-d'))return new WP_Error('onboarding_birthdate','Controlla la data di nascita.',array('status'=>422));
+        $number=trb_portal_validate_identity_document_number($profile['document_number']??'');$expiry=trb_portal_validate_identity_document_expiry($profile['document_expiry']??'');
+        if(!$number||!$expiry)return new WP_Error('onboarding_identity','Controlla il numero e la scadenza della carta d’identità elettronica.',array('status'=>422));
+        $p['profile']=array('birth_date'=>$date,'birth_place'=>$birth['city'],'birth_province'=>$birth['province'],'document_number'=>$number,'document_expiry'=>$expiry);
     }
     $p['session']=$browser['session'];unset($p['token'],$p['portal_user_id'],$p['email'],$p['password'],$p['repeat_password']);return trb_onboarding_crm($p);
 }

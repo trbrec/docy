@@ -13,16 +13,16 @@ class El{
  classList={toggle(){}};
 }
 for(const [,id] of markup.matchAll(/id="([^"]+)"/g)){const n=new El('div');n.id=id;}
-const fields={};for(const name of ['address_1','city','postcode','country','state','phone','tax_code','vat_number','sdi_code','pec'])fields[name]=new El('input');
-const values={address_1:'Via QA 1',city:'Roma',postcode:'00100',country:'IT',state:'RM',phone:'+393330000000',tax_code:'RSSMRA90A01H501W',vat_number:'',sdi_code:'',pec:'',privacy_acknowledged:'on'};
+const fields={};for(const name of ['street','street_number','city','postcode','country','state','phone','tax_code','vat_number','sdi_code','pec'])fields[name]=new El('input');
+const values={street:'Via QA',street_number:'1',city:'Roma',postcode:'00100',country:'IT',state:'RM',phone:'+393330000000',tax_code:'RSSMRA90A01H501W',vat_number:'',sdi_code:'',pec:'',privacy_acknowledged:'on'};
 Object.entries(values).forEach(([k,v])=>{if(fields[k])fields[k].value=v;});
 nodes.get('details-form').elements={namedItem:k=>fields[k]};
 let practice={id:'qa-practice',state:'invited',group_code:'TRB',contract_number:'QA-NONVALIDO',first_name:'Mario',last_name:'Rossi',files:{},details:{},plans:{A:{kind:'free',label:'Nessun versamento',amounts_cents:[],total_cents:0}},installments:[]};
-let failTax=true,identityRelease=null,delayIdentity=false;const calls=[],puts=[],progressValues=[];
+let failTax=true,identityRelease=null,delayIdentity=false,delayRefresh=false,refreshRelease=null;const calls=[],puts=[],progressValues=[];
 class XHR{constructor(){this.upload={addEventListener:(type,fn)=>this.progress=fn};}open(method,url){this.method=method;this.url=url;}setRequestHeader(){}send(file){assert.equal(this.method,'PUT');assert.equal(this.withCredentials,false);puts.push(file);setImmediate(()=>{this.progress({lengthComputable:true,loaded:file.size/2,total:file.size});progressValues.push(nodes.get('upload-progress-bar').value);assert.equal(nodes.get('upload-progress').hidden,false);assert.match(nodes.get('upload-progress-label').textContent,/Caricamento in corso/);this.status=200;this.onload();});}}
-const ctx={XMLHttpRequest:XHR,console,URL,URLSearchParams,Intl,Date,setTimeout,window:{addEventListener(){},TRBOnboarding:{enabled:true,account:false,endpoint:'https://artist.trbrec.com/api',csrf:'qa'}},location:{hash:'',pathname:'/adesione/',search:''},history:{replaceState(){}},document:{getElementById:id=>nodes.get(id),createElement:tag=>new El(tag),createTextNode:text=>({text}),querySelectorAll:()=>[]},FormData:class{constructor(){this.values={...values,...Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]))};}[Symbol.iterator](){return Object.entries(this.values)[Symbol.iterator]();}},fetch:async(url,opts)=>{
+const ctx={XMLHttpRequest:XHR,console,URL,URLSearchParams,Intl,Date,setTimeout,setInterval:fn=>{ctx.poll=fn;},window:{addEventListener(){},TRBOnboarding:{enabled:true,account:false,endpoint:'https://artist.trbrec.com/api',csrf:'qa'}},location:{hash:'',pathname:'/adesione/',search:''},history:{replaceState(){}},document:{getElementById:id=>nodes.get(id),createElement:tag=>new El(tag),createTextNode:text=>({text}),querySelectorAll:()=>[]},FormData:class{constructor(){this.values={...values,...Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]))};}[Symbol.iterator](){return Object.entries(this.values)[Symbol.iterator]();}},fetch:async(url,opts)=>{
  if(url.startsWith('https://www.googleapis.com/')){puts.push(opts.body);return {ok:true};}
- const data=JSON.parse(opts.body);calls.push(data);
+ const data=JSON.parse(opts.body);calls.push(data);if(data.action==='refresh'&&delayRefresh)await new Promise(resolve=>refreshRelease=resolve);
  if(data.action==='details')practice={...practice,details:{billing:data.billing,tax_code:data.tax_code,privacy_acknowledged_at:'today'}};
  if(data.action==='upload')return {ok:true,json:async()=>({provider:'google_drive',upload_endpoint:'https://www.googleapis.com/upload/drive/v3/files/file123?upload_id=qa'})};
  if(data.action==='uploaded'){
@@ -40,11 +40,11 @@ const settle=async()=>{for(let i=0;i<20;i++)await new Promise(r=>setImmediate(r)
  assert.equal(nodes.get('plan-schedule-note').hidden,true,'free contract does not explain installment rules');
  const idFile={name:"Carta d'identità (fronte).jpg",size:100},taxFile={name:'Tessera sanitaria (fronte).jpg',size:101};
  nodes.get('document-identity_front').files=[idFile];nodes.get('document-tax_front').files=[taxFile];
- fields.address_1.value='Via modificata 2';
+ fields.street.value='Via modificata';fields.street_number.value='11/A';
  const submit=()=>nodes.get('details-form').events.submit({preventDefault(){},target:nodes.get('details-form')});
  submit();await settle();
  assert.equal(calls.some(c=>c.action==='identity'),false,'failed upload cannot start OCR');
- assert.equal(fields.address_1.value,'Via modificata 2','saved and unsaved values survive rendering');
+ assert.equal(fields.street.value,'Via modificata','saved and unsaved values survive rendering');
  assert.equal(nodes.get('document-tax_front').files[0],taxFile,'selected files survive failed upload');
  assert.match(nodes.get('status-identity_front').textContent,/confermato/);
  delayIdentity=true;submit();await settle();
@@ -53,6 +53,7 @@ const settle=async()=>{for(let i=0;i<20;i++)await new Promise(r=>setImmediate(r)
  assert.equal(calls.filter(c=>c.action==='upload'&&c.slot==='identity_front').length,1,'confirmed identity file is not uploaded twice after tax failure');
  assert.equal(calls.filter(c=>c.action==='identity').length,1);
  assert.equal(calls.filter(c=>c.action==='upload').every(c=>['identity_front','tax_front'].includes(c.slot)),true);
+ assert.equal(calls.find(c=>c.action==='details').billing.street_number,'11/A','civic stored separately');assert.equal(calls.find(c=>c.action==='details').billing.address_1,'Via modificata 11/A','downstream contract and payment address retains civic');assert.equal(nodes.get('refresh').hidden,true,'no technical refresh action during ordinary waiting');assert.equal(nodes.get('read-proposal').hidden,true,'waiting screen focuses on the signature');assert.match(nodes.get('next-step-help').textContent,/non devi fare altro/);
  assert.equal(nodes.get('details-step').hidden,true);assert.equal(nodes.get('plans-step').hidden,true,'TRB skips the commercial choice');assert.equal(nodes.get('register-step').hidden,true,'registration remains after both signatures and archive');
  assert.ok(progressValues.every(v=>v>0&&v<100),'actual upload events drive the combined byte progress');assert.equal(nodes.get('upload-progress-bar').value,100);assert.doesNotMatch(markup,/OpenAI|automatizz/);
  practice={...practice,id:'qa-paid',group_code:'DDB',state:'identity_matched',selected_plan:null,plans:{C:{label:'Opzione C',kind:'single',amounts_cents:[54000],total_cents:54000,discount_basis_points:1000},B:{label:'Opzione B',kind:'two_installments',amounts_cents:[28500,28500],total_cents:57000,discount_basis_points:500},A:{label:'Opzione A',kind:'monthly',amounts_cents:[15000,15000,15000,15000],total_cents:60000,discount_basis_points:0}}};
@@ -63,5 +64,8 @@ const settle=async()=>{for(let i=0;i<20;i++)await new Promise(r=>setImmediate(r)
  practice={...practice,installments:[{number:1,due_date:'2026-10-02',amount_cents:28500,confirmed_cents:28500},{number:2,due_date:'2026-11-02',amount_cents:28500,confirmed_cents:0}]};nodes.get('refresh').events.click();await settle();
  const history=nodes.get('installments').children[0].children[1].children;const euro=cents=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(cents/100);
  assert.equal(history[0].children[3].textContent,euro(28500),'previously confirmed amount stays visible');assert.equal(history[0].children[4].textContent,euro(0),'paid quota has no residual');assert.equal(history[1].children[4].textContent,euro(28500),'next quota retains its exact balance');
+ delayRefresh=true;const background=ctx.poll();await settle();nodes.get('checkout').events.click();await settle();assert.equal(calls.some(c=>c.action==='checkout'),true,'background polling cannot swallow a payment click');delayRefresh=false;refreshRelease();await background;
+ practice={...practice,state:'signature_pending'};await ctx.poll();assert.match(nodes.get('next-step-title').textContent,/Firma il contratto/);assert.equal(nodes.get('register-step').hidden,true,'signature in progress never exposes account creation');practice={...practice,state:'activation_ready'};await ctx.poll();assert.equal(nodes.get('register-step').hidden,false,'signed/archive transition opens account creation automatically');
  console.log('Unified form, upload recovery, formula selection and confirmed installment history verified.');
 })().catch(e=>{console.error(e);process.exit(1);});
+

@@ -45,11 +45,14 @@ jobs:
           php tools/test-onboarding.php
           php tools/test-onboarding-service.php
           php tools/test-onboarding-adapters.php
+          php tools/test-onboarding-mail.php
+          php tools/test-onboarding-profile.php
           php tools/test-onboarding-intake.php
           node tests/onboarding-signature.test.js
           node tests/onboarding-document.test.js
           node tests/onboarding-drive.test.js
           node tests/onboarding-form.test.js
+          node tests/artist-profile-validation.test.js
           node --check assets/js/trb-demo-evaluation.js
           php tools/test-audio-inventory.php
           php tools/test-rights-owner-review.php
@@ -70,3 +73,21 @@ jobs:
           node tests/release-audio-validation-race.test.js
           python3 tools/portal-audit.py
           python3 tools/test-private-deploy-output.py
+
+      - name: Render synthetic service email preview
+        run: php tools/test-onboarding-mail.php --preview
+      - name: Install browser for mobile layout validation
+        run: |
+          npm install --prefix /tmp/trb-browser-qa --no-save playwright@1.62.1
+          /tmp/trb-browser-qa/node_modules/.bin/playwright install --with-deps chromium
+      - name: Validate mobile form and service email layouts
+        run: NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/onboarding-responsive.test.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-mail-preview
+          path: |
+            mail-preview.html
+            form-mobile.png
+            waiting-mobile.png
+            mail-mobile.png
+          retention-days: 3

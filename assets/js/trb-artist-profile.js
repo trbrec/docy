@@ -9,6 +9,7 @@
     var country = document.querySelector('[data-trb-country]');
     var status = document.querySelector('[data-trb-postcode-status]');
     var lastLoaded = '';
+    var requestVersion = 0;
 
     function setStatus(message, error) {
       status.textContent = message;
@@ -18,18 +19,36 @@
     function loadPostcode() {
       var value = postcode.value.replace(/\D/g, '').slice(0, 5);
       postcode.value = value;
-      if (value.length !== 5 || value === lastLoaded) return;
+      if (value === lastLoaded && value.length === 5) return;
+      var version = ++requestVersion;
+      lastLoaded = '';
+      if (value.length !== 5) {
+        city.innerHTML = '<option value="">Inserisci prima il CAP</option>';
+        city.disabled = true;
+        province.value = '';
+        postcode.setCustomValidity('Inserisci un CAP italiano di 5 cifre.');
+        setStatus('Inserisci un CAP italiano di 5 cifre.', false);
+        return;
+      }
       city.disabled = true;
+      postcode.setCustomValidity('Attendi la verifica del CAP.');
       setStatus('Verifica del CAP in corso…', false);
-      fetch(window.trbArtistProfile.postcodeEndpoint + value, {
+      var request = window.trbArtistProfile.lookupPostcode ? window.trbArtistProfile.lookupPostcode(value) : fetch(window.trbArtistProfile.postcodeEndpoint + value, {
         credentials: 'same-origin',
         headers: { 'X-WP-Nonce': window.trbArtistProfile.restNonce }
       }).then(function (response) {
         if (!response.ok) throw new Error('not-found');
         return response.json();
-      }).then(function (data) {
+      });
+      request.then(function (data) {
+        if (version !== requestVersion || postcode.value !== value) return;
+        if (!data.places || !data.places.length) throw new Error('not-found');
         var current = city.value;
         city.innerHTML = '';
+        if (data.places.length > 1 && !data.places.some(function (place) { return place.city === current; })) {
+          var placeholder = document.createElement('option');
+          placeholder.value = ''; placeholder.textContent = 'Seleziona il Comune'; city.appendChild(placeholder);
+        }
         data.places.forEach(function (place) {
           var option = document.createElement('option');
           option.value = place.city;
@@ -42,18 +61,21 @@
         country.value = data.country || 'Italia';
         updateProvince();
         lastLoaded = value;
+        postcode.setCustomValidity('');
         setStatus(data.places.length > 1 ? 'CAP valido: seleziona il Comune corretto.' : 'CAP verificato: Comune e provincia compilati automaticamente.', false);
       }).catch(function () {
+        if (version !== requestVersion || postcode.value !== value) return;
         city.innerHTML = '<option value="">CAP non riconosciuto</option>';
         city.disabled = true;
         province.value = '';
+        postcode.setCustomValidity('CAP non trovato. Controlla le 5 cifre.');
         setStatus('CAP non trovato. Controlla le 5 cifre prima di continuare.', true);
       });
     }
 
     function updateProvince() {
       var selected = city.options[city.selectedIndex];
-      if (selected && selected.dataset.province) province.value = selected.dataset.province;
+      province.value = selected && selected.dataset.province ? selected.dataset.province : '';
     }
 
     postcode.addEventListener('input', loadPostcode);
@@ -116,6 +138,7 @@
     var status = document.querySelector('[data-trb-birthplace-status]');
     var places = [];
     var timer;
+    var requestVersion = 0;
 
     function selectPlace() {
       var value = input.value.toLocaleLowerCase('it');
@@ -124,25 +147,32 @@
       province.value = match ? match.province : '';
       status.textContent = match ? 'Comune verificato nell’archivio italiano.' : 'Seleziona uno dei Comuni proposti.';
       status.classList.toggle('is-error', !match && input.value.length > 1);
+      input.setCustomValidity(match ? '' : 'Seleziona un Comune valido tra quelli proposti.');
     }
 
     input.addEventListener('input', function () {
+      var version = ++requestVersion;
       var selected = places.find(function (place) { return (place.city + ' (' + place.province + ')').toLocaleLowerCase('it') === input.value.toLocaleLowerCase('it'); });
       if (selected) {
         input.value = selected.city;
         province.value = selected.province;
         status.textContent = 'Comune verificato nell’archivio italiano.';
         status.classList.remove('is-error');
+        input.setCustomValidity('');
         clearTimeout(timer);
         return;
       }
       province.value = '';
+      input.setCustomValidity('Seleziona un Comune valido tra quelli proposti.');
       clearTimeout(timer);
       if (input.value.trim().length < 2) return;
       timer = setTimeout(function () {
-        fetch(window.trbArtistProfile.municipalityEndpoint + '?search=' + encodeURIComponent(input.value.trim()), {
+        var search = input.value.trim();
+        var request = window.trbArtistProfile.lookupMunicipalities ? window.trbArtistProfile.lookupMunicipalities(search) : fetch(window.trbArtistProfile.municipalityEndpoint + '?search=' + encodeURIComponent(search), {
           credentials: 'same-origin', headers: { 'X-WP-Nonce': window.trbArtistProfile.restNonce }
-        }).then(function (response) { return response.json(); }).then(function (data) {
+        }).then(function (response) { if (!response.ok) throw new Error('not-found'); return response.json(); });
+        request.then(function (data) {
+          if (version !== requestVersion) return;
           places = data.places || [];
           list.innerHTML = '';
           places.forEach(function (place) {
@@ -151,6 +181,9 @@
             list.appendChild(option);
           });
           selectPlace();
+        }).catch(function () {
+          if (version !== requestVersion) return;
+          status.textContent = 'Verifica del Comune non disponibile. Riprova tra poco.';
         });
       }, 180);
     });
@@ -158,7 +191,7 @@
   }
 
   function initIdentityValidation() {
-    var phone = document.querySelector('input[name="trb_artist_phone"]');
+    var phone = document.querySelector('input[name="trb_artist_phone"], [data-trb-mobile]');
     var taxCode = document.querySelector('[data-trb-tax-code]');
     var documentNumber = document.querySelector('[data-trb-document-number]');
     var documentExpiry = document.querySelector('[data-trb-document-expiry]');
@@ -292,6 +325,14 @@
     });
   }
 
+  var initialized = false;
+  window.trbArtistProfileFields = { refresh: function () {
+    if (!initialized) return;
+    ['[data-trb-postcode]', '[data-trb-birthplace]', '[data-trb-tax-code]', 'input[name="trb_artist_phone"], [data-trb-mobile]', '[data-trb-document-number]'].forEach(function (selector) {
+      var input = document.querySelector(selector); if (input) input.dispatchEvent(new Event('input'));
+    });
+    var expiry = document.querySelector('[data-trb-document-expiry]'); if (expiry) expiry.dispatchEvent(new Event('change'));
+  }};
   document.addEventListener('DOMContentLoaded', function () {
     initAddress();
     initBirthplace();
@@ -299,5 +340,7 @@
     initPlatforms();
     initProfileFinder();
     initProfileUploadProgress();
+    initialized = true;
+    window.trbArtistProfileFields.refresh();
   });
 }());
