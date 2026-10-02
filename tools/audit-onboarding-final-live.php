@@ -11,9 +11,9 @@ require_once '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';
 require_once '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingContractCatalog.php';
 $db=\TrbCrm\Database::connection();
 $models=[];foreach(\TrbCrm\OnboardingContractCatalog::all() as $m)$models[$m['template_key']]=$m;
-$out['pending_practices']=0;$out['pending_stale_sources']=0;$out['pending_unknown_models']=0;
+$out['pending_practices']=0;$out['pending_stale_sources']=0;$out['pending_unknown_models']=0;$out['pending_source_cases']=[];
 foreach($db->query('SELECT snapshot FROM onboarding_practices WHERE signed_at IS NULL AND cancelled_at IS NULL')->fetchAll(PDO::FETCH_COLUMN) as $raw){
- $out['pending_practices']++;$s=json_decode($raw,true);$model=$models[$s['template_key']??'']??null;
+ $out['pending_practices']++;$s=json_decode($raw,true);$model=$models[$s['template_key']??'']??null;$out['pending_source_cases'][]=['is_qa'=>str_contains(strtoupper((string)($s['contract_number']??'')),'QA-')||str_contains(strtoupper((string)($s['contract_number']??'')),'NONVALIDO'),'group'=>$s['group_code']??'unknown','source_hash_present'=>preg_match('/^[a-f0-9]{64}$/D',(string)($s['source_sha256']??''))===1,'matches_current'=>$model&&hash_equals($model['source_sha256'],(string)($s['source_sha256']??''))];
  if(!$model){$out['pending_unknown_models']++;continue;}
  if(!hash_equals($model['source_sha256'],(string)($s['source_sha256']??'')))$out['pending_stale_sources']++;
 }
