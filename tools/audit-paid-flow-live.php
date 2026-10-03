@@ -3,9 +3,9 @@
 if(PHP_SAPI!=='cli')exit;ini_set('display_errors','0');ob_start();
 set_exception_handler(static function(){while(ob_get_level())ob_end_clean();fwrite(STDERR,"Final residual audit unconfirmed.\n");exit(1);});
 $theme='/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy';
-$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/onboarding-readiness.php').' fd431de6538d462bd7cc8916a6f35e540a5b5138 2>/dev/null',$lines,$readyExit);
+$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/onboarding-readiness.php').' f87f532df994867e3a259581cc7d20038fc0cbfc 2>/dev/null',$lines,$readyExit);
 $out=['connections'=>$readyExit===0?json_decode(implode("\n",$lines),true):null];
-$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/finish-onboarding-privacy.php').' fd431de6538d462bd7cc8916a6f35e540a5b5138 --verify 2>/dev/null',$lines,$privacyExit);
+$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/finish-onboarding-privacy.php').' f87f532df994867e3a259581cc7d20038fc0cbfc --verify 2>/dev/null',$lines,$privacyExit);
 $out['privacy']=$privacyExit===0?json_decode(implode("\n",$lines),true):null;
 require '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';\TrbCrm\Env::load('/home/customer/www/crm.trbrec.com/public_html/.env');
 require '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingContractCatalog.php';
@@ -47,7 +47,7 @@ STORE;
 $artist= <<<'ARTIST'
 $_SERVER['HTTP_HOST']='artist.trbrec.com';$_SERVER['REQUEST_URI']='/';$_SERVER['HTTPS']='on';define('WP_USE_THEMES',false);define('DISABLE_WP_CRON',true);ob_start();require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
 $profiles=trb_portal_profiles();$profileChecks=[];foreach(['trb','dds','ddb12','ddb','ddb_trb'] as $key)$profileChecks[$key]=isset($profiles[$key]['role'])&&get_role($profiles[$key]['role'])!==null;
-$r=['all_contract_profiles_ready'=>!in_array(false,$profileChecks,true),'worker_scheduled'=>(bool)wp_next_scheduled('trb_onboarding_worker'),'onboarding_enabled'=>function_exists('trb_onboarding_enabled')&&trb_onboarding_enabled(),'privacy_url_present'=>get_privacy_policy_url()!==''];
+$r=['all_contract_profiles_ready'=>!in_array(false,$profileChecks,true),'worker_scheduled'=>(bool)wp_next_scheduled('trb_onboarding_worker'),'identity_sweep_scheduled'=>(bool)wp_next_scheduled('trb_onboarding_identity_sweep'),'onboarding_enabled'=>function_exists('trb_onboarding_enabled')&&trb_onboarding_enabled(),'privacy_url_present'=>get_privacy_policy_url()!==''];
 while(ob_get_level())ob_end_clean();echo json_encode($r);
 ARTIST;
 foreach(['store'=>$store,'artist'=>$artist] as $key=>$code){$lines=[];exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($code).' 2>/dev/null',$lines,$exit);$out[$key]=$exit===0?json_decode(implode("\n",$lines),true):null;}
