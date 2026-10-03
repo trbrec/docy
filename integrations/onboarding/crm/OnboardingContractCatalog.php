@@ -35,9 +35,22 @@ final class OnboardingContractCatalog
         }
         return ['onboarding_version'=>OnboardingPolicy::VERSION,'template_key'=>$key,'group_code'=>$group,'template_document_id'=>$doc,'source_sha256'=>$source,'nominal_cents'=>$euros*100,'plans'=>$plans];
     }
+    /** Customer-facing names are independent of immutable historical option keys. */
+    public static function planPresentation(array $plan): array
+    {
+        return match($plan['kind']??''){
+            'single'=>['display_label'=>'Opzione A – Unica soluzione','display_name'=>'Versamento in un’unica soluzione'],
+            'two_installments'=>['display_label'=>'Opzione B – Due versamenti','display_name'=>'Due versamenti mensili'],
+            'monthly'=>['display_label'=>'Opzione C – Rate mensili senza interessi','display_name'=>'Rate mensili senza interessi'],
+            default=>['display_label'=>(string)($plan['label']??''),'display_name'=>(string)($plan['label']??'')],
+        };
+    }
     public static function appendix(array $practice): array
     {
         $plan=OnboardingPolicy::validatePlan($practice['selected_plan']);$date=$practice['first_payment_date']??null;
+        // The signed appendix spells out the chosen payment method, avoiding
+        // ambiguity with letters in previously issued source proposals.
+        $plan['label']=self::planPresentation($plan)['display_name'];
         if($plan['kind']!=='free' && !$date)throw new \RuntimeException('Primo versamento non confermato');
         $appendix=['version'=>OnboardingPolicy::VERSION,'practice_id'=>$practice['id'],'contract_id'=>(int)$practice['contract_id'],'currency'=>'EUR','plan'=>$plan,'first_payment_date'=>$date,'schedule'=>$plan['kind']==='free'?[]:OnboardingPolicy::schedule($plan,$date),'time_zone'=>'Europe/Rome'];
         $appendix['sha256']=hash('sha256',json_encode($appendix,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE));

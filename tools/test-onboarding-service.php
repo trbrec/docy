@@ -27,6 +27,13 @@ $script=function($payload)use(&$dispatches,&$dispatchResponseLost,&$completed,&$
  throw new RuntimeException('unexpected script action');
 };
 $service=new OnboardingService($ledger,$archive,$reader,$portal,$script);
+$presented=$service->view($ledger->practice($id));
+service_check($presented['nominal_cents']===60000,'Original DDB quota remains 600 euros');
+foreach(['C'=>['Opzione A – Unica soluzione',54000,6000],'B'=>['Opzione B – Due versamenti',28500,3000],'A'=>['Opzione C – Rate mensili senza interessi',15000,0]] as $key=>[$label,$first,$saving]){
+ service_check($presented['plans'][$key]['display_label']===$label&&$presented['plans'][$key]['amounts_cents'][0]===$first,'Visible alternative retains its exact first payment');
+ service_check($presented['nominal_cents']-$presented['plans'][$key]['total_cents']===$saving,'Exact saving is derived from the original fee');
+}
+service_check($ledger->practice($id)['snapshot']['plans']===$snapshot['plans'],'Presentation never rewrites issued proposal terms');
 $details=['privacy_acknowledged'=>true,'billing'=>['address_1'=>'Via collaudo 11/A','street'=>'Via collaudo','street_number'=>'11/A','city'=>'Roma','postcode'=>'00100','country'=>'IT','phone'=>'+393330000000'],'tax_code'=>'RSSMRA90A01H501W'];
 $details['profile']=['birth_date'=>'1990-01-01','birth_place'=>'Roma','birth_province'=>'RM','document_number'=>'CA12345AB','document_expiry'=>'2090-01-01'];
 $service->details($ledger->practice($id),$details);
