@@ -45,6 +45,7 @@ jobs:
           php tools/test-onboarding.php
           php tools/test-onboarding-service.php
           php tools/test-onboarding-identity-recovery.php
+          php tools/test-onboarding-reader.php
           php tools/test-onboarding-wp-proxy.php
           php tools/test-onboarding-automatic-signature.php
           php tools/test-onboarding-adapters.php
@@ -101,4 +102,3 @@ jobs:
             waiting-mobile.png
             mail-mobile.png
           retention-days: 3
-

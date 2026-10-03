@@ -91,4 +91,11 @@ $v=$ledger->identityVerification($expired);identity_check($v['status']==='error'
 identity_check($ledger->claimIdentity($expired)===null&&$reader->calls===0&&$archive->reads===0,'Expired queued job never reads the private archive or calls the reader');
 identity_check($ledger->practice($expired)['cancelled_at']===null&&$ledger->files($expired)!==[]&&$ledger->details($expired)!==[],'Expiry preserves files, details and the existing cancellation state');
 $ledger->finishIdentity($claim,good_fields(),'2026-10-03');identity_check($ledger->practice($fresh)['state']==='identity_matched','The unaffected current proposal completes normally after expired-job cleanup');
-echo "Identity recovery verified: queue-only public requests, duplicate claims, invalid screenshots, one-front replacement, stale results, crash lease, bounded retries, preserved details and strict payment gate.\n";
+$f=identity_fixture();extract($f);$reader->fields=array_replace(good_fields(),['tax_document'=>false]);$service->identity($ledger->practice($id));$service->processIdentity($id);
+$db->prepare('UPDATE onboarding_identity_jobs SET input_fingerprint=? WHERE practice_id=?')->execute([str_repeat('f',64),$id]);$v=$ledger->identityVerification($id);
+identity_check($v['status']==='error'&&$v['reason']==='verification_updated'&&$v['replace_slots']===[],'An outdated reader rejection asks for verification of the saved documents instead of another upload');
+$beforeFiles=$ledger->files($id);$reader->fields=good_fields();$service->identity($ledger->practice($id));$service->processIdentity($id);
+identity_check($ledger->practice($id)['state']==='identity_matched'&&$ledger->files($id)===$beforeFiles&&$reader->calls===2,'The updated reader rechecks the original files and completes the unchanged invitation');
+$db->prepare('UPDATE onboarding_identity_jobs SET input_fingerprint=? WHERE practice_id=?')->execute([str_repeat('e',64),$id]);
+identity_check($ledger->identityVerification($id)['status']==='complete'&&$service->identity($ledger->practice($id))['identity']['status']==='complete'&&$reader->calls===2,'Reader upgrades preserve already verified identities without a duplicate read');
+echo "Identity recovery verified: queue-only public requests, duplicate claims, invalid screenshots, one-front replacement, stale results, reader upgrades, crash lease, bounded retries, preserved details and strict payment gate.\n";
