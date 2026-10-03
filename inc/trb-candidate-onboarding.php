@@ -72,10 +72,13 @@ function trb_onboarding_private($request){
             $files[]=array('id'=>$fileId,'path'=>'','name'=>sanitize_file_name($file['name']),'type'=>str_ends_with(strtolower($file['name']),'.pdf')?'application/pdf':(str_ends_with(strtolower($file['name']),'.png')?'image/png':'image/jpeg'),'group'=>$label[0],'label'=>$label[1],'time'=>time(),'size'=>absint($file['size']??0),'source'=>($p['archive_provider']??'')==='google_drive'?'onboarding-google-drive':'onboarding-pcloud');
         }
         update_user_meta($id,'_trb_artist_private_files',$files);
-        $user->add_role($profiles[$key]['role']);update_user_meta($id,'_trb_artist_contract_profile',$key);update_user_meta($id,'_trb_onboarding_contract_file_id',sanitize_text_field((string)$p['signed_pcloud_file_id']));update_user_meta($id,'_trb_onboarding_stage','active');
+        $user->add_role($profiles[$key]['role']);update_user_meta($id,'_trb_artist_contract_profile',$key);update_user_meta($id,'_trb_onboarding_contract_file_id',sanitize_text_field((string)$p['signed_pcloud_file_id']));
         $GLOBALS['trb_onboarding_approve_email']=$user->user_email;
         try{if(function_exists('pw_new_user_approve'))pw_new_user_approve()->update_user_status($id,'approve');}
         finally{unset($GLOBALS['trb_onboarding_approve_email']);}
+        clean_user_cache($id);
+        if(function_exists('pw_new_user_approve')&&pw_new_user_approve()->get_user_status($id)!=='approved')return new WP_Error('onboarding_approval','Approvazione automatica non confermata. Riprova senza creare un nuovo account.',array('status'=>409));
+        update_user_meta($id,'_trb_onboarding_stage','active');
         return array('portal_user_id'=>$id,'practice_id'=>$practice,'activated'=>true);
     }
     return new WP_Error('onboarding_action','Operazione non disponibile.',array('status'=>422));
@@ -120,18 +123,27 @@ function trb_onboarding_public($request){
     if($action==='municipalities')return array('places'=>trb_portal_find_municipalities(mb_substr((string)($p['search']??''),0,100)));
     if($action==='register'){
         $ready=trb_onboarding_crm(array('action'=>'registration_authorization','session'=>$browser['session']));if(is_wp_error($ready))return $ready;
-        $password=(string)($p['password']??'');if(mb_strlen($password)<14||mb_strlen($password)>128||str_contains($password,"\0")||$password!==(string)($p['repeat_password']??''))return new WP_Error('onboarding_password','Inserisci due password uguali di almeno 14 caratteri.',array('status'=>422));
+        $password=(string)($p['password']??'');if(mb_strlen($password)<10||mb_strlen($password)>128||str_contains($password,"\0")||$password!==(string)($p['repeat_password']??''))return new WP_Error('onboarding_password','Inserisci due password uguali di almeno 10 caratteri.',array('status'=>422));
         $email=$ready['email'];$existing=get_user_by('email',$email);
         if($existing){
             if(get_user_meta($existing->ID,'_trb_onboarding_practice',true)!==$ready['id']||get_user_meta($existing->ID,'_trb_onboarding_version',true)!=='2026.2'||!wp_check_password($password,$existing->user_pass,$existing->ID))return new WP_Error('onboarding_existing','Questo indirizzo è già associato a un account. Contatta l’assistenza per collegare la pratica senza modificare il profilo esistente.',array('status'=>409));
             $id=$existing->ID;
         }else{
             $GLOBALS['trb_onboarding_register_context']=$ready;
+            // This verified signature workflow performs approval itself. Temporarily
+            // remove only the old plugin's manual-approval notification for this insert.
+            $approvalCallback=function_exists('pw_new_user_approve')?array(pw_new_user_approve(),'request_admin_approval_email_2'):null;
+            $approvalPriority=$approvalCallback?has_action('user_register',$approvalCallback):false;
+            if($approvalPriority!==false)remove_action('user_register',$approvalCallback,$approvalPriority);
             try{$id=wp_insert_user(array('user_login'=>'artista_'.bin2hex(random_bytes(10)),'user_pass'=>$password,'user_email'=>$email,'first_name'=>$ready['first_name'],'last_name'=>$ready['last_name'],'display_name'=>$ready['artist_name']?:trim($ready['first_name'].' '.$ready['last_name']),'role'=>'subscriber'));}
-            finally{unset($GLOBALS['trb_onboarding_register_context']);}
+            finally{if($approvalPriority!==false)add_action('user_register',$approvalCallback,$approvalPriority);unset($GLOBALS['trb_onboarding_register_context']);}
             if(is_wp_error($id))return new WP_Error('onboarding_register','Account non creato. Riprova senza modificare la pratica.',array('status'=>409));
         }
         $result=trb_onboarding_crm(array('action'=>'register','session'=>$browser['session'],'portal_user_id'=>(int)$id));if(is_wp_error($result))return $result;
+        if(($result['registered']??false)!==true)return new WP_Error('onboarding_pending','Attivazione non confermata. Riprova senza creare un nuovo account.',array('status'=>409));
+        // The CRM activates the account through a separate HTTP request. Discard this
+        // request's pre-activation user/metadata cache before checking or logging in.
+        clean_user_cache((int)$id);
         if(get_user_meta($id,'_trb_onboarding_stage',true)!=='active')return new WP_Error('onboarding_pending','Attivazione da verificare: riprova senza creare un nuovo account.',array('status'=>409));
         wp_set_current_user((int)$id);wp_set_auth_cookie((int)$id,false,true);
         delete_transient($key);return array('registered'=>true,'login_url'=>home_url('/area-artisti/'));

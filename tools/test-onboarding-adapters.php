@@ -4,19 +4,22 @@ define('ABSPATH',__DIR__);define('HOUR_IN_SECONDS',3600);
 class WP_Error{public function __construct(public $code,public $message,public $data=[]){}public function get_error_message(){return $this->message;}}
 class WP_User{public $roles=[];public $user_email='artist@example.invalid';public function __construct(public $ID=101){}public function has_cap($cap){return false;}public function add_role($role){$this->roles[]=$role;}}
 function is_wp_error($x){return $x instanceof WP_Error;}
-function add_action(...$args){}function add_filter($tag,$callback,...$args){$GLOBALS['adapter_filters'][$tag][]=$callback;}
+function add_action(...$args){if(($args[0]??'')==='user_register'&&is_array($args[1]??null)&&($args[1][1]??'')==='request_admin_approval_email_2')$GLOBALS['approval_notification_suspended']=false;}function add_filter($tag,$callback,...$args){$GLOBALS['adapter_filters'][$tag][]=$callback;}
+function has_action($hook,$callback){return $hook==='user_register'&&($callback[1]??'')==='request_admin_approval_email_2'?10:false;}
+function remove_action($hook,$callback,$priority){$GLOBALS['approval_notification_suspended']=true;return true;}
 function get_query_var($key){return $key==='order-pay'?($GLOBALS['adapter_pay_order']??0):0;}function wc_get_order($id){return $GLOBALS['adapter_orders'][$id]??false;}
 function absint($x){return abs((int)$x);}function sanitize_text_field($x){return trim($x);}function sanitize_file_name($x){return basename($x);}function wp_unslash($x){return $x;}
 function wp_json_encode($x,...$args){return json_encode($x,...$args);}function wp_salt($x){return str_repeat('a',64);}function home_url(){return 'https://artist.trbrec.com';}
 $meta=[];$options=['trb_candidate_onboarding_enabled'=>true];$transients=[];$user=new WP_User();
 function get_option($key,$default=false){return $GLOBALS['options'][$key]??$default;}function add_option($key,$value,...$extra){if(isset($GLOBALS['options'][$key]))return false;$GLOBALS['options'][$key]=$value;return true;}
-function get_user_meta($id,$key,$single=true){return $GLOBALS['meta'][$id][$key]??'';}function update_user_meta($id,$key,$value){$GLOBALS['meta'][$id][$key]=$value;}
+function get_user_meta($id,$key,$single=true){if($key==='_trb_onboarding_stage'&&isset($GLOBALS['registration_stage_cache'][$id]))return $GLOBALS['registration_stage_cache'][$id];return $GLOBALS['meta'][$id][$key]??'';}function update_user_meta($id,$key,$value){$GLOBALS['meta'][$id][$key]=$value;}
+function clean_user_cache($id){unset($GLOBALS['registration_stage_cache'][$id]);$GLOBALS['registration_cache_cleans']=($GLOBALS['registration_cache_cleans']??0)+1;}
 function get_post($id){return (int)$id===(int)($GLOBALS['adapter_privacy_page']->ID??0)?$GLOBALS['adapter_privacy_page']:null;}
 function get_post_meta($id,$key,$single=true){return $GLOBALS['adapter_privacy_meta'][$id][$key]??'';}
 function get_permalink($id){return $GLOBALS['adapter_privacy_permalink']??'https://artist.trbrec.com/privacy-policy/';}
 function get_userdata($id){return $id===$GLOBALS['user']->ID?$GLOBALS['user']:false;}function get_transient($key){return $GLOBALS['transients'][$key]??false;}
 function trb_crm_connector_settings(){return ['secret'=>str_repeat('s',64)];}function trb_portal_dds_store_secret(){return str_repeat('s',64);}function trb_store_dds_bridge_secret(){return str_repeat('s',64);}
-function trb_portal_profiles(){return ['ddb'=>['role'=>'artista_b']];}function pw_new_user_approve(){return new class{public function update_user_status($id,$status){$GLOBALS['approved']=$status;}};}
+function trb_portal_profiles(){return ['ddb'=>['role'=>'artista_b']];}function pw_new_user_approve(){return new class{public function update_user_status($id,$status){if(empty($GLOBALS['approval_fail']))$GLOBALS['approved']=$status;}public function get_user_status($id){return empty($GLOBALS['approval_fail'])&&($GLOBALS['approved']??'')==='approve'?'approved':'pending';}};}
 function trb_release_bridge_contract_term_dates($term){return preg_match('~^\d\d/\d\d/\d\d - \d\d/\d\d/\d\d$~',$term)?[]:new WP_Error('term','Invalid');}
 function wp_next_scheduled($x){return true;}function wp_date($format,$stamp,$zone){return (new DateTimeImmutable('@'.$stamp))->setTimezone($zone)->format($format);}
 function check_adapter($ok,$message){if(!$ok)throw new RuntimeException($message);}
@@ -55,6 +58,7 @@ check_adapter($meta[101]['_trb_artist_street']==='Via Collaudo'&&$meta[101]['_tr
 check_adapter($meta[101]['_trb_artist_preliminary_contract']==='TRB-QA'&&$meta[101]['_trb_artist_contract_term']==='01/10/26 - 30/09/27','Release contract gates initialized');
 check_adapter($meta[101]['_trb_artist_private_files'][0]['path']===''&&$meta[101]['_trb_artist_private_files'][0]['id']==='trb-onboarding-identity_front','Remote document metadata without local bytes');
 trb_onboarding_private(new AdapterRequest($payload));check_adapter(count($meta[101]['_trb_artist_private_files'])===1,'Repeated activation does not duplicate files');
+$GLOBALS['approval_fail']=true;update_user_meta(101,'_trb_onboarding_stage','account_preparing');check_adapter(is_wp_error(trb_onboarding_private(new AdapterRequest($payload)))&&get_user_meta(101,'_trb_onboarding_stage',true)==='account_preparing','Missing approval confirmation never marks the account active');$GLOBALS['approval_fail']=false;trb_onboarding_private(new AdapterRequest($payload));
 $separate=$payload;$separate['details']['billing']['street']='Via 25 Aprile';$separate['details']['billing']['street_number']='11/A';$separate['details']['billing']['address_1']='Via 25 Aprile 11/A';$separate['details']['profile']=['birth_place'=>'Roma','birth_province'=>'RM','document_number'=>'CA12345AB','document_expiry'=>'2030-01-01'];trb_onboarding_private(new AdapterRequest($separate));check_adapter($meta[101]['_trb_artist_street']==='Via 25 Aprile'&&$meta[101]['_trb_artist_street_number']==='11/A'&&$meta[101]['_trb_artist_document_number']==='CA12345AB','Structured address and identity fields reach the original artist profile');
 $_COOKIE['__Host-trb_onboarding']=str_repeat('b',64);$transients[trb_onboarding_browser_key()]=['invite'=>str_repeat('c',64),'salt'=>'qa'];check_adapter(trb_onboarding_public(new AdapterRequest(['action'=>'browser_status']))['challenge_pending'],'Email verification resumes after page reload');
 $stamp=(string)time();$nonce=str_repeat('d',32);$request=new AdapterRequest([],['x-trb-timestamp'=>$stamp,'x-trb-nonce'=>$nonce,'x-trb-signature'=>'sha256='.hash_hmac('sha256','onboarding-v1|'.$stamp.'|'.$nonce.'|{}',str_repeat('s',64))]);
@@ -90,16 +94,18 @@ function wp_remote_post($url,$args){$p=json_decode($args['body'],true);$GLOBALS[
 function wp_remote_retrieve_body($r){return json_encode($r['data']);}function wp_remote_retrieve_response_code($r){return $r['status'];}
 function get_user_by($type,$value){return $GLOBALS['registration_existing']??false;}
 function wp_check_password($password,$hash,$id){return $password==='synthetic-password-123';}
-function wp_insert_user($data){$GLOBALS['registration_insert']=$data;$ready=$GLOBALS['trb_onboarding_register_context'];update_user_meta(101,'_trb_onboarding_version','2026.2');update_user_meta(101,'_trb_onboarding_practice',$ready['id']);update_user_meta(101,'_trb_onboarding_stage','account_preparing');return 101;}
+function wp_insert_user($data){check_adapter(!empty($GLOBALS['approval_notification_suspended']),'Manual approval notification suspended during verified account creation');$GLOBALS['registration_insert']=$data;$ready=$GLOBALS['trb_onboarding_register_context'];update_user_meta(101,'_trb_onboarding_version','2026.2');update_user_meta(101,'_trb_onboarding_practice',$ready['id']);update_user_meta(101,'_trb_onboarding_stage','account_preparing');$GLOBALS['registration_stage_cache'][101]='account_preparing';return 101;}
 function wp_set_current_user($id){$GLOBALS['registration_current']=$id;}function wp_set_auth_cookie($id,$remember,$secure){$GLOBALS['registration_cookie']=[$id,$remember,$secure];}
 function delete_transient($key){unset($GLOBALS['transients'][$key]);}
 $GLOBALS['registration_ready']=['id'=>$practice,'email'=>'artist@example.invalid','first_name'=>'Mario','last_name'=>'Rossi','artist_name'=>'QA','qa'=>false];
 $passwordRequest=new AdapterRequest(['action'=>'register','password'=>'synthetic-password-123','repeat_password'=>'synthetic-password-123']);
 $transients[trb_onboarding_browser_key()]=['session'=>str_repeat('f',64)];$GLOBALS['registration_fail']=true;
 check_adapter(is_wp_error(trb_onboarding_public($passwordRequest))&&!isset($GLOBALS['registration_cookie']),'Unconfirmed activation never logs in');
+check_adapter(empty($GLOBALS['approval_notification_suspended']),'Legacy approval hook restored after a failed activation');
 $GLOBALS['registration_existing']=$user;$user->user_pass='synthetic-hash';$GLOBALS['registration_fail']=false;
 $registered=trb_onboarding_public($passwordRequest);
 check_adapter($registered['registered']&&$GLOBALS['registration_cookie']===[101,false,true],'Activated artist gets a secure session after password setup');
+check_adapter($GLOBALS['registration_cache_cleans']>0&&get_user_meta(101,'_trb_onboarding_stage',true)==='active','Remote activation invalidates the stale request cache before authentication');
 check_adapter(!isset($GLOBALS['trb_onboarding_register_context'])&&!isset($transients[trb_onboarding_browser_key()]),'Registration context and browser challenge cleared');
 foreach($GLOBALS['registration_rpc'] as $rpc)check_adapter(!isset($rpc['password'],$rpc['repeat_password']),'Password never crosses the CRM bridge');
 // Legacy mail suppression is recipient-specific and only inside onboarding operations.
@@ -108,3 +114,8 @@ check_adapter($suppress(null,['to'=>'artist@example.invalid'])===true,'Legacy ap
 check_adapter($suppress(null,['to'=>'other@example.invalid'])===null,'Other artists keep their system emails');unset($GLOBALS['trb_onboarding_approve_email']);
 check_adapter($suppress(null,['to'=>'artist@example.invalid'])===null,'Mail suppression scope is cleared');
 echo "First password setup, secure login, retry binding and scoped welcome mail verified.\n";
+$GLOBALS['registration_existing']=false;unset($GLOBALS['registration_cookie']);$transients[trb_onboarding_browser_key()]=['session'=>str_repeat('f',64)];
+check_adapter(is_wp_error(trb_onboarding_public(new AdapterRequest(['action'=>'register','password'=>'safePW123','repeat_password'=>'safePW123'])))&&!isset($GLOBALS['registration_cookie']),'Nine characters cannot create or authenticate an account');
+$short=trb_onboarding_public(new AdapterRequest(['action'=>'register','password'=>'safePW123!','repeat_password'=>'safePW123!']));
+check_adapter($short['registered']&&$GLOBALS['registration_insert']['user_pass']==='safePW123!','Ten characters are accepted by the actual registration route');
+check_adapter(empty($GLOBALS['approval_notification_suspended']),'Legacy approval callback remains installed outside the new workflow');
