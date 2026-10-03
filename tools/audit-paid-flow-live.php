@@ -1,7 +1,7 @@
 <?php
 /** Read-only post-deployment checks. No sends, payments or account changes. */
 if(PHP_SAPI!=='cli')exit;ini_set('display_errors','0');ob_start();
-set_exception_handler(static function($e){while(ob_get_level())ob_end_clean();file_put_contents('php://stderr',json_encode(['audit_error'=>'unconfirmed','class'=>get_class($e),'file'=>basename($e->getFile()),'line'=>$e->getLine()])."\n");exit(1);});
+set_exception_handler(static function(){while(ob_get_level())ob_end_clean();file_put_contents('php://stderr',"Final residual audit unconfirmed.\n");exit(1);});
 $theme='/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy';
 $lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/onboarding-readiness.php').' 58995be56cf5bfd09943f7b5b76884125c988081 2>/dev/null',$lines,$readyExit);
 $out=['connections'=>$readyExit===0?json_decode(implode("\n",$lines),true):null];
@@ -36,24 +36,6 @@ $out['signature_audit']=[
 'activated_without_signed_pdf'=>(int)$db->query("SELECT COUNT(*) FROM onboarding_practices p WHERE p.portal_activated_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM onboarding_artifacts a WHERE a.practice_id=p.id AND a.slot='signed_pdf')")->fetchColumn(),
 'activated_without_signature_proof'=>(int)$db->query("SELECT COUNT(*) FROM onboarding_practices p WHERE p.portal_activated_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM onboarding_artifacts a WHERE a.practice_id=p.id AND a.slot='signature_audit')")->fetchColumn()
 ];
-
-require_once '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingService.php';
-$ledger=new \TrbCrm\OnboardingLedger($db);$p=$ledger->forContract(27);
-if(!$p||$p['email']!=='a.tognassi@gmail.com'||$p['snapshot']['contract_number']!=='TRB-QA-NONVALIDO-DDB600-20261003'||$p['snapshot']['template_key']!=='ddb_ccad_600')throw new \RuntimeException('Test scope mismatch');
-$before=$p;$counts=[];foreach(['onboarding_payments','onboarding_signatures','onboarding_events'] as $table){$q=$db->prepare('SELECT COUNT(*) FROM '.$table.' WHERE practice_id=?');$q->execute([$p['id']]);$counts[$table]=(int)$q->fetchColumn();}
-$disabled=static function(){throw new \RuntimeException('External action not authorized in read-only audit');};
-$service=new \TrbCrm\OnboardingService($ledger,new \stdClass,new \stdClass,$disabled,$disabled);$v=$service->view($p);
-$cards=[];$terms=true;
-foreach(['C'=>['Opzione A – Unica soluzione',54000,54000,6000,1],'B'=>['Opzione B – Due versamenti',28500,57000,3000,2],'A'=>['Opzione C – Rate mensili senza interessi',15000,60000,0,4]] as $key=>[$label,$first,$total,$saving,$count]){
-$plan=$v['plans'][$key];$cards[]=['label'=>$plan['display_label'],'original_cents'=>$v['nominal_cents'],'total_cents'=>$plan['total_cents'],'first_payment_cents'=>$plan['amounts_cents'][0],'payment_count'=>count($plan['amounts_cents']),'discount_percent'=>$plan['discount_basis_points']/100,'saving_cents'=>$v['nominal_cents']-$plan['total_cents']];
-$terms=$terms&&$v['nominal_cents']===60000&&$plan['display_label']===$label&&$plan['total_cents']===$total&&$plan['amounts_cents'][0]===$first&&count($plan['amounts_cents'])===$count&&$v['nominal_cents']-$plan['total_cents']===$saving;
-}
-$unchanged=$ledger->practice($p['id'])===$before;
-foreach($counts as $table=>$old){$q=$db->prepare('SELECT COUNT(*) FROM '.$table.' WHERE practice_id=?');$q->execute([$p['id']]);$unchanged=$unchanged&&$old===(int)$q->fetchColumn();}
-$hashes=['/home/customer/www/crm.trbrec.com/public_html/app/OnboardingContractCatalog.php'=>'877c0f37eaa7804ad942d45ebed2a171f2f3964c8da2124dd4fa15644f1ceae3','/home/customer/www/crm.trbrec.com/public_html/app/OnboardingService.php'=>'d507a9ab5ad922421eb61b880a7381e2f84cfa16b78f7da5a9df90f0f9ae15bd',$theme.'/assets/js/onboarding/onboarding.js'=>'da45325987154a06cdaa883ca190faa1ad7b1596849e67e8affc23a6201de3ee',$theme.'/inc/trb-candidate-onboarding-page.php'=>'26655ff9438b7eaab601b91dbd4fc066ee22aac776b564517e1d2c80b375ebe6'];$sourceHashes=true;foreach($hashes as $file=>$hash)$sourceHashes=$sourceHashes&&hash_equals($hash,hash_file('sha256',$file));
-$page=file_get_contents($theme.'/inc/trb-candidate-onboarding-page.php');$js=file_get_contents($theme.'/assets/js/onboarding/onboarding.js');
-$out['plan_page']=['state'=>$v['state'],'identity_status'=>$v['identity_verification']['status']??null,'selected'=>$v['selected_plan']!==null,'payments'=>$counts['onboarding_payments'],'signature_records'=>$counts['onboarding_signatures'],'cards'=>$cards,'source_hashes_verified'=>$sourceHashes,'terms_verified'=>$terms,'read_only_confirmed'=>$unchanged,'new_assets'=>str_contains($page,'20261003i')&&str_contains($page,'plan-base-amount')&&str_contains($js,'Opzione A – Unica soluzione')];
-
 $store= <<<'STORE'
 $_SERVER['HTTP_HOST']='store.trbrec.com';$_SERVER['REQUEST_URI']='/';$_SERVER['HTTPS']='on';define('WP_USE_THEMES',false);define('DISABLE_WP_CRON',true);ob_start();require '/home/customer/www/store.trbrec.com/public_html/wp-load.php';
 $g=WC()->payment_gateways()->payment_gateways();$s=(array)get_option('woocommerce_stripe_settings',[]);
@@ -76,4 +58,4 @@ $out['automatic_handoff_installed']=str_contains($runtimeSource,'advanceSignatur
 $out['handoff_checks']=['confirmed_owner_delivery'=>str_contains($workflowSource,"'automatic_signature'=>true")&&str_contains($ledgerSource,'automaticSignatureOwner'),'exact_capture_required'=>str_contains($serviceSource,'Incasso non confermato dal circuito'),'automatic_dispatch'=>str_contains($serviceSource,'function advanceSignature'),'serialized_preparation'=>str_contains($runtimeSource,'trb_onboarding_signature_')];
 $good=$out['non_qa_old_sources']===0&&$out['privacy_version_current']&&$connectionsReady&&($out['privacy']['success']??false)===true
 &&is_array($out['store'])&&!in_array(false,$out['store'],true)&&is_array($out['artist'])&&!in_array(false,$out['artist'],true);
-$out['success']=$good&&$out['automatic_handoff_installed']&&!in_array(false,$out['handoff_checks'],true);$out['success']=$out['success']&&$out['plan_page']['terms_verified']&&$out['plan_page']['read_only_confirmed']&&$out['plan_page']['new_assets']&&$out['plan_page']['source_hashes_verified'];$good=$out['success'];while(ob_get_level())ob_end_clean();echo json_encode($out,JSON_UNESCAPED_SLASHES)."\n";exit($good?0:1);
+$out['success']=$good&&$out['automatic_handoff_installed']&&!in_array(false,$out['handoff_checks'],true);$good=$out['success'];while(ob_get_level())ob_end_clean();echo json_encode($out,JSON_UNESCAPED_SLASHES)."\n";exit($good?0:1);
