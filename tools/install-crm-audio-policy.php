@@ -6,7 +6,7 @@ set_exception_handler(static function(){fwrite(STDERR,"Audio policy installation
 $path='/home/customer/www/crm.trbrec.com/public_html/pcloud-material.php';
 $original=file_get_contents($path);
 $old="header('Content-Security-Policy: sandbox');";
-$new="header('Content-Security-Policy: sandbox'.(in_array($ext,['mp3','wav','m4a','flac','ogg'],true)?' allow-same-origin':''));";
+$new="header('Content-Security-Policy: sandbox'.(in_array(\$ext,['mp3','wav','m4a','flac','ogg'],true)?' allow-same-origin':''));";
 if(strpos($original,$new)!==false){echo "Audio origin policy already installed.\n";exit;}
 if(hash('sha256',$original)!=='695ead14ccde7b0fcaeec947d6ade949d3761ff77b4d49d9f9f0948c553f6f02'||substr_count($original,$old)!==1)throw new RuntimeException('Concurrent source change');
 $next=str_replace($old,$new,$original);
