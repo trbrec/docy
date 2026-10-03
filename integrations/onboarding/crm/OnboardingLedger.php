@@ -10,6 +10,7 @@ require_once __DIR__.'/OnboardingPolicy.php';
 /** Separate ledger. Never rewrites legacy contracts, releases or user permissions. */
 final class OnboardingLedger
 {
+    public const IDENTITY_READER_VERSION='20261003-isolated-fronts';
     public function __construct(private PDO $db) {}
 
     public function install(): void
@@ -125,7 +126,7 @@ final class OnboardingLedger
     {
         $p=$this->practice($id);$details=$this->details($id);$files=$this->files($id);$fronts=[];
         foreach(['identity_front','tax_front'] as $slot){$f=$files[$slot]??[];$fronts[$slot]=['file_id'=>(string)($f['file_id']??''),'folder_id'=>(string)($f['folder_id']??''),'hash'=>(string)($f['hash']??'')];}
-        return hash('sha256',$this->json(['contract'=>$p['snapshot'],'fronts'=>$fronts,'tax_code'=>$details['tax_code']??'','birth_date'=>$details['profile']['birth_date']??'','document_expiry'=>$details['profile']['document_expiry']??'']));
+        return hash('sha256',$this->json(['reader'=>self::IDENTITY_READER_VERSION,'contract'=>$p['snapshot'],'fronts'=>$fronts,'tax_code'=>$details['tax_code']??'','birth_date'=>$details['profile']['birth_date']??'','document_expiry'=>$details['profile']['document_expiry']??'']));
     }
     private function identityJob(string $id): ?array
     {
@@ -154,7 +155,10 @@ final class OnboardingLedger
     public function identityVerification(string $id,?int $now=null): ?array
     {
         $now??=time();$p=$this->practice($id);if($p['cancelled_at'])return null;$job=$this->identityJob($id);$result=$this->identityResult($id);
-        if($job&&!hash_equals($job['input_fingerprint'],$this->identityFingerprint($id)))return null;
+        if($job&&!hash_equals($job['input_fingerprint'],$this->identityFingerprint($id))){
+            if(in_array($result['status']??'',['matched','blocked'],true))$job=null;
+            else return ['status'=>'error','reason'=>'verification_updated','message'=>'La verifica è stata aggiornata. I dati e i documenti sono salvati: premi «Salva e continua» per riprenderla.','retryable'=>true,'replace_slots'=>[],'result_status'=>null,'queued_at'=>null,'started_at'=>null,'next_retry_at'=>null,'retry_after_seconds'=>0];
+        }
         if(!$job&&!$result)return null;
         $state=$job['state']??(($result['status']??'')==='matched'?'complete':'rejected');
         if($state==='processing'&&(int)$job['lease_until']<=$now)$state='queued';
