@@ -37,10 +37,10 @@ $out['signature_audit']=[
 'activated_without_signature_proof'=>(int)$db->query("SELECT COUNT(*) FROM onboarding_practices p WHERE p.portal_activated_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM onboarding_artifacts a WHERE a.practice_id=p.id AND a.slot='signature_audit')")->fetchColumn()
 ];
 
+require_once '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingService.php';
 $ledger=new \TrbCrm\OnboardingLedger($db);$p=$ledger->forContract(27);
 if(!$p||$p['email']!=='a.tognassi@gmail.com'||$p['snapshot']['contract_number']!=='TRB-QA-NONVALIDO-DDB600-20261003'||$p['snapshot']['template_key']!=='ddb_ccad_600')throw new \RuntimeException('Test scope mismatch');
 $before=$p;$counts=[];foreach(['onboarding_payments','onboarding_signatures','onboarding_events'] as $table){$q=$db->prepare('SELECT COUNT(*) FROM '.$table.' WHERE practice_id=?');$q->execute([$p['id']]);$counts[$table]=(int)$q->fetchColumn();}
-require '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingService.php';
 $disabled=static function(){throw new \RuntimeException('External action not authorized in read-only audit');};
 $service=new \TrbCrm\OnboardingService($ledger,new \stdClass,new \stdClass,$disabled,$disabled);$v=$service->view($p);
 $cards=[];$terms=true;
