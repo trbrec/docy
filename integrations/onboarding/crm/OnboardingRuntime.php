@@ -127,7 +127,8 @@ final class OnboardingRuntime
         if($p['state']!=='activation_ready')return ['sent'=>false,'status'=>$this->ledger->welcomeStatus($id)['state']??'not_ready'];
         $url=$this->invitation($p);$token=substr($url,strpos($url,'#invite=')+8);
         if(!hash_equals($p['token_hash'],hash('sha256',$token)))throw new \RuntimeException('Collegamento di benvenuto da verificare');
-        $message=OnboardingMail::welcome($p['snapshot']['first_name'],$url);
+        $url=str_replace('/adesione/#invite=','/adesione/?accesso=1#invite=',$url);
+        $message=OnboardingMail::welcome($p['snapshot']['first_name'],$url,$p['snapshot']['group_code']);
         if(!$this->ledger->reserveWelcome($id))return ['sent'=>false,'status'=>$this->ledger->welcomeStatus($id)['state']??'not_ready'];
         try{$receipt=$this->mail($p['email'],$message['subject'],$message['text'],$message['html']);$this->ledger->finishWelcome($id,(string)$receipt['gmail_message_id']);return ['sent'=>true,'status'=>'sent'];}
         catch(\Throwable $e){$this->ledger->finishWelcome($id,null);throw new \RuntimeException('Invio benvenuto da verificare prima di ripeterlo');}

@@ -23,6 +23,17 @@ mail_check(str_contains($welcome['html'],'&lt;img&gt;')&&!str_contains($welcome[
 mail_check(substr_count($welcome['html'],'<a href=')===1&&str_contains($welcome['html'],'ACCEDI AL PORTALE ARTISTI'),'One clear primary welcome action');
 mail_check(str_contains($welcome['html'],'scegli la tua password')&&str_contains($welcome['text'],'codice'),'First access explains verification and password setup');
 mail_check(str_contains($welcome['html'],'Portale Artisti')&&str_contains($welcome['html'],'max-width:560px'),'Welcome uses the same branded responsive layout');
+foreach(['TRB','DDS','DDB12','DDB','DDB-TRB'] as $group){
+ $brand=$group==='TRB'?'TRB rec':'Digital Distribution Bundle';$branded=OnboardingMail::welcome('Andrea','https://artist.trbrec.com/adesione/?accesso=1#invite='.str_repeat('a',64),$group);
+ mail_check(str_contains($branded['html'],'>Benvenuto in '.$brand.'</h1>')&&str_starts_with($branded['text'],'Benvenuto in '.$brand),'Signed contract group selects the correct welcome');
+ mail_check($branded['subject']==='Il tuo accesso al Portale Artisti è pronto | '.$brand,'Access-ready subject belongs to the signed contract group');
+ mail_check(!str_contains($branded['html'],'Benvenuto nel mondo TRB rec'),'No generic roster welcome for paid contracts');
+}
+try{OnboardingMail::welcome('Andrea','https://artist.trbrec.com/adesione/#invite='.str_repeat('a',64),'untrusted');throw new LogicException('Expected unsupported contract group');}catch(InvalidArgumentException $e){}
 foreach(['http://artist.trbrec.com/adesione/#invite='.str_repeat('a',64),'https://evil.invalid/'] as $url){try{OnboardingMail::welcome('Mario',$url);throw new LogicException('Expected invalid welcome URL');}catch(InvalidArgumentException $e){}}
-if(in_array('--preview',$argv,true)){file_put_contents(__DIR__.'/../mail-preview.html',OnboardingMail::accessCode('Andrea','012345')['html']);file_put_contents(__DIR__.'/../welcome-preview.html',$welcome['html']);}
+if(in_array('--preview',$argv,true)){
+ file_put_contents(__DIR__.'/../mail-preview.html',OnboardingMail::accessCode('Andrea','012345')['html']);
+ file_put_contents(__DIR__.'/../welcome-preview.html',OnboardingMail::welcome('Andrea','https://artist.trbrec.com/adesione/?accesso=1#invite='.str_repeat('a',64),'TRB')['html']);
+ file_put_contents(__DIR__.'/../welcome-ddb-preview.html',OnboardingMail::welcome('Andrea','https://artist.trbrec.com/adesione/?accesso=1#invite='.str_repeat('a',64),'DDB')['html']);
+}
 echo "Service email branding, escaping, visible code and multipart MIME verified.\n";

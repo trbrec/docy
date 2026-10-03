@@ -89,6 +89,11 @@ jobs:
             mail-preview.html
             welcome-preview.html
             welcome-mobile.png
+            welcome-ddb-preview.html
+            welcome-ddb-mobile.png
+            ready-mobile.png
+            ready-desktop.png
+            ready-ddb-mobile.png
             form-mobile.png
             waiting-mobile.png
             mail-mobile.png
