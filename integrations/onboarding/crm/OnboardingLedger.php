@@ -21,6 +21,7 @@ final class OnboardingLedger
             'CREATE TABLE IF NOT EXISTS onboarding_events (event_key VARCHAR(190) PRIMARY KEY, practice_id VARCHAR(64) NOT NULL, kind VARCHAR(40) NOT NULL, payload TEXT NOT NULL, status VARCHAR(24) NOT NULL, created_at VARCHAR(32) NOT NULL, completed_at VARCHAR(32) NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_files (practice_id VARCHAR(64) NOT NULL, slot VARCHAR(40) NOT NULL, folder_id VARCHAR(128) NOT NULL, pcloud_file_id VARCHAR(128) NULL, upload_link_id VARCHAR(128) NULL, metadata TEXT NOT NULL, PRIMARY KEY(practice_id,slot))',
             'CREATE TABLE IF NOT EXISTS onboarding_identity_checks (practice_id VARCHAR(64) PRIMARY KEY, result TEXT NOT NULL, document_fingerprint VARCHAR(64) NOT NULL, checked_at VARCHAR(32) NOT NULL)',
+            'CREATE TABLE IF NOT EXISTS onboarding_identity_jobs (practice_id VARCHAR(64) PRIMARY KEY, input_fingerprint VARCHAR(64) NOT NULL, state VARCHAR(24) NOT NULL, attempts INT NOT NULL DEFAULT 0, claim_token VARCHAR(64) NULL, lease_until BIGINT NOT NULL DEFAULT 0, next_retry_at BIGINT NOT NULL DEFAULT 0, reason VARCHAR(64) NOT NULL DEFAULT \'\', queued_at VARCHAR(32) NOT NULL, started_at VARCHAR(32) NULL, finished_at VARCHAR(32) NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_email_challenges (practice_id VARCHAR(64) PRIMARY KEY, code_hash VARCHAR(64) NOT NULL, expires_at BIGINT NOT NULL, attempts INT NOT NULL DEFAULT 0, issued_at BIGINT NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_sessions (token_hash VARCHAR(64) PRIMARY KEY, practice_id VARCHAR(64) NOT NULL, expires_at BIGINT NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_signatures (practice_id VARCHAR(64) PRIMARY KEY, request_key VARCHAR(64) NOT NULL UNIQUE, document_sha256 VARCHAR(64) NOT NULL, appendix_sha256 VARCHAR(64) NOT NULL, owner_id BIGINT NOT NULL, dossier_id VARCHAR(128) NULL, state VARCHAR(24) NOT NULL, signed_file_sha256 VARCHAR(64) NULL, created_at VARCHAR(32) NOT NULL)',
@@ -118,6 +119,113 @@ final class OnboardingLedger
     public function identityResult(string $id): array
     {
         $raw=$this->query('SELECT result FROM onboarding_identity_checks WHERE practice_id=?',[$id])->fetchColumn();return $raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):[];
+    }
+    /** Bound to immutable contract, the two actual fronts and declared identity fields. */
+    private function identityFingerprint(string $id): string
+    {
+        $p=$this->practice($id);$details=$this->details($id);$files=$this->files($id);$fronts=[];
+        foreach(['identity_front','tax_front'] as $slot){$f=$files[$slot]??[];$fronts[$slot]=['file_id'=>(string)($f['file_id']??''),'folder_id'=>(string)($f['folder_id']??''),'hash'=>(string)($f['hash']??'')];}
+        return hash('sha256',$this->json(['contract'=>$p['snapshot'],'fronts'=>$fronts,'tax_code'=>$details['tax_code']??'','birth_date'=>$details['profile']['birth_date']??'','document_expiry'=>$details['profile']['document_expiry']??'']));
+    }
+    private function identityJob(string $id): ?array
+    {
+        return $this->query('SELECT * FROM onboarding_identity_jobs WHERE practice_id=?',[$id])->fetch(PDO::FETCH_ASSOC)?:null;
+    }
+    /** This path performs no archive/provider calls and acknowledges a durable job. */
+    public function queueIdentity(string $id,bool $retry=false,?int $now=null): array
+    {
+        $now??=time();return $this->locked(function()use($id,$retry,$now){$p=$this->practice($id,true);$this->open($p);
+            if(!in_array($p['state'],['invited','identity_review','identity_matched','minor_blocked'],true))return $this->identityVerification($id,$now);
+            $files=$this->files($id);foreach(['identity_front','tax_front'] as $slot)if(empty($files[$slot]))throw new RuntimeException('Carica il fronte della carta d’identità e della tessera sanitaria o codice fiscale');
+            $details=$this->details($id);if(empty($details['privacy_acknowledged_at']))throw new RuntimeException('Completa prima i dati e le informazioni sul trattamento');
+            if(in_array($p['state'],['identity_matched','minor_blocked'],true))return $this->identityVerification($id,$now);
+            $fingerprint=$this->identityFingerprint($id);$job=$this->identityJob($id);
+            if($job&&hash_equals($job['input_fingerprint'],$fingerprint)){
+                if(in_array($job['state'],['complete','rejected','queued'],true)||($job['state']==='processing'&&(int)$job['lease_until']>$now))return $this->identityVerification($id,$now);
+                if(in_array($job['state'],['retry_wait','error'],true)&&(!$retry||(int)$job['next_retry_at']>$now))return $this->identityVerification($id,$now);
+                $this->query("UPDATE onboarding_identity_jobs SET state='queued',claim_token=NULL,lease_until=0,next_retry_at=0,reason='',queued_at=?,finished_at=NULL WHERE practice_id=?",[gmdate('c',$now),$id]);
+            }else{
+                $this->query('DELETE FROM onboarding_identity_jobs WHERE practice_id=?',[$id]);
+                $this->query('INSERT INTO onboarding_identity_jobs(practice_id,input_fingerprint,state,queued_at) VALUES(?,?,?,?)',[$id,$fingerprint,'queued',gmdate('c',$now)]);
+            }
+            return $this->identityVerification($id,$now);
+        });
+    }
+    public function identityVerification(string $id,?int $now=null): ?array
+    {
+        $now??=time();$p=$this->practice($id);if($p['cancelled_at'])return null;$job=$this->identityJob($id);$result=$this->identityResult($id);
+        if($job&&!hash_equals($job['input_fingerprint'],$this->identityFingerprint($id)))return null;
+        if(!$job&&!$result)return null;
+        $state=$job['state']??(($result['status']??'')==='matched'?'complete':'rejected');
+        if($state==='processing'&&(int)$job['lease_until']<=$now)$state='queued';
+        $reason=$job['reason']??($result['reason']??'');$replace=[];$retryable=in_array($state,['retry_wait','error'],true);
+        $messages=[
+            'identity_document_required'=>'Il file della carta d’identità non mostra il documento richiesto. Sostituiscilo con una foto completa e leggibile del fronte.',
+            'tax_document_required'=>'Il file fiscale non mostra il documento richiesto. Sostituiscilo con una foto completa e leggibile del fronte della tessera sanitaria o del tesserino codice fiscale.',
+            'documents_required'=>'I file caricati non mostrano i documenti richiesti. Carica il fronte della carta d’identità e il fronte della tessera sanitaria o del tesserino codice fiscale.',
+            'document_unreadable'=>'Non riusciamo a leggere il fronte della carta d’identità. Carica una foto completa, nitida e senza riflessi.',
+            'birth_date_unreadable'=>'La data di nascita sulla carta d’identità non è leggibile. Carica una foto più nitida del fronte.',
+            'birth_date_invalid'=>'La data di nascita sul documento non è verificabile. Controlla di aver caricato il fronte completo della carta d’identità.',
+            'identity_expiry_unreadable'=>'La scadenza della carta d’identità non è leggibile. Carica una foto completa e nitida del fronte.',
+            'identity_expired'=>'La carta d’identità risulta scaduta. Sostituiscila con il fronte di un documento valido.',
+            'name_mismatch'=>'Nome e cognome della carta d’identità non coincidono con la proposta. Controlla il documento caricato; se la proposta contiene un errore, rispondi all’email di TRB rec.',
+            'tax_document_unreadable'=>'Non riusciamo a leggere il documento fiscale. Carica una foto completa e nitida del fronte della tessera sanitaria o del tesserino codice fiscale.',
+            'tax_identity_mismatch'=>'I dati del documento fiscale non coincidono con quelli della carta d’identità. Controlla di aver caricato i tuoi due documenti.',
+            'tax_code_mismatch'=>'Il codice fiscale inserito non coincide con quello del documento. Controlla il dato nel modulo e il fronte del documento fiscale caricato.',
+            'declared_birth_date_mismatch'=>'La data di nascita inserita non coincide con quella della carta d’identità. Correggila nel modulo e continua.',
+            'declared_document_expiry_mismatch'=>'La scadenza inserita non coincide con quella della carta d’identità. Correggila nel modulo e continua.',
+            'minor'=>'La sottoscrizione di questo contratto è riservata ai maggiorenni. Per assistenza, rispondi all’email di TRB rec.',
+            'verification_unavailable'=>'La verifica non è riuscita per un problema temporaneo. I dati e i documenti caricati sono conservati.',
+        ];
+        if(in_array($reason,['identity_document_required','document_unreadable','birth_date_unreadable','birth_date_invalid','identity_expiry_unreadable','identity_expired','name_mismatch'],true))$replace=['identity_front'];
+        if(in_array($reason,['tax_document_required','tax_document_unreadable','tax_identity_mismatch','tax_code_mismatch'],true))$replace=['tax_front'];
+        if($reason==='documents_required')$replace=['identity_front','tax_front'];
+        $message=$messages[$reason]??'Controlla i dati e i documenti richiesti per continuare.';
+        if($state==='queued')$message='Documenti ricevuti. La verifica inizierà tra pochi istanti: non occorre inviarli di nuovo.';
+        if($state==='processing')$message='Stiamo verificando che i dati dei documenti coincidano con quelli della proposta. Puoi attendere qui; dati e documenti sono già salvati.';
+        if($state==='retry_wait')$message='La verifica ha incontrato un problema temporaneo e verrà ripetuta a breve. I tuoi dati e documenti sono già salvati.';
+        if($state==='error')$message.=' Quando il pulsante sarà disponibile, premi “Riprova la verifica”. Non occorre ricaricare i documenti.';
+        if($state==='complete')$message='Dati verificati. Puoi continuare con la fase successiva.';
+        $next=(int)($job['next_retry_at']??0);$after=max(0,$next-$now);if($state==='queued')$after=1;
+        if($state==='processing')$after=max(1,(int)$job['lease_until']-$now);
+        return ['status'=>$state,'reason'=>$reason,'message'=>$message,'retryable'=>$retryable,'replace_slots'=>$replace,'result_status'=>$state==='complete'?'matched':($state==='rejected'?($result['status']??'review'):null),'queued_at'=>$job['queued_at']??null,'started_at'=>$job['started_at']??null,'next_retry_at'=>$next?gmdate('c',$next):null,'retry_after_seconds'=>$after];
+    }
+    /** A lease and random claim make simultaneous workers and stale completions harmless. */
+    public function claimIdentity(?string $onlyId=null,?int $now=null): ?array
+    {
+        $now??=time();$where=$onlyId?' AND p.id=?':'';$args=[$now,$now];if($onlyId)$args[]=$onlyId;
+        $ids=$this->query("SELECT j.practice_id FROM onboarding_identity_jobs j JOIN onboarding_practices p ON p.id=j.practice_id WHERE p.cancelled_at IS NULL AND p.state IN ('invited','identity_review') AND (j.state='queued' OR (j.state='processing' AND j.lease_until<=?) OR (j.state='retry_wait' AND j.next_retry_at<=?))".$where." ORDER BY j.queued_at,j.practice_id LIMIT 20",$args)->fetchAll(PDO::FETCH_COLUMN);
+        foreach($ids as $id){$claimed=$this->locked(function()use($id,$now){$p=$this->practice($id,true);$job=$this->identityJob($id);if(!$job||$p['cancelled_at']||!in_array($p['state'],['invited','identity_review'],true))return null;
+                $due=$job['state']==='queued'||($job['state']==='processing'&&(int)$job['lease_until']<=$now)||($job['state']==='retry_wait'&&(int)$job['next_retry_at']<=$now);
+                if(!$due||!hash_equals($job['input_fingerprint'],$this->identityFingerprint($id)))return null;
+                if((int)$job['attempts']>=3&&$job['state']==='processing'){$this->query("UPDATE onboarding_identity_jobs SET state='error',reason='verification_unavailable',claim_token=NULL,lease_until=0,next_retry_at=? WHERE practice_id=?",[$now+60,$id]);return null;}
+                $token=bin2hex(random_bytes(32));$this->query("UPDATE onboarding_identity_jobs SET state='processing',attempts=attempts+1,claim_token=?,lease_until=?,next_retry_at=0,started_at=?,finished_at=NULL WHERE practice_id=?",[$token,$now+240,gmdate('c',$now),$id]);
+                return ['practice_id'=>$id,'claim_token'=>$token,'input_fingerprint'=>$job['input_fingerprint'],'files'=>$this->files($id)];
+            });if($claimed)return $claimed;
+        }return null;
+    }
+    public function finishIdentity(array $claim,array $fields,string $today,?int $now=null): bool
+    {
+        $now??=time();return $this->locked(function()use($claim,$fields,$today,$now){$id=$claim['practice_id'];$p=$this->practice($id,true);$job=$this->identityJob($id);
+            if(!$this->validIdentityClaim($p,$job,$claim))return false;
+            $result=$this->recordIdentityUnlocked($p,$fields,$today);
+            $this->query('UPDATE onboarding_identity_jobs SET state=?,reason=?,claim_token=NULL,lease_until=0,next_retry_at=0,finished_at=? WHERE practice_id=?',[$result['status']==='matched'?'complete':'rejected',$result['reason'],gmdate('c',$now),$id]);return true;
+        });
+    }
+    public function failIdentity(array $claim,?int $now=null): bool
+    {
+        $now??=time();return $this->locked(function()use($claim,$now){$p=$this->practice($claim['practice_id'],true);$job=$this->identityJob($claim['practice_id']);if(!$this->validIdentityClaim($p,$job,$claim))return false;
+            $automatic=(int)$job['attempts']<3;$delay=$automatic?min(120,15*(2**max(0,(int)$job['attempts']-1))):60;
+            $this->query("UPDATE onboarding_identity_jobs SET state=?,reason='verification_unavailable',claim_token=NULL,lease_until=0,next_retry_at=?,finished_at=? WHERE practice_id=?",[$automatic?'retry_wait':'error',$now+$delay,gmdate('c',$now),$claim['practice_id']]);return true;
+        });
+    }
+    private function validIdentityClaim(array $p,?array $job,array $claim): bool
+    {
+        return !$p['cancelled_at']&&in_array($p['state'],['invited','identity_review'],true)&&$job&&$job['state']==='processing'&&is_string($job['claim_token'])&&hash_equals($job['claim_token'],(string)($claim['claim_token']??''))&&hash_equals($job['input_fingerprint'],(string)($claim['input_fingerprint']??''))&&hash_equals($job['input_fingerprint'],$this->identityFingerprint($p['id']));
+    }
+    private function invalidateIdentity(string $id): void
+    {
+        $this->query('DELETE FROM onboarding_identity_jobs WHERE practice_id=?',[$id]);$this->query('DELETE FROM onboarding_identity_checks WHERE practice_id=?',[$id]);
     }
     public function cancel(string $id,array $owner): void
     {
@@ -225,8 +333,10 @@ final class OnboardingLedger
         if(!in_array($slot,['identity_front','identity_back','tax_front','tax_back'],true)||empty($file['file_id'])||empty($file['folder_id'])||empty($file['hash']))throw new RuntimeException('Documento archivio incompleto');
         $this->locked(function()use($id,$slot,$file){$p=$this->practice($id,true);$this->open($p);
             if(!in_array($p['state'],['invited','identity_review'],true))throw new RuntimeException('Documenti già confermati: modifica soggetta a revisione');
+            $previous=$this->files($id)[$slot]??null;
             $this->query('DELETE FROM onboarding_files WHERE practice_id=? AND slot=?',[$id,$slot]);
             $this->query('INSERT INTO onboarding_files(practice_id,slot,folder_id,pcloud_file_id,metadata) VALUES(?,?,?,?,?)',[$id,$slot,$file['folder_id'],$file['file_id'],$this->json($file)]);
+            if(in_array($slot,['identity_front','tax_front'],true)&&(!$previous||(string)$previous['file_id']!==(string)$file['file_id']||(string)$previous['folder_id']!==(string)$file['folder_id']||(string)$previous['hash']!==(string)$file['hash']))$this->invalidateIdentity($id);
         });
     }
     public function files(string $id): array
@@ -263,9 +373,11 @@ final class OnboardingLedger
             if(!in_array($p['state'],['invited','identity_review','identity_matched'],true))throw new RuntimeException('Dati amministrativi già confermati');
             if($p['state']==='identity_matched'){
                 $verified=$this->details($id);
-                foreach(['billing','tax_code','invoice','privacy_acknowledged_at','privacy_version'] as $field)if(($verified[$field]??null)!==($details[$field]??null))throw new RuntimeException('Dati verificati: modifica soggetta a revisione');
+                foreach(['billing','profile','tax_code','invoice','privacy_acknowledged_at','privacy_version'] as $field)if(($verified[$field]??null)!==($details[$field]??null))throw new RuntimeException('Dati verificati: modifica soggetta a revisione');
             }
+            $before=$this->identityFingerprint($id);
             $this->query('DELETE FROM onboarding_details WHERE practice_id=?',[$id]);$this->query('INSERT INTO onboarding_details(practice_id,details) VALUES(?,?)',[$id,$this->json($details)]);
+            if(!hash_equals($before,$this->identityFingerprint($id)))$this->invalidateIdentity($id);
         });
     }
     public function rememberOrder(string $id,int $number,int $orderId): void
@@ -296,6 +408,12 @@ final class OnboardingLedger
     public function recordIdentity(string $id,array $fields,string $today): array
     {
         return $this->locked(function()use($id,$fields,$today){$p=$this->practice($id,true);$this->open($p);
+            $result=$this->recordIdentityUnlocked($p,$fields,$today);$this->query('DELETE FROM onboarding_identity_jobs WHERE practice_id=?',[$id]);return $result;
+        });
+    }
+    private function recordIdentityUnlocked(array $p,array $fields,string $today): array
+    {
+            $id=$p['id'];$this->open($p);
             if(!in_array($p['state'],['invited','identity_review'],true))throw new RuntimeException('Verifica documenti non disponibile');
             $files=$this->files($id);foreach(['identity_front','tax_front'] as $slot)if(empty($files[$slot]))throw new RuntimeException('Completa il fronte della carta d’identità e della tessera sanitaria o codice fiscale');
             $details=$this->details($id);if(empty($details['privacy_acknowledged_at']))throw new RuntimeException('Completa prima i dati e le informazioni sul trattamento');
@@ -307,7 +425,6 @@ final class OnboardingLedger
             $this->query('INSERT INTO onboarding_identity_checks(practice_id,result,document_fingerprint,checked_at) VALUES(?,?,?,?)',[$id,$this->json($result),hash('sha256',$this->json($files)),gmdate('c')]);
             $state=['matched'=>'identity_matched','blocked'=>'minor_blocked','review'=>'identity_review'][$result['status']];
             $this->query('UPDATE onboarding_practices SET state=? WHERE id=?',[$state,$id]);return $result;
-        });
     }
     public function choosePlan(string $id,string $key): array
     {

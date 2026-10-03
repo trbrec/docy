@@ -19,7 +19,7 @@ final class OnboardingService
         $signature=$this->ledger->signature($p['id']);$signatureEmail=null;
         // A reservation or an uncertain provider response is not an email receipt.
         if($signature&&$signature['state']==='dispatched'&&preg_match('/^[0-9]+$/D',(string)$signature['dossier_id']))$signatureEmail=['sender'=>'OTP service <please-do-not-reply@otpservice.io>','subject'=>'Il documento '.$signature['dossier_id'].' da firmare per TRB rec di Andrea Tognassi - Music Publishing'];
-        return ['signature_email'=>$signatureEmail,'automatic_signature'=>$this->ledger->automaticSignatureOwner($p['id'])!==null,'id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'plans'=>$p['snapshot']['plans'],'selected_plan'=>$p['selected_plan'],'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
+        return ['identity_verification'=>$this->ledger->identityVerification($p['id']),'signature_email'=>$signatureEmail,'automatic_signature'=>$this->ledger->automaticSignatureOwner($p['id'])!==null,'id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'plans'=>$p['snapshot']['plans'],'selected_plan'=>$p['selected_plan'],'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
     }
     public function upload(array $p,string $slot,array $fileInfo=[]): array
     {
@@ -55,15 +55,30 @@ final class OnboardingService
         if($invoice['pec']!==''&&!filter_var($invoice['pec'],FILTER_VALIDATE_EMAIL))throw new \RuntimeException('PEC non valida');
         foreach($invoice as $value)if(mb_strlen($value)>255||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dato fiscale troppo lungo');
         $profile=[];foreach(['birth_date','birth_place','birth_province','document_number','document_expiry'] as $field){$value=trim((string)($input['profile'][$field]??''));if(mb_strlen($value)>200||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dati anagrafici non validi');$profile[$field]=$value;}
-        $details=['billing'=>$billing,'profile'=>$profile,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>gmdate('c'),'privacy_version'=>'2026.2-documents-20261002c'];
+        $privacyVersion='2026.2-documents-20261002c';$existing=$this->ledger->details($p['id']);
+        $acknowledgedAt=($existing['privacy_version']??'')===$privacyVersion&&is_string($existing['privacy_acknowledged_at']??null)?$existing['privacy_acknowledged_at']:gmdate('c');
+        $details=['billing'=>$billing,'profile'=>$profile,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>$acknowledgedAt,'privacy_version'=>$privacyVersion];
         $this->ledger->saveDetails($p['id'],$details);return $this->view($this->ledger->practice($p['id']));
     }
-    public function identity(array $p): array
+    public function identity(array $p,bool $retry=false): array
     {
-        $files=$this->ledger->files($p['id']);$documents=[];
-        foreach(['identity_front','tax_front'] as $slot){$file=$files[$slot]??null;if(!$file)throw new \RuntimeException('Carica il fronte della carta d’identità e della tessera sanitaria o codice fiscale');$documents[]=['slot'=>$slot]+(method_exists($this->archive,'identityDocument')?$this->archive->identityDocument($file):['url'=>$this->archive->url($file['file_id'],$file['folder_id'],(string)$file['hash']),'name'=>$file['name']]);}
-        $fields=$this->reader->extract($documents);$decision=$this->ledger->recordIdentity($p['id'],$fields,$this->today());
+        $decision=$this->ledger->queueIdentity($p['id'],$retry);
         return ['identity'=>$decision,'practice'=>$this->view($this->ledger->practice($p['id']))];
+    }
+    /** Trusted background processor only; public identity/view never await a provider. */
+    public function processIdentity(?string $practiceId=null): array
+    {
+        $claim=$this->ledger->claimIdentity($practiceId);$id=$claim['practice_id']??$practiceId;
+        if($claim){try{
+                $documents=[];foreach(['identity_front','tax_front'] as $slot){$file=$claim['files'][$slot];$documents[]=['slot'=>$slot]+(method_exists($this->archive,'identityDocument')?$this->archive->identityDocument($file):['url'=>$this->archive->url($file['file_id'],$file['folder_id'],(string)$file['hash']),'name'=>$file['name']]);}
+                $fields=$this->reader->extract($documents);
+                foreach(['legible','tax_legible','identity_document','tax_document'] as $key)if(!array_key_exists($key,$fields)||!is_bool($fields[$key]))throw new \RuntimeException('Lettura documento incompleta');
+                foreach(['first_name','last_name','birth_date','expiry_date','tax_first_name','tax_last_name','tax_birth_date','tax_code'] as $key)if(!array_key_exists($key,$fields)||!is_string($fields[$key])||mb_strlen($fields[$key])>200)throw new \RuntimeException('Lettura documento incompleta');
+                $this->ledger->finishIdentity($claim,$fields,$this->today());
+            }catch(\Throwable $e){$this->ledger->failIdentity($claim);}
+        }
+        $verification=$id?$this->ledger->identityVerification($id):null;
+        return ['practice_id'=>$id,'identity_verification'=>$verification,'pending'=>$verification!==null&&in_array($verification['status'],['queued','processing','retry_wait'],true),'retry_after_seconds'=>$verification['retry_after_seconds']??0];
     }
     public function choose(array $p,string $planKey,string $proposalSha,bool $read): array
     {

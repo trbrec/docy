@@ -46,6 +46,9 @@ final class OnboardingPolicy
     /** The two fronts must agree with each other and the supplied tax code. */
     public static function documents(array $contract,array $document,string $taxCode,string $today): array
     {
+        if(($document['identity_document']??true)!==true&&($document['tax_document']??true)!==true)return ['status'=>'review','reason'=>'documents_required'];
+        if(($document['identity_document']??true)!==true)return ['status'=>'review','reason'=>'identity_document_required'];
+        if(($document['tax_document']??true)!==true)return ['status'=>'review','reason'=>'tax_document_required'];
         $identity=self::identity($contract,$document,$today);
         if($identity['status']!=='matched')return $identity;
         try{$expiry=self::date((string)($document['expiry_date']??''));}
