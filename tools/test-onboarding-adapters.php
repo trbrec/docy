@@ -71,6 +71,7 @@ $gatewayFilter=end($GLOBALS['adapter_filters']['woocommerce_available_payment_ga
 check_adapter($gatewayFilter($gateways)===$gateways,'Ordinary store checkout retains every available gateway');check_adapter(trb_onboarding_checkout_button_text('Original')==='Original','Ordinary store button is untouched');
 $GLOBALS['adapter_pay_order']=903;$GLOBALS['adapter_orders'][903]=new class{public function get_meta($key){return $key==='_trb_onboarding_practice_id'?'qa':'';}};
 check_adapter(array_keys($gatewayFilter($gateways))===['ppcp-gateway','stripe'],'Onboarding offers one card alternative and hides an unconfigured bank');
+$options['woocommerce_bacs_accounts']=[['account_name'=>'QA TEST','iban'=>'IT60 X054 2811 1010 0000 0123 456']];check_adapter(trb_onboarding_bank_configured()&&array_keys($gatewayFilter($gateways))===['ppcp-gateway','stripe'],'A bank configured for other Store purchases never enables transfer for a new contract');
 $fallback=$gateways;unset($fallback['stripe']);check_adapter(array_keys($gatewayFilter($fallback))===['ppcp-gateway','ppcp-card-button-gateway'],'PayPal card option remains when direct cards are unavailable');
 check_adapter(trb_onboarding_checkout_button_text('Paga per l’ordine')==='EFFETTUA IL VERSAMENTO','Contract checkout uses the requested action');
 $GLOBALS['adapter_pay_order']=0;

@@ -19,7 +19,7 @@ final class OnboardingService
         $signature=$this->ledger->signature($p['id']);$signatureEmail=null;
         // A reservation or an uncertain provider response is not an email receipt.
         if($signature&&$signature['state']==='dispatched'&&preg_match('/^[0-9]+$/D',(string)$signature['dossier_id']))$signatureEmail=['sender'=>'OTP service <please-do-not-reply@otpservice.io>','subject'=>'Il documento '.$signature['dossier_id'].' da firmare per TRB rec di Andrea Tognassi - Music Publishing'];
-        return ['signature_email'=>$signatureEmail,'id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'plans'=>$p['snapshot']['plans'],'selected_plan'=>$p['selected_plan'],'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
+        return ['signature_email'=>$signatureEmail,'automatic_signature'=>$this->ledger->automaticSignatureOwner($p['id'])!==null,'id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'plans'=>$p['snapshot']['plans'],'selected_plan'=>$p['selected_plan'],'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
     }
     public function upload(array $p,string $slot,array $fileInfo=[]): array
     {
@@ -100,6 +100,7 @@ final class OnboardingService
             if(($proof['practice_id']??'')!==$p['id']||(int)($proof['number']??0)!==(int)$order['installment_number']||strcasecmp((string)($proof['email']??''),$p['email'])!==0||!hash_equals($sha,(string)($proof['snapshot_sha256']??'')))throw new \RuntimeException('Conferma versamento non associata alla pratica');
             $payment=isset($proof['provider'],$proof['transaction_id'])?$this->ledger->payment($proof['provider'],$proof['transaction_id']):null;
             if(($proof['status']??'')==='confirmed'){
+                if(($proof['captured']??false)!==true)throw new \RuntimeException('Incasso non confermato dal circuito');
                 if($payment&&$payment['status']!=='confirmed')throw new \RuntimeException('Esito precedente discordante: verifica amministrativa necessaria');
                 $this->ledger->confirmedPayment($p['id'],(int)$order['installment_number'],$proof);$this->ledger->paymentHold($p['id'],'order:'.$order['order_id'],false);
             }elseif(($proof['status']??'')==='reversed'&&($proof['captured']??false)===true){
@@ -135,7 +136,17 @@ final class OnboardingService
         $file['drive_pdf_id']=$result['drive_pdf_id'];$file['appendix_sha256']=$appendix['sha256'];
         $this->ledger->saveArtifact($p['id'],'final_pdf',$file);return $file;
     }
-    /** This is invoked only by the owner's explicit CRM action, never by a cron. */
+    /** Continue the proposal already reviewed and sent by the owner, exactly once. */
+    public function advanceSignature(array $p): array
+    {
+        if(!in_array($p['state'],['owner_review','signature_ready'],true)||$p['cancelled_at'])return $p;
+        $owner=$this->ledger->automaticSignatureOwner($p['id']);if(!$owner)return $p;
+        $this->refreshPayments($p['id']);$p=$this->ledger->practice($p['id']);
+        if($p['state']==='owner_review')$this->ledger->approve($p['id'],$owner,'andrea.tognassi@trbrec.com',$this->today());
+        $this->dispatchSignature($this->ledger->practice($p['id']));
+        return $this->ledger->practice($p['id']);
+    }
+    /** Manual owner action or the owner's bound proposal authorization; never browser approval. */
     public function dispatchSignature(array $p): array
     {
         $this->refreshPayments($p['id']);$p=$this->ledger->practice($p['id']);$file=$this->prepareFinal($p);

@@ -116,9 +116,18 @@ final class OnboardingRuntime
     }
     private function refresh(array $p): array
     {
-        $this->service->refreshPayments($p['id']);$p=$this->service->refreshSignature($this->ledger->practice($p['id']));
+        $this->service->refreshPayments($p['id']);$p=$this->advanceSignature($this->ledger->practice($p['id']));$p=$this->service->refreshSignature($p);
         try{$this->sendWelcome($p['id']);}catch(\Throwable $e){/* Delivery status is durable; it must not block password setup. */}
         return $this->service->view($p);
+    }
+    /** Serialize final-PDF preparation and dispatch across the browser and worker. */
+    private function advanceSignature(array $p): array
+    {
+        if(!in_array($p['state'],['owner_review','signature_ready'],true))return $p;
+        $name='trb_onboarding_signature_'.$p['id'];$lock=$this->db->prepare('SELECT GET_LOCK(?,0)');$lock->execute([$name]);
+        if((int)$lock->fetchColumn()!==1)return $this->ledger->practice($p['id']);
+        try{return $this->service->advanceSignature($this->ledger->practice($p['id']));}
+        finally{$release=$this->db->prepare('SELECT RELEASE_LOCK(?)');$release->execute([$name]);}
     }
     public function sendWelcome(string $id): array
     {
@@ -185,7 +194,7 @@ final class OnboardingRuntime
         $started=microtime(true);$checked=0;$errors=0;
         try{
             foreach($this->ledger->workerCandidates() as $p){if(microtime(true)-$started>35)break;
-                try{$this->service->refreshPayments($p['id']);if($p['state']==='signature_pending')$this->service->refreshSignature($p);$this->sendWelcome($p['id']);$checked++;}catch(\Throwable $e){$errors++;}finally{$this->ledger->checked($p['id']);}
+                try{$this->service->refreshPayments($p['id']);$p=$this->advanceSignature($this->ledger->practice($p['id']));if($p['state']==='signature_pending')$this->service->refreshSignature($p);$this->sendWelcome($p['id']);$checked++;}catch(\Throwable $e){$errors++;}finally{$this->ledger->checked($p['id']);}
             }
             $this->ledger->queueOverdueReminders(self::today());
             for($i=0;$i<3&&microtime(true)-$started<40;$i++){$reminder=$this->ledger->takeReminder();if(!$reminder)break;$sent=false;
