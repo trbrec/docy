@@ -1,0 +1,21 @@
+<?php
+if(PHP_SAPI!=='cli')exit;ini_set('display_errors','0');ob_start();
+$stage='bootstrap';set_exception_handler(static function(){global $stage;while(ob_get_level())ob_end_clean();fwrite(STDERR,"Targeted welcome verification unconfirmed at ".$stage.".\n");exit(1);});
+$root='/home/customer/www/crm.trbrec.com/public_html';
+require $root.'/app/Core.php';\TrbCrm\Env::load($root.'/.env');require $root.'/app/OnboardingRuntime.php';
+$stage='scope';$db=\TrbCrm\Database::connection();$ledger=new \TrbCrm\OnboardingLedger($db);$p=$ledger->forContract(26);
+if(!$p||($p['snapshot']['contract_number']??'')!=='QA-TRB-NONVALIDO-20261002-2235'||$p['email']!=='a.tognassi@gmail.com')throw new RuntimeException('QA scope mismatch');
+$q=$db->prepare('SELECT submission_id FROM contracts WHERE id=?');$q->execute([26]);if((int)$q->fetchColumn()!==719)throw new RuntimeException('QA scope mismatch');
+$stage='revision';$expected='4c2b7375a4776b7ba5e7db14a2acd32029b5eb22';if(trim(file_get_contents('/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy/.trb-deployed-sha'))!==$expected)throw new RuntimeException('Revision mismatch');
+$stage='signed';if($p['state']!=='activation_ready'||!$p['owner_approved_at']||!$p['signed_at']||!$ledger->artifact($p['id'],'signed_pdf')||!$ledger->artifact($p['id'],'signature_audit'))throw new RuntimeException('Signed readiness missing');
+$token=hash_hmac('sha256','onboarding-invite-v1|'.$p['id'],(string)\TrbCrm\Env::get('APP_KEY',''));if(!hash_equals($p['token_hash'],hash('sha256',$token)))throw new RuntimeException('Invite mismatch');
+$service=(new ReflectionProperty(\TrbCrm\OnboardingRuntime::class,'service'))->getValue(new \TrbCrm\OnboardingRuntime($db));$ready=$service->registrationAuthorization($p);if(($ready['qa']??false)!==true)throw new RuntimeException('QA isolation missing');
+$stage='portal-readiness';
+$portalRoot='/home/customer/www/artist.trbrec.com/public_html';
+$wpcode='define("WP_USE_THEMES",false);define("DISABLE_WP_CRON",true);require '.var_export($portalRoot.'/wp-load.php',true).';$u=get_user_by("email","a.tognassi@gmail.com");echo json_encode(["account_exists"=>(bool)$u,"same_practice"=>$u?get_user_meta($u->ID,"_trb_onboarding_practice",true)==='.var_export($p['id'],true).':false,"onboarding_enabled"=>trb_onboarding_enabled(),"approval_ready"=>function_exists("pw_new_user_approve"),"qa_classifier_ready"=>function_exists("trb_portal_is_release_qa_account"),"personal_password_form"=>str_contains(file_get_contents(get_template_directory()."/inc/trb-candidate-onboarding-page.php"),"Scegli la tua password")]);';
+exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($wpcode).' 2>/dev/null',$wpout,$wpstatus);$portal=json_decode(implode("\n",$wpout),true);
+if($wpstatus!==0||!is_array($portal)||empty($portal['onboarding_enabled'])||empty($portal['approval_ready'])||empty($portal['qa_classifier_ready'])||empty($portal['personal_password_form'])||($portal['account_exists']&&!$portal['same_practice']))throw new RuntimeException('Portal readiness mismatch');
+$stage='send';$runtime=new \TrbCrm\OnboardingRuntime($db);$result=$runtime->sendWelcome($p['id']);$receipt=$ledger->welcomeStatus($p['id']);if(($receipt['state']??'')!=='sent'||empty($receipt['gmail_message_id']))throw new RuntimeException('Welcome delivery unconfirmed');
+$stage='deduplication';$again=$runtime->sendWelcome($p['id']);if(($again['sent']??true)!==false||($again['status']??'')!=='sent')throw new RuntimeException('Duplicate guard failed');
+$out=['deployed_revision'=>$expected,'recipient_exact'=>true,'both_signatures_and_archive_verified'=>true,'invite_binding_verified'=>true,'registration_authorized'=>true,'qa_isolated'=>true,'welcome_state'=>$receipt['state'],'welcome_sent_at'=>$receipt['sent_at'],'gmail_receipt_recorded'=>true,'duplicate_send_blocked'=>true,'state'=>$p['state'],'password_required'=>true,'portal_readiness_verified'=>true,'account_created'=>false];
+while(ob_get_level())ob_end_clean();echo json_encode($out,JSON_UNESCAPED_SLASHES)."\n";
