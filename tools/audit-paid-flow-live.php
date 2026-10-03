@@ -1,7 +1,7 @@
 <?php
 /** Read-only post-deployment checks. No sends, payments or account changes. */
 if(PHP_SAPI!=='cli')exit;ini_set('display_errors','0');ob_start();
-set_exception_handler(static function(){while(ob_get_level())ob_end_clean();fwrite(STDERR,"Final residual audit unconfirmed.\n");exit(1);});
+set_exception_handler(static function($e){while(ob_get_level())ob_end_clean();file_put_contents('php://stderr',json_encode(['audit_error'=>'unconfirmed','class'=>get_class($e),'file'=>basename($e->getFile()),'line'=>$e->getLine()])."\n");exit(1);});
 $theme='/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy';
 $lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/onboarding-readiness.php').' 58995be56cf5bfd09943f7b5b76884125c988081 2>/dev/null',$lines,$readyExit);
 $out=['connections'=>$readyExit===0?json_decode(implode("\n",$lines),true):null];
