@@ -85,6 +85,24 @@ if($ok)$r['associations']['verified']++;else $r['associations']['unconfirmed'][]
 }
 $r['live_assets_without_manifest']=[];
 foreach($assets as $a){$matches=array_filter($all,static fn($m)=>(int)($m['asset_id']??0)===(int)$a['id']&&$m['content_sha256']===$a['content_sha256']);if(!$matches)$r['live_assets_without_manifest'][]=(int)$a['id'];}
+$r['unlisted_assets_detail']=[];
+foreach($assets as $a)if(in_array((int)$a['id'],$r['live_assets_without_manifest'],true)){
+ $sameOwner=array_values(array_filter($all,static fn($m)=>(int)($m['asset_id']??0)===(int)$a['id']));
+ $equiv=array_filter($sameOwner,static fn($m)=>isset($zip[$m['pcloud_path']],$zip[$a['pcloud_path']])&&$zip[$m['pcloud_path']]===$zip[$a['pcloud_path']]);
+ $parsed=parse_url((string)$a['source_url']);$srcName=basename(rawurldecode($parsed['path']??''));
+ $r['unlisted_assets_detail'][]=['id'=>(int)$a['id'],'submission'=>(int)$a['submission_id'],'provider'=>$a['provider'],'kind'=>$a['kind'],'mode'=>$a['archive_mode'],'ext'=>strtolower(pathinfo($a['filename'],PATHINFO_EXTENSION)),'source_host'=>$parsed['host']??null,'source_filename_matches'=>$srcName===$a['filename'],'source_path_matches'=>$a['source_url']===$a['pcloud_path'],'sha_valid'=>(bool)preg_match('/^[a-f0-9]{64}$/',(string)$a['content_sha256']),'manifest_same_asset'=>count($sameOwner),'manifest_zip_equivalent'=>count($equiv),'created'=>$a['created_at'],'received'=>$a['received_at'],'path_submission_match'=>str_contains($a['pcloud_path'],'/'.(string)$a['submission_id'].'/')];
+}
+$r['unknown_audio_details']=[];
+foreach($r['range_failures'] as $f)if(($f['type']??'')==='audio-signature-unconfirmed'){
+ foreach($paths as $p=>$v)if(hash('sha256',$p)===$f['path_key']){
+  $extra=audit_requests([$p=>['url'=>$url($p),'range'=>'0-'.min(65535,$v['size']-1)]],$options)[$p];$b=(string)$extra['body'];
+  $found=[];foreach(['ID3','RIFF','RIFX','RF64','fLaC','OggS','ftyp','FORM','ADIF'] as $sig){$pos=strpos($b,$sig);if($pos!==false)$found[$sig]=$pos;}
+  $frame=null;for($i=0;$i<strlen($b)-1;$i++)if(ord($b[$i])===255&&(ord($b[$i+1])&224)===224){$frame=$i;break;}
+  $r['unknown_audio_details'][]=['path_key'=>$f['path_key'],'ext'=>$v['ext'],'prefix'=>bin2hex(substr($b,0,32)),'signatures'=>$found,'frame_offset'=>$frame,'asset_ids'=>array_values(array_map(static fn($a)=>(int)$a['id'],array_filter($assets,static fn($a)=>$a['pcloud_path']===$p)))];
+ }
+}
+$r['runtime_shapes']=[];$states=$db->query("SELECT state_key,state_value FROM crm_runtime_state WHERE state_key LIKE 'materials_recovery_%' OR state_key LIKE 'pcloud_%'")->fetchAll(PDO::FETCH_ASSOC);
+foreach($states as $st){$v=json_decode($st['state_value'],true);$r['runtime_shapes'][]=['key'=>$st['state_key'],'fields'=>is_array($v)?array_keys($v):[]];}
 $r['complete']=!$r['head_failures']&&!$r['range_failures']&&!$r['associations']['unconfirmed']&&!$r['live_assets_without_manifest'];
 $r['checked_at']=gmdate('c');
 $db->prepare("INSERT INTO crm_runtime_state(state_key,state_value,updated_at) VALUES('pcloud_audio_audit_20261003',?,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE state_value=VALUES(state_value),updated_at=UTC_TIMESTAMP()")->execute([json_encode($r,JSON_UNESCAPED_SLASHES)]);
