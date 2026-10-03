@@ -87,6 +87,8 @@ jobs:
           name: onboarding-mail-preview
           path: |
             mail-preview.html
+            welcome-preview.html
+            welcome-mobile.png
             form-mobile.png
             waiting-mobile.png
             mail-mobile.png
