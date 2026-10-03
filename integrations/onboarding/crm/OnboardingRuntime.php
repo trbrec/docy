@@ -116,12 +116,18 @@ final class OnboardingRuntime
     }
     private function refresh(array $p): array
     {
-        $this->service->refreshPayments($p['id']);$p=$this->service->refreshSignature($this->ledger->practice($p['id']));$this->sendWelcome($p['id']);return $this->service->view($p);
+        $this->service->refreshPayments($p['id']);$p=$this->service->refreshSignature($this->ledger->practice($p['id']));
+        try{$this->sendWelcome($p['id']);}catch(\Throwable $e){/* Delivery status is durable; it must not block password setup. */}
+        return $this->service->view($p);
     }
     public function sendWelcome(string $id): array
     {
         if(!self::enabled())throw new \RuntimeException('Nuove adesioni non abilitate');
-        $p=$this->ledger->practice($id);$url=$this->invitation($p);$message=OnboardingMail::welcome($p['snapshot']['first_name'],$url);
+        $p=$this->ledger->practice($id);
+        if($p['state']!=='activation_ready')return ['sent'=>false,'status'=>$this->ledger->welcomeStatus($id)['state']??'not_ready'];
+        $url=$this->invitation($p);$token=substr($url,strpos($url,'#invite=')+8);
+        if(!hash_equals($p['token_hash'],hash('sha256',$token)))throw new \RuntimeException('Collegamento di benvenuto da verificare');
+        $message=OnboardingMail::welcome($p['snapshot']['first_name'],$url);
         if(!$this->ledger->reserveWelcome($id))return ['sent'=>false,'status'=>$this->ledger->welcomeStatus($id)['state']??'not_ready'];
         try{$receipt=$this->mail($p['email'],$message['subject'],$message['text'],$message['html']);$this->ledger->finishWelcome($id,(string)$receipt['gmail_message_id']);return ['sent'=>true,'status'=>'sent'];}
         catch(\Throwable $e){$this->ledger->finishWelcome($id,null);throw new \RuntimeException('Invio benvenuto da verificare prima di ripeterlo');}
