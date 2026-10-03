@@ -1,4 +1,4 @@
-name: Isolated identity reader live preview
+name: Isolated identity reader date comparison
 
 on:
   push:
