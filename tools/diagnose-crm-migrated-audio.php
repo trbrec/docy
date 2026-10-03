@@ -27,11 +27,15 @@ $raw=curl_exec($ch);$r['range_checks'][]=['asset_id'=>(int)$a['asset_id'],'statu
 }
 $stage='all-associations';
 $all=$db->query("SELECT m.*,a.submission_id current_submission,a.pcloud_path current_path,a.filename current_filename,a.content_sha256 current_sha,a.byte_size current_size,a.source_url, s.received_at current_received,l.demo_upload legacy_source,l.raw_payload legacy_metadata FROM pcloud_material_associations m LEFT JOIN assets a ON a.id=m.asset_id LEFT JOIN submissions s ON s.id=a.submission_id LEFT JOIN legacy_demo_archive l ON l.id=m.legacy_id")->fetchAll(PDO::FETCH_ASSOC);
-$r['counts']=['total'=>count($all)];$r['mismatches']=[];
+$r['counts']=['total'=>count($all)];$r['mismatches']=[];$r['evidence_samples']=[];
 foreach($all as $a){
 if($a['asset_id']!==null){
 $ok=(int)$a['submission_id']===(int)$a['current_submission']&&$a['pcloud_path']===$a['current_path']&&$a['content_sha256']===$a['current_sha']&&(int)$a['byte_size']===(int)$a['current_size'];
-if(!$ok)$r['mismatches'][]=['asset_id'=>(int)$a['asset_id'],'submission'=>(int)$a['submission_id']];
+if(!$ok)$r['mismatches'][]=['asset_id'=>(int)$a['asset_id'],'submission'=>(int)$a['submission_id'],'path'=>$a['pcloud_path']===$a['current_path'],'hash'=>$a['content_sha256']===$a['current_sha'],'size'=>(int)$a['byte_size']===(int)$a['current_size'],'owner'=>(int)$a['submission_id']===(int)$a['current_submission']];
+$ev=json_decode($a['evidence_json'],true)?:[];
+if(count($r['evidence_samples'])<12)$r['evidence_samples'][]=['kind'=>$a['source_kind'],'fields'=>array_keys($ev),'reason'=>preg_replace(['~https?://\\S+~i','/[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}/i'], '[redacted]', (string)($ev['evidence']??''))];
 }
 }
+$r['mismatch_summary']=['rows'=>count($r['mismatches']),'path_only'=>count(array_filter($r['mismatches'],static fn($m)=>!$m['path']&&$m['hash']&&$m['size']&&$m['owner']))];
+$r['mismatches']=array_values(array_filter($r['mismatches'],static fn($m)=>!$m['hash']||!$m['size']||!$m['owner']));
 echo json_encode($r,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)."\n";
