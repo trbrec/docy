@@ -1,7 +1,7 @@
 <?php
 if(PHP_SAPI!=='cli')exit;ini_set('display_errors','0');ob_start();$stage='bootstrap';
-set_exception_handler(static function()use(&$stage){while(ob_get_level())ob_end_clean();fwrite(STDERR,"New QA contract preparation unconfirmed at ".$stage.".\n");exit(1);});
-$root='/home/customer/www/crm.trbrec.com/public_html';require $root.'/app/Core.php';\TrbCrm\Env::load($root.'/.env');require_once $root.'/app/SubmissionRepository.php';
+set_exception_handler(static function()use(&$stage){while(ob_get_level())ob_end_clean();file_put_contents('php://stderr',"New QA contract preparation unconfirmed at ".$stage.".\n");exit(1);});
+$root='/home/customer/www/crm.trbrec.com/public_html';require $root.'/app/Core.php';\TrbCrm\Env::load($root.'/.env');require_once $root.'/app/SubmissionRepository.php';require_once $root.'/app/OnboardingLedger.php';
 $theme='/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy';if(trim(file_get_contents($theme.'/.trb-deployed-sha'))!=='09c6b725aca95c0642aebc3534455c61b0bbd3c6')exit(2);
 $db=\TrbCrm\Database::connection();$owner=$db->query("SELECT id FROM users WHERE email='andrea.tognassi@trbrec.com' AND role='admin' AND is_active=1")->fetchColumn();if(!$owner)throw new RuntimeException();
 $number='TRB-QA-NONVALIDO-DDB600-20261003';$q=$db->prepare('SELECT id FROM submissions WHERE contract_number=?');$q->execute([$number]);$id=(int)$q->fetchColumn();
