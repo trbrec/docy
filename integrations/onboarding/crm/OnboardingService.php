@@ -162,7 +162,12 @@ final class OnboardingService
     public function registrationAuthorization(array $p): array
     {
         if(!in_array($p['state'],['activation_ready','active'],true)||!$p['owner_approved_at']||!$p['signed_at']||!$p['signed_pcloud_file_id']||$p['cancelled_at'])throw new \RuntimeException('Registrazione disponibile dopo approvazione, firme e archiviazione');
-        return array_intersect_key($p['snapshot'],array_flip(['first_name','last_name','artist_name']))+['id'=>$p['id'],'email'=>$p['email']];
+        return array_intersect_key($p['snapshot'],array_flip(['first_name','last_name','artist_name']))+['id'=>$p['id'],'email'=>$p['email'],'qa'=>$this->ownerQa($p)];
+    }
+    private function ownerQa(array $p): bool
+    {
+        // Only the owner's already signed, non-valid test contract may use a QA profile.
+        return (int)$p['contract_id']===26&&($p['snapshot']['contract_number']??'')==='QA-TRB-NONVALIDO-20261002-2235'&&strcasecmp($p['email'],'a.tognassi@gmail.com')===0;
     }
     public function register(array $p,int $userId): array
     {
@@ -171,7 +176,7 @@ final class OnboardingService
         $start=OnboardingPolicy::date($this->ledger->activationStart($p['id'],$this->today()));$group=$p['snapshot']['group_code'];
         $months=in_array($group,['DDB12','DDB'],true)?12:($group==='DDB-TRB'?24:0);
         $term=$start->format('d/m/y').' - '.($months?OnboardingPolicy::date(OnboardingPolicy::dueDate($start->format('Y-m-d'),$months))->modify('-1 day')->format('d/m/y'):'INFINITO');
-        $result=($this->portal)(['action'=>'activate_account','practice_id'=>$p['id'],'portal_user_id'=>$userId,'email'=>$p['email'],'group_code'=>$group,'owner_approved'=>true,'signed'=>true,'signed_pcloud_file_id'=>(string)$p['signed_pcloud_file_id'],'archive_provider'=>$p['snapshot']['archive_provider']??'pcloud','contract_number'=>$p['snapshot']['contract_number'],'contract_term'=>$term,'details'=>$this->ledger->details($p['id']),'birth_date'=>$this->ledger->identityResult($p['id'])['birth_date']??'','files'=>$this->ledger->files($p['id'])]);
+        $result=($this->portal)(['action'=>'activate_account','practice_id'=>$p['id'],'portal_user_id'=>$userId,'email'=>$p['email'],'group_code'=>$group,'qa'=>$this->ownerQa($p),'owner_approved'=>true,'signed'=>true,'signed_pcloud_file_id'=>(string)$p['signed_pcloud_file_id'],'archive_provider'=>$p['snapshot']['archive_provider']??'pcloud','contract_number'=>$p['snapshot']['contract_number'],'contract_term'=>$term,'details'=>$this->ledger->details($p['id']),'birth_date'=>$this->ledger->identityResult($p['id'])['birth_date']??'','files'=>$this->ledger->files($p['id'])]);
         if(($result['activated']??false)!==true||($result['practice_id']??'')!==$p['id']||(int)($result['portal_user_id']??0)!==$userId)throw new \RuntimeException('Attivazione account non confermata');
         $this->ledger->markActivated($p['id'],$userId);return ['registered'=>true];
     }

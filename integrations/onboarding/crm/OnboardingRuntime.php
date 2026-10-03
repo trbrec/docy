@@ -116,15 +116,30 @@ final class OnboardingRuntime
     }
     private function refresh(array $p): array
     {
-        $this->service->refreshPayments($p['id']);return $this->service->view($this->service->refreshSignature($this->ledger->practice($p['id'])));
+        $this->service->refreshPayments($p['id']);$p=$this->service->refreshSignature($this->ledger->practice($p['id']));
+        try{$this->sendWelcome($p['id']);}catch(\Throwable $e){/* Delivery status is durable; it must not block password setup. */}
+        return $this->service->view($p);
     }
-    private function mail(string $email,string $subject,string $text,?string $html=null): void
+    public function sendWelcome(string $id): array
+    {
+        if(!self::enabled())throw new \RuntimeException('Nuove adesioni non abilitate');
+        $p=$this->ledger->practice($id);
+        if($p['state']!=='activation_ready')return ['sent'=>false,'status'=>$this->ledger->welcomeStatus($id)['state']??'not_ready'];
+        $url=$this->invitation($p);$token=substr($url,strpos($url,'#invite=')+8);
+        if(!hash_equals($p['token_hash'],hash('sha256',$token)))throw new \RuntimeException('Collegamento di benvenuto da verificare');
+        $message=OnboardingMail::welcome($p['snapshot']['first_name'],$url);
+        if(!$this->ledger->reserveWelcome($id))return ['sent'=>false,'status'=>$this->ledger->welcomeStatus($id)['state']??'not_ready'];
+        try{$receipt=$this->mail($p['email'],$message['subject'],$message['text'],$message['html']);$this->ledger->finishWelcome($id,(string)$receipt['gmail_message_id']);return ['sent'=>true,'status'=>'sent'];}
+        catch(\Throwable $e){$this->ledger->finishWelcome($id,null);throw new \RuntimeException('Invio benvenuto da verificare prima di ripeterlo');}
+    }
+    private function mail(string $email,string $subject,string $text,?string $html=null): array
     {
         if(!self::enabled()||!filter_var($email,FILTER_VALIDATE_EMAIL)||preg_match('/[\r\n]/',$email))throw new \RuntimeException('Invio adesione non autorizzato');
         $messageId='<trbcrm.onboarding.'.bin2hex(random_bytes(16)).'@crm.trbrec.com>';$boundary='=_trbonboarding_'.bin2hex(random_bytes(12));
         $raw=OnboardingMail::mime($email,$subject,$text,$html,$messageId,$boundary);
         $result=OutboundMail::candidateBridge(['action'=>'crm_candidate_mail_send','confirm'=>true,'operator_confirmed'=>true,'recipient'=>$email,'message_id'=>$messageId,'raw_base64'=>base64_encode($raw),'mime_sha256'=>hash('sha256',$raw)]);
         if(($result['sent']??false)!==true||empty($result['gmail_message_id'])||empty($result['sent_copy']))throw new \RuntimeException('Invio email non confermato');
+        return $result;
     }
     private function invitation(array $p): string
     {
@@ -169,7 +184,7 @@ final class OnboardingRuntime
         $started=microtime(true);$checked=0;$errors=0;
         try{
             foreach($this->ledger->workerCandidates() as $p){if(microtime(true)-$started>35)break;
-                try{$this->service->refreshPayments($p['id']);if($p['state']==='signature_pending')$this->service->refreshSignature($p);$checked++;}catch(\Throwable $e){$errors++;}finally{$this->ledger->checked($p['id']);}
+                try{$this->service->refreshPayments($p['id']);if($p['state']==='signature_pending')$this->service->refreshSignature($p);$this->sendWelcome($p['id']);$checked++;}catch(\Throwable $e){$errors++;}finally{$this->ledger->checked($p['id']);}
             }
             $this->ledger->queueOverdueReminders(self::today());
             for($i=0;$i<3&&microtime(true)-$started<40;$i++){$reminder=$this->ledger->takeReminder();if(!$reminder)break;$sent=false;
@@ -180,4 +195,3 @@ final class OnboardingRuntime
         }finally{$this->db->query("SELECT RELEASE_LOCK('trb_onboarding_worker')");}
     }
 }
-

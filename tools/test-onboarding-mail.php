@@ -18,5 +18,11 @@ foreach(["artist@example.invalid\r\nBcc: stolen@example.invalid",'bad-address'] 
 try{OnboardingMail::accessCode('Mario','12345');throw new LogicException('Expected invalid code rejection');}catch(InvalidArgumentException $e){}
 $notice=OnboardingMail::mime('artist@example.invalid','Quota scaduta',"Quota <49>\nSeconda riga",null,$id,$boundary);
 mail_check(str_contains(base64_decode(preg_replace('/\s/','',explode("\r\n\r\n",explode('--'.$boundary,$notice)[2],2)[1])),'Quota &lt;49&gt;<br>'),'Generic notices safely use the service layout');
-if(in_array('--preview',$argv,true))file_put_contents(__DIR__.'/../mail-preview.html',OnboardingMail::accessCode('Andrea','012345')['html']);
+$welcome=OnboardingMail::welcome('Andrea <img>', 'https://artist.trbrec.com/adesione/#invite='.str_repeat('a',64));
+mail_check(str_contains($welcome['html'],'&lt;img&gt;')&&!str_contains($welcome['html'],'<img>'),'Welcome recipient escaped');
+mail_check(substr_count($welcome['html'],'<a href=')===1&&str_contains($welcome['html'],'ACCEDI AL PORTALE ARTISTI'),'One clear primary welcome action');
+mail_check(str_contains($welcome['html'],'scegli la tua password')&&str_contains($welcome['text'],'codice'),'First access explains verification and password setup');
+mail_check(str_contains($welcome['html'],'Portale Artisti')&&str_contains($welcome['html'],'max-width:560px'),'Welcome uses the same branded responsive layout');
+foreach(['http://artist.trbrec.com/adesione/#invite='.str_repeat('a',64),'https://evil.invalid/'] as $url){try{OnboardingMail::welcome('Mario',$url);throw new LogicException('Expected invalid welcome URL');}catch(InvalidArgumentException $e){}}
+if(in_array('--preview',$argv,true)){file_put_contents(__DIR__.'/../mail-preview.html',OnboardingMail::accessCode('Andrea','012345')['html']);file_put_contents(__DIR__.'/../welcome-preview.html',$welcome['html']);}
 echo "Service email branding, escaping, visible code and multipart MIME verified.\n";
