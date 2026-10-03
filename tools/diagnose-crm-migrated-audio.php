@@ -33,4 +33,9 @@ if($v==='{'){$depth++;$started=true;}elseif($v==='}'){$depth--;if($started&&$dep
 }
 $r['source'][$f]=$out;
 }
+$r['runtime_keys_count']=count($r['runtime_keys']);unset($r['runtime_keys']);
+$r['association_columns']=$db->query('SHOW COLUMNS FROM pcloud_material_associations')->fetchAll(PDO::FETCH_COLUMN);
+$r['association_shape']=array_map(static fn($row)=>array_map(static fn($v)=>is_null($v)?'null':(is_numeric($v)?$v:(strlen((string)$v).' chars')),$row),$db->query('SELECT * FROM pcloud_material_associations LIMIT 2')->fetchAll());
+$r['pcloud_entry_code']=file_get_contents($crm.'/pcloud-material.php');
+$r['files']=array_map('basename',glob($crm.'/app/*[Pp]cloud*'));
 echo json_encode($r,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)."\n";
