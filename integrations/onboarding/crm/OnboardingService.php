@@ -177,8 +177,15 @@ final class OnboardingService
     }
     private function ownerQa(array $p): bool
     {
-        // Only the owner's already signed, non-valid test contract may use a QA profile.
-        return (int)$p['contract_id']===26&&($p['snapshot']['contract_number']??'')==='QA-TRB-NONVALIDO-20261002-2235'&&strcasecmp($p['email'],'a.tognassi@gmail.com')===0;
+        // Exact owner test practices only; ordinary identity, payment and signature gates apply.
+        if(strcasecmp($p['email'],'a.tognassi@gmail.com')!==0)return false;
+        $tests=[
+            26=>['contract_number'=>'QA-TRB-NONVALIDO-20261002-2235','template_key'=>'trb_ccde'],
+            27=>['contract_number'=>'TRB-QA-NONVALIDO-DDB600-20261003','template_key'=>'ddb_ccad_600'],
+        ];
+        $test=$tests[(int)$p['contract_id']]??null;
+        return $test!==null&&($p['snapshot']['contract_number']??'')===$test['contract_number']
+            &&($p['snapshot']['template_key']??'')===$test['template_key'];
     }
     public function register(array $p,int $userId): array
     {

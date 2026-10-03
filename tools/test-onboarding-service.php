@@ -49,6 +49,18 @@ $companySigned=true;service_reject(fn()=>$service->refreshSignature($ledger->pra
 service_check(str_starts_with((string)$ledger->practice($id)['signed_pcloud_file_id'],'drive-file-'),'signed Drive ID survives account activation');
 service_check($ledger->artifact($id,'signed_pdf')!==null&&$ledger->artifact($id,'signature_audit')!==null,'contract and proof archived before registration');
 service_check($service->registrationAuthorization($ledger->practice($id))['qa']===false,'normal contracts cannot claim owner QA privileges');
+$qaPractice=$ledger->practice($id);$qaPractice['contract_id']=27;$qaPractice['email']='a.tognassi@gmail.com';$qaPractice['snapshot']['contract_number']='TRB-QA-NONVALIDO-DDB600-20261003';
+service_check($service->registrationAuthorization($qaPractice)['qa']===true,'exact signed owner DDB test receives isolated QA access');
+foreach(['id','email','number','model'] as $scope){$foreign=$qaPractice;
+ if($scope==='id')$foreign['contract_id']=28;
+ if($scope==='email')$foreign['email']='other@example.invalid';
+ if($scope==='number')$foreign['snapshot']['contract_number']='TRB-OTHER-600';
+ if($scope==='model')$foreign['snapshot']['template_key']='ddb_csae_600';
+ service_check($service->registrationAuthorization($foreign)['qa']===false,'owner DDB QA scope cannot extend to another '.$scope);
+}
+$unsignedQa=$qaPractice;$unsignedQa['state']='payment_pending';$unsignedQa['owner_approved_at']=null;$unsignedQa['signed_at']=null;$unsignedQa['signed_pcloud_file_id']=null;
+service_reject(fn()=>$service->registrationAuthorization($unsignedQa),'owner DDB test still requires payment approval, signatures and archive');
+
 service_check($ledger->reserveWelcome($id),'verified both signatures and archive permit one welcome');
 service_check(!$ledger->reserveWelcome($id),'concurrent or repeat request cannot send another welcome');
 $ledger->finishWelcome($id,'synthetic-receipt');service_check($ledger->welcomeStatus($id)['state']==='sent','welcome receipt persisted');
