@@ -3,9 +3,9 @@
 if(PHP_SAPI!=='cli')exit;ini_set('display_errors','0');ob_start();
 set_exception_handler(static function(){while(ob_get_level())ob_end_clean();fwrite(STDERR,"Final residual audit unconfirmed.\n");exit(1);});
 $theme='/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy';
-$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/onboarding-readiness.php').' 09c6b725aca95c0642aebc3534455c61b0bbd3c6 2>/dev/null',$lines,$readyExit);
+$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/onboarding-readiness.php').' fd431de6538d462bd7cc8916a6f35e540a5b5138 2>/dev/null',$lines,$readyExit);
 $out=['connections'=>$readyExit===0?json_decode(implode("\n",$lines),true):null];
-$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/finish-onboarding-privacy.php').' 09c6b725aca95c0642aebc3534455c61b0bbd3c6 --verify 2>/dev/null',$lines,$privacyExit);
+$lines=[];exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($theme.'/tools/finish-onboarding-privacy.php').' fd431de6538d462bd7cc8916a6f35e540a5b5138 --verify 2>/dev/null',$lines,$privacyExit);
 $out['privacy']=$privacyExit===0?json_decode(implode("\n",$lines),true):null;
 require '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';\TrbCrm\Env::load('/home/customer/www/crm.trbrec.com/public_html/.env');
 require '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingContractCatalog.php';
