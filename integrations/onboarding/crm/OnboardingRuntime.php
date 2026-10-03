@@ -117,7 +117,7 @@ final class OnboardingRuntime
             'uploaded'=>$this->service->uploaded($p,(string)($input['slot']??'')),
             'identity'=>$this->service->identity($p,($input['retry']??false)===true),
             'choose'=>$this->service->choose($p,(string)($input['plan_key']??''),(string)($input['proposal_sha256']??''),($input['proposal_read']??false)===true),
-            'checkout'=>$this->service->checkout($p),
+            'checkout'=>$this->service->checkout($p,(string)($input['plan_key']??'')),
             'refresh'=>$this->refresh($p),
             'document'=>$this->service->document($p,(string)($input['slot']??'')),
             'registration_authorization'=>$this->service->registrationAuthorization($p),

@@ -432,16 +432,38 @@ final class OnboardingLedger
             $state=['matched'=>'identity_matched','blocked'=>'minor_blocked','review'=>'identity_review'][$result['status']];
             $this->query('UPDATE onboarding_practices SET state=? WHERE id=?',[$state,$id]);return $result;
     }
-    public function choosePlan(string $id,string $key): array
+    /** The merchant call is inside this lock, including its durable dispatch barrier. */
+    public function paymentOperation(string $id,callable $operation): array
     {
-        return $this->locked(function()use($id,$key){$p=$this->practice($id,true);
+        if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite')return $operation();
+        $key='trb_onboarding_payment_'.substr(hash('sha256',$id),0,32);
+        if((int)$this->query('SELECT GET_LOCK(?,3)',[$key])->fetchColumn()!==1)throw new RuntimeException('Operazione sul versamento in corso. Attendi qualche secondo e riprova.');
+        try{return $operation();}finally{$this->query('SELECT RELEASE_LOCK(?)',[$key]);}
+    }
+    public function canChangePlan(array $p): bool
+    {
+        if($p['state']!=='payment_pending'||!$p['selected_plan']||$p['selected_plan']['kind']==='free'||count($p['snapshot']['plans'])<2||$p['cancelled_at']||$p['first_payment_date']||$p['owner_approved_at']||$p['signed_at']||$p['portal_activated_at'])return false;
+        foreach(['onboarding_orders','onboarding_payments','onboarding_installments','onboarding_signatures','onboarding_holds'] as $table)if($this->query('SELECT 1 FROM '.$table.' WHERE practice_id=? LIMIT 1',[$p['id']])->fetchColumn())return false;
+        if($this->query("SELECT 1 FROM onboarding_events WHERE practice_id=? AND kind='checkout_started' LIMIT 1",[$p['id']])->fetchColumn())return false;
+        return !$this->artifact($p['id'],'final_pdf')&&!$this->artifact($p['id'],'signed_pdf');
+    }
+    public function choosePlan(string $id,string $key,?array $acknowledgement=null): array
+    {
+        return $this->locked(function()use($id,$key,$acknowledgement){$p=$this->practice($id,true);
             $this->open($p);
             $plan=$p['snapshot']['plans'][$key]??null;if(!is_array($plan))throw new RuntimeException('Formula non prevista dalla proposta');
             OnboardingPolicy::validatePlan($plan);
-            if($p['selected_plan']!==null && $p['selected_plan']!==$plan)throw new RuntimeException('Formula già confermata: richiedi una nuova proposta per modificarla');
-            if($p['selected_plan']!==null)return $p;
-            if($p['state']!=='identity_matched')throw new RuntimeException('Verifica documenti necessaria prima del versamento');
+            if($p['selected_plan']===$plan)return $p;
+            $changing=$p['selected_plan']!==null;
+            if($changing&&!$this->canChangePlan($p))throw new RuntimeException('Il pagamento è già stato avviato. La formula resta confermata per evitare versamenti con importi diversi.');
+            if(!$changing&&$p['state']!=='identity_matched')throw new RuntimeException('Verifica documenti necessaria prima del versamento');
             $this->query('UPDATE onboarding_practices SET selected_plan=?,state=? WHERE id=?',[$this->json($plan),$plan['kind']==='free'?'owner_review':'payment_pending',$id]);
+            if($acknowledgement!==null){
+                if(($acknowledgement['plan_key']??'')!==$key||!hash_equals($p['snapshot']['unsigned_document_sha256'],(string)($acknowledgement['proposal_read_sha256']??'')))throw new RuntimeException('Conferma della formula non valida');
+                $details=array_replace($this->details($id),array_intersect_key($acknowledgement,array_flip(['proposal_read_at','proposal_read_sha256','plan_key'])));
+                $this->query('DELETE FROM onboarding_details WHERE practice_id=?',[$id]);$this->query('INSERT INTO onboarding_details(practice_id,details) VALUES(?,?)',[$id,$this->json($details)]);
+            }
+            if($changing)$this->recordEvent($id,'plan_changed',['previous_kind'=>$p['selected_plan']['kind'],'previous_total_cents'=>$p['selected_plan']['total_cents'],'plan_key'=>$key,'kind'=>$plan['kind'],'total_cents'=>$plan['total_cents']]);
             if($plan['kind']==='free')$this->ownerReviewEvent($id);
             return $this->practice($id);
         });
