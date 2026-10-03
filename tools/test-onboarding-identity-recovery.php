@@ -26,7 +26,11 @@ identity_check($ledger->identityVerification($id)['retry_after_seconds']>=200,'A
 $ledger->finishIdentity($claim,good_fields(),'2026-10-03');identity_check($ledger->identityVerification($id)['status']==='complete'&&$ledger->practice($id)['state']==='identity_matched','Only verified fields complete identity');
 $service->identity($ledger->practice($id));identity_check($reader->calls===0,'Lost completion response cannot duplicate extraction');
 $ack=$ledger->details($id)['privacy_acknowledged_at'];$service->details($ledger->practice($id),$details);identity_check($ledger->details($id)['privacy_acknowledged_at']===$ack,'Duplicate save after completion preserves the original acknowledgement and is idempotent');
-$changed=$details;$changed['profile']['birth_date']='1991-01-01';identity_reject(fn()=>$service->details($ledger->practice($id),$changed),'Verified profile cannot change after matching');
+foreach(['birth_date'=>'1991-01-01','document_expiry'=>'2091-01-01','document_number'=>'CA76543AB'] as $field=>$different){
+    $changed=$details;$changed['profile'][$field]=$different;identity_reject(fn()=>$service->details($ledger->practice($id),$changed),'Verified '.$field.' cannot change after matching');
+    identity_check($ledger->practice($id)['state']==='identity_matched'&&$ledger->identityResult($id)['status']==='matched','Rejected verified-profile edit retains the matched identity gate');
+}
+$service->choose($ledger->practice($id),'C',str_repeat('a',64),true);identity_check($ledger->practice($id)['state']==='payment_pending','Unchanged verified profile still allows normal formula selection');
 
 $f=identity_fixture();extract($f);$reader->fields=array_replace(good_fields(),['identity_document'=>false,'tax_document'=>false]);
 $service->identity($ledger->practice($id));$service->processIdentity($id);$v=$ledger->identityVerification($id);
@@ -75,4 +79,16 @@ $ledger->finishIdentity($claim,good_fields(),'2026-10-03',$now);identity_check($
 
 $f=identity_fixture();extract($f);$ledger->recordIdentity($id,array_replace(good_fields(),['tax_legible'=>false]),'2026-10-03');$v=$service->view($ledger->practice($id))['identity_verification'];
 identity_check($v['status']==='rejected'&&$v['replace_slots']===['tax_front'],'Legacy completed rejection resumes with clear replacement instructions');
+
+$f=identity_fixture();extract($f);$service->identity($ledger->practice($id));$expired=$id;
+$db->prepare('UPDATE onboarding_practices SET expires_at=? WHERE id=?')->execute([gmdate('c',time()-1),$expired]);
+$snapshot=$ledger->practice($expired)['snapshot'];$snapshot['email']='new-synthetic@example.invalid';$snapshot['contract_number']='SYNTHETIC-NEW-QUEUE';
+$fresh=$ledger->create(2,$snapshot,gmdate('c',time()+86400))['id'];$service->details($ledger->practice($fresh),$details);
+foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($fresh,$slot,['file_id'=>'new-queue-'.($i+1),'folder_id'=>'synthetic-folder','hash'=>'new-hash-'.$i,'name'=>$slot.'.png']);
+$service->identity($ledger->practice($fresh));$db->prepare('UPDATE onboarding_identity_jobs SET queued_at=? WHERE practice_id=?')->execute([gmdate('c',time()-20),$expired]);
+$claim=$ledger->claimIdentity();identity_check($claim!==null&&$claim['practice_id']===$fresh,'An older expired queued practice is skipped and cannot starve a fresh job in the same sweep');
+$v=$ledger->identityVerification($expired);identity_check($v['status']==='error'&&$v['reason']==='proposal_expired'&&!$v['retryable']&&$v['replace_slots']===[],'Expired proposal is a clear final business status rather than a provider retry');
+identity_check($ledger->claimIdentity($expired)===null&&$reader->calls===0&&$archive->reads===0,'Expired queued job never reads the private archive or calls the reader');
+identity_check($ledger->practice($expired)['cancelled_at']===null&&$ledger->files($expired)!==[]&&$ledger->details($expired)!==[],'Expiry preserves files, details and the existing cancellation state');
+$ledger->finishIdentity($claim,good_fields(),'2026-10-03');identity_check($ledger->practice($fresh)['state']==='identity_matched','The unaffected current proposal completes normally after expired-job cleanup');
 echo "Identity recovery verified: queue-only public requests, duplicate claims, invalid screenshots, one-front replacement, stale results, crash lease, bounded retries, preserved details and strict payment gate.\n";
