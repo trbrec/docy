@@ -13,10 +13,10 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Validate the read-only DDB incident inspection
+      - name: Validate additive identity job schema migration
         run: |
-          php -l tools/inspect-ddb-identity-incident.php
-      - name: Read-only inspection of the owner's DDB document verification incident
+          php -l tools/prepare-identity-job-schema.php
+      - name: Prepare durable identity job schema before publishing; preserve existing practice data
         shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
@@ -35,4 +35,4 @@ jobs:
           SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
           rm -f "${askpass}"
           ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
-          ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" 'php' < tools/inspect-ddb-identity-incident.php
+          ssh -p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" 'php' < tools/prepare-identity-job-schema.php
