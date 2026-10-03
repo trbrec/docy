@@ -13,11 +13,39 @@ add_filter('rest_authentication_errors','trb_onboarding_protocol_authentication'
 function trb_onboarding_crm($payload){
     $settings=trb_crm_connector_settings();$body=wp_json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$time=(string)time();$nonce=bin2hex(random_bytes(16));
     if(strlen($settings['secret'])<32)return new WP_Error('onboarding_config','Collegamento adesioni non disponibile.');
-    $result=wp_remote_post('https://crm.trbrec.com/webhooks/artist-portal/onboarding',array('timeout'=>55,'redirection'=>0,'headers'=>array('Content-Type'=>'application/json','X-TRB-Timestamp'=>$time,'X-TRB-Nonce'=>$nonce,'X-TRB-Signature'=>'sha256='.hash_hmac('sha256','onboarding-crm-v1|'.$time.'|'.$nonce.'|'.$body,$settings['secret'])),'body'=>$body));
-    if(is_wp_error($result))return new WP_Error('onboarding_connection','La connessione non è stata confermata. La pratica resta salvata: riprova tra poco.');
+    // Only the trusted, background identity worker waits for document processing.
+    // Public candidate requests acknowledge durable work without holding the browser open.
+    $timeout=($payload['action']??'')==='identity_worker'?185:55;
+    $result=wp_remote_post('https://crm.trbrec.com/webhooks/artist-portal/onboarding',array('timeout'=>$timeout,'redirection'=>0,'headers'=>array('Content-Type'=>'application/json','X-TRB-Timestamp'=>$time,'X-TRB-Nonce'=>$nonce,'X-TRB-Signature'=>'sha256='.hash_hmac('sha256','onboarding-crm-v1|'.$time.'|'.$nonce.'|'.$body,$settings['secret'])),'body'=>$body));
+    if(is_wp_error($result))return new WP_Error('onboarding_connection','La connessione si è interrotta. I dati e i documenti confermati restano salvati. Riapri il collegamento per riprendere dal punto raggiunto.',array('status'=>503,'recoverable'=>true));
     $data=json_decode(wp_remote_retrieve_body($result),true);$status=wp_remote_retrieve_response_code($result);
-    if($status<200||$status>=300||!is_array($data)||isset($data['error']))return new WP_Error('onboarding_remote',is_array($data)&&!empty($data['error'])?(string)$data['error']:'Operazione non confermata dal CRM.');
+    if($status===401&&is_array($data)&&($data['code']??'')==='session_expired')return new WP_Error('onboarding_session','Conferma nuovamente il tuo indirizzo email. I dati e i documenti salvati restano disponibili.',array('status'=>401,'recoverable'=>true));
+    if(!is_array($data)||$status<200||$status>=500)return new WP_Error('onboarding_remote','Il servizio non ha risposto correttamente. La pratica resta salvata: riprendi la procedura tra poco.',array('status'=>503,'recoverable'=>true));
+    if($status>=300||isset($data['error'])){
+        $message=is_string($data['error']??null)?$data['error']:'';
+        if($message===''||preg_match('/Failed to fetch|cURL|SQLSTATE|stack|trace|api\\.openai|upstream/i',$message))return new WP_Error('onboarding_remote','Non è stato possibile confermare l’operazione. I dati salvati restano disponibili. Riprova tra poco.',array('status'=>503,'recoverable'=>true));
+        return new WP_Error('onboarding_remote',$message,array('status'=>$status>=400&&$status<500?$status:409));
+    }
     return $data;
+}
+
+/** Schedule only an authenticated CRM practice; browser claims never select worker work. */
+function trb_onboarding_schedule_identity($id,$delay=0){
+    if(!trb_onboarding_enabled()||!is_string($id)||!preg_match('/^[a-f0-9]{32}$/D',$id))return;
+    $args=array($id);$delay=max(0,min(300,(int)$delay));
+    $due=time()+$delay;$existing=wp_next_scheduled('trb_onboarding_identity_worker',$args);
+    if($existing&&$due<(int)$existing){wp_unschedule_event($existing,'trb_onboarding_identity_worker',$args);$existing=false;}
+    if(!$existing)wp_schedule_single_event($due,'trb_onboarding_identity_worker',$args);
+    // Due-now work avoids a future event being skipped by an immediately spawned cron.
+    if($delay===0&&function_exists('spawn_cron'))spawn_cron(time());
+}
+function trb_onboarding_schedule_identity_response($result){
+    if(!is_array($result))return;
+    $practice=$result['practice']??$result;$verification=$practice['identity_verification']??null;
+    if(is_array($verification)&&in_array($verification['status']??'',array('queued','processing','retry_wait'),true)){
+        $delay=($verification['status']??'')==='queued'?0:max(1,(int)($verification['retry_after_seconds']??15));
+        trb_onboarding_schedule_identity($practice['id']??null,$delay);
+    }
 }
 function trb_onboarding_private_permission($request){
     $secret=trb_crm_connector_settings()['secret'];$time=(string)$request->get_header('x-trb-timestamp');$nonce=(string)$request->get_header('x-trb-nonce');
@@ -167,7 +195,11 @@ function trb_onboarding_public($request){
         if(!$number||!$expiry)return new WP_Error('onboarding_identity','Controlla il numero e la scadenza della carta d’identità elettronica.',array('status'=>422));
         $p['profile']=array('birth_date'=>$date,'birth_place'=>$birth['city'],'birth_province'=>$birth['province'],'document_number'=>$number,'document_expiry'=>$expiry);
     }
-    $p['session']=$browser['session'];unset($p['token'],$p['portal_user_id'],$p['email'],$p['password'],$p['repeat_password']);return trb_onboarding_crm($p);
+    $p['session']=$browser['session'];unset($p['token'],$p['portal_user_id'],$p['email'],$p['password'],$p['repeat_password']);$result=trb_onboarding_crm($p);
+    if(is_wp_error($result)&&$result->get_error_code()==='onboarding_session'){
+        unset($browser['session']);set_transient($key,$browser,8*HOUR_IN_SECONDS);
+    }elseif(!is_wp_error($result))trb_onboarding_schedule_identity_response($result);
+    return $result;
 }
 // Mark before third-party registration callbacks, including DDS annual auto-approval.
 add_action('user_register',static function($id){
@@ -236,8 +268,22 @@ add_action('template_redirect',static function(){
     $gate=trb_onboarding_access();if(!$gate['allowed']&&($path==='/area-artisti'||is_singular(trb_portal_supported_resource_types()))){wp_safe_redirect(home_url('/adesione/?account=1'));exit;}
 },-10000);
 add_action('trb_onboarding_worker',static function(){if(trb_onboarding_enabled())trb_onboarding_crm(array('action'=>'worker'));});
-add_filter('cron_schedules',static function($schedules){$schedules['trb_onboarding_ten_minutes']=array('interval'=>600,'display'=>'Adesioni ogni dieci minuti');return $schedules;});
-add_action('init',static function(){if(trb_onboarding_enabled()&&!wp_next_scheduled('trb_onboarding_worker'))wp_schedule_event(time()+30,'trb_onboarding_ten_minutes','trb_onboarding_worker');});
+add_action('trb_onboarding_identity_worker',static function($id){
+    if(!trb_onboarding_enabled()||!is_string($id)||!preg_match('/^[a-f0-9]{32}$/D',$id))return;
+    $result=trb_onboarding_crm(array('action'=>'identity_worker','practice_id'=>$id));
+    if(is_wp_error($result)){trb_onboarding_schedule_identity($id,60);return;}
+    if(($result['pending']??false)===true&&($result['practice_id']??$id)===$id)trb_onboarding_schedule_identity($id,max(1,(int)($result['retry_after_seconds']??30)));
+},10,1);
+add_action('trb_onboarding_identity_sweep',static function(){
+    if(!trb_onboarding_enabled())return;
+    $result=trb_onboarding_crm(array('action'=>'identity_worker'));
+    if(!is_wp_error($result)&&($result['pending']??false)===true)trb_onboarding_schedule_identity($result['practice_id']??null,max(1,(int)($result['retry_after_seconds']??30)));
+});
+add_filter('cron_schedules',static function($schedules){$schedules['trb_onboarding_ten_minutes']=array('interval'=>600,'display'=>'Adesioni ogni dieci minuti');$schedules['trb_onboarding_one_minute']=array('interval'=>60,'display'=>'Ripresa verifica documenti');return $schedules;});
+add_action('init',static function(){if(!trb_onboarding_enabled())return;
+    if(!wp_next_scheduled('trb_onboarding_worker'))wp_schedule_event(time()+30,'trb_onboarding_ten_minutes','trb_onboarding_worker');
+    if(!wp_next_scheduled('trb_onboarding_identity_sweep'))wp_schedule_event(time()+15,'trb_onboarding_one_minute','trb_onboarding_identity_sweep');
+});
 
 // Reuse documents already verified in the new workflow without hosting their bytes.
 add_filter('trb_portal_artist_profile_requirements',static function($requirements,$userId){

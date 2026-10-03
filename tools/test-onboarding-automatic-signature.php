@@ -13,7 +13,7 @@ foreach(OnboardingContractCatalog::all() as $model)foreach($model['plans'] as $k
     $proposal=['file_id'=>'synthetic-proposal','folder_id'=>'synthetic-private-drive','artist_folder_id'=>'synthetic-private-drive','sha256'=>str_repeat('a',64),'hash'=>'synthetic-proof'];
     $created=$ledger->create(1,$snapshot,gmdate('c',time()+86400),null,null,$proposal);$id=$created['id'];$order=null;$paid=false;$captured=true;$badProof=[];$dossiers=0;$loseReply=false;$complete=false;$company=false;$archiveFailure=false;$archiveCalls=0;
     $archive=new class{public int $sequence=0;public bool $failAudit=false;public function createUpload($folder,$id,$slot){return ['folder_id'=>'synthetic-slot-'.(++$this->sequence),'upload_link_id'=>$this->sequence,'slot'=>$slot,'expires_at'=>gmdate('c',time()+3600)];}public function verifyArtifact($grant,$sha,$folder){if($grant['slot']==='signature_audit'&&$this->failAudit){$this->failAudit=false;throw new RuntimeException('Synthetic archive interruption');}return ['file_id'=>'synthetic-file-'.$grant['upload_link_id'],'folder_id'=>$grant['folder_id'],'artist_folder_id'=>$folder,'sha256'=>$sha,'hash'=>'synthetic-hash'];}public function url($file,$folder,$hash){return 'https://example.invalid/synthetic-document';}};
-    $reader=new class{public function extract($docs){auto_check(array_column($docs,'slot')===['identity_front','tax_front'],'Only two document fronts verified');return ['legible'=>true,'first_name'=>'Mario','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_legible'=>true,'tax_first_name'=>'Mario','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W'];}};
+    $reader=new class{public function extract($docs){auto_check(array_column($docs,'slot')===['identity_front','tax_front'],'Only two document fronts verified');return ['identity_document'=>true,'tax_document'=>true,'legible'=>true,'first_name'=>'Mario','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_legible'=>true,'tax_first_name'=>'Mario','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W'];}};
     $portal=function($p)use(&$order,&$paid,&$captured,&$badProof,$snapshot,$id,$today){
         if($p['action']==='store_order'){$order=$p;return ['order_id'=>101,'checkout_url'=>'https://store.trbrec.com/checkout/order-pay/101/','paid'=>false];}
         if($p['action']==='store_status')return array_replace(['practice_id'=>$id,'number'=>1,'snapshot_sha256'=>$order['snapshot_sha256'],'email'=>$snapshot['email'],'provider'=>'woocommerce','transaction_id'=>'order:101:synthetic-capture','amount_cents'=>$order['amount_cents'],'currency'=>'EUR','paid_on'=>$today,'status'=>$paid?'confirmed':'pending','captured'=>$captured&&$paid],$badProof);
@@ -41,7 +41,7 @@ foreach(OnboardingContractCatalog::all() as $model)foreach($model['plans'] as $k
     $service->advanceSignature($ledger->practice($id));auto_check($dossiers===0,'Identity review precedes automatic signature');
     $service->details($ledger->practice($id),['privacy_acknowledged'=>true,'billing'=>['address_1'=>'Via synthetic 1','street'=>'Via synthetic','street_number'=>'1','city'=>'Roma','postcode'=>'00100','country'=>'IT','phone'=>'+393330000000'],'tax_code'=>'RSSMRA90A01H501W']);
     foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>10+$i,'folder_id'=>33,'hash'=>'synthetic-'.$i,'name'=>$slot.'.pdf']);
-    $service->identity($ledger->practice($id));
+    $service->identity($ledger->practice($id));$service->processIdentity($id);$service->view($ledger->practice($id));
     if($plan['kind']!=='free'){
         $service->advanceSignature($ledger->practice($id));auto_check($dossiers===0,'Candidate must choose the formula before dispatch');
         $service->choose($ledger->practice($id),$key,$proposal['sha256'],true);$service->checkout($ledger->practice($id));auto_check($order['amount_cents']===$plan['amounts_cents'][0],'Exact first quota reaches merchant');
@@ -66,3 +66,4 @@ foreach(OnboardingContractCatalog::all() as $model)foreach($model['plans'] as $k
 }
 auto_check($flows===26&&$paidFlows===25,'Every plan of all ten contract models exercised');
 echo "All 26 contractual flows (25 paid) verified: reviewed owner delivery, exact capture, automatic one-time signature, two signatures, partial archive recovery, welcome and account activation.\n";
+

@@ -81,7 +81,10 @@ final class OnboardingRuntime
             header('Cache-Control: private, no-store');header('Referrer-Policy: no-referrer');header('X-Robots-Tag: noindex, nofollow');
             require __DIR__.'/OnboardingAdmin.php';return true;
         }catch(\Throwable $e){
-            if($path==='/webhooks/artist-portal/onboarding'){Response::json(['error'=>$e instanceof \RuntimeException?$e->getMessage():'Operazione non confermata: riprova o contatta l’assistenza'],409);return true;}
+            if($path==='/webhooks/artist-portal/onboarding'){
+                if($e instanceof \RuntimeException&&$e->getMessage()==='Verifica email necessaria'){Response::json(['code'=>'session_expired','error'=>'La verifica email è scaduta. Richiedi un nuovo codice per riprendere la pratica.'],401);return true;}
+                Response::json(['code'=>'onboarding_validation','error'=>$e instanceof \RuntimeException?$e->getMessage():'Operazione non confermata: riprova o contatta l’assistenza'],409);return true;
+            }
             http_response_code(409);header('Content-Type: text/html; charset=utf-8');echo '<h1>Operazione da verificare</h1><p>'.htmlspecialchars($e instanceof \RuntimeException?$e->getMessage():'Operazione non confermata',ENT_QUOTES,'UTF-8').'</p><a href="/onboarding">Torna alle adesioni</a>';return true;
         }
     }
@@ -90,6 +93,14 @@ final class OnboardingRuntime
         $action=(string)($input['action']??'');
         if($action==='health')return ['enabled'=>self::enabled(),'version'=>OnboardingPolicy::VERSION];
         if($action==='worker')return $this->worker();
+        if($action==='identity_worker'){
+            $id=isset($input['practice_id'])?(string)$input['practice_id']:null;if($id!==null&&!preg_match('/^[a-f0-9]{32}$/D',$id))throw new \RuntimeException('Pratica non valida');
+            // Two allowed 10 MB files expand while preparing the provider JSON body.
+            // This allowance belongs only to the authenticated background worker.
+            $memory=trim((string)ini_get('memory_limit'));$quantity=(int)$memory;
+            if($quantity>0){$unit=strtoupper(substr($memory,-1));$bytes=$quantity*match($unit){'G'=>1073741824,'M'=>1048576,'K'=>1024,default=>1};if($bytes<268435456)ini_set('memory_limit','256M');}
+            ignore_user_abort(true);set_time_limit(185);return $this->service->processIdentity($id);
+        }
         if($action==='challenge'){$c=$this->ledger->challenge((string)($input['token']??''));$p=$this->ledger->practice($c['practice_id']);$message=OnboardingMail::accessCode($p['snapshot']['first_name'],$c['code']);$this->mail($c['email'],$message['subject'],$message['text'],$message['html']);return ['salt'=>$c['salt']];}
         if($action==='verify_email'){$session=$this->ledger->verifyEmail((string)($input['token']??''),(string)($input['code']??''),(string)($input['salt']??''));return ['session'=>$session,'practice'=>$this->service->view($this->ledger->fromSession($session))];}
         if(in_array($action,['account','account_checkout','account_document'],true)){
@@ -104,7 +115,7 @@ final class OnboardingRuntime
             'details'=>$this->service->details($p,$input),
             'upload'=>$this->service->upload($p,(string)($input['slot']??''),(array)($input['file']??[])),
             'uploaded'=>$this->service->uploaded($p,(string)($input['slot']??'')),
-            'identity'=>$this->service->identity($p),
+            'identity'=>$this->service->identity($p,($input['retry']??false)===true),
             'choose'=>$this->service->choose($p,(string)($input['plan_key']??''),(string)($input['proposal_sha256']??''),($input['proposal_read']??false)===true),
             'checkout'=>$this->service->checkout($p),
             'refresh'=>$this->refresh($p),
