@@ -99,6 +99,8 @@ jobs:
             ready-desktop.png
             ready-ddb-mobile.png
             form-mobile.png
+            formula-mobile.png
+            formula-desktop.png
             waiting-mobile.png
             mail-mobile.png
           retention-days: 3
