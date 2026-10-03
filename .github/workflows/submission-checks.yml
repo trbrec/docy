@@ -44,6 +44,7 @@ jobs:
           php tools/test-onboarding-drive.php
           php tools/test-onboarding.php
           php tools/test-onboarding-service.php
+          php tools/test-onboarding-automatic-signature.php
           php tools/test-onboarding-adapters.php
           php tools/test-onboarding-mail.php
           php tools/test-onboarding-profile.php
@@ -98,3 +99,4 @@ jobs:
             waiting-mobile.png
             mail-mobile.png
           retention-days: 3
+

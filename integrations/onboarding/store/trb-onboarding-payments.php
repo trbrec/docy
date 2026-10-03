@@ -96,12 +96,13 @@ add_action('rest_api_init',static function(){
 // Clean expired replay protection entries, never order/contract records.
 add_action('trb_onboarding_nonce_cleanup',static function(){global $wpdb;$wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND CAST(option_value AS UNSIGNED)<%d",$wpdb->esc_like('trb_onboarding_nonce_').'%',time()));});
 add_action('init',static function(){if(get_option('trb_onboarding_payments_enabled',false)&&!wp_next_scheduled('trb_onboarding_nonce_cleanup'))wp_schedule_event(time()+3600,'daily','trb_onboarding_nonce_cleanup');});
-// Offer configured card gateways, and bank transfer only with complete bank details.
+// New contract quotas require immediate provider confirmation, even if the
+// ordinary Store checkout has bank-transfer details configured.
 add_filter('woocommerce_available_payment_gateways',static function($gateways){
     $id=absint(get_query_var('order-pay'));$order=$id?wc_get_order($id):false;
     if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return $gateways;
-    $allowed=trb_onboarding_instant_gateways();if(trb_onboarding_bank_configured())$allowed[]='bacs';
-    $preferred=array_merge(array('ppcp-gateway','stripe','ppcp-credit-card-gateway','ppcp-card-button-gateway','paypal','woocommerce_payments'),array('bacs'));$ordered=array();
+    $allowed=trb_onboarding_instant_gateways();
+    $preferred=array('ppcp-gateway','stripe','ppcp-credit-card-gateway','ppcp-card-button-gateway','paypal','woocommerce_payments');$ordered=array();
     foreach($preferred as $id)if(in_array($id,$allowed,true)&&isset($gateways[$id]))$ordered[$id]=$gateways[$id];
     // One clear card choice. Keep PayPal's card gateway as the fallback.
     if(isset($ordered['stripe']))unset($ordered['ppcp-credit-card-gateway'],$ordered['ppcp-card-button-gateway']);

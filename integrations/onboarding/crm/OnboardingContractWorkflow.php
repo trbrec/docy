@@ -114,7 +114,7 @@ final class OnboardingContractWorkflow
     }
     public static function send(\PDO $db,array $s,int $userId,string $expectedPreviewHash): void
     {
-        self::authorizedSender($db,$s,$userId);
+        $owner=self::authorizedSender($db,$s,$userId);
         if(!OutboundMail::canSendContractTo((string)$s['email']))throw new \RuntimeException('Destinatario non autorizzato dal canale di invio');
         $c=$s['contract'];$m=is_array($c['metadata']??null)?$c['metadata']:[];
         if(in_array($c['status'],['sent','opened','otp_pending','accepted'],true))throw new \RuntimeException('Questo contratto risulta già inviato');
@@ -138,7 +138,9 @@ final class OnboardingContractWorkflow
             self::receipt($db,$messageId,$receipt);
             $db->prepare("UPDATE contracts SET status='sent',document_url=?,document_sha256=?,sent_at=UTC_TIMESTAMP(),metadata=? WHERE id=?")->execute([$prepared['invite_url'],$artifact['sha256'],json_encode($m,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),(int)$c['id']]);
             $db->prepare("UPDATE submissions SET status='contract_sent',contract_sent_at=UTC_TIMESTAMP() WHERE id=?")->execute([(int)$s['id']]);
-            $db->prepare("UPDATE onboarding_events SET status='completed',payload=?,completed_at=? WHERE event_key=?")->execute([json_encode(['message_id'=>$messageId,'mime_sha256'=>$sha,'document_sha256'=>$artifact['sha256'],'gmail_message_id'=>$receipt['gmail_message_id']]),gmdate('c'),$event]);
+            // The reviewed proposal sent by the owner authorizes one subsequent
+            // signature invitation, after identity and the required payment match.
+            $db->prepare("UPDATE onboarding_events SET status='completed',payload=?,completed_at=? WHERE event_key=?")->execute([json_encode(['message_id'=>$messageId,'mime_sha256'=>$sha,'document_sha256'=>$artifact['sha256'],'gmail_message_id'=>$receipt['gmail_message_id'],'owner_id'=>(int)$owner['id'],'contract_id'=>(int)$c['id'],'snapshot_sha256'=>hash('sha256',json_encode($p['snapshot'],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)),'automatic_signature'=>true]),gmdate('c'),$event]);
             $threadProvider='contract-'.(int)$c['id'];
             $db->prepare("INSERT INTO mail_threads(submission_id,contract_id,provider,provider_thread_id,normalized_subject,status,last_outbound_at) VALUES(?,?,'gmail',?,?,'waiting_artist',CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE normalized_subject=VALUES(normalized_subject),status='waiting_artist',last_outbound_at=CURRENT_TIMESTAMP")->execute([(int)$s['id'],(int)$c['id'],$threadProvider,mb_strtolower($subject)]);
             $thread=$db->prepare("SELECT id FROM mail_threads WHERE provider='gmail' AND provider_thread_id=? LIMIT 1");$thread->execute([$threadProvider]);$threadId=(int)$thread->fetchColumn();if(!$threadId)throw new \RuntimeException('Conversazione email non registrata');

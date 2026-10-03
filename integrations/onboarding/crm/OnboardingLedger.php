@@ -375,7 +375,21 @@ final class OnboardingLedger
             foreach($rows as $row)if($row['due_date']<$today && (int)$row['confirmed_cents']<(int)$row['amount_cents'])throw new RuntimeException('Quota scaduta: regolarizza prima della firma');
         }
     }
-    /** Caller must supply the currently authenticated CRM owner, never browser-supplied roles. */
+    /** Resolve only the owner's confirmed, reviewed proposal delivery. No browser fields. */
+    public function automaticSignatureOwner(string $id): ?array
+    {
+        $p=$this->practice($id);
+        if($p['cancelled_at'])return null;
+        $event=$this->query("SELECT payload FROM onboarding_events WHERE event_key=? AND practice_id=? AND kind='proposal_email' AND status='completed'",['onboarding:'.$id.':proposal-email',$id])->fetchColumn();
+        if(!$event)return null;
+        $proof=json_decode((string)$event,true,512,JSON_THROW_ON_ERROR);$artifact=$this->artifact($id,'proposal');
+        if(($proof['automatic_signature']??false)!==true||empty($proof['owner_id'])||(int)($proof['contract_id']??0)!==(int)$p['contract_id']||empty($proof['gmail_message_id'])||empty($proof['message_id'])||!$artifact
+            ||!hash_equals($p['snapshot']['unsigned_document_sha256'],(string)($proof['document_sha256']??''))||!hash_equals($artifact['sha256'],(string)($proof['document_sha256']??''))
+            ||!hash_equals(hash('sha256',$this->json($p['snapshot'])),(string)($proof['snapshot_sha256']??'')))return null;
+        $owner=$this->query('SELECT id,role,email,is_active FROM users WHERE id=?',[(int)$proof['owner_id']])->fetch(PDO::FETCH_ASSOC);
+        return $owner&&(int)$owner['is_active']===1&&$owner['role']==='admin'&&strcasecmp($owner['email'],'andrea.tognassi@trbrec.com')===0?$owner:null;
+    }
+    /** Caller supplies the authenticated owner or the bound server-side delivery authorization. */
     public function approve(string $id,array $owner,string $ownerEmail,string $today): void
     {
         if(($owner['role']??'')!=='admin'||empty($owner['id'])||!filter_var($ownerEmail,FILTER_VALIDATE_EMAIL)||strcasecmp((string)($owner['email']??''),$ownerEmail)!==0)throw new RuntimeException('Approvazione riservata al titolare');
