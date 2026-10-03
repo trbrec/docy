@@ -21,9 +21,11 @@ final class OnboardingMail
             .'<p style="margin:24px 0 0;font-size:14px;color:#52635B">Se non hai richiesto il codice, puoi ignorare questa email.</p>';
         return ['subject'=>'Il tuo codice di accesso | TRB rec','text'=>$text,'html'=>self::layout('Accedi alla tua adesione',$content)];
     }
-    public static function welcome(string $firstName,string $url): array
+    public static function welcome(string $firstName,string $url,string $group='TRB'): array
     {
-        if(!preg_match('~^https://artist\.trbrec\.com/adesione/#invite=[a-f0-9]{64}$~D',$url))throw new \InvalidArgumentException('Collegamento di accesso non valido');
+        if(!preg_match('~^https://artist\.trbrec\.com/adesione/(?:\?accesso=1)?#invite=[a-f0-9]{64}$~D',$url))throw new \InvalidArgumentException('Collegamento di accesso non valido');
+        if(!in_array($group,['TRB','DDS','DDB12','DDB','DDB-TRB'],true))throw new \InvalidArgumentException('Profilo contrattuale non valido');
+        $brand=$group==='TRB'?'TRB rec':'Digital Distribution Bundle';$title='Benvenuto in '.$brand;
         $name=trim(preg_replace('/[\r\n]+/',' ',$firstName));$greeting=$name!==''?'Ciao '.$name.',':'Ciao,';
         $text=$greeting."\n\nBenvenuto nel mondo TRB rec! Il tuo contratto è stato firmato da entrambe le parti e archiviato. Ora puoi iniziare a utilizzare il Portale Artisti.\n\nNel portale potrai:\n• Preparare le tue uscite, caricando audio, copertina e informazioni dei brani.\n• Seguire lo stato delle tue richieste e delle lavorazioni.\n• Aggiornare il tuo profilo e i tuoi dati.\n• Consultare il contratto e i documenti della tua pratica.\nLe attività disponibili dipendono dai servizi previsti dal tuo contratto.\n\nACCEDI AL PORTALE ARTISTI\n".$url."\n\nAl primo accesso conferma la tua email con il codice che ti invieremo, poi scegli la tua password personale. Entrerai direttamente nel portale. Se hai già completato la creazione dell’account, accedi con la password che hai scelto su https://artist.trbrec.com/accedi/.\nNon condividere il collegamento o i codici di accesso.\n\nTRB rec · Portale Artisti\nPer assistenza puoi rispondere a questa email.";
         $content='<p style="margin:0 0 18px">'.self::escape($greeting).'</p><p style="margin:0 0 22px">Il tuo contratto è stato <strong>firmato da entrambe le parti e archiviato</strong>. Ora puoi iniziare a utilizzare il Portale Artisti.</p>'
@@ -31,7 +33,10 @@ final class OnboardingMail
             .'<p style="margin:0 0 24px;font-size:14px;color:#52635B">Le attività disponibili dipendono dai servizi previsti dal tuo contratto.</p>'
             .'<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" bgcolor="#AFEBD2" style="border-radius:10px"><a href="'.self::escape($url).'" style="display:block;padding:18px 12px;color:#183C2D;font-size:16px;font-weight:700;text-decoration:none">ACCEDI AL PORTALE ARTISTI</a></td></tr></table>'
             .'<p style="margin:22px 0 0"><strong>Primo accesso:</strong> conferma la tua email con il codice che ti invieremo e scegli la tua password personale. Entrerai direttamente nel portale.</p><p style="margin:12px 0 0;font-size:14px;color:#52635B">Se hai già creato l’account, accedi con la password che hai scelto dalla pagina di accesso del portale. Non condividere il collegamento o i codici.</p>';
-        return ['subject'=>'Benvenuto nel mondo TRB rec | Portale Artisti','text'=>$text,'html'=>self::layout('Benvenuto nel mondo TRB rec!',$content)];
+        $text=$title."\n\n".str_replace('Benvenuto nel mondo TRB rec! ','',$text);
+        $text=str_replace('TRB rec · Portale Artisti',$brand.' · Portale Artisti',$text);
+        $content=str_replace('Il tuo spazio per lavorare con TRB rec','Il tuo spazio per lavorare con '.self::escape($brand),$content);
+        return ['subject'=>'Il tuo accesso al Portale Artisti è pronto | '.$brand,'text'=>$text,'html'=>self::layout($title,$content)];
     }
     public static function notice(string $title,string $text): string
     {
