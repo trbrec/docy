@@ -44,6 +44,7 @@ jobs:
           php tools/test-onboarding-drive.php
           php tools/test-onboarding.php
           php tools/test-onboarding-service.php
+          php tools/test-onboarding-plan-change.php
           php tools/test-onboarding-identity-recovery.php
           php tools/test-onboarding-reader.php
           php tools/test-onboarding-wp-proxy.php

@@ -43,8 +43,11 @@ $mismatch=$details;$mismatch['profile']['birth_date']='1991-01-01';$service->det
 $service_reject=fn()=>null;
 service_reject(fn()=>$service->choose($ledger->practice($id),'C',str_repeat('a',64),false),'proposal acknowledgement necessary');
 $service->choose($ledger->practice($id),'C',str_repeat('a',64),true);$service->choose($ledger->practice($id),'C',str_repeat('a',64),true);
-service_reject(fn()=>$service->choose($ledger->practice($id),'A',str_repeat('a',64),true),'confirmed formula cannot be replaced');
-$service->checkout($ledger->practice($id));service_check($order['amount_cents']===54000,'exact contract price sent to Store');
+service_check($service->view($ledger->practice($id))['can_change_plan'],'Formula remains editable before opening checkout');
+$service->choose($ledger->practice($id),'A',str_repeat('a',64),true);service_check($service->view($ledger->practice($id))['selected_plan']['amounts_cents'][0]===15000,'Monthly alternative replaces the single payment before checkout');
+$service->choose($ledger->practice($id),'B',str_repeat('a',64),true);service_check($service->view($ledger->practice($id))['selected_plan']['amounts_cents'][0]===28500,'Two-payment alternative uses the exact first amount');
+$service->choose($ledger->practice($id),'C',str_repeat('a',64),true);service_check($ledger->details($id)['plan_key']==='C','Accepted replacement updates its acknowledgement atomically');
+$service->checkout($ledger->practice($id));service_check($order['amount_cents']===54000,'exact contract price sent to Store');service_check(!$service->view($ledger->practice($id))['can_change_plan'],'Opening checkout locks the formula');service_reject(fn()=>$service->choose($ledger->practice($id),'A',str_repeat('a',64),true),'An opened checkout cannot be reassigned to another formula');
 $owner=['id'=>1,'role'=>'admin','email'=>'owner@example.invalid'];$today=(new DateTimeImmutable('now',new DateTimeZone('Europe/Rome')))->format('Y-m-d');
 service_reject(fn()=>$ledger->approve($id,$owner,$owner['email'],$today),'pending checkout does not permit approval');
 $status='confirmed';$badEmail=true;service_reject(fn()=>$service->refreshPayments($id),'foreign receipt cannot activate');service_check($ledger->practice($id)['first_payment_date']===null,'foreign receipt leaves anchor unset');

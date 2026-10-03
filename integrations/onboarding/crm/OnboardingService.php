@@ -17,11 +17,12 @@ final class OnboardingService
         if($p['state']==='identity_matched'&&$p['snapshot']['group_code']==='TRB'&&count($plans)===1&&reset($plans)['kind']==='free')$p=$this->ledger->choosePlan($p['id'],(string)array_key_first($plans));
         $files=[];foreach($this->ledger->files($p['id']) as $slot=>$file)$files[$slot]=['name'=>$file['name']??$slot,'uploaded'=>true];
         $displayPlans=[];foreach($plans as $key=>$plan)$displayPlans[$key]=$plan+OnboardingContractCatalog::planPresentation($plan);
+        $selectedKey=null;foreach($plans as $key=>$candidate)if($candidate===$p['selected_plan']){$selectedKey=(string)$key;break;}
         $selected=$p['selected_plan'];if($selected)$selected+=OnboardingContractCatalog::planPresentation($selected);
         $signature=$this->ledger->signature($p['id']);$signatureEmail=null;
         // A reservation or an uncertain provider response is not an email receipt.
         if($signature&&$signature['state']==='dispatched'&&preg_match('/^[0-9]+$/D',(string)$signature['dossier_id']))$signatureEmail=['sender'=>'OTP service <please-do-not-reply@otpservice.io>','subject'=>'Il documento '.$signature['dossier_id'].' da firmare per TRB rec di Andrea Tognassi - Music Publishing'];
-        return ['identity_verification'=>$this->ledger->identityVerification($p['id']),'signature_email'=>$signatureEmail,'automatic_signature'=>$this->ledger->automaticSignatureOwner($p['id'])!==null,'id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'nominal_cents'=>(int)($p['snapshot']['nominal_cents']??0),'plans'=>$displayPlans,'selected_plan'=>$selected,'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
+        return ['identity_verification'=>$this->ledger->identityVerification($p['id']),'signature_email'=>$signatureEmail,'automatic_signature'=>$this->ledger->automaticSignatureOwner($p['id'])!==null,'id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'nominal_cents'=>(int)($p['snapshot']['nominal_cents']??0),'plans'=>$displayPlans,'selected_plan'=>$selected,'selected_plan_key'=>$selectedKey,'can_change_plan'=>$this->ledger->canChangePlan($p),'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
     }
     public function upload(array $p,string $slot,array $fileInfo=[]): array
     {
@@ -84,14 +85,21 @@ final class OnboardingService
     }
     public function choose(array $p,string $planKey,string $proposalSha,bool $read): array
     {
-        if(!$read||!hash_equals($p['snapshot']['unsigned_document_sha256'],$proposalSha))throw new \RuntimeException('Leggi e conferma la proposta contrattuale aggiornata');
-        if($p['selected_plan'])return $this->view($this->ledger->choosePlan($p['id'],$planKey));
-        $details=$this->ledger->details($p['id']);if(empty($details['billing'])||empty($details['privacy_acknowledged_at']))throw new \RuntimeException('Completa prima i dati amministrativi');
-        $details['proposal_read_at']=gmdate('c');$details['proposal_read_sha256']=$proposalSha;$details['plan_key']=$planKey;$this->ledger->saveDetails($p['id'],$details);
-        return $this->view($this->ledger->choosePlan($p['id'],$planKey));
+        return $this->ledger->paymentOperation($p['id'],function()use($p,$planKey,$proposalSha,$read){
+            $p=$this->ledger->practice($p['id']);
+            if(!$read||!hash_equals($p['snapshot']['unsigned_document_sha256'],$proposalSha))throw new \RuntimeException('Leggi e conferma la proposta contrattuale aggiornata');
+            $details=$this->ledger->details($p['id']);if(empty($details['billing'])||empty($details['privacy_acknowledged_at']))throw new \RuntimeException('Completa prima i dati amministrativi');
+            $ack=['proposal_read_at'=>gmdate('c'),'proposal_read_sha256'=>$proposalSha,'plan_key'=>$planKey];
+            return $this->view($this->ledger->choosePlan($p['id'],$planKey,$ack));
+        });
     }
-    public function checkout(array $p): array
+    public function checkout(array $p,?string $expectedPlanKey=null): array
     {
+        return $this->ledger->paymentOperation($p['id'],fn()=>$this->checkoutLocked($this->ledger->practice($p['id']),$expectedPlanKey));
+    }
+    private function checkoutLocked(array $p,?string $expectedPlanKey): array
+    {
+        if($expectedPlanKey!==null&&(($p['snapshot']['plans'][$expectedPlanKey]??null)!==$p['selected_plan']))throw new \RuntimeException('La formula è stata aggiornata. Aggiorna questa pagina prima di effettuare il versamento.');
         if(!$p['selected_plan']||$p['cancelled_at']||$p['selected_plan']['kind']==='free')throw new \RuntimeException('Versamento non previsto');
         // Verify every known attempt before asking the circuit for another payment.
         $this->refreshPayments($p['id']);$p=$this->ledger->practice($p['id']);$gate=$this->ledger->access($p['id'],$this->today());if(($gate['reason']??'')==='payment_review')throw new \RuntimeException('Versamento da verificare: contatta TRB rec prima di un nuovo tentativo');
@@ -102,6 +110,7 @@ final class OnboardingService
         // No early request for future service periods or unsolicited early installments.
         if(isset($due['due_date'])&&$due['due_date']>$this->today())return ['paid'=>true,'next_due_date'=>$due['due_date'],'practice'=>$this->view($p)];
         $details=$this->ledger->details($p['id']);$payload=['action'=>'store_order','practice_id'=>$p['id'],'number'=>(int)$due['number'],'amount_cents'=>(int)$due['amount_cents']-(int)$due['confirmed_cents'],'installment_total_cents'=>(int)$due['amount_cents'],'currency'=>'EUR','snapshot_sha256'=>hash('sha256',json_encode($p['snapshot'],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)),'email'=>$p['email'],'billing'=>$details['billing'],'tax_code'=>$details['tax_code'],'invoice'=>$details['invoice']??[]];
+        $this->ledger->recordEvent($p['id'],'checkout_started',['number'=>(int)$due['number'],'amount_cents'=>$payload['amount_cents']]);
         $order=($this->portal)($payload);if(!is_int($order['order_id']??null)||$order['order_id']<1)throw new \RuntimeException('Ordine non confermato');
         $this->ledger->rememberOrder($p['id'],(int)$due['number'],$order['order_id']);
         $url=$order['checkout_url']??'';if($url!==''&&(parse_url($url,PHP_URL_SCHEME)!=='https'||parse_url($url,PHP_URL_HOST)!=='store.trbrec.com'))throw new \RuntimeException('Collegamento pagamento non valido');
