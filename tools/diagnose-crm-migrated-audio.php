@@ -26,7 +26,7 @@ $ch=curl_init($url);$head=[];curl_setopt_array($ch,$options+[CURLOPT_RANGE=>'0-1
 $raw=curl_exec($ch);$r['range_checks'][]=['asset_id'=>(int)$a['asset_id'],'status'=>(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE),'bytes'=>is_string($raw)?strlen($raw):0,'prefix'=>is_string($raw)?bin2hex(substr($raw,0,10)):null,'headers'=>$head,'curl_error'=>curl_errno($ch)];curl_close($ch);
 }
 $stage='all-associations';
-$all=$db->query("SELECT m.*,a.submission_id current_submission,a.pcloud_path current_path,a.filename current_filename,a.content_sha256 current_sha,a.byte_size current_size,a.source_url, s.received_at current_received,l.file_url legacy_source,l.metadata legacy_metadata FROM pcloud_material_associations m LEFT JOIN assets a ON a.id=m.asset_id LEFT JOIN submissions s ON s.id=a.submission_id LEFT JOIN legacy_demo_archive l ON l.id=m.legacy_id")->fetchAll(PDO::FETCH_ASSOC);
+$all=$db->query("SELECT m.*,a.submission_id current_submission,a.pcloud_path current_path,a.filename current_filename,a.content_sha256 current_sha,a.byte_size current_size,a.source_url, s.received_at current_received,l.demo_upload legacy_source,l.raw_payload legacy_metadata FROM pcloud_material_associations m LEFT JOIN assets a ON a.id=m.asset_id LEFT JOIN submissions s ON s.id=a.submission_id LEFT JOIN legacy_demo_archive l ON l.id=m.legacy_id")->fetchAll(PDO::FETCH_ASSOC);
 $r['counts']=['total'=>count($all)];$r['mismatches']=[];
 foreach($all as $a){
 if($a['asset_id']!==null){
