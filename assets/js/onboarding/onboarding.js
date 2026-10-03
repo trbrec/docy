@@ -86,7 +86,8 @@
     list.replaceChildren();for(const [key,plan] of entries){
       const label=document.createElement('label');label.className='plan';const radio=document.createElement('input');radio.type='radio';radio.name='plan_key';radio.value=key;radio.required=true;radio.checked=key===localPlan;
       const title=document.createElement('span');title.className='plan-title';title.textContent=planHeading(plan);label.append(radio,title);
-      const total=document.createElement('p');total.className='plan-total';total.textContent=plan.kind==='recurring'?`${money(plan.amounts_cents[0])} al mese`:`${money(plan.total_cents)} in totale`;label.append(total);
+      const current=document.createElement('p');current.className='plan-current';current.textContent=`${money(plan.amounts_cents[0])} da versare ora`;label.append(current);
+      const total=document.createElement('p');total.className='plan-total';total.textContent=plan.kind==='recurring'?`Quota mensile: ${money(plan.amounts_cents[0])}, IVA inclusa.`:`Totale contrattuale: ${money(plan.total_cents)}, IVA inclusa.`;label.append(total);
       const description=document.createElement('p');description.className='muted';description.textContent=plan.kind==='recurring'?'Quota mensile prevista dal contratto. Ogni versamento copre il relativo periodo mensile.':savingText(plan,base);label.append(description);
       const amounts=document.createElement('p');amounts.className='plan-payments';amounts.textContent=plan.kind==='recurring'?'IVA inclusa.':paymentText(plan)+' IVA inclusa.';label.append(amounts);list.append(label);
     }
