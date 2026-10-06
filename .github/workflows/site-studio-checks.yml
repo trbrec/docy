@@ -1,0 +1,27 @@
+name: TRB Site Studio checks
+on:
+  push:
+    branches: [codex/site-studio-deploy-20261006]
+  pull_request:
+    paths:
+      - 'integrations/site-studio/**'
+      - 'tools/deploy-site-studio.php'
+      - '.github/workflows/site-studio-checks.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate syntax and script
+        run: |
+          find integrations/site-studio -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l tools/deploy-site-studio.php
+          node --check integrations/site-studio/trb-site-studio/editor.js
+      - name: Test against WordPress sanitizer
+        run: |
+          curl --fail --silent --show-error --location https://wordpress.org/latest.tar.gz -o /tmp/trb-wp-test.tar.gz
+          mkdir -p /tmp/trb-wp-test
+          tar -xzf /tmp/trb-wp-test.tar.gz -C /tmp/trb-wp-test
+          TRB_WP_TEST_ROOT=/tmp/trb-wp-test/wordpress php integrations/site-studio/test-studio.php
