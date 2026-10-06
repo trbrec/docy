@@ -8,7 +8,7 @@ function editor_permission($request){
 /** Only literal HTML blocks; dynamic forms, scripts and native blocks are untouched. */
 function editable_items($raw){
  $items=[];
- preg_match_all('~<!-- wp:html -->((?:(?!<!-- /wp:html -->).)*)<!-- /wp:html -->~s',$raw,$blocks);
+ preg_match_all('~<!-- wp:html -->(.*?)<!-- /wp:html -->~s',$raw,$blocks);
  foreach($blocks[1] as $block){
   $safe=preg_replace('~<(script|style)\b[^>]*>.*?</\1>~is','',$block);
   preg_match_all('~<(h[1-6]|p|a|li|span)\b([^>]*)>(.*?)</\1>~is',$safe,$matches,PREG_SET_ORDER);

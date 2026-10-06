@@ -34,6 +34,8 @@ require __DIR__.'/trb-site-studio/portal.php';
 require __DIR__.'/trb-site-studio/directory.php';
 eval('namespace TRB\\Studio; function destination_site(){return true;} function admin_permission(){return \\current_user_can("manage_options");}');
 $count=0;function check($v,$message){global $count;if(!$v){fwrite(STDERR,"FAIL: $message\n");exit(1);}++$count;echo "PASS: $message\n";}
+$long = '<!-- wp:html --><style>'.str_repeat('.card{margin:0}',6000).'</style><h1>Long page</h1><p>Editable text</p><!-- /wp:html -->';
+check(count(TRB\Studio\editable_items($long))===2,'Large real-world HTML blocks remain editable without PCRE stack exhaustion');
 $raw='<!-- wp:html --><style>p{color:red}</style><script>var x="<p>hidden</p>";</script><h1 class="title">Musica &amp; persone</h1><p id="bio">La nostra <strong>storia</strong>.</p><p>[fluentform id="7"]</p><!-- /wp:html --><!-- wp:paragraph --><p>Native</p><!-- /wp:paragraph -->';
 $items=TRB\Studio\editable_items($raw);check(count($items)===2,'Manifest excludes scripts, shortcodes and native blocks');$keys=array_keys($items);
 $new=TRB\Studio\editor_apply($raw,[['key'=>$keys[1],'html'=>'L’artista <strong>nuovo</strong><img src=x onerror=alert(1)><a href="javascript:alert(1)">link</a>']]);

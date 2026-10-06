@@ -32,10 +32,29 @@ if (!class_exists('DOMDocument')) throw new RuntimeException('PHP DOM extension 
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 $slug = 'trb-site-studio/trb-site-studio.php';
 $already = is_plugin_active($slug);
+$upgraded = false;
+$oldHashes = json_decode('{"directory.css":"4d7a75ccb0553499ccf21145a1bd641c3cf571ba7157fbbff69957cd2f1ca196","directory.php":"4f0f34d72620f3b089fdadf5c2f907a46d01220b1042517c31d89b7c980348f3","trb-site-studio.php":"5498d8a73cf2cfe97c4995b1f071e03e00f71dc27e2baea1650bbf3943d7528c","editor.js":"ebd85e50d29967c45c29eb57fcb21e415fa3e87f38ad82ef0fa8ac51e28f6557","portal.php":"82b501a1b3e767eb6718bc621e58b43b65e104891b78e09efe66afa5b073d1c7","editor.php":"234f93e35fd159ae2b7b385f634c2582cf2422a9339cc4410e17c91451327c69","editor.css":"42fce36927ce3b88cbf213c0049f3574a87888d8fe427d83a2ee9bc65ad40cec","readme.txt":"5a88b415e8758c8da5dc23df2377691d493fcfbdb592e714cf917cf6a3b5bf09"}', true);
 $stage = 'copy';
 if (is_dir($destination)) {
+    $same = true;
     foreach ($files as $file) {
-        if (!is_file($destination . '/' . $file) || !hash_equals(hash_file('sha256', $source . '/' . $file), hash_file('sha256', $destination . '/' . $file))) throw new RuntimeException('existing plugin differs; no overwrite performed');
+        if (!is_file($destination . '/' . $file) || !hash_equals(hash_file('sha256', $source . '/' . $file), hash_file('sha256', $destination . '/' . $file))) $same = false;
+    }
+    if (!$same) {
+        if (($argv[3] ?? '') === '--verify') throw new RuntimeException('verification file mismatch');
+        foreach ($files as $file) if (!is_file($destination . '/' . $file) || !hash_equals($oldHashes[$file], hash_file('sha256', $destination . '/' . $file))) throw new RuntimeException('existing plugin differs from approved original; no overwrite performed');
+        $private = dirname($root) . '/private';
+        if (!is_dir($private) && !mkdir($private,0700,true)) throw new RuntimeException('backup directory');
+        $backup = $private . '/trb-studio-before-' . $revision;
+        if (file_exists($backup)) throw new RuntimeException('backup already exists');
+        $temp = $root . '/wp-content/plugins/.trb-studio-' . $revision;
+        if (file_exists($temp) || !mkdir($temp,0755)) throw new RuntimeException('upgrade staging');
+        foreach ($files as $file) { if (!copy($source . '/' . $file, $temp . '/' . $file)) throw new RuntimeException('upgrade copy'); chmod($temp . '/' . $file,0644); }
+        if (!rename($destination,$backup)) throw new RuntimeException('backup move');
+        chmod($backup,0700);
+        if (!rename($temp,$destination)) { chmod($backup,0755); rename($backup,$destination); throw new RuntimeException('upgrade install'); }
+        if(function_exists('opcache_invalidate'))foreach($files as $file)if(str_ends_with($file,'.php'))opcache_invalidate($destination.'/'.$file,true);
+        $upgraded = true;
     }
 } else {
     $temp = $root . '/wp-content/plugins/.trb-studio-' . $revision;
@@ -47,6 +66,13 @@ if (is_dir($destination)) {
     }
     if (!rename($temp, $destination)) throw new RuntimeException('atomic installation failed');
 }
+if ($upgraded) {
+    $stage = 'verification';
+    passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' ' . escapeshellarg($revision) . ' ' . escapeshellarg($site) . ' --verify', $status);
+    if ($status !== 0) { rename($destination, $private . '/trb-studio-failed-' . $revision); chmod($backup,0755); rename($backup,$destination); throw new RuntimeException('upgrade verification failed and previous files restored'); }
+    $stage = 'complete';
+    exit(0);
+}
 $stage = 'activation';
 if (!$already) {
     $result = activate_plugin($slug, '', false, true);
@@ -55,7 +81,7 @@ if (!$already) {
 if (!is_plugin_active($slug)) throw new RuntimeException('plugin activation unconfirmed');
 $stage = 'load-plugin';
 if (!function_exists('TRB\\Studio\\editor_apply')) require_once $destination . '/trb-site-studio.php';
-if (\TRB\Studio\VERSION !== '0.1.0') throw new RuntimeException('version check');
+if (\TRB\Studio\VERSION !== '0.1.1') throw new RuntimeException('version check');
 $stage = 'verification';
 if ($site === 'new1.trbrec.com') {
     $id = wp_insert_post(['post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'TRB Studio verifica installazione', 'post_content' => '<!-- wp:html --><p>Verifica editor</p><!-- /wp:html -->'], true);
