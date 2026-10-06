@@ -1,5 +1,7 @@
 <?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 define('ABSPATH',__DIR__.'/');
+define('WPINC', 'wp-includes');
 function add_action(...$a){} function add_filter(...$a){} function add_shortcode(...$a){}
 function apply_filters($name,$value,...$args){return $value;}
 function wp_allowed_protocols(){return ['http','https','mailto'];}
@@ -23,6 +25,7 @@ function current_user_can($cap,...$args){return $GLOBALS['allowed']??false;}
 function wp_verify_nonce($n,$action){return $n==='valid';}
 $wpTestRoot = getenv('TRB_WP_TEST_ROOT');
 if (!$wpTestRoot || !is_file($wpTestRoot.'/wp-includes/kses.php')) throw new RuntimeException('WordPress test core missing');
+require_once $wpTestRoot.'/wp-includes/compat.php';
 require_once $wpTestRoot.'/wp-includes/html-api/class-wp-html-tag-processor.php';
 foreach(glob($wpTestRoot.'/wp-includes/html-api/class-wp-html-*.php') as $dependency)require_once $dependency;
 require $wpTestRoot.'/wp-includes/kses.php';
