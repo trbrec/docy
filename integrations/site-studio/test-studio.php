@@ -31,6 +31,7 @@ foreach(glob($wpTestRoot.'/wp-includes/html-api/class-wp-html-*.php') as $depend
 require $wpTestRoot.'/wp-includes/kses.php';
 require __DIR__.'/trb-site-studio/editor.php';
 require __DIR__.'/trb-site-studio/portal.php';
+require __DIR__.'/trb-site-studio/bundle.php';
 require __DIR__.'/trb-site-studio/directory.php';
 eval('namespace TRB\\Studio; function destination_site(){return true;} function admin_permission(){return \\current_user_can("manage_options");}');
 $count=0;function check($v,$message){global $count;if(!$v){fwrite(STDERR,"FAIL: $message\n");exit(1);}++$count;echo "PASS: $message\n";}
@@ -50,7 +51,7 @@ check(is_wp_error(TRB\Studio\editor_apply($raw,[['key'=>$keys[0]],['key'=>$keys[
 check(count(TRB\Studio\editable_items('<!-- wp:html --><p>Same</p><p>Same</p><!-- /wp:html -->'))===0,'Ambiguous source elements are excluded');
 $users=[1=>(object)['ID'=>1,'profile'=>'trb','approval'=>'approved','qa'=>false,'meta'=>[]],2=>(object)['ID'=>2,'profile'=>'ddb','approval'=>'approved','meta'=>[]],3=>(object)['ID'=>3,'profile'=>'trb','approval'=>'pending','meta'=>[]],4=>(object)['ID'=>4,'profile'=>'trb','approval'=>'approved','qa'=>true,'meta'=>[]]];
 check(TRB\Studio\portal_artist_allowed($users[1]),'Approved TRB artist included');check(!TRB\Studio\portal_artist_allowed($users[2]),'DDB excluded');check(!TRB\Studio\portal_artist_allowed($users[3]),'Pending signup excluded');check(!TRB\Studio\portal_artist_allowed($users[4]),'QA account excluded');
-$posts=[10=>(object)['ID'=>10,'post_author'=>1,'post_type'=>'trb_release','post_status'=>'private','post_content'=>$raw,'meta'=>['_trb_release_intake_phase'=>'complete','_trb_crm_workflow_status'=>'ready','_trb_release_pipeline_status'=>'approved']]];
+$posts=[10=>(object)['ID'=>10,'post_author'=>1,'post_type'=>'trb_release','post_status'=>'private','post_content'=>$raw,'meta'=>['_trb_contract_state'=>'signed','_trb_release_intake_phase'=>'complete','_trb_crm_workflow_status'=>'ready','_trb_release_pipeline_status'=>'approved']]];
 $options=['trb_studio_distribution_states'=>['distributed']];
 check(!TRB\Studio\portal_release_allowed($posts[10]),'Technical approval and commercial ready do not publish');$posts[10]->meta['_trb_crm_workflow_status']='distributed';check(TRB\Studio\portal_release_allowed($posts[10]),'Only configured distribution state publishes');$posts[10]->meta['inactive']=true;check(!TRB\Studio\portal_release_allowed($posts[10]),'Cancelled release excluded');unset($posts[10]->meta['inactive']);
 check(TRB\Studio\valid_date('2028-02-29')&&!TRB\Studio\valid_date('2026-02-29'),'Calendar dates validated including leap years');
@@ -60,4 +61,24 @@ check(!TRB\Studio\editor_permission(['id'=>10]),'Anonymous edits rejected');
 $allowed=true;$posts[10]->post_type='page';check(TRB\Studio\editor_permission(['id'=>10]),'Authorized page editing allowed');$posts[10]->post_type='trb_release';check(!TRB\Studio\editor_permission(['id'=>10]),'Managed catalog records cannot be overwritten by visual editor');
 class Request implements ArrayAccess{function __construct(public $data,public $nonce){}function get_header($name){return $this->nonce;}function get_json_params(){return $this->data;}function offsetGet($k):mixed{return 10;}function offsetExists($k):bool{return true;}function offsetSet($k,$v):void{}function offsetUnset($k):void{}}
 check(TRB\Studio\editor_save(new Request([],'bad'))->get_error_code()==='nonce_invalid','Invalid nonce rejected');check(TRB\Studio\editor_save(new Request(['version'=>'stale'],'valid'))->get_error_code()==='edit_conflict','Concurrent version conflict rejected before write');
+
+check(TRB\Studio\valid_upc('888608943932')==='888608943932'&&TRB\Studio\valid_upc('888608943933')==='','UPC check digits protect exact catalog associations');
+$options['trb_studio_distribution_states']=['processed'];$posts[10]->post_type='trb_release';
+$posts[10]->meta['_trb_crm_workflow_status']='processed';unset($posts[10]->meta['_trb_release_intake_phase']);
+check(TRB\Studio\portal_release_allowed($posts[10]),'Signed CRM-processed legacy releases do not require a newer intake marker');
+$posts[10]->meta['_trb_contract_state']='contract_sent';check(!TRB\Studio\portal_release_allowed($posts[10]),'Commercial processing without a signed contract cannot publish');
+check(TRB\Studio\rtf_text('{\rtf1\ansi{\fonttbl{\f0 Hidden;}}La musica \u232? qui.\par Seconda riga.}')==="La musica è qui.\nSeconda riga.",'RTF biography extracts Unicode and paragraphs and removes private metadata groups');
+$root=TRB\Studio\bundle_root();@mkdir($root,0700,true);$gen='generation-'.str_repeat('a',32);@mkdir($root.'/'.$gen,0700);
+$s=['schema'=>1,'source'=>'artist.trbrec.com','complete'=>true,'generated_at'=>gmdate('c'),'artists'=>[],'releases'=>[]];
+file_put_contents($root.'/'.$gen.'/snapshot.json',json_encode($s));
+file_put_contents($root.'/current.json',json_encode(['generation'=>$gen,'sha256'=>hash_file('sha256',$root.'/'.$gen.'/snapshot.json')]));
+check(TRB\Studio\bundle_read('snapshot')===$s,'Private bundle reads only the hash-verified generation');
+file_put_contents($root.'/'.$gen.'/snapshot.json','{}');check(is_wp_error(TRB\Studio\bundle_read('snapshot')),'A corrupt bundle preserves the previous public generation');
+$s['generated_at']=gmdate('c',time()-10801);file_put_contents($root.'/'.$gen.'/snapshot.json',json_encode($s));
+file_put_contents($root.'/current.json',json_encode(['generation'=>$gen,'sha256'=>hash_file('sha256',$root.'/'.$gen.'/snapshot.json')]));
+check(TRB\Studio\bundle_read('snapshot')->get_error_code()==='bundle_stale','Expired export cannot republish old commercial approval');
+file_put_contents($root.'/current.json',json_encode(['generation'=>'../elsewhere','sha256'=>'']));
+check(is_wp_error(TRB\Studio\bundle_read('snapshot')),'Bundle pointer cannot escape the dedicated private directory');
+unlink($root.'/current.json');unlink($root.'/'.$gen.'/snapshot.json');rmdir($root.'/'.$gen);rmdir($root);@rmdir(dirname($root));
+
 echo "TOTAL: $count passed\n";

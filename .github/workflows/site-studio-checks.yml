@@ -1,11 +1,12 @@
 name: TRB Site Studio checks
 on:
   push:
-    branches: [codex/site-studio-deploy-20261006]
+    branches: [codex/studio-directory-sync-20261006]
   pull_request:
     paths:
       - 'integrations/site-studio/**'
       - 'tools/deploy-site-studio.php'
+      - 'tools/sync-site-studio.php'
       - '.github/workflows/site-studio-checks.yml'
 permissions:
   contents: read
@@ -18,6 +19,7 @@ jobs:
         run: |
           find integrations/site-studio -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l tools/deploy-site-studio.php
+          php -l tools/sync-site-studio.php
           node --check integrations/site-studio/trb-site-studio/editor.js
       - name: Test against WordPress sanitizer
         run: |

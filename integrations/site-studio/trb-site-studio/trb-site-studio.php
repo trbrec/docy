@@ -2,14 +2,15 @@
 /**
  * Plugin Name: TRB Site Studio
  * Description: Editor visuale amministratore e directory pubblica collegata al Portale Artisti.
- * Version: 0.1.1
+ * Version: 0.1.2
  * Requires PHP: 8.1
  */
 namespace TRB\Studio;
 if (!defined('ABSPATH')) exit;
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 require_once __DIR__.'/editor.php';
 require_once __DIR__.'/portal.php';
+require_once __DIR__.'/bundle.php';
 require_once __DIR__.'/directory.php';
 function source_site() { return strtolower((string)wp_parse_url(home_url(), PHP_URL_HOST)) === 'artist.trbrec.com'; }
 function destination_site() { return strtolower((string)wp_parse_url(home_url(), PHP_URL_HOST)) === 'new1.trbrec.com'; }
@@ -35,7 +36,7 @@ function settings_page(){
  if(isset($_POST['trb_studio_save'])){
   check_admin_referer('trb_studio_settings');
   if(destination_site()){
-   update_option('trb_studio_user',sanitize_text_field(wp_unslash($_POST['portal_user']??'')),false);
+   if(get_option('trb_studio_transport')!=='private-bundle')update_option('trb_studio_user',sanitize_text_field(wp_unslash($_POST['portal_user']??'')),false);
    if(!empty($_POST['portal_password'])) update_option('trb_studio_password',trim(wp_unslash($_POST['portal_password'])),false);
    update_option('trb_studio_enabled',!empty($_POST['enabled']),false);
    if(empty($_POST['enabled'])) wp_clear_scheduled_hook('trb_studio_sync');
@@ -53,7 +54,8 @@ function settings_page(){
  if(source_site()){
   echo '<p>Esporta esclusivamente profili TRB approvati e materiali artistici. Account di prova e documenti amministrativi sono esclusi.</p><p><label>Stati CRM che attestano la distribuzione approvata<br><input class="regular-text" name="states" value="'.esc_attr(implode(',',get_option('trb_studio_distribution_states',[]))).'"></label></p><p>Valori separati da virgole del campo <code>_trb_crm_workflow_status</code>. Da verificare sul portale live: lasciare vuoto fino alla verifica. Lo stato tecnico “approved” non è una decisione di distribuzione.</p>';
  }else{
-  echo '<p>Il collegamento legge esclusivamente gli endpoint filtrati di artist.trbrec.com. Le credenziali restano sul server.</p><p><label>Utente del portale<br><input autocomplete="username" name="portal_user" value="'.esc_attr(get_option('trb_studio_user','')).'"></label></p><p><label>Password applicativa del portale<br><input type="password" autocomplete="new-password" name="portal_password" value=""></label> Lascia vuoto per conservarla.</p><p><label><input type="checkbox" name="enabled" value="1" '.checked(get_option('trb_studio_enabled'),true,false).'> Aggiorna automaticamente ogni 15 minuti</label></p><p>WordPress Cron dipende dalle visite; per intervalli regolari utilizzare il cron dell’hosting.</p>';
+  if(get_option('trb_studio_transport')==='private-bundle')echo '<p>Collegamento server attivo: i profili approvati e le release elaborate vengono aggiornati automaticamente. Puoi eseguire qui una sincronizzazione manuale.</p><p><label><input type="checkbox" name="enabled" value="1" '.checked(get_option('trb_studio_enabled'),true,false).'> Aggiorna automaticamente ogni 15 minuti</label></p><p>Il trasferimento server è programmato ogni 15 minuti; eventuali ritardi del servizio di pianificazione compaiono nell’ultimo esito.</p>';
+  else echo '<p>Il collegamento legge esclusivamente gli endpoint filtrati di artist.trbrec.com. Le credenziali restano sul server.</p><p><label>Utente del portale<br><input autocomplete="username" name="portal_user" value="'.esc_attr(get_option('trb_studio_user','')).'"></label></p><p><label>Password applicativa del portale<br><input type="password" autocomplete="new-password" name="portal_password" value=""></label> Lascia vuoto per conservarla.</p><p><label><input type="checkbox" name="enabled" value="1" '.checked(get_option('trb_studio_enabled'),true,false).'> Aggiorna automaticamente ogni 15 minuti</label></p><p>WordPress Cron dipende dalle visite; per intervalli regolari utilizzare il cron dell’hosting.</p>';
   echo '<p>Ultimo esito: '.esc_html(wp_json_encode(get_option('trb_studio_last_sync',[]),JSON_UNESCAPED_UNICODE)).'</p>';
  }
  submit_button('Salva impostazioni','primary','trb_studio_save');
