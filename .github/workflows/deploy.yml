@@ -111,6 +111,11 @@ jobs:
 
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/record-ssh-deployment.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           echo "WordPress deployment safety net aligned with the verified SSH revision."
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/inspect-site-studio\.php$' >/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/inspect-site-studio.php' '${GITHUB_SHA}' source" >/dev/null 2>&1
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/inspect-site-studio.php' '${GITHUB_SHA}' destination" >/dev/null 2>&1
+            echo "TRB Studio read-only portal inspection saved privately."
+          fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/deploy-site-studio\.php$' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/deploy-site-studio.php' '${GITHUB_SHA}' new1.trbrec.com" >/dev/null 2>&1
             echo "TRB Studio new1 installed; live editor checks passed."
