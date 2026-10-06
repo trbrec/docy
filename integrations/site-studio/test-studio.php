@@ -91,4 +91,11 @@ $posts[10]->meta['_trb_release_tracks']=[['title'=>'Brano','isrc'=>'ITV242600003
 $catalog=TRB\Studio\catalogue_payload($posts[10],'Artista','2026-11-01','888608943932');
 check($catalog['tracks'][0]['isrc']==='ITV242600003'&&!str_contains(json_encode($catalog),'PRIVATE'),'Catalog payload exports public track metadata and excludes rights and administrative fields');
 
+
+$options['trb_promo_takedowns']=['888608943932'];
+$public=TRB\Studio\public_releases([['upc'=>'888608943932'],['upc'=>'824296527887'],['upc'=>'']]);
+check(count($public)===2&&!in_array('888608943932',array_column($public,'upc'),true),'An approved portal release cannot override the authoritative catalog takedown manifest');
+$options['trb_studio_directory']=['generated_at'=>gmdate('c'),'artists'=>[['id'=>1]],'releases'=>[['upc'=>'888608943932']]];
+check(count(TRB\Studio\directory_data()['artists'])===1&&TRB\Studio\directory_data()['releases']===[],'Takedowns apply immediately while artist profiles remain available');
+
 echo "TOTAL: $count passed\n";

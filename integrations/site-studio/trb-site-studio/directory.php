@@ -44,6 +44,8 @@ function sync_directory(){
  try{
   $snapshot=portal_get('snapshot');if(is_wp_error($snapshot))return sync_failed($snapshot);
   if(!validate_snapshot($snapshot))return sync_failed(new \WP_Error('snapshot_invalid','Importazione sospesa: dati incompleti o incoerenti.'));
+  $before=count($snapshot['releases']);$snapshot['releases']=public_releases($snapshot['releases']);
+  if(count($snapshot['releases'])!==$before)$snapshot['warnings'][]='Release escluse dal manifesto rimozioni: '.($before-count($snapshot['releases']));
   $old=get_option('trb_studio_directory',[]);$cache=get_option('trb_studio_images',[]);
   foreach($snapshot['artists'] as &$a){$image=import_image($a['photo']??null,$a['name'],$cache);if(is_wp_error($image))return sync_failed($image);$a['image_id']=$image['id']??0;if($image){$cache[$image['key']]=$image['id'];update_option('trb_studio_images',$cache,false);}unset($a['photo']);}unset($a);
   foreach($snapshot['releases'] as &$r){$image=import_image($r['cover']??null,$r['title'],$cache);if(is_wp_error($image))return sync_failed($image);$r['image_id']=$image['id']??0;if($image){$cache[$image['key']]=$image['id'];update_option('trb_studio_images',$cache,false);}unset($r['cover']);}unset($r);
@@ -90,8 +92,13 @@ function sync_directory(){
 }
 function sync_failed($e){update_option('trb_studio_last_sync',['ok'=>false,'at'=>gmdate('c'),'code'=>$e->get_error_code(),'message'=>$e->get_error_message()],false);return $e;}
 function public_image($id,$label){return $id?wp_get_attachment_image($id,'large',false,['alt'=>$label,'loading'=>'lazy','class'=>'trb-directory-image']):'<div class="trb-directory-image trb-directory-monogram" aria-hidden="true">'.esc_html(function_exists('mb_substr')?mb_substr($label,0,1):substr($label,0,1)).'</div>';}
+function public_releases($releases){
+ $removed=(array)get_option('trb_promo_takedowns',[]);
+ return array_values(array_filter($releases,fn($r)=>!in_array($r['upc']??'',$removed,true)));
+}
 function directory_data(){
  $d=get_option('trb_studio_directory',['artists'=>[],'releases'=>[]]);
+ $d['releases']=public_releases($d['releases']);
  $at=strtotime($d['generated_at']??'');if(!$at||time()-$at>10800)$d['releases']=[];
  return $d;
 }

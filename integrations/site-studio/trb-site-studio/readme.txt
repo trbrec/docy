@@ -1,3 +1,7 @@
+TRB Site Studio 0.1.4
+
+The existing catalog takedown manifest is authoritative across directory, Coming soon and import. A removed UPC is excluded before asset import and cannot block unrelated artist-profile updates. Public reads also enforce the manifest immediately.
+
 TRB Site Studio 0.1.3
 
 Legacy roster: existing WordPress public display names are used only when the contractual artist field is empty; email addresses are excluded. No biography or image is invented. Official profiles map the immutable catalog artist key with exact name agreement.
