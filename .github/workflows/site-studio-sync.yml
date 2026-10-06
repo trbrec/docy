@@ -1,7 +1,10 @@
 name: TRB public directory synchronization
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/site-studio-sync.yml']
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
