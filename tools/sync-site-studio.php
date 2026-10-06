@@ -27,7 +27,7 @@ if($mode==='transfer'){
 define('WP_USE_THEMES',false);
 if($mode==='export'){
  require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
- if(!\TRB\Studio\source_site()||\TRB\Studio\VERSION!=='0.1.2')exit(8);
+ if(!\TRB\Studio\source_site()||\TRB\Studio\VERSION!=='0.1.3')exit(8);
  // Observed commercial state: processed is the owner-completed CRM release.
  // A signed contract and non-inactive release are independently required by the adapter.
  update_option('trb_studio_distribution_states',['processed'],false);
@@ -79,7 +79,7 @@ if($mode==='export'){
 }
 if(in_array($mode,['import','report'],true)){
  require '/home/customer/www/new1.trbrec.com/public_html/wp-load.php';
- if(!\TRB\Studio\destination_site()||\TRB\Studio\VERSION!=='0.1.2')exit(11);
+ if(!\TRB\Studio\destination_site()||\TRB\Studio\VERSION!=='0.1.3')exit(11);
  $d=json_decode((string)file_get_contents($report),true);
  update_option('trb_studio_transfer_report',is_array($d)?$d:['ok'=>false,'code'=>'report_invalid'],false);
  if($mode==='report')exit;

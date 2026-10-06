@@ -1,3 +1,11 @@
+TRB Site Studio 0.1.3
+
+Legacy roster: existing WordPress public display names are used only when the contractual artist field is empty; email addresses are excluded. No biography or image is invented. Official profiles map the immutable catalog artist key with exact name agreement.
+
+Catalog synchronization uses the original TRB_Promo_Ecosystem public import API, preserving its UPC, takedown, label, tracklist and curated-asset checks. Public payloads exclude rights references and private credit fields. Only catalog posts created by this adapter can be paused automatically when approval is withdrawn. Existing historical catalog posts remain owned by the original importer. Future-release links appear when their catalog post is public.
+
+Public artist profiles, release covers and presentations are supplied through the original renderer filters. Discography includes existing catalog releases through verified artist keys and removes duplicate UPCs.
+
 TRB Site Studio 0.1.2
 
 Server transport: CLI export/import over the established SiteGround SSH deployment. No new WordPress user, application password or public authorization route is created. A private immutable bundle contains only approved TRB roster, artistic biographies and derived JPEGs. No contracts, contact records, original documents or audio are exported. Source eligibility requires account approval, excludes QA, and publishes only non-inactive CRM processed releases with signed contracts. Legacy processed releases may have no newer intake marker. Commercial ready or technical approved alone cannot publish.

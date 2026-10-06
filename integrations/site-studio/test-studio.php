@@ -81,4 +81,14 @@ file_put_contents($root.'/current.json',json_encode(['generation'=>'../elsewhere
 check(is_wp_error(TRB\Studio\bundle_read('snapshot')),'Bundle pointer cannot escape the dedicated private directory');
 unlink($root.'/current.json');unlink($root.'/'.$gen.'/snapshot.json');rmdir($root.'/'.$gen);rmdir($root);@rmdir(dirname($root));
 
+
+$users[5]=(object)['ID'=>5,'display_name'=>'Nome pubblico','meta'=>[]];
+check(TRB\Studio\portal_artist_name($users[5])==='Nome pubblico','Legacy TRB account uses its existing WordPress public name');
+$users[5]->display_name='private@example.test';check(TRB\Studio\portal_artist_name($users[5])==='','An email address cannot become an artist public name');
+$users[5]->meta['_trb_artist_artist_name']='Nome d’arte';check(TRB\Studio\portal_artist_name($users[5])==='Nome d’arte','Contractual artist name takes precedence over a legacy display name');
+$posts[10]->post_title='Release';
+$posts[10]->meta['_trb_release_tracks']=[['title'=>'Brano','isrc'=>'ITV242600003','primary_genre'=>'Pop','duration'=>'03:12','rights_reference'=>'PRIVATE','credits'=>['writers'=>[['tax_code'=>'PRIVATE','share'=>100]]]]];
+$catalog=TRB\Studio\catalogue_payload($posts[10],'Artista','2026-11-01','888608943932');
+check($catalog['tracks'][0]['isrc']==='ITV242600003'&&!str_contains(json_encode($catalog),'PRIVATE'),'Catalog payload exports public track metadata and excludes rights and administrative fields');
+
 echo "TOTAL: $count passed\n";
