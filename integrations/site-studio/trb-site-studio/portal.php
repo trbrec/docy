@@ -23,6 +23,24 @@ function portal_release_allowed($p){
  $states=get_option('trb_studio_distribution_states',[]);
  return $states && in_array((string)get_post_meta($p->ID,'_trb_crm_workflow_status',true),$states,true);
 }
+function portal_artist_name($user){
+ $name=trim((string)get_user_meta($user->ID,'_trb_artist_artist_name',true));
+ if($name!=='')return $name;
+ // WordPress's designated public display name is the only legacy fallback.
+ $name=trim((string)($user->display_name??''));
+ return $name!==''&&!str_contains($name,'@')?$name:'';
+}
+function catalogue_payload($p,$artist,$date,$upc){
+ if(!$upc)return null;$tracks=[];
+ foreach((array)get_post_meta($p->ID,'_trb_release_tracks',true) as $i=>$t){
+  if(!is_array($t)||!preg_match('/^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$/D',(string)($t['isrc']??''))||empty($t['title']))return null;
+  $tracks[]=['number'=>count($tracks)+1,'isrc'=>$t['isrc'],'title'=>$t['title'],'version'=>(string)($t['version']??''),'primary_artist'=>$artist,'featuring'=>(string)($t['featuring']??''),'remixers'=>'','duration'=>(string)($t['duration']??''),'genre'=>(string)($t['primary_genre']??''),'subgenre'=>(string)($t['secondary_genre']??'')];
+ }
+ if(!$tracks)return null;
+ $key=class_exists('Normalizer')?\Normalizer::normalize($artist,\Normalizer::FORM_C):$artist;
+ $key=preg_replace('/\s+/u',' ',trim($key));$key=function_exists('mb_strtolower')?mb_strtolower($key,'UTF-8'):strtolower($key);
+ return ['upc'=>$upc,'title'=>$p->post_title,'version'=>'','artist'=>$artist,'artist_key'=>$key,'date'=>$date,'label'=>'TRB rec – Music Publishing','catalog_number'=>'','genre'=>$tracks[0]['genre'],'subgenre'=>$tracks[0]['subgenre'],'tracks'=>$tracks];
+}
 function material($kind,$id,$type){
  $files=$kind==='artist'?get_user_meta($id,'_trb_artist_private_files',true):get_post_meta($id,'_trb_release_files',true);
  $files=is_array($files)?$files:[];
@@ -99,12 +117,15 @@ function portal_snapshot(){
  $artists=[];$ids=[];$warnings=[];
  foreach($users as $user){
   if(!portal_artist_allowed($user))continue;
-  $name=trim((string)get_user_meta($user->ID,'_trb_artist_artist_name',true));if(!$name){$warnings[]='Nome artista mancante: '.$user->ID;continue;}
+  $name=portal_artist_name($user);if(!$name){$warnings[]='Nome artista mancante: '.$user->ID;continue;}
   $biofile=material('artist',$user->ID,'biography');$bio=$biofile?material_text($biofile):(string)get_user_meta($user->ID,'_trb_artist_bio',true);
   if(is_wp_error($bio))return $bio;
   if(str_starts_with($bio,'Biografia allegata:'))$bio='';
+  if(!$bio&&!$biofile)$bio=(string)get_user_meta($user->ID,'description',true);
   $links=[];foreach(['spotify'=>'Spotify','apple_music'=>'Apple Music','youtube'=>'YouTube','soundcloud'=>'SoundCloud','instagram'=>'Instagram','facebook'=>'Facebook','tiktok'=>'TikTok','threads'=>'Threads','x'=>'X','twitch'=>'Twitch','linkedin'=>'LinkedIn','discord'=>'Discord','snapchat'=>'Snapchat'] as $key=>$label){$url=esc_url_raw(get_user_meta($user->ID,'_trb_artist_'.$key.'_url',true),['https']);if($url)$links[]=['label'=>$label,'url'=>$url];}
-  $artists[]=['id'=>(int)$user->ID,'name'=>$name,'bio'=>$bio,'links'=>$links,'photo'=>asset_reference('artist',$user->ID,material('artist',$user->ID,'photo'))];$ids[]=(int)$user->ID;
+  $official=trim((string)get_user_meta($user->ID,'_trb_artist_artist_name',true));
+  $website=esc_url_raw((string)($user->user_url??''),['https']);if($website)$links[]=['label'=>'Sito ufficiale','url'=>$website];
+  $artists[]=['id'=>(int)$user->ID,'name_source'=>$official?'artist_profile':'wordpress_public_name','name'=>$name,'bio'=>$bio,'links'=>$links,'photo'=>asset_reference('artist',$user->ID,material('artist',$user->ID,'photo'))];$ids[]=(int)$user->ID;
  }
  $releases=[];
  if($ids){
@@ -115,7 +136,9 @@ function portal_snapshot(){
    $date=(string)get_post_meta($p->ID,'_trb_release_date',true);if(!$date)$date=(string)get_post_meta($p->ID,'_trb_release_original_date',true);
    if(!valid_date($date)){$warnings[]='Data non valida: '.$p->ID;continue;}
    $presentation=material_text(material('release',$p->ID,'presentation'));if(is_wp_error($presentation))return $presentation;
-   $releases[]=['id'=>(int)$p->ID,'artist_id'=>(int)$p->post_author,'title'=>$p->post_title,'date'=>$date,'presentation'=>$presentation,'upc'=>valid_upc((string)get_post_meta($p->ID,'_trb_release_upc',true)),'cover'=>asset_reference('release',$p->ID,material('release',$p->ID,'cover'))];
+   $upc=valid_upc((string)get_post_meta($p->ID,'_trb_release_upc',true));$artist=portal_artist_name(get_userdata($p->post_author));$catalog=catalogue_payload($p,$artist,$date,$upc);
+   if(!$catalog)$warnings[]='Metadati catalogo incompleti: '.$p->ID;
+   $releases[]=['catalog'=>$catalog,'id'=>(int)$p->ID,'artist_id'=>(int)$p->post_author,'title'=>$p->post_title,'date'=>$date,'presentation'=>$presentation,'upc'=>valid_upc((string)get_post_meta($p->ID,'_trb_release_upc',true)),'cover'=>asset_reference('release',$p->ID,material('release',$p->ID,'cover'))];
   }
  }
  $payload=['schema'=>1,'source'=>'artist.trbrec.com','generated_at'=>gmdate('c'),'artists'=>$artists,'releases'=>$releases,'warnings'=>$warnings,'complete'=>true];
