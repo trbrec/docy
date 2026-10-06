@@ -2,12 +2,16 @@
 /** CLI-only installer. Uses existing SSH deployment; never prints credentials or artist data. */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 ini_set('display_errors', '0');
+$stage = 'initial';
 set_exception_handler(static function ($e) { fwrite(STDERR, "TRB Studio installation failed: " . $e->getMessage() . "\n"); exit(1); });
 $revision = $argv[1] ?? '';
 $site = $argv[2] ?? '';
 if (!preg_match('/^[a-f0-9]{40}$/D', $revision) || trim((string) @file_get_contents(dirname(__DIR__) . '/.trb-deployed-sha')) !== $revision) throw new RuntimeException('revision guard');
 if (!in_array($site, ['new1.trbrec.com', 'artist.trbrec.com'], true)) throw new RuntimeException('site guard');
 $root = '/home/customer/www/' . $site . '/public_html';
+$marker = dirname(__DIR__) . '/.trb-studio-install-' . $site;
+register_shutdown_function(static function () use (&$stage, $marker) { file_put_contents($marker, $stage); });
+$stage = 'preflight';
 $source = dirname(__DIR__) . '/integrations/site-studio/trb-site-studio';
 $destination = $root . '/wp-content/plugins/trb-site-studio';
 if (!is_file($root . '/wp-load.php') || !is_dir($root . '/wp-content/plugins')) throw new RuntimeException('WordPress path guard');
@@ -20,12 +24,15 @@ foreach ($files as $file) {
     }
 }
 define('WP_USE_THEMES', false);
+$stage = 'bootstrap';
 require $root . '/wp-load.php';
+$stage = 'wordpress-guards';
 if (strtolower((string) wp_parse_url(home_url(), PHP_URL_HOST)) !== $site) throw new RuntimeException('WordPress hostname guard');
 if (!class_exists('DOMDocument')) throw new RuntimeException('PHP DOM extension required');
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 $slug = 'trb-site-studio/trb-site-studio.php';
 $already = is_plugin_active($slug);
+$stage = 'copy';
 if (is_dir($destination)) {
     foreach ($files as $file) {
         if (!is_file($destination . '/' . $file) || !hash_equals(hash_file('sha256', $source . '/' . $file), hash_file('sha256', $destination . '/' . $file))) throw new RuntimeException('existing plugin differs; no overwrite performed');
@@ -40,13 +47,16 @@ if (is_dir($destination)) {
     }
     if (!rename($temp, $destination)) throw new RuntimeException('atomic installation failed');
 }
+$stage = 'activation';
 if (!$already) {
     $result = activate_plugin($slug, '', false, true);
     if (is_wp_error($result)) throw new RuntimeException('WordPress activation failed');
 }
 if (!is_plugin_active($slug)) throw new RuntimeException('plugin activation unconfirmed');
+$stage = 'load-plugin';
 if (!function_exists('TRB\\Studio\\editor_apply')) require_once $destination . '/trb-site-studio.php';
 if (\TRB\Studio\VERSION !== '0.1.0') throw new RuntimeException('version check');
+$stage = 'verification';
 if ($site === 'new1.trbrec.com') {
     $id = wp_insert_post(['post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'TRB Studio verifica installazione', 'post_content' => '<!-- wp:html --><p>Verifica editor</p><!-- /wp:html -->'], true);
     if (is_wp_error($id)) throw new RuntimeException('test draft creation');
@@ -71,13 +81,8 @@ if ($site === 'new1.trbrec.com') {
     } finally { wp_set_current_user(0); wp_trash_post($id); }
     echo "New1: editor installed; real WordPress manifest, save, conflict and anonymous rejection verified.\n";
 } else {
-    $states = []; $artists = 0;
-    foreach (get_users(['number' => 1001]) as $user) if (\TRB\Studio\portal_artist_allowed($user)) $artists++;
-    foreach (get_posts(['post_type' => 'trb_release', 'post_status' => ['publish', 'private'], 'posts_per_page' => 2001]) as $release) {
-        $state = (string) get_post_meta($release->ID, '_trb_crm_workflow_status', true);
-        $key = $state === '' ? '(empty)' : sanitize_key($state);
-        $states[$key] = ($states[$key] ?? 0) + 1;
-    }
-    echo 'Portal: plugin installed; eligible artists=' . $artists . '; distribution state counts=' . wp_json_encode($states) . ".\n";
+    echo "Portal: plugin activation and version verified.\n";
 }
 echo 'Automatic sync enabled=' . (get_option('trb_studio_enabled') ? 'yes' : 'no') . ".\n";
+
+$stage = 'complete';
