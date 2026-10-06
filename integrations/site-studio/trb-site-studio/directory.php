@@ -2,6 +2,7 @@
 namespace TRB\Studio;
 if (!defined('ABSPATH')) exit;
 function portal_get($path){
+ if(get_option('trb_studio_transport')==='private-bundle')return bundle_read($path);
  $user=get_option('trb_studio_user');$password=get_option('trb_studio_password');
  if(!$user||!$password)return new \WP_Error('connection_required','Collegamento al portale non configurato.');
  $r=wp_safe_remote_get('https://artist.trbrec.com/wp-json/trb-studio/v1/'.$path,['timeout'=>45,'redirection'=>0,'limit_response_size'=>20*1024*1024,'headers'=>['Authorization'=>'Basic '.base64_encode($user.':'.$password),'Accept'=>'application/json']]);
@@ -12,9 +13,11 @@ function portal_get($path){
 }
 function validate_snapshot($s){
  if(!is_array($s)||($s['schema']??0)!==1||($s['source']??'')!=='artist.trbrec.com'||($s['complete']??false)!==true||!isset($s['artists'],$s['releases'])||!is_array($s['artists'])||!is_array($s['releases']))return false;
- $ids=[];$release_ids=[];
+ $ids=[];$release_ids=[];$upcs=[];
  foreach($s['artists'] as $a){if(!is_int($a['id']??null)||$a['id']<1||isset($ids[$a['id']])||!is_string($a['name']??null)||!trim($a['name'])||!is_string($a['bio']??null)||!is_array($a['links']??null))return false;$ids[$a['id']]=true;}
- foreach($s['releases'] as $r){if(!is_int($r['id']??null)||$r['id']<1||isset($release_ids[$r['id']])||!isset($ids[$r['artist_id']??0])||!is_string($r['title']??null)||!trim($r['title'])||!valid_date($r['date']??'')||!is_string($r['presentation']??null))return false;$release_ids[$r['id']]=true;}
+ foreach($s['releases'] as $r){if(!is_int($r['id']??null)||$r['id']<1||isset($release_ids[$r['id']])||!isset($ids[$r['artist_id']??0])||!is_string($r['title']??null)||!trim($r['title'])||!valid_date($r['date']??'')||!is_string($r['presentation']??null))return false;$release_ids[$r['id']]=true;
+  if(!empty($r['upc'])){if(valid_upc($r['upc'])!==$r['upc']||isset($upcs[$r['upc']]))return false;$upcs[$r['upc']]=true;}
+ }
  return true;
 }
 function import_image($ref,$label,$cache){
@@ -44,6 +47,14 @@ function sync_directory(){
   $old=get_option('trb_studio_directory',[]);$cache=get_option('trb_studio_images',[]);
   foreach($snapshot['artists'] as &$a){$image=import_image($a['photo']??null,$a['name'],$cache);if(is_wp_error($image))return sync_failed($image);$a['image_id']=$image['id']??0;if($image){$cache[$image['key']]=$image['id'];update_option('trb_studio_images',$cache,false);}unset($a['photo']);}unset($a);
   foreach($snapshot['releases'] as &$r){$image=import_image($r['cover']??null,$r['title'],$cache);if(is_wp_error($image))return sync_failed($image);$r['image_id']=$image['id']??0;if($image){$cache[$image['key']]=$image['id'];update_option('trb_studio_images',$cache,false);}unset($r['cover']);}unset($r);
+  foreach($snapshot['releases'] as &$r){
+   $r['catalog_id']=0;$r['links']=[];
+   if(empty($r['upc']))continue;
+   $matches=get_posts(['post_type'=>'trb_release','post_status'=>'publish','posts_per_page'=>2,'fields'=>'ids','meta_key'=>'_trb_promo_upc','meta_value'=>$r['upc']]);
+   if(count($matches)!==1){if(count($matches)>1)$snapshot['warnings'][]='UPC ambiguo: '.$r['upc'];continue;}
+   $r['catalog_id']=(int)$matches[0];$url=get_permalink($r['catalog_id']);$slug=get_post_field('post_name',$r['catalog_id']);
+   $r['links']=[['label'=>'Scheda release','url'=>$url],['label'=>'Smartlink','url'=>home_url('/smartlink/'.$slug.'/')],['label'=>'Press kit','url'=>trailingslashit($url).'press-kit/']];
+  }unset($r);
   // Publish the entire validated generation in one option update. Failed batches preserve the prior directory.
   update_option('trb_studio_directory_previous',$old,false);update_option('trb_studio_directory',$snapshot,false);
   update_option('trb_studio_last_sync',['ok'=>true,'at'=>gmdate('c'),'artists'=>count($snapshot['artists']),'releases'=>count($snapshot['releases']),'warnings'=>$snapshot['warnings']??[]],false);
@@ -52,12 +63,22 @@ function sync_directory(){
 }
 function sync_failed($e){update_option('trb_studio_last_sync',['ok'=>false,'at'=>gmdate('c'),'code'=>$e->get_error_code(),'message'=>$e->get_error_message()],false);return $e;}
 function public_image($id,$label){return $id?wp_get_attachment_image($id,'large',false,['alt'=>$label,'loading'=>'lazy','class'=>'trb-directory-image']):'<div class="trb-directory-image trb-directory-monogram" aria-hidden="true">'.esc_html(function_exists('mb_substr')?mb_substr($label,0,1):substr($label,0,1)).'</div>';}
-function directory_data(){return get_option('trb_studio_directory',['artists'=>[],'releases'=>[]]);}
+function directory_data(){
+ $d=get_option('trb_studio_directory',['artists'=>[],'releases'=>[]]);
+ $at=strtotime($d['generated_at']??'');if(!$at||time()-$at>10800)$d['releases']=[];
+ return $d;
+}
+function release_links($r){
+ $out='<nav class="trb-artist-links" aria-label="Materiali della release">';
+ foreach($r['links']??[] as $link){$url=esc_url($link['url'],['https']);if($url)$out.='<a href="'.$url.'">'.esc_html($link['label']).'</a>';}
+ return $out.'</nav>';
+}
+
 function plain_paragraphs($text){return wpautop(esc_html($text));}
 function release_card($r,$artists,$prefix='trb-release-'){
  $date=\DateTimeImmutable::createFromFormat('!Y-m-d',$r['date'],new \DateTimeZone('Europe/Rome'));
  $future=$r['date']>(new \DateTimeImmutable('now',new \DateTimeZone('Europe/Rome')))->format('Y-m-d');
- return '<article class="trb-release-profile" id="'.esc_attr($prefix).(int)$r['id'].'">'.public_image($r['image_id'],$r['title']).'<div><p class="trb-directory-kicker">'.($future?'In uscita':'Pubblicazione').' · <time datetime="'.esc_attr($r['date']).'">'.esc_html($date->format('d/m/Y')).'</time></p><h3>'.esc_html($r['title']).'</h3><p>'.esc_html($artists[$r['artist_id']]['name']??'').'</p>'.plain_paragraphs($r['presentation']).'</div></article>';
+ return '<article class="trb-release-profile" id="'.esc_attr($prefix).(int)$r['id'].'">'.public_image($r['image_id'],$r['title']).'<div><p class="trb-directory-kicker">'.($future?'In uscita':'Pubblicazione').' · <time datetime="'.esc_attr($r['date']).'">'.esc_html($date->format('d/m/Y')).'</time></p><h3>'.esc_html($r['title']).'</h3><p>'.esc_html($artists[$r['artist_id']]['name']??'').'</p>'.plain_paragraphs($r['presentation']).release_links($r).'</div></article>';
 }
 function roster(){
  $d=directory_data();$artists=$d['artists'];usort($artists,fn($a,$b)=>strnatcasecmp($a['name'],$b['name']));
@@ -79,3 +100,13 @@ function coming_soon(){
 }
 add_shortcode('trb_public_roster',__NAMESPACE__.'\\roster');add_shortcode('trb_public_coming_soon',__NAMESPACE__.'\\coming_soon');
 add_action('wp_enqueue_scripts',function(){if(destination_site())wp_enqueue_style('trb-directory',plugins_url('directory.css',__FILE__),[],VERSION);});
+
+/** Add validated portal presentations to the existing catalog renderer. */
+add_filter('the_content',function($content){
+ if(!destination_site()||!is_singular('trb_release')||!in_the_loop()||!is_main_query())return $content;
+ $id=get_the_ID();$d=directory_data();
+ foreach($d['releases'] as $r)if(($r['catalog_id']??0)===$id&&trim($r['presentation'])!==''){
+  return $content.'<section class="trb-directory trb-release-presentation"><h2>La storia della release</h2>'.plain_paragraphs($r['presentation']).'</section>';
+ }
+ return $content;
+},30);

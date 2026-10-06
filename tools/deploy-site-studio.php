@@ -15,7 +15,7 @@ $stage = 'preflight';
 $source = dirname(__DIR__) . '/integrations/site-studio/trb-site-studio';
 $destination = $root . '/wp-content/plugins/trb-site-studio';
 if (!is_file($root . '/wp-load.php') || !is_dir($root . '/wp-content/plugins')) throw new RuntimeException('WordPress path guard');
-$files = ['trb-site-studio.php', 'editor.php', 'portal.php', 'directory.php', 'editor.js', 'editor.css', 'directory.css', 'readme.txt'];
+$files = ['trb-site-studio.php', 'editor.php', 'portal.php', 'directory.php', 'editor.js', 'editor.css', 'directory.css', 'readme.txt', 'bundle.php'];
 foreach ($files as $file) {
     if (!is_file($source . '/' . $file)) throw new RuntimeException('source package incomplete');
     if (str_ends_with($file, '.php')) {
@@ -34,6 +34,7 @@ $slug = 'trb-site-studio/trb-site-studio.php';
 $already = is_plugin_active($slug);
 $upgraded = false;
 $oldHashes = json_decode('{"directory.css":"4d7a75ccb0553499ccf21145a1bd641c3cf571ba7157fbbff69957cd2f1ca196","directory.php":"4f0f34d72620f3b089fdadf5c2f907a46d01220b1042517c31d89b7c980348f3","trb-site-studio.php":"5498d8a73cf2cfe97c4995b1f071e03e00f71dc27e2baea1650bbf3943d7528c","editor.js":"ebd85e50d29967c45c29eb57fcb21e415fa3e87f38ad82ef0fa8ac51e28f6557","portal.php":"82b501a1b3e767eb6718bc621e58b43b65e104891b78e09efe66afa5b073d1c7","editor.php":"234f93e35fd159ae2b7b385f634c2582cf2422a9339cc4410e17c91451327c69","editor.css":"42fce36927ce3b88cbf213c0049f3574a87888d8fe427d83a2ee9bc65ad40cec","readme.txt":"5a88b415e8758c8da5dc23df2377691d493fcfbdb592e714cf917cf6a3b5bf09"}', true);
+$approvedPackages = [$oldHashes, json_decode('{"trb-site-studio.php":"fe8c5eda806989b5321700b63025d934dd0f02be0866297bac8404b8ba271f74","editor.php":"b0868610e332cb422bd1ec130522faf6b891983bc57a5531ba2bbf367cfa966d","portal.php":"82b501a1b3e767eb6718bc621e58b43b65e104891b78e09efe66afa5b073d1c7","directory.php":"4f0f34d72620f3b089fdadf5c2f907a46d01220b1042517c31d89b7c980348f3","editor.js":"ebd85e50d29967c45c29eb57fcb21e415fa3e87f38ad82ef0fa8ac51e28f6557","editor.css":"42fce36927ce3b88cbf213c0049f3574a87888d8fe427d83a2ee9bc65ad40cec","directory.css":"4d7a75ccb0553499ccf21145a1bd641c3cf571ba7157fbbff69957cd2f1ca196","readme.txt":"5a88b415e8758c8da5dc23df2377691d493fcfbdb592e714cf917cf6a3b5bf09"}', true)];
 $stage = 'copy';
 if (is_dir($destination)) {
     $same = true;
@@ -42,7 +43,14 @@ if (is_dir($destination)) {
     }
     if (!$same) {
         if (($argv[3] ?? '') === '--verify') throw new RuntimeException('verification file mismatch');
-        foreach ($files as $file) if (!is_file($destination . '/' . $file) || !hash_equals($oldHashes[$file], hash_file('sha256', $destination . '/' . $file))) throw new RuntimeException('existing plugin differs from approved original; no overwrite performed');
+        $known = false;
+        foreach ($approvedPackages as $package) {
+            $match = true;
+            foreach ($package as $file => $hash) if (!is_file($destination . '/' . $file) || !hash_equals($hash, hash_file('sha256', $destination . '/' . $file))) $match = false;
+            foreach ($files as $file) if (!isset($package[$file]) && file_exists($destination . '/' . $file)) $match = false;
+            if ($match) $known = true;
+        }
+        if (!$known) throw new RuntimeException('existing plugin differs from an approved package; no overwrite performed');
         $private = dirname($root) . '/private';
         if (!is_dir($private) && !mkdir($private,0700,true)) throw new RuntimeException('backup directory');
         $backup = $private . '/trb-studio-before-' . $revision;
@@ -81,7 +89,7 @@ if (!$already) {
 if (!is_plugin_active($slug)) throw new RuntimeException('plugin activation unconfirmed');
 $stage = 'load-plugin';
 if (!function_exists('TRB\\Studio\\editor_apply')) require_once $destination . '/trb-site-studio.php';
-if (\TRB\Studio\VERSION !== '0.1.1') throw new RuntimeException('version check');
+if (\TRB\Studio\VERSION !== '0.1.2') throw new RuntimeException('version check');
 $stage = 'verification';
 if ($site === 'new1.trbrec.com') {
     $id = wp_insert_post(['post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'TRB Studio verifica installazione', 'post_content' => '<!-- wp:html --><p>Verifica editor</p><!-- /wp:html -->'], true);

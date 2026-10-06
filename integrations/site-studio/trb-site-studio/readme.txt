@@ -1,3 +1,11 @@
+TRB Site Studio 0.1.2
+
+Server transport: CLI export/import over the established SiteGround SSH deployment. No new WordPress user, application password or public authorization route is created. A private immutable bundle contains only approved TRB roster, artistic biographies and derived JPEGs. No contracts, contact records, original documents or audio are exported. Source eligibility requires account approval, excludes QA, and publishes only non-inactive CRM processed releases with signed contracts. Legacy processed releases may have no newer intake marker. Commercial ready or technical approved alone cannot publish.
+
+Automatic exporter runs every 15 minutes (GitHub scheduling may be delayed). WordPress imports the current bundle every 15 minutes and supports manual import in Settings > TRB Site Studio. Failed transfers retain the previous complete generation; release cards are hidden after three hours without refreshed approval.
+
+Historical association uses a valid unique UPC equal to _trb_promo_upc on exactly one published release. No name matching. Linked records retain the existing release, smartlink and press-kit routes. Artist biographies and presentations support TXT, DOCX, ODT and RTF. Image hashes bind derivatives to the verified generation.
+
 TRB Site Studio — 0.1.0, candidata al collaudo
 Data: 6 ottobre 2026
 
