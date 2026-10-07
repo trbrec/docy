@@ -41,7 +41,7 @@ if($mode==='source'){
  $d['artist_materials']=[];
  foreach(get_users(['number'=>1001,'orderby'=>'ID']) as $u){
   if(!\TRB\Studio\portal_artist_allowed($u))continue;
-  $row=['id'=>(int)$u->ID,'public_name'=>\TRB\Studio\portal_artist_name($u),'artistic_keys'=>[],'files'=>['photo'=>0,'biography'=>0],'readable'=>['photo'=>false,'biography'=>false]];
+  $row=['id'=>(int)$u->ID,'public_name'=>\TRB\Studio\portal_artist_name($u),'email'=>$u->user_email,'missing'=>array_values(array_map(fn($r)=>['key'=>$r['key'],'label'=>$r['label'],'group'=>$r['group']],trb_portal_artist_profile_completion($u->ID)['missing'])),'artistic_keys'=>[],'files'=>['photo'=>0,'biography'=>0],'readable'=>['photo'=>false,'biography'=>false]];
   foreach(get_user_meta($u->ID) as $key=>$values){
    if(preg_match('/bio|photo|avatar|picture|image|spotify|soundcloud|youtube|instagram|website|social|artist.*name/i',$key))$row['artistic_keys'][$key]=count(array_filter((array)$values,fn($v)=>$v!==''&&$v!==null));
   }
@@ -74,31 +74,46 @@ if($mode==='source'){
   };
   $root=$list('/Discografia - TRB rec');$d['promo_archive']['code']=$root['code'];
   foreach($root['entries'] as $entry)if($entry['directory'])$d['promo_archive']['folders'][]=$entry['name'];
-  if($root['code']==='ok')foreach($d['artist_materials'] as $row){
-   $name=$row['public_name'];$segment=trb_artist_promo_folder_segment($name);
-   // Case-only folder variants preserve the exact public identity; no alias is imported.
-   $matches=array_values(array_filter($d['promo_archive']['folders'],fn($f)=>strcasecmp($f,$segment)===0));
-   if(count($matches)!==1)continue;$segment=$matches[0];
-   $artistPath='/Discografia - TRB rec/'.$segment;$base=$artistPath.'/PROMO';
-   $artistRoot=$list($artistPath);
-   $rowReport=['artist_root'=>$artistRoot,'promo'=>$list($base),'photos'=>$list($base.'/FOTO UFFICIALI'),'legacy'=>[]];
-   // Legacy promotional files may be stored with a release or in #Media.
-   if(!$row['readable']['photo']||!$row['readable']['biography'])foreach(array_slice($artistRoot['entries'],0,18) as $entry){
-    if(!$entry['directory']||$entry['name']==='PROMO')continue;
-    $child=$list($artistPath.'/'.$entry['name']);
-    $rowReport['legacy'][$entry['name']]=$child;
-    foreach($child['entries'] as $sub)if($sub['directory']&&preg_match('/^(#?media|promo|foto|photos?|biograf|press)/i',$sub['name']))$rowReport['legacy'][$entry['name'].'/'.$sub['name']]=$list($artistPath.'/'.$entry['name'].'/'.$sub['name']);
+  $d['archive_inventory']=[];$d['archive_texts']=[];$d['archive_pdfs']=[];
+  $started=microtime(true);$requests=0;$texts=0;
+  $walk=function($path,$depth=0)use(&$walk,$list,&$d,&$requests,&$texts,$started){
+   if($requests>=450||microtime(true)-$started>420){$d['archive_scan_limited']=true;return;}
+   ++$requests;$listing=$list($path);$d['archive_inventory'][$path]=$listing;
+   foreach($listing['entries'] as $e){
+    $next=$path.'/'.$e['name'];
+    if($e['directory']){
+     if($depth<3&&preg_match('/media|promo|foto|photos?|biograf|press|social.?media|kit/i',$e['name']))$walk($next,$depth+1);
+     continue;
+    }
+    if($texts>=30||$e['bytes']>5*1024*1024||!preg_match('/biograf|biography|(^|[\s_-])bio[\s_.-]|press|profilo artista|edmondo|simona/i',$e['name']))continue;
+    $ext=strtolower(pathinfo($e['name'],PATHINFO_EXTENSION));
+    if(!in_array($ext,['txt','docx','odt','rtf','pdf'],true))continue;
+    $r=trb_demo_webdav_request('GET',$next);
+    if(is_wp_error($r)||wp_remote_retrieve_response_code($r)!==200)continue;
+    $bytes=wp_remote_retrieve_body($r);if(strlen($bytes)>5*1024*1024)continue;++$texts;
+    if($ext==='pdf'){
+     if(strlen($bytes)<1200000&&str_starts_with($bytes,'%PDF-'))$d['archive_pdfs'][$next]=base64_encode($bytes);
+     continue;
+    }
+    $tmp=wp_tempnam('trb-archive-review');file_put_contents($tmp,$bytes);
+    $text=\TRB\Studio\material_text(['path'=>$tmp,'name'=>$e['name']]);unlink($tmp);
+    if(is_wp_error($text))continue;
+    if(preg_match('/^Profilo artista\.txt$/i',$e['name'])){
+     if(preg_match('/BIOGRAFIA\s*\R([\s\S]*?)\RPROFILI MUSICALI UFFICIALI/u',$text,$match))$text=trim($match[1]);else $text='';
+    }
+    if($text!=='')$d['archive_texts'][$next]=$text;
    }
-   $d['promo_archive']['materials'][$row['id']]=$rowReport;
+  };
+  if($root['code']==='ok')foreach($d['promo_archive']['folders'] as $folder)$walk('/Discografia - TRB rec/'.$folder);
+  // Inspect release directories only for the incomplete artists and documented historical aliases.
+  $legacy=['Carmine Granato','Emiliano Di Meo','Alberto Puviani','Diiego','Fabio Anastasi','FaDe - Alessio de Fanzoni','FaDe - Alessio The Fanzoni','Solidoro','Anabasi Road'];
+  foreach($legacy as $folder){
+   $path='/Discografia - TRB rec/'.$folder;
+   foreach(($d['archive_inventory'][$path]['entries']??[]) as $e){
+    if($e['directory']&&!preg_match('/media|promo|foto|photos?|biograf|press|social.?media|kit/i',$e['name']))$walk($path.'/'.$e['name'],1);
+   }
   }
- }
-
-
- // Inspect one explicitly identified historical release PDF privately; never publish it.
- $candidate=trb_demo_webdav_request('GET','/Discografia - TRB rec/Carmine Granato/Non me lo dirai/Non me lo dirai.pdf');
- if(!is_wp_error($candidate)&&wp_remote_retrieve_response_code($candidate)===200){
-  $bytes=wp_remote_retrieve_body($candidate);
-  if(strlen($bytes)<=100000&&str_starts_with($bytes,'%PDF-'))$d['candidate_pdf']=['filename'=>'Carmine-Granato-Non-me-lo-dirai.pdf','base64'=>base64_encode($bytes)];
+  $d['archive_requests']=$requests;$d['archive_scan_seconds']=round(microtime(true)-$started);
  }
 
  if(!is_dir($private)&&!mkdir($private,0700,true))exit(3);
@@ -108,7 +123,11 @@ if($mode==='destination'){
  define('WP_USE_THEMES',false);require '/home/customer/www/new1.trbrec.com/public_html/wp-load.php';
  $d=json_decode((string)file_get_contents($report),true);
  if(!is_array($d)||($d['revision']??'')!==$revision)exit(4);
- if(isset($d['candidate_pdf'])){update_option('wpvibe_task_trb_candidate_pdf',$d['candidate_pdf'],false);unset($d['candidate_pdf']);file_put_contents($report,wp_json_encode($d));chmod($report,0600);}
+ update_option('wpvibe_task_trb_artist_recipients',$d['artist_materials'],false);
+ update_option('wpvibe_task_trb_archive_review',['texts'=>$d['archive_texts'],'pdfs'=>$d['archive_pdfs']],false);
+ unset($d['archive_texts'],$d['archive_pdfs']);
+ foreach($d['artist_materials'] as &$r)unset($r['email']);unset($r);
+ file_put_contents($report,wp_json_encode($d));chmod($report,0600);
  update_option('trb_studio_inspection',$d,false);exit;
 }
 exit(5);

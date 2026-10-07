@@ -34,6 +34,7 @@ jobs:
         shell: bash
         run: |
           php tools/test-release-sheet-data.php
+          php tools/test-artist-admin-name.php
           node tests/release-draft-restore.test.js
           node tests/release-completed-receipt.test.js
           node tests/release-draft-clear.test.js
@@ -111,6 +112,10 @@ jobs:
 
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/record-ssh-deployment.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           echo "WordPress deployment safety net aligned with the verified SSH revision."
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/update-trb-stage-name\.php$' >/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/update-trb-stage-name.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+            echo "Requested duo stage name verified."
+          fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/inspect-site-studio\.php$' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/inspect-site-studio.php' '${GITHUB_SHA}' source" >/dev/null 2>&1
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/inspect-site-studio.php' '${GITHUB_SHA}' destination" >/dev/null 2>&1
@@ -231,4 +236,3 @@ jobs:
             -H "Cache-Control: no-cache" \
             -H "User-Agent: TRB-Daily-Site-Health/1.0" \
             "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s)" >/dev/null
-

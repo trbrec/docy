@@ -1,5 +1,6 @@
 <?php
-/** CLI-only, scoped publication transfer over the existing verified server deployment. */
+/**
+ * Refresh artist deletion and the explicitly corrected duo name after deployment. CLI-only, scoped publication transfer over the existing verified server deployment. */
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 ini_set('display_errors','0');
 $revision=$argv[1]??'';$mode=$argv[2]??'transfer';
