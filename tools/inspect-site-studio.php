@@ -93,6 +93,14 @@ if($mode==='source'){
   }
  }
 
+
+ // Inspect one explicitly identified historical release PDF privately; never publish it.
+ $candidate=trb_demo_webdav_request('GET','/Discografia - TRB rec/Carmine Granato/Non me lo dirai/Non me lo dirai.pdf');
+ if(!is_wp_error($candidate)&&wp_remote_retrieve_response_code($candidate)===200){
+  $bytes=wp_remote_retrieve_body($candidate);
+  if(strlen($bytes)<=100000&&str_starts_with($bytes,'%PDF-'))$d['candidate_pdf']=['filename'=>'Carmine-Granato-Non-me-lo-dirai.pdf','base64'=>base64_encode($bytes)];
+ }
+
  if(!is_dir($private)&&!mkdir($private,0700,true))exit(3);
  file_put_contents($report,wp_json_encode($d));chmod($report,0600);exit;
 }
@@ -100,6 +108,7 @@ if($mode==='destination'){
  define('WP_USE_THEMES',false);require '/home/customer/www/new1.trbrec.com/public_html/wp-load.php';
  $d=json_decode((string)file_get_contents($report),true);
  if(!is_array($d)||($d['revision']??'')!==$revision)exit(4);
+ if(isset($d['candidate_pdf'])){update_option('wpvibe_task_trb_candidate_pdf',$d['candidate_pdf'],false);unset($d['candidate_pdf']);file_put_contents($report,wp_json_encode($d));chmod($report,0600);}
  update_option('trb_studio_inspection',$d,false);exit;
 }
 exit(5);
