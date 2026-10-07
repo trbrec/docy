@@ -16,6 +16,7 @@ const assert=require('assert/strict');
     // Exported public page markup only: keep this layout check completely offline.
     await page.route('http**',r=>r.abort());
     await page.goto('file://'+path.resolve(folder,name),{waitUntil:'load'});
+    await page.evaluate(async()=>{await Promise.all([...document.images].map(i=>i.decode().catch(()=>{})));});
     const data=await page.evaluate(()=>({
      title:document.title,
      h1:document.querySelectorAll('main h1').length,
@@ -42,6 +43,7 @@ const assert=require('assert/strict');
       }
      }
     } catch(e) {failures.push({page:name,width,error:e.message});}
+    await page.evaluate(()=>window.scrollTo(0,0));
     if([390,768,1366].includes(width)) await page.screenshot({path:path.join(out,name.replace('.html','')+'-'+width+'.png'),fullPage:true});
     await page.close();
    }

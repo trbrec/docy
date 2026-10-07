@@ -56,7 +56,14 @@ foreach ($dom->getElementsByTagName('img') as $node) {
   $mime = str_ends_with($file, '.svg') ? 'image/svg+xml' : wp_get_image_mime($file);
   if ($mime) $node->setAttribute('src', 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($file)));
  }
- $node->removeAttribute('srcset'); $node->setAttribute('loading', 'eager');
+ $node->removeAttribute('srcset'); $node->setAttribute('loading', 'eager'); $node->setAttribute('decoding', 'sync');
+}
+// Reflect the default visible link field; Fluent Forms normally reveals it in JavaScript.
+foreach ($dom->getElementsByTagName('textarea') as $field) {
+ if ($field->getAttribute('name') !== 'linkdemo_demo') continue;
+ $group = $field->parentNode;
+ while ($group instanceof DOMElement && !str_contains($group->getAttribute('class'), 'ff-el-group')) $group = $group->parentNode;
+ if ($group instanceof DOMElement) $group->setAttribute('class', trim(str_replace('has-conditions', '', $group->getAttribute('class'))));
 }
 $meta = $dom->createElement('meta'); $meta->setAttribute('name', 'trb-qa-export'); $meta->setAttribute('content', $revision . ' anonymous ' . gmdate('c'));
 $dom->getElementsByTagName('head')->item(0)->appendChild($meta);
