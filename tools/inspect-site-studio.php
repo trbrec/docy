@@ -36,6 +36,47 @@ if($mode==='source'){
    $d['adapter_lines'][]=['file'=>basename($file),'line'=>$i+1,'literals'=>$matches[1]];
   }
  }
+
+ // Inventory only artistic field presence and public archive folder names.
+ $d['artist_materials']=[];
+ foreach(get_users(['number'=>1001,'orderby'=>'ID']) as $u){
+  if(!\TRB\Studio\portal_artist_allowed($u))continue;
+  $row=['id'=>(int)$u->ID,'public_name'=>\TRB\Studio\portal_artist_name($u),'artistic_keys'=>[],'files'=>['photo'=>0,'biography'=>0],'readable'=>['photo'=>false,'biography'=>false]];
+  foreach(get_user_meta($u->ID) as $key=>$values){
+   if(preg_match('/bio|photo|avatar|picture|image|spotify|soundcloud|youtube|instagram|website|social|artist.*name/i',$key))$row['artistic_keys'][$key]=count(array_filter((array)$values,fn($v)=>$v!==''&&$v!==null));
+  }
+  foreach((array)get_user_meta($u->ID,'_trb_artist_private_files',true) as $file)if(is_array($file)&&in_array($file['group']??'',['photo','biography'],true))++$row['files'][$file['group']];
+  foreach(['photo','biography'] as $kind)$row['readable'][$kind]=(bool)\TRB\Studio\material('artist',$u->ID,$kind);
+  $row['archive_status']=sanitize_key((string)(((array)get_user_meta($u->ID,'_trb_artist_promo_archive',true))['status']??''));
+  $d['artist_materials'][]=$row;
+ }
+ $d['promo_archive']=['code'=>'module_missing','folders'=>[],'materials'=>[]];
+ if(function_exists('trb_demo_webdav_request')){
+  // Read only /Discografia - TRB rec and designated PROMO directories, never identity or audio folders.
+  $list=function($path){
+   $r=trb_demo_webdav_request('PROPFIND',$path,'<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:resourcetype/><d:getcontentlength/></d:prop></d:propfind>',['Depth'=>'1','Content-Type'=>'application/xml']);
+   if(is_wp_error($r))return ['code'=>sanitize_key($r->get_error_code()),'entries'=>[]];
+   $status=wp_remote_retrieve_response_code($r);$body=wp_remote_retrieve_body($r);
+   if($status!==207||strlen($body)>3*1024*1024||stripos($body,'<!DOCTYPE')!==false)return ['code'=>'http_'.$status,'entries'=>[]];
+   $doc=new DOMDocument();if(!@$doc->loadXML($body,LIBXML_NONET))return ['code'=>'invalid_xml','entries'=>[]];
+   $xp=new DOMXPath($doc);$xp->registerNamespace('d','DAV:');$entries=[];
+   foreach($xp->query('//d:response') as $node){
+    $href=rawurldecode((string)$xp->evaluate('string(d:href)',$node));$name=basename(rtrim($href,'/'));
+    if($name===basename(rtrim($path,'/')))continue;
+    $entries[]=['name'=>sanitize_text_field($name),'directory'=>$xp->query('.//d:resourcetype/d:collection',$node)->length>0,'bytes'=>(int)$xp->evaluate('string(.//d:getcontentlength)',$node)];
+   }
+   return ['code'=>'ok','entries'=>array_slice($entries,0,250)];
+  };
+  $root=$list('/Discografia - TRB rec');$d['promo_archive']['code']=$root['code'];
+  foreach($root['entries'] as $entry)if($entry['directory'])$d['promo_archive']['folders'][]=$entry['name'];
+  if($root['code']==='ok')foreach($d['artist_materials'] as $row){
+   $name=$row['public_name'];$segment=trb_artist_promo_folder_segment($name);
+   if(!in_array($segment,$d['promo_archive']['folders'],true))continue;
+   $base='/Discografia - TRB rec/'.$segment.'/PROMO';
+   $d['promo_archive']['materials'][$row['id']]=['promo'=>$list($base),'photos'=>$list($base.'/FOTO UFFICIALI')];
+  }
+ }
+
  if(!is_dir($private)&&!mkdir($private,0700,true))exit(3);
  file_put_contents($report,wp_json_encode($d));chmod($report,0600);exit;
 }
