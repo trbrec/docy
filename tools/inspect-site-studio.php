@@ -68,7 +68,7 @@ if($mode==='source'){
    foreach($xp->query('//d:response') as $node){
     $href=rawurldecode((string)$xp->evaluate('string(d:href)',$node));$name=basename(rtrim($href,'/'));
     if($name===basename(rtrim($path,'/')))continue;
-    $entries[]=['name'=>sanitize_text_field($name),'directory'=>$xp->query('.//d:resourcetype/d:collection',$node)->length>0,'bytes'=>(int)$xp->evaluate('string(.//d:getcontentlength)',$node)];
+    $entries[]=['name'=>$name,'directory'=>$xp->query('.//d:resourcetype/d:collection',$node)->length>0,'bytes'=>(int)$xp->evaluate('string(.//d:getcontentlength)',$node)];
    }
    return ['code'=>'ok','entries'=>array_slice($entries,0,250)];
   };
@@ -129,15 +129,14 @@ if($mode==='source'){
    }
   }
   // Inspect release directories only for the incomplete artists and documented historical aliases.
-  $legacy=['URBANIA','Solidoro','FaDe - Alessio de Fanzoni'];
+  $legacy=[];
   foreach($legacy as $folder){
    $path='/Discografia - TRB rec/'.$folder;
    foreach(($d['archive_inventory'][$path]['entries']??[]) as $e){
     if($e['directory'])$walk($path.'/'.$e['name'],1);
    }
   }
-  $preview('/Discografia - TRB rec/FaDe - Alessio de Fanzoni/01. Materiale aggiornato - foto e bio/defra defra.jpeg');
-  $preview('/Discografia - TRB rec/Solidoro/Bestemmiare/Photo/FOTO1.JPG');
+
   $d['archive_requests']=$requests;$d['archive_scan_seconds']=round(microtime(true)-$started);
  }
 
