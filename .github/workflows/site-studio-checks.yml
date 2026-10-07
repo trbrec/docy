@@ -39,13 +39,12 @@ jobs:
           /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
       - name: Validate responsive roster and accessible disclosures
         run: |
-          NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs
-          TRB_ROSTER_SCREENSHOTS=/tmp/trb-roster-live NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs --live
-      - name: Preserve screenshots of the actual published roster
+          TRB_ROSTER_SCREENSHOTS=/tmp/trb-roster-fixture-shots NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs
+      - name: Preserve fixture layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: trb-roster-live-${{ github.sha }}
-          path: /tmp/trb-roster-live
+          name: trb-roster-fixture-shots-${{ github.sha }}
+          path: /tmp/trb-roster-fixture-shots
           retention-days: 14
 

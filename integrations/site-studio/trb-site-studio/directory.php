@@ -153,7 +153,7 @@ function coming_soon(){
  $artists=array_column($d['artists'],null,'id');foreach($releases as $r)$out.=release_card($r,$artists,'trb-coming-');return $out.'</section>';
 }
 add_shortcode('trb_public_roster',__NAMESPACE__.'\\roster');add_shortcode('trb_public_coming_soon',__NAMESPACE__.'\\coming_soon');
-add_action('wp_enqueue_scripts',function(){if(destination_site())wp_enqueue_style('trb-directory',plugins_url('directory.css',__FILE__),[],VERSION);});
+add_action('wp_enqueue_scripts',function(){if(destination_site())wp_enqueue_style('trb-directory',plugins_url('directory.css',__FILE__),[],VERSION.'.'.filemtime(__DIR__.'/directory.css'));});
 
 function release_image($r){
  if(!empty($r['image_id']))return public_image($r['image_id'],$r['title']);
