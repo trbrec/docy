@@ -40,13 +40,13 @@ if($mode==='source'){
  // Inventory only artistic field presence and public archive folder names.
  $d['artist_materials']=[];
  foreach(get_users(['number'=>1001,'orderby'=>'ID']) as $u){
-  if(!\\TRB\\Studio\\portal_artist_allowed($u))continue;
-  $row=['id'=>(int)$u->ID,'public_name'=>\\TRB\\Studio\\portal_artist_name($u),'artistic_keys'=>[],'files'=>['photo'=>0,'biography'=>0],'readable'=>['photo'=>false,'biography'=>false]];
+  if(!\TRB\Studio\portal_artist_allowed($u))continue;
+  $row=['id'=>(int)$u->ID,'public_name'=>\TRB\Studio\portal_artist_name($u),'artistic_keys'=>[],'files'=>['photo'=>0,'biography'=>0],'readable'=>['photo'=>false,'biography'=>false]];
   foreach(get_user_meta($u->ID) as $key=>$values){
    if(preg_match('/bio|photo|avatar|picture|image|spotify|soundcloud|youtube|instagram|website|social|artist.*name/i',$key))$row['artistic_keys'][$key]=count(array_filter((array)$values,fn($v)=>$v!==''&&$v!==null));
   }
   foreach((array)get_user_meta($u->ID,'_trb_artist_private_files',true) as $file)if(is_array($file)&&in_array($file['group']??'',['photo','biography'],true))++$row['files'][$file['group']];
-  foreach(['photo','biography'] as $kind)$row['readable'][$kind]=(bool)\\TRB\\Studio\\material('artist',$u->ID,$kind);
+  foreach(['photo','biography'] as $kind)$row['readable'][$kind]=(bool)\TRB\Studio\material('artist',$u->ID,$kind);
   $row['archive_status']=sanitize_key((string)(((array)get_user_meta($u->ID,'_trb_artist_promo_archive',true))['status']??''));
   $d['artist_materials'][]=$row;
  }
