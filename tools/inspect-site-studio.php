@@ -72,20 +72,34 @@ if($mode==='source'){
    }
    return ['code'=>'ok','entries'=>array_slice($entries,0,250)];
   };
+  $d['archive_top_level']=$list('/');
   $root=$list('/Discografia - TRB rec');$d['promo_archive']['code']=$root['code'];
   foreach($root['entries'] as $entry)if($entry['directory'])$d['promo_archive']['folders'][]=$entry['name'];
-  $d['archive_inventory']=[];$d['archive_texts']=[];$d['archive_pdfs']=[];
+  $d['archive_inventory']=[];$d['archive_texts']=[];$d['archive_pdfs']=[];$d['previews']=[];
+  $preview=function($path)use(&$d){
+   if(count($d['previews'])>=12)return;
+   $r=trb_demo_webdav_request('GET',$path);if(is_wp_error($r)||wp_remote_retrieve_response_code($r)!==200)return;
+   $bytes=wp_remote_retrieve_body($r);if(strlen($bytes)>15*1024*1024)return;
+   $tmp=wp_tempnam('trb-preview');file_put_contents($tmp,$bytes);
+   if(!in_array(wp_get_image_mime($tmp),['image/jpeg','image/png','image/webp'],true)){unlink($tmp);return;}
+   $ed=wp_get_image_editor($tmp);if(is_wp_error($ed)){unlink($tmp);return;}$ed->resize(800,800,false);$ed->set_quality(80);
+   $dest=wp_tempnam('trb-preview-out');$saved=$ed->save($dest,'image/jpeg');unlink($tmp);
+   if(is_wp_error($saved)){unlink($dest);return;}
+   $out=file_get_contents($saved['path']);unlink($saved['path']);if(is_file($dest))unlink($dest);
+   $key=substr(hash('sha256',$path),0,12);$d['previews'][$key]=['path'=>$path,'base64'=>base64_encode($out)];
+  };
   $started=microtime(true);$requests=0;$texts=0;
-  $walk=function($path,$depth=0)use(&$walk,$list,&$d,&$requests,&$texts,$started){
+  $walk=function($path,$depth=0)use(&$walk,$list,$preview,&$d,&$requests,&$texts,$started){
    if($requests>=450||microtime(true)-$started>420){$d['archive_scan_limited']=true;return;}
    ++$requests;$listing=$list($path);$d['archive_inventory'][$path]=$listing;
    foreach($listing['entries'] as $e){
     $next=$path.'/'.$e['name'];
     if($e['directory']){
-     if($depth<3&&preg_match('/media|promo|foto|photos?|biograf|press|social.?media|kit/i',$e['name']))$walk($next,$depth+1);
+     if($depth<3&&preg_match('/media|promo|foto|photos?|biograf|press|social|kit|input_artista|output_trb/i',$e['name']))$walk($next,$depth+1);
      continue;
     }
-    if($texts>=30||$e['bytes']>5*1024*1024||!preg_match('/biograf|biography|(^|[\s_-])bio[\s_.-]|press|profilo artista|edmondo|simona/i',$e['name']))continue;
+    if(preg_match('/edmondo|simona|seth|urbania/i',$path)&&preg_match('/photo|foto/i',$path)&&preg_match('/\.(jpe?g|png|webp)$/i',$e['name']))$preview($next);
+    if($texts>=20||$e['bytes']>5*1024*1024||!preg_match('/biograf|biography|(^|[\s_-])bio[\s_.-]|press|profilo artista|edmondo|simona|musicista|cv.*alessio|^Bestemmiare\.docx$/i',$e['name']))continue;
     $ext=strtolower(pathinfo($e['name'],PATHINFO_EXTENSION));
     if(!in_array($ext,['txt','docx','odt','rtf','pdf'],true))continue;
     $r=trb_demo_webdav_request('GET',$next);
@@ -104,15 +118,26 @@ if($mode==='source'){
     if($text!=='')$d['archive_texts'][$next]=$text;
    }
   };
-  if($root['code']==='ok')foreach($d['promo_archive']['folders'] as $folder)$walk('/Discografia - TRB rec/'.$folder);
+  // Reuse completed metadata and inspect only remaining candidate artists.
+  $previous=json_decode((string)@file_get_contents($report),true);
+  $d['archive_inventory']=is_array($previous['archive_inventory']??null)?$previous['archive_inventory']:[];
+  foreach($d['archive_top_level']['entries'] as $e)if($e['directory']&&preg_match('/discograf|upload|invio|files/i',$e['name'])&&!preg_match('/ident|document/i',$e['name'])){
+   $path='/'.$e['name'];$listing=$list($path);$d['archive_roots'][$path]=$listing;
+   foreach($listing['entries'] as $child)if($child['directory']&&preg_match('/edmondo|simona|romano|fasano|seth|urbania/i',$child['name'])){
+    $artist=$path.'/'.$child['name'];$walk($artist);
+    foreach(($d['archive_inventory'][$artist]['entries']??[]) as $release)if($release['directory'])$walk($artist.'/'.$release['name'],1);
+   }
+  }
   // Inspect release directories only for the incomplete artists and documented historical aliases.
-  $legacy=['Carmine Granato','Emiliano Di Meo','Alberto Puviani','Diiego','Fabio Anastasi','FaDe - Alessio de Fanzoni','FaDe - Alessio The Fanzoni','Solidoro','Anabasi Road'];
+  $legacy=['URBANIA','Solidoro','FaDe - Alessio de Fanzoni'];
   foreach($legacy as $folder){
    $path='/Discografia - TRB rec/'.$folder;
    foreach(($d['archive_inventory'][$path]['entries']??[]) as $e){
-    if($e['directory']&&!preg_match('/media|promo|foto|photos?|biograf|press|social.?media|kit/i',$e['name']))$walk($path.'/'.$e['name'],1);
+    if($e['directory'])$walk($path.'/'.$e['name'],1);
    }
   }
+  $preview('/Discografia - TRB rec/FaDe - Alessio de Fanzoni/01. Materiale aggiornato - foto e bio/defra defra.jpeg');
+  $preview('/Discografia - TRB rec/Solidoro/Bestemmiare/Photo/FOTO1.JPG');
   $d['archive_requests']=$requests;$d['archive_scan_seconds']=round(microtime(true)-$started);
  }
 
@@ -125,6 +150,7 @@ if($mode==='destination'){
  if(!is_array($d)||($d['revision']??'')!==$revision)exit(4);
  update_option('wpvibe_task_trb_artist_recipients',$d['artist_materials'],false);
  update_option('wpvibe_task_trb_archive_review',['texts'=>$d['archive_texts'],'pdfs'=>$d['archive_pdfs']],false);
+ foreach($d['previews'] as $key=>$preview){update_option('wpvibe_task_trb_preview_'.$key,$preview,false);$d['previews'][$key]=['path'=>$preview['path']];}
  unset($d['archive_texts'],$d['archive_pdfs']);
  foreach($d['artist_materials'] as &$r)unset($r['email']);unset($r);
  file_put_contents($report,wp_json_encode($d));chmod($report,0600);
