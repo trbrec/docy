@@ -76,9 +76,20 @@ if($mode==='source'){
   foreach($root['entries'] as $entry)if($entry['directory'])$d['promo_archive']['folders'][]=$entry['name'];
   if($root['code']==='ok')foreach($d['artist_materials'] as $row){
    $name=$row['public_name'];$segment=trb_artist_promo_folder_segment($name);
-   if(!in_array($segment,$d['promo_archive']['folders'],true))continue;
-   $base='/Discografia - TRB rec/'.$segment.'/PROMO';
-   $d['promo_archive']['materials'][$row['id']]=['artist_root'=>$list(dirname($base)),'promo'=>$list($base),'photos'=>$list($base.'/FOTO UFFICIALI')];
+   // Case-only folder variants preserve the exact public identity; no alias is imported.
+   $matches=array_values(array_filter($d['promo_archive']['folders'],fn($f)=>mb_strtolower($f,'UTF-8')===mb_strtolower($segment,'UTF-8')));
+   if(count($matches)!==1)continue;$segment=$matches[0];
+   $artistPath='/Discografia - TRB rec/'.$segment;$base=$artistPath.'/PROMO';
+   $artistRoot=$list($artistPath);
+   $rowReport=['artist_root'=>$artistRoot,'promo'=>$list($base),'photos'=>$list($base.'/FOTO UFFICIALI'),'legacy'=>[]];
+   // Legacy promotional files may be stored with a release or in #Media.
+   if(!$row['readable']['photo']||!$row['readable']['biography'])foreach(array_slice($artistRoot['entries'],0,18) as $entry){
+    if(!$entry['directory']||$entry['name']==='PROMO')continue;
+    $child=$list($artistPath.'/'.$entry['name']);
+    $rowReport['legacy'][$entry['name']]=$child;
+    foreach($child['entries'] as $sub)if($sub['directory']&&preg_match('/^(#?media|promo|foto|photos?|biograf|press)/i',$sub['name']))$rowReport['legacy'][$entry['name'].'/'.$sub['name']]=$list($artistPath.'/'.$entry['name'].'/'.$sub['name']);
+   }
+   $d['promo_archive']['materials'][$row['id']]=$rowReport;
   }
  }
 
