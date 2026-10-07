@@ -204,6 +204,13 @@ function trb_docy_deploy_verified_sha( $sha ) {
 		return new WP_Error( 'trb_deploy_stale', $message, array( 'status' => 503 ) );
 	}
 
+	// Keep the same verified revision marker used by the SSH installer.
+	$marker = trailingslashit( get_template_directory() ) . '.trb-deployed-sha';
+	$temp_marker = $marker . '.tmp';
+	if ( false === file_put_contents( $temp_marker, $sha . "\n", LOCK_EX ) || ! rename( $temp_marker, $marker ) ) {
+		delete_transient( 'trb_docy_auto_deploy_lock' );
+		return new WP_Error( 'trb_revision_marker_failed', 'Impossibile registrare la revisione verificata.', array( 'status' => 503 ) );
+	}
 	update_option( TRB_DOCY_DEPLOYED_SHA_OPTION, $sha, false );
 	wp_cache_flush();
 	// Some SiteGround PHP workers keep executing the previous opcode after an

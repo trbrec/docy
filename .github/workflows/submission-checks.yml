@@ -23,6 +23,7 @@ jobs:
           php tools/test-release-credit-roles.php
           php tools/test-symphonic-credits.php
           php tools/test-release-sheet-data.php
+          php tools/test-artist-admin-name.php
           php tools/test-release-intake.php
           php tools/test-release-integrity.php
           php tools/test-release-recovery.php
@@ -85,6 +86,8 @@ jobs:
         run: |
           npm install --prefix /tmp/trb-browser-qa --no-save playwright@1.62.1
           /tmp/trb-browser-qa/node_modules/.bin/playwright install --with-deps chromium
+      - name: Validate artist quick edit interactions
+        run: NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/artist-admin-name.test.cjs
       - name: Validate mobile form and service email layouts
         run: NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/onboarding-responsive.test.cjs
       - uses: actions/upload-artifact@v4
