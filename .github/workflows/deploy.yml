@@ -231,26 +231,7 @@ jobs:
         if: ${{ success() }}
         shell: bash
         run: |
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/(trb-site-studio/(directory.php|directory.css)|artist-cards.test.cjs)$|^tools/sync-site-studio\.php >/dev/null; then
-            npm install --prefix /tmp/trb-roster-browser --no-save playwright@1.62.1
-            /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
-            NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs --live
-          fi
-
-
-  trigger-daily-site-health:
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Activate the site-native daily monitor
-        shell: bash
-        run: |
-          curl --fail --silent --show-error --connect-timeout 5 --max-time 45 \
-            -H "Cache-Control: no-cache" \
-            -H "User-Agent: TRB-Daily-Site-Health/1.0" \
-            "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s)" >/dev/null
- >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/(trb-site-studio/(directory.php|directory.css)|artist-cards.test.cjs)$|^tools/sync-site-studio\.php$' >/dev/null; then
             npm install --prefix /tmp/trb-roster-browser --no-save playwright@1.62.1
             /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
             NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs --live
