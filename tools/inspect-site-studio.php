@@ -54,7 +54,12 @@ if($mode==='source'){
  if(function_exists('trb_demo_webdav_request')){
   // Read only /Discografia - TRB rec and designated PROMO directories, never identity or audio folders.
   $list=function($path){
-   $r=trb_demo_webdav_request('PROPFIND',$path,'<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:resourcetype/><d:getcontentlength/></d:prop></d:propfind>',['Depth'=>'1','Content-Type'=>'application/xml']);
+   $settings=trb_demo_settings();
+   if(empty($settings['webdav_endpoint'])||empty($settings['pcloud_user'])||empty($settings['pcloud_pass']))return ['code'=>'missing_webdav_settings','entries'=>[]];
+   // pCloud collection URLs require the slash; do not redirect credentials to another URL.
+   $url=trb_demo_remote_url($settings['webdav_endpoint'],$path).'/';
+   $headers=['Depth'=>'1','Content-Type'=>'application/xml','Authorization'=>'Basic '.base64_encode($settings['pcloud_user'].':'.$settings['pcloud_pass'])];
+   $r=wp_remote_request($url,['method'=>'PROPFIND','headers'=>$headers,'timeout'=>25,'redirection'=>0,'limit_response_size'=>3*1024*1024,'body'=>'<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:resourcetype/><d:getcontentlength/></d:prop></d:propfind>']);
    if(is_wp_error($r))return ['code'=>sanitize_key($r->get_error_code()),'entries'=>[]];
    $status=wp_remote_retrieve_response_code($r);$body=wp_remote_retrieve_body($r);
    if($status!==207||strlen($body)>3*1024*1024||stripos($body,'<!DOCTYPE')!==false)return ['code'=>'http_'.$status,'entries'=>[]];
@@ -73,7 +78,7 @@ if($mode==='source'){
    $name=$row['public_name'];$segment=trb_artist_promo_folder_segment($name);
    if(!in_array($segment,$d['promo_archive']['folders'],true))continue;
    $base='/Discografia - TRB rec/'.$segment.'/PROMO';
-   $d['promo_archive']['materials'][$row['id']]=['promo'=>$list($base),'photos'=>$list($base.'/FOTO UFFICIALI')];
+   $d['promo_archive']['materials'][$row['id']]=['artist_root'=>$list(dirname($base)),'promo'=>$list($base),'photos'=>$list($base.'/FOTO UFFICIALI')];
   }
  }
 
