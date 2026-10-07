@@ -1,7 +1,10 @@
 name: TRB Site Studio checks
 on:
   push:
-    branches: [codex/studio-directory-sync-20261006]
+    branches: [main, codex/studio-directory-sync-20261006]
+    paths:
+      - 'integrations/site-studio/**'
+      - '.github/workflows/site-studio-checks.yml'
   pull_request:
     paths:
       - 'integrations/site-studio/**'
@@ -35,5 +38,14 @@ jobs:
           npm install --prefix /tmp/trb-roster-browser --no-save playwright@1.62.1
           /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
       - name: Validate responsive roster and accessible disclosures
-        run: NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs
+        run: |
+          NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs
+          TRB_ROSTER_SCREENSHOTS=/tmp/trb-roster-live NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs --live
+      - name: Preserve screenshots of the actual published roster
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trb-roster-live-${{ github.sha }}
+          path: /tmp/trb-roster-live
+          retention-days: 14
 
