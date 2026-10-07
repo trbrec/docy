@@ -44,12 +44,17 @@ function catalogue_payload($p,$artist,$date,$upc){
 function material($kind,$id,$type){
  $files=$kind==='artist'?get_user_meta($id,'_trb_artist_private_files',true):get_post_meta($id,'_trb_release_files',true);
  $files=is_array($files)?$files:[];
+ $selection=$kind==='artist'&&$type==='photo'?(string)get_user_meta($id,'_trb_studio_selected_photo_hash',true):'';
+ $fallback=null;
  foreach($files as $file){
   if(($file[$kind==='artist'?'group':'kind']??'')!==$type)continue;
   $path=$kind==='artist'?trb_artist_promo_local_photo($file):trb_release_pcloud_local_file($file);
-  if($path && is_file($path))return ['path'=>$path,'name'=>$file['name']??basename($path),'hash'=>hash_file('sha256',$path)];
+  if(!$path||!is_file($path))continue;
+  $asset=['path'=>$path,'name'=>$file['name']??basename($path),'hash'=>hash_file('sha256',$path)];
+  if(!$selection||hash_equals($selection,$asset['hash']))return $asset;
+  if(!$fallback)$fallback=$asset;
  }
- return null;
+ return $fallback;
 }
 function rtf_text($raw){
  if(!str_starts_with(ltrim($raw),'{\\rtf'))return new \WP_Error('rtf_invalid','Documento RTF non valido.');

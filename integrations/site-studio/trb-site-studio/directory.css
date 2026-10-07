@@ -42,6 +42,15 @@ body.page-id-936 .trb-directory-roster .trb-release-profile>.trb-directory-image
 body.page-id-936 .trb-directory-roster .trb-release-profile h3{font-size:15px;line-height:1.3;margin:4px 0 8px}
 body.page-id-936 .trb-directory-roster .trb-release-profile p{font-size:13px;line-height:1.6}
 body.page-id-936 .trb-directory-roster summary:focus-visible,body.page-id-936 .trb-directory-roster a:focus-visible{outline:3px solid #25694c;outline-offset:3px}
-@media(min-width:1400px){body.page-id-936 .trb-directory.trb-directory-roster{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:1200px){body.page-id-936 .trb-directory.trb-directory-roster{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:959px){body.page-id-936 .trb-directory.trb-directory-roster{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}}
 @media(max-width:599px){body.page-id-936 .trb-directory.trb-directory-roster{grid-template-columns:minmax(0,1fr);gap:20px;padding-bottom:40px}body.page-id-936 main .trb-artists-page{padding-top:32px;padding-bottom:22px}body.page-id-936 .trb-directory-roster .trb-artist-profile>.trb-artist-content{padding:18px}}
+
+/* Reviewed photographs: consistent tone and individual framing, original assets preserved. */
+body.page-id-936 .trb-directory-roster .trb-artist-identity>.trb-directory-image:not(.trb-directory-monogram){filter:grayscale(1);object-position:center 35%}
+body.page-id-936 .trb-directory-roster #trb-artista-41>.trb-artist-identity>.trb-directory-image{object-fit:cover;object-position:center}
+body.page-id-936 .trb-directory-roster #trb-artista-127>.trb-artist-identity>.trb-directory-image{object-position:center 15%}
+body.page-id-936 .trb-directory-roster #trb-artista-177>.trb-artist-identity>.trb-directory-image{object-position:center 23%}
+body.page-id-936 .trb-directory-roster #trb-artista-128>.trb-artist-identity>.trb-directory-image{object-position:center 58%}
+body.page-id-936 .trb-directory-roster .trb-directory-monogram{position:relative;background:linear-gradient(145deg,#183b2c,#0c1711);color:#afebd2;font-size:44px!important;font-weight:500}
+body.page-id-936 .trb-directory-roster .trb-directory-monogram:after{content:'TRB rec';position:absolute;bottom:18px;font-size:11px;letter-spacing:.12em;color:#afebd2b3}

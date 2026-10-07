@@ -70,6 +70,59 @@ if ($mode === 'source') {
    @unlink($tmp);
   }
  }
+ // Apply the explicitly reviewed choices without replacing an artist's original uploads.
+ $choices = [
+ 41 => '12b39e40753227484488',
+ 45 => 'c1dcaa8944e20978e9cc',
+ 67 => '6f5803326d9741b03300',
+ 73 => '9326754aa3ff0abe834f',
+ 103 => '7e1c5d76de6c41638c0e',
+ 127 => '1fdb4919ecb58845d84a',
+ 128 => 'c362d3915363d7b17950',
+ 177 => '7a8de48c2a07ee287bc2'
+ ];
+ $previous = json_decode((string) @file_get_contents($report), true);
+ foreach ($choices as $id => $key) {
+  $candidate = $previous['registry'][$key] ?? null;
+  if (!$candidate || (int) $candidate['artist_id'] !== $id || !isset($review['artists'][$id])) throw new RuntimeException('Reviewed photo identity mismatch');
+  if (get_user_meta($id, '_trb_studio_curated_source_key', true) === $key) continue;
+  $selectedHash = $candidate['hash'];
+  if ($candidate['origin'] !== 'portal') {
+   $response = trb_demo_webdav_request('GET', $candidate['origin']);
+   if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) throw new RuntimeException('Reviewed photo unavailable');
+   $bytes = wp_remote_retrieve_body($response);
+   if (strlen($bytes) > 20 * 1024 * 1024 || !hash_equals($candidate['hash'], hash('sha256', $bytes))) throw new RuntimeException('Reviewed photo changed');
+   $tmp = wp_tempnam('trb-curated-photo');
+   file_put_contents($tmp, $bytes);
+   $editor = wp_get_image_editor($tmp);
+   if (is_wp_error($editor)) { @unlink($tmp); throw new RuntimeException('Photo editor unavailable'); }
+   $editor->resize(1920, 1920, false); $editor->set_quality(90);
+   $uploads = wp_upload_dir();
+   $folder = trailingslashit($uploads['basedir']) . 'trb-artist-private/curated-' . $id;
+   if (!wp_mkdir_p($folder)) { @unlink($tmp); throw new RuntimeException('Photo directory unavailable'); }
+   $saved = $editor->save($folder . '/photo-' . substr($candidate['hash'], 0, 16) . '.jpg', 'image/jpeg');
+   @unlink($tmp);
+   if (is_wp_error($saved)) throw new RuntimeException('Photo save failed');
+   $selectedHash = hash_file('sha256', $saved['path']);
+   $files = trb_portal_private_profile_files($id);
+   $exists = false;
+   foreach ($files as $file) if (($file['group'] ?? '') === 'photo' && ($file['sha256'] ?? '') === $selectedHash) $exists = true;
+   if (!$exists) {
+    $files[] = ['id' => wp_generate_uuid4(), 'group' => 'photo', 'label' => 'Foto artista selezionata', 'name' => basename($saved['path']), 'path' => str_replace(trailingslashit($uploads['basedir']), '', $saved['path']), 'type' => 'image/jpeg', 'size' => filesize($saved['path']), 'time' => time(), 'sha256' => $selectedHash, 'archive_source' => $candidate['origin']];
+    update_user_meta($id, '_trb_artist_private_files', $files);
+   }
+  } else {
+   $path = $candidate['path'];
+   $found = false;
+   foreach (trb_portal_private_profile_files($id) as $file) {
+    $local = ($file['group'] ?? '') === 'photo' ? trb_artist_promo_local_photo($file) : '';
+    if ($local && hash_equals($selectedHash, hash_file('sha256', $local))) { $found = true; break; }
+   }
+   if (!$found) throw new RuntimeException('Selected upload no longer present');
+  }
+  update_user_meta($id, '_trb_studio_selected_photo_hash', $selectedHash);
+  update_user_meta($id, '_trb_studio_curated_source_key', $key);
+ }
  if (!is_dir($private) && !mkdir($private, 0700, true)) exit(3);
  if (file_put_contents($report, wp_json_encode($review)) === false) exit(4);
  chmod($report, 0600);

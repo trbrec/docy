@@ -13,6 +13,7 @@ const path = require('node:path');
    await page.setViewportSize({width,height:1000});
    if(live)await page.goto('https://new1.trbrec.com/artisti/',{waitUntil:'networkidle'});
    else await page.setContent(fs.readFileSync('/tmp/trb-roster-fixture.html','utf8'));
+   if(live&&!await page.locator('.trb-directory-roster').count()) { if(shots){await page.screenshot({path:path.join(shots,`unavailable-${width}.png`),fullPage:true});fs.writeFileSync(path.join(shots,`unavailable-${width}.html`),await page.content());} throw new Error(`Published roster unavailable: ${await page.title()} at ${page.url()}`); }
    const result=await page.evaluate(()=>{
     const grid=document.querySelector('.trb-directory-roster');
     if(!grid)throw Error('New roster renderer missing');
@@ -25,7 +26,7 @@ const path = require('node:path');
    });
    assert.ok(result.count>0);
    assert.equal(result.overflow,false,`No horizontal overflow at ${width}px`);
-   assert.equal(result.columns,width>=1400?4:width>=960?3:width>=600?2:1,`Responsive columns at ${width}px`);
+   assert.equal(result.columns,width>=1200?4:width>=960?3:width>=600?2:1,`Responsive columns at ${width}px`);
    assert.ok(Math.max(...result.heights)-Math.min(...result.heights)<2,`Closed cards have equal heights at ${width}px: ${result.heights}`);
    assert.ok(result.previews.every(p=>p.length<=240));
    assert.ok(Math.max(...result.previews.map(p=>p.height))-Math.min(...result.previews.map(p=>p.height))<1);
