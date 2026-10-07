@@ -135,7 +135,7 @@ jobs:
             fi
             echo "TRB Studio portal installed and verified."
           fi
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/sync-site-studio\.php$|^tools/recover-trb-artistic-materials\.php$' >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/sync-site-studio\.php$|^tools/deploy-site-studio\.php$|^tools/recover-trb-artistic-materials\.php$' >/dev/null; then
             if ! ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/sync-site-studio.php' '${GITHUB_SHA}' transfer" >/dev/null 2>&1; then
               studio_phase=$(ssh "${ssh_opts[@]}" "${remote}" "cat '${DEPLOY_PATH}/.trb-studio-transfer-phase' 2>/dev/null")
               case "${studio_phase}" in initial|export|import|complete) echo "Studio transfer stopped at ${studio_phase}." ;; *) echo "Studio transfer unconfirmed." ;; esac
