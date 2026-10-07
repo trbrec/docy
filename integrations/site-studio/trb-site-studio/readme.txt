@@ -1,3 +1,7 @@
+TRB Site Studio 0.1.5
+
+Compact responsive roster: four artists on wide displays, three on desktop, two on tablets and one on phones. Display-only Unicode excerpts are at most 240 characters, with five equal-height lines. Native keyboard-accessible disclosures reveal the complete original biography, official profiles and release presentations. Missing materials retain consistent slots without fabricated content. No source biography is shortened or rewritten.
+
 TRB Site Studio 0.1.4
 
 The existing catalog takedown manifest is authoritative across directory, Coming soon and import. A removed UPC is excluded before asset import and cannot block unrelated artist-profile updates. Public reads also enforce the manifest immediately.
@@ -111,3 +115,4 @@ PHP: sintassi dei quattro file valida. JavaScript: node --check valido.
 conflitti, nonce, permessi, esclusione QA/DDB/pending, gate distribuzione,
 annullamento, date e coerenza degli ID. Harness con funzioni WordPress simulate;
 non sostituisce un test end-to-end nella specifica installazione.
+

@@ -27,3 +27,13 @@ jobs:
           mkdir -p /tmp/trb-wp-test
           tar -xzf /tmp/trb-wp-test.tar.gz -C /tmp/trb-wp-test
           TRB_WP_TEST_ROOT=/tmp/trb-wp-test/wordpress php integrations/site-studio/test-studio.php
+
+      - name: Validate compact artist cards and render fixture
+        run: php integrations/site-studio/test-artist-cards.php --fixture > /tmp/trb-roster-fixture.html
+      - name: Install browser for roster layout validation
+        run: |
+          npm install --prefix /tmp/trb-roster-browser --no-save playwright@1.62.1
+          /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Validate responsive roster and accessible disclosures
+        run: NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs
+
