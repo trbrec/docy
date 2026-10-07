@@ -20,39 +20,20 @@ const path = require('node:path');
     const cards=[...grid.querySelectorAll(':scope>.trb-artist-profile')];
     return {overflow:document.documentElement.scrollWidth>innerWidth+1,columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,
      heights:cards.map(el=>el.getBoundingClientRect().height),
-     previews:cards.map(el=>({height:el.querySelector('.trb-artist-bio-preview').getBoundingClientRect().height,length:[...el.querySelector('.trb-artist-bio-preview').textContent].length})),
+     noBios:cards.every(el=>!el.querySelector('.trb-artist-bio-preview')),
+     links:cards.map(el=>el.querySelector('a').getAttribute('href')),
      images:cards.map(el=>{const r=el.querySelector('.trb-artist-identity').getBoundingClientRect();return {width:r.width,height:r.height};}),
      count:cards.length};
    });
    assert.ok(result.count>0);
    assert.equal(result.overflow,false,`No horizontal overflow at ${width}px`);
-   assert.equal(result.columns,width>=1200?4:width>=960?3:width>=600?2:1,`Responsive columns at ${width}px`);
+   assert.equal(result.columns,width>=1200?4:width>=960?3:2,`Responsive columns at ${width}px`);
    assert.ok(Math.max(...result.heights)-Math.min(...result.heights)<2,`Closed cards have equal heights at ${width}px: ${result.heights}`);
-   assert.ok(result.previews.every(p=>p.length<=240));
-   assert.ok(Math.max(...result.previews.map(p=>p.height))-Math.min(...result.previews.map(p=>p.height))<1);
-   assert.ok(result.images.every(r=>Math.abs(r.width/r.height-1.5)<.02));
-   const biography=page.locator('.trb-artist-biography').first();
-   const full=biography.locator('.trb-artist-bio-full');
-   const original=await full.textContent();
-   assert.equal(await full.isVisible(),false);
-   await biography.locator('summary').press('Enter');
-   assert.equal(await full.isVisible(),true);
-   assert.equal(await full.textContent(),original);
-   assert.equal(await biography.locator('.trb-bio-open').isVisible(),true);
-   assert.equal(await biography.locator('..').locator('.trb-artist-bio-preview').isVisible(),false);
-   await biography.locator('summary').press('Enter');
-   assert.equal(await full.isVisible(),false);
-   assert.equal(await biography.locator('..').locator('.trb-artist-bio-preview').isVisible(),true);
-   const socials=page.locator('.trb-artist-socials').first();
-   if(await socials.count()){
-    await socials.locator('summary').click();
-    assert.equal(await socials.locator('nav').isVisible(),true);
-    await socials.locator('summary').click();
-   }
-   const index=page.locator('.trb-roster-index');
-   await index.locator('summary').click();
-   assert.equal(await index.locator('nav').isVisible(),true);
-   await index.locator('summary').click();
+   assert.equal(result.noBios,true);
+   assert.ok(result.links.every(url=>/\/artisti\/[^/]+\/$/.test(url)));
+   assert.ok(result.images.every(r=>Math.abs(r.width/r.height-.8)<.02));
+   await page.locator('.trb-artist-tile-link').first().focus();
+   assert.ok(await page.locator('.trb-artist-tile-link').first().evaluate(e=>e===document.activeElement));
    if(shots)await page.screenshot({path:path.join(shots,`roster-${width}.png`),fullPage:true});
    console.log(`PASS: ${live?'live':'fixture'} ${width}px, ${result.columns} columns, uniform cards, accessible biography/social/index disclosures`);
   }

@@ -20,6 +20,19 @@ for command in commands:
             assert required in wrapper,'Sanitized wrapper output guard missing'
         assert "$last['message']" not in wrapper and 'getMessage' not in wrapper
         continue
+    if '/tools/export-site-preview.php' in command:
+        assert '2>/dev/null' in command and '> "/tmp/trb-public-preview/' in command
+        export=Path('tools/export-site-preview.php').read_text()
+        for required in ('ob_start();','is_user_logged_in()',"getElementsByTagName('script')","getElementsByTagName('input')","trb-artist-private","trb-release-private"):
+            assert required in export,'Anonymous snapshot output guard missing'
+        continue
+    if '/tools/export-artist-routes.php' in command:
+        assert '2>/dev/null' in command and 'artist_routes=$(' in command
+        export=Path('tools/export-artist-routes.php').read_text()
+        for required in ('ob_start();','ob_end_clean();',"~^/artisti/[a-z0-9-]+/$~D",'artist_page_url($a)'):
+            assert required in export,'Public managed artist route guard missing'
+        assert 'getMessage' not in export
+        continue
     assert '>/dev/null 2>&1' in command,'Production diagnostics must not publish raw stdout or stderr'
 print('Production diagnostic output isolation passed.')
 

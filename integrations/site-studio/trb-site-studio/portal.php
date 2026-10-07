@@ -56,6 +56,17 @@ function material($kind,$id,$type){
  }
  return $fallback;
 }
+function material_photos($id){
+ $primary=material('artist',$id,'photo');$out=$primary?[$primary['hash']=>$primary]:[];
+ foreach((array)get_user_meta($id,'_trb_artist_private_files',true) as $file){
+  if(!is_array($file)||($file['group']??'')!=='photo')continue;
+  $path=trb_artist_promo_local_photo($file);
+  if(!$path||!is_file($path)||!in_array(wp_get_image_mime($path),['image/jpeg','image/png','image/webp'],true))continue;
+  $hash=hash_file('sha256',$path);$out[$hash]=['path'=>$path,'name'=>$file['name']??basename($path),'hash'=>$hash];
+  if(count($out)>=3)break;
+ }
+ return array_values($out);
+}
 function rtf_text($raw){
  if(!str_starts_with(ltrim($raw),'{\\rtf'))return new \WP_Error('rtf_invalid','Documento RTF non valido.');
  $stack=[];$skip=false;$uc=1;$fallback=0;$out='';$length=strlen($raw);
@@ -130,7 +141,7 @@ function portal_snapshot(){
   $links=[];foreach(['spotify'=>'Spotify','apple_music'=>'Apple Music','youtube'=>'YouTube','soundcloud'=>'SoundCloud','instagram'=>'Instagram','facebook'=>'Facebook','tiktok'=>'TikTok','threads'=>'Threads','x'=>'X','twitch'=>'Twitch','linkedin'=>'LinkedIn','discord'=>'Discord','snapchat'=>'Snapchat'] as $key=>$label){$url=esc_url_raw(get_user_meta($user->ID,'_trb_artist_'.$key.'_url',true),['https']);if($url)$links[]=['label'=>$label,'url'=>$url];}
   $official=trim((string)get_user_meta($user->ID,'_trb_artist_artist_name',true));
   $website=esc_url_raw((string)($user->user_url??''),['https']);if($website)$links[]=['label'=>'Sito ufficiale','url'=>$website];
-  $artists[]=['id'=>(int)$user->ID,'name_source'=>$official?'artist_profile':'wordpress_public_name','name'=>$name,'bio'=>$bio,'links'=>$links,'photo'=>asset_reference('artist',$user->ID,material('artist',$user->ID,'photo'))];$ids[]=(int)$user->ID;
+  $artists[]=['id'=>(int)$user->ID,'name_source'=>$official?'artist_profile':'wordpress_public_name','name'=>$name,'bio'=>$bio,'links'=>$links,'photo'=>asset_reference('artist',$user->ID,material('artist',$user->ID,'photo')),'photos'=>array_map(fn($file)=>asset_reference('artist',$user->ID,$file),material_photos($user->ID))];$ids[]=(int)$user->ID;
  }
  $releases=[];
  if($ids){
@@ -154,6 +165,7 @@ function portal_asset($request){
  $kind=$request['kind'];$id=(int)$request['id'];
  if($kind==='artist'?!portal_artist_allowed(get_userdata($id)):!portal_release_allowed(get_post($id)))return new \WP_Error('asset_forbidden','Materiale non pubblicabile.',['status'=>404]);
  $file=material($kind,$id,$kind==='artist'?'photo':'cover');
+ if(!empty($request['hash'])){ $match=null;foreach($kind==='artist'?material_photos($id):[$file] as $candidate)if($candidate&&hash_equals($candidate['hash'],(string)$request['hash']))$match=$candidate;$file=$match; }
  if(!$file||!in_array(wp_get_image_mime($file['path']),['image/jpeg','image/png','image/webp'],true))return new \WP_Error('image_missing','Immagine non disponibile.',['status'=>404]);
  $editor=wp_get_image_editor($file['path']);if(is_wp_error($editor))return $editor;
  $res=$editor->resize(1200,1200,false);if(is_wp_error($res))return $res;$editor->set_quality(88);

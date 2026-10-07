@@ -6,7 +6,7 @@ $revision = $argv[1] ?? '';
 $route = $argv[2] ?? '';
 if (!preg_match('/^[a-f0-9]{40}$/D', $revision) || trim((string) @file_get_contents(dirname(__DIR__) . '/.trb-deployed-sha')) !== $revision) exit(2);
 $routes = ['/', '/artisti/', '/demo/', '/catalogo/', '/news/', '/chi-siamo/', '/cosa-facciamo/', '/booking/', '/licenze-audio/', '/contatti/', '/privacy-policy/'];
-if (!in_array($route, $routes, true)) exit(3);
+if (!in_array($route, $routes, true) && !preg_match('~^/artisti/[a-z0-9-]+/$~D',$route)) exit(3);
 $root = '/home/customer/www/new1.trbrec.com/public_html';
 $_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'] = 'new1.trbrec.com';
 $_SERVER['REQUEST_URI'] = $route;

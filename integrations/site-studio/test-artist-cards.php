@@ -1,4 +1,5 @@
 <?php
+namespace {
 if (PHP_SAPI !== 'cli') exit;
 define('ABSPATH',__DIR__.'/');
 function add_action(...$args){} function add_shortcode(...$args){} function add_filter(...$args){}
@@ -9,7 +10,14 @@ function wp_strip_all_tags($s){return strip_tags($s);}
 function wpautop($s){return '<p>'.str_replace("\n\n",'</p><p>',$s).'</p>';}
 function get_option($key,$fallback=[]){return $GLOBALS['options'][$key]??$fallback;}
 function wp_get_attachment_image($id,$size,$icon,$attrs){return '<img class="trb-directory-image" width="600" height="400" alt="'.esc_attr($attrs['alt']).'" src="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27600%27 height=%27400%27%3E%3Crect width=%27600%27 height=%27400%27 fill=%27%23a4c7b1%27/%3E%3C/svg%3E">';}
+function get_posts($args){return isset($args['meta_value'])?[(int)$args['meta_value']+1000]:[];}
+function get_post_status($id){return 'publish';}
+function get_permalink($id){return 'https://example.test/artisti/artista-'.($id-1000).'/';}
+function get_post_type($id){return 'attachment';}
+function get_post_mime_type($id){return 'image/jpeg';}
 require __DIR__.'/trb-site-studio/directory.php';
+require __DIR__.'/trb-site-studio/artist-pages.php';
+
 function check($condition,$label){if(!$condition)throw new RuntimeException($label);fwrite(STDERR,"PASS: $label\n");}
 $short="Una voce tra musica e teatro.";
 check(TRB\Studio\artist_bio_preview($short)===$short,'Short biographies remain intact');
@@ -27,6 +35,19 @@ check(!str_contains(TRB\Studio\artist_biography(['bio'=>'','name'=>'Artista']),'
 $artists=[['id'=>1,'name'=>'Alberto Puviani','bio'=>$long,'links'=>[['label'=>'Spotify','url'=>'https://open.spotify.com/artist/example']],'image_id'=>1],['id'=>2,'name'=>'Edmondo Romano e Simona Fasano','bio'=>$short,'links'=>[],'image_id'=>1],['id'=>3,'name'=>'Artista in aggiornamento','bio'=>'','links'=>[],'image_id'=>0],['id'=>4,'name'=>'Alessio de Franzoni','bio'=>$long,'links'=>[],'image_id'=>1]];
 $options=['trb_studio_directory'=>['generated_at'=>gmdate('c'),'artists'=>$artists,'releases'=>[['id'=>10,'artist_id'=>1,'title'=>'Release fixture','date'=>'2026-09-30','presentation'=>'Test di presentazione.','image_id'=>1,'upc'=>'','links'=>[]]]]];
 $html=TRB\Studio\roster();
-check(substr_count($html,'class="trb-artist-profile"')===4,'Every eligible artist renders one consistent card');
-check(substr_count($html,'class="trb-artist-bio-preview')===4,'Short, long and missing biographies share the same preview slot');
+check(substr_count($html,'class="trb-artist-profile trb-artist-tile"')===4,'Every eligible artist renders one photographic tile');
+check(!str_contains($html,'trb-artist-bio-preview')&&!str_contains($html,'Leggi la biografia'),'Directory tiles contain no biographies');
+check(substr_count($html,'class="trb-artist-tile-link"')===4&&!str_contains($html,'href="#trb-artista'),'All tiles link to individual artist pages');
+$gallery=TRB\Studio\artist_gallery_ids(['id'=>1,'image_id'=>1,'gallery_ids'=>[1,2,3,4]]);
+check($gallery===[1,2,3],'Gallery contains at most three distinct real photographs');
+$options['trb_studio_override_artist_1']=['gallery_ids'=>[3,2]];
+check(TRB\Studio\artist_gallery_ids(['id'=>1,'image_id'=>1,'gallery_ids'=>[1]])===[3,2],'Manual gallery choice survives subsequent imports');
+unset($options['trb_studio_override_artist_1']);
 if(in_array('--fixture',$argv,true))echo '<!doctype html><html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*,*:before,*:after{box-sizing:border-box}body{margin:0;background:#f2f4ef;font:16px Arial,sans-serif}summary{display:list-item}.screen-reader-text{position:absolute;clip:rect(1px,1px,1px,1px);width:1px;height:1px;overflow:hidden}body.page-id-936 .trb-directory{width:100%;padding-inline:48px;grid-template-columns:repeat(2,minmax(0,1fr))}body.page-id-936 .trb-artist-profile>div:last-child{padding:32px}body.page-id-936 .trb-artist-profile h3{font-size:32px}body.page-id-936 .trb-artist-profile p{font-size:17px}body.page-id-936 .trb-directory>.trb-artist-profile{align-self:start}.trb-artist-bio{margin:32px 0 0}details{border-top:1px solid #ddd;padding-top:8px}.trb-artist-discography{padding-top:16px}@media(max-width:680px){body.page-id-936 .trb-directory{grid-template-columns:1fr;padding-inline:20px}}</style><style>'.file_get_contents(__DIR__.'/trb-site-studio/directory.css').'</style><body class="page-id-936"><main>'.$html.'</main></body></html>';
+
+}
+namespace TRB\Studio {
+ function studio_mode(){return false;}
+ function studio_override($kind,$id){return (array)\get_option('trb_studio_override_'.$kind.'_'.$id,[]);}
+ function studio_artist_image($a){return public_image($a['image_id'],$a['name']);}
+}

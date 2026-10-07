@@ -2,16 +2,17 @@
 /**
  * Plugin Name: TRB Site Studio
  * Description: Editor visuale amministratore e directory pubblica collegata al Portale Artisti.
- * Version: 0.1.8
+ * Version: 0.1.9
  * Requires PHP: 8.1
  */
 namespace TRB\Studio;
 if (!defined('ABSPATH')) exit;
-const VERSION = '0.1.8';
+const VERSION = '0.1.9';
 require_once __DIR__.'/editor.php';
 require_once __DIR__.'/portal.php';
 require_once __DIR__.'/bundle.php';
 require_once __DIR__.'/directory.php';
+require_once __DIR__.'/artist-pages.php';
 function source_site() { return strtolower((string)wp_parse_url(home_url(), PHP_URL_HOST)) === 'artist.trbrec.com'; }
 function destination_site() { return strtolower((string)wp_parse_url(home_url(), PHP_URL_HOST)) === 'new1.trbrec.com'; }
 function admin_permission() { return current_user_can('manage_options'); }
@@ -21,6 +22,7 @@ add_action('rest_api_init', function () {
   register_rest_route('trb-studio/v1','/editor/(?P<id>\d+)', ['methods'=>'POST','permission_callback'=>__NAMESPACE__.'\\editor_permission','callback'=>__NAMESPACE__.'\\editor_save']);
  }
  if (source_site()) {
+  register_rest_route('trb-studio/v1','/asset/(?P<kind>artist|release)/(?P<id>\d+)/(?P<hash>[a-f0-9]{64})', ['methods'=>'GET','permission_callback'=>__NAMESPACE__.'\\admin_permission','callback'=>__NAMESPACE__.'\\portal_asset']);
   register_rest_route('trb-studio/v1','/snapshot', ['methods'=>'GET','permission_callback'=>__NAMESPACE__.'\\admin_permission','callback'=>__NAMESPACE__.'\\portal_snapshot']);
   register_rest_route('trb-studio/v1','/asset/(?P<kind>artist|release)/(?P<id>\d+)', ['methods'=>'GET','permission_callback'=>__NAMESPACE__.'\\admin_permission','callback'=>__NAMESPACE__.'\\portal_asset']);
  }

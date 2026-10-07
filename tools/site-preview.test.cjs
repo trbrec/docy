@@ -34,13 +34,9 @@ const assert=require('assert/strict');
      if(name==='artisti.html') {
       assert.equal(data.cards.length,14,'All fourteen artists');
       assert.ok(Math.max(...data.cards)-Math.min(...data.cards)<2,'Equal closed card heights');
-      assert.equal(data.columns,width>=1200?4:width>=960?3:width>=600?2:1,'Responsive columns');
-      const summaries=page.locator('.trb-artist-biography>summary');
-      for(let i=0;i<await summaries.count();i++) {
-       await summaries.nth(i).focus();await summaries.nth(i).press('Space');
-       assert.equal(await summaries.nth(i).evaluate(e=>e.parentElement.open),true,'Keyboard opens biography');
-       await summaries.nth(i).press('Space');
-      }
+      assert.equal(data.columns,width>=1200?4:width>=960?3:2,'Responsive columns');
+      assert.equal(await page.locator('.trb-artist-bio-preview').count(),0,'No biography in directory');
+      assert.equal(await page.locator('.trb-artist-tile-link').count(),data.cards.length,'All tiles have individual profile links');
      }
     } catch(e) {failures.push({page:name,width,error:e.message});}
     await page.evaluate(()=>window.scrollTo(0,0));

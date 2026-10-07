@@ -1,3 +1,11 @@
+TRB Site Studio 0.1.9
+
+Complete administrator editor: literal page/header/footer content, images, links, dimensions, colors, Fluent Forms labels/placeholders/help, artist and release presentation overrides, revision restore. Artist photo galleries can contain zero to three verified media images. Source identities and contractual workflow are immutable.
+
+Artist directory displays photograph and name only, four columns on wide desktop, three on smaller desktop and two on mobile. Each approved roster artist owns one native child page under /artisti/, bound by immutable portal ID. URLs survive name changes. Pages include real photographs only, complete biography, official social/store links, dated releases with covers, presentations, smartlinks and press kits. Gallery imports up to three distinct real photographs; missing photographs are never invented or duplicated. Pages removed from the eligible roster are drafted automatically. Overrides remain outside the imported generation.
+
+ProfilePage/MusicGroup schema and social metadata are generated from verified public data. Artist pages are included by the WordPress native page sitemap. No promise of search engine ranking or index timing.
+
 TRB Site Studio 0.1.5
 
 Compact responsive roster: four artists on wide displays, three on desktop, two on tablets and one on phones. Display-only Unicode excerpts are at most 240 characters, with five equal-height lines. Native keyboard-accessible disclosures reveal the complete original biography, official profiles and release presentations. Missing materials retain consistent slots without fabricated content. No source biography is shortened or rewritten.

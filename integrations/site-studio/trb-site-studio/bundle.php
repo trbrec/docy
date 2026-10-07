@@ -16,9 +16,9 @@ function bundle_read($path){
  $at=strtotime($snapshot['generated_at']??'');
  if(!$at||$at>time()+300||time()-$at>10800)return new \WP_Error('bundle_stale','Esportazione del portale da aggiornare.');
  if($path==='snapshot')return $snapshot;
- if(!preg_match('~^asset/(artist|release)/([1-9][0-9]*)$~D',$path,$match))return new \WP_Error('bundle_path','Materiale non disponibile.');
+ if(!preg_match('~^asset/(artist|release)/([1-9][0-9]*)(?:/([a-f0-9]{64}))?$~D',$path,$match))return new \WP_Error('bundle_path','Materiale non disponibile.');
  $ref=null;$list=$match[1]==='artist'?'artists':'releases';$field=$match[1]==='artist'?'photo':'cover';
- foreach($snapshot[$list]??[] as $item)if(($item['id']??0)===(int)$match[2]){$ref=$item[$field]??null;break;}
+ foreach($snapshot[$list]??[] as $item)if(($item['id']??0)===(int)$match[2]){$ref=$item[$field]??null;if(!empty($match[3])){$ref=null;foreach(array_merge([$item[$field]??null],$item['photos']??[]) as $candidate)if($candidate&&($candidate['hash']??'')===$match[3])$ref=$candidate;}break;}
  if(!$ref||!preg_match('/^[a-f0-9]{64}$/D',$ref['hash']??''))return new \WP_Error('bundle_asset_missing','Materiale non disponibile.');
  $file=$dir.'/'.$match[1].'-'.$match[2].'-'.$ref['hash'].'.json';
  if(!is_file($file)||is_link($file)||filesize($file)>8*1024*1024)return new \WP_Error('bundle_asset_missing','Materiale non disponibile.');

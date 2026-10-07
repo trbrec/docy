@@ -25,7 +25,7 @@ function import_image($ref,$label,$cache){
  if(!in_array($ref['kind']??'',['artist','release'],true)||!is_int($ref['id']??null)||!preg_match('/^[a-f0-9]{64}$/',$ref['hash']??''))return new \WP_Error('asset_reference','Riferimento immagine non valido.');
  $key=$ref['kind'].':'.$ref['id'].':'.$ref['hash'];
  if(isset($cache[$key])&&get_post_type($cache[$key])==='attachment'&&get_attached_file($cache[$key])&&is_file(get_attached_file($cache[$key])))return ['key'=>$key,'id'=>$cache[$key]];
- $data=portal_get('asset/'.$ref['kind'].'/'.$ref['id']);if(is_wp_error($data))return $data;
+ $data=portal_get('asset/'.$ref['kind'].'/'.$ref['id'].'/'.$ref['hash']);if(is_wp_error($data))return $data;
  $bytes=base64_decode($data['base64']??'',true);
  if(!$bytes||strlen($bytes)>5*1024*1024||!hash_equals($ref['hash'],(string)($data['hash']??''))||!hash_equals(hash('sha256',$bytes),(string)($data['bytes_sha256']??'')))return new \WP_Error('asset_integrity','Il materiale è cambiato durante la sincronizzazione.');
  $image=getimagesizefromstring($bytes);if(!$image||$image['mime']!=='image/jpeg')return new \WP_Error('asset_type','Immagine non valida.');
@@ -47,7 +47,7 @@ function sync_directory(){
   $before=count($snapshot['releases']);$snapshot['releases']=public_releases($snapshot['releases']);
   if(count($snapshot['releases'])!==$before)$snapshot['warnings'][]='Release escluse dal manifesto rimozioni: '.($before-count($snapshot['releases']));
   $old=get_option('trb_studio_directory',[]);$cache=get_option('trb_studio_images',[]);
-  foreach($snapshot['artists'] as &$a){$image=import_image($a['photo']??null,$a['name'],$cache);if(is_wp_error($image))return sync_failed($image);$a['image_id']=$image['id']??0;if($image){$cache[$image['key']]=$image['id'];update_option('trb_studio_images',$cache,false);}unset($a['photo']);}unset($a);
+  foreach($snapshot['artists'] as &$a){$image=import_image($a['photo']??null,$a['name'],$cache);if(is_wp_error($image))return sync_failed($image);$a['image_id']=$image['id']??0;if($image){$cache[$image['key']]=$image['id'];update_option('trb_studio_images',$cache,false);}$a['gallery_ids']=[];foreach(array_slice($a['photos']??[],0,3) as $photo){$extra=import_image($photo,$a['name'],$cache);if(is_wp_error($extra))return sync_failed($extra);if($extra){$a['gallery_ids'][]=$extra['id'];$cache[$extra['key']]=$extra['id'];update_option('trb_studio_images',$cache,false);}}unset($a['photo'],$a['photos']);}unset($a);
   foreach($snapshot['releases'] as &$r){$image=import_image($r['cover']??null,$r['title'],$cache);if(is_wp_error($image))return sync_failed($image);$r['image_id']=$image['id']??0;if($image){$cache[$image['key']]=$image['id'];update_option('trb_studio_images',$cache,false);}unset($r['cover']);}unset($r);
   foreach($snapshot['artists'] as &$a){
    $a['catalog_term_id']=0;
@@ -86,6 +86,7 @@ function sync_directory(){
   $activeIds=array_column($snapshot['releases'],'id');
   $owned=get_posts(['post_type'=>'trb_release','post_status'=>['publish','future'],'posts_per_page'=>2001,'fields'=>'ids','meta_key'=>'_trb_studio_created_catalog','meta_value'=>'1']);
   foreach($owned as $id)if(!in_array((int)get_post_meta($id,'_trb_studio_portal_release_id',true),$activeIds,true))wp_update_post(['ID'=>$id,'post_status'=>'draft']);
+  $pages=sync_artist_pages($snapshot);if(is_wp_error($pages))return sync_failed($pages);
   update_option('trb_studio_last_sync',['ok'=>true,'at'=>gmdate('c'),'artists'=>count($snapshot['artists']),'releases'=>count($snapshot['releases']),'warnings'=>$snapshot['warnings']??[]],false);
   if(function_exists('sg_cachepress_purge_cache'))sg_cachepress_purge_cache();return true;
  }finally{delete_option('trb_studio_sync_lock');}
@@ -137,14 +138,12 @@ function release_card($r,$artists,$prefix='trb-release-'){
 }
 function roster(){
  $d=directory_data();$artists=$d['artists'];usort($artists,fn($a,$b)=>strnatcasecmp($a['name'],$b['name']));
- if(!$artists)return admin_permission()?'<p class="trb-studio-admin-note">Directory non ancora sincronizzata. Configura TRB Site Studio prima di pubblicare questa pagina.</p>':'';
- $byid=array_column($artists,null,'id');$out='<section class="trb-directory trb-directory-roster"><h2>Gli artisti TRB rec</h2><details class="trb-roster-index"><summary>Trova un artista <span>'.count($artists).'</span></summary><nav class="trb-artist-index" aria-label="Indice degli artisti">';
- foreach($artists as $a)$out.='<a href="#trb-artista-'.$a['id'].'">'.esc_html($a['name']).'</a>';$out.='</nav></details>';
- foreach($artists as $a){$edit=function_exists(__NAMESPACE__.'\\studio_mode')&&studio_mode()?' data-trb-studio-entity="artist:'.$a['id'].'"':'';$photo=function_exists(__NAMESPACE__.'\\studio_artist_image')?studio_artist_image($a):public_image($a['image_id'],$a['name']);$out.='<article class="trb-artist-profile" id="trb-artista-'.$a['id'].'"'.$edit.'><div class="trb-artist-identity">'.$photo.'</div><div class="trb-artist-content"><h3>'.esc_html($a['name']).'</h3>'.artist_biography($a).'<div class="trb-artist-actions">';
-  if($a['links']){$out.='<details class="trb-artist-socials"><summary>Profili ufficiali<span class="screen-reader-text"> di '.esc_html($a['name']).'</span></summary><nav class="trb-artist-links" aria-label="Profili ufficiali di '.esc_attr($a['name']).'">';foreach($a['links'] as $link){$url=esc_url($link['url'],['https']);if($url)$out.='<a href="'.$url.'" target="_blank" rel="noopener noreferrer">'.esc_html($link['label']).'</a>';}$out.='</nav></details>';}
-  $releases=artist_releases($a,$d);usort($releases,fn($a,$b)=>strcmp($b['date'],$a['date']));
-  if($releases){$out.='<details class="trb-artist-discography"><summary>Release <span>('.count($releases).')</span><span class="screen-reader-text"> e presentazioni di '.esc_html($a['name']).'</span></summary>';foreach($releases as $r)$out.=release_card($r,$byid);$out.='</details>';}
-  $out.='</div></div></article>';
+ if(!$artists)return admin_permission()?'<p>Directory in aggiornamento.</p>':'';
+ $out='<section class="trb-directory trb-directory-roster trb-roster-tiles" aria-label="Artisti TRB rec">';
+ foreach($artists as $a){
+  $url=artist_page_url($a);if(!$url)continue;
+  $edit=studio_mode()?' data-trb-studio-entity="artist:'.$a['id'].'"':'';
+  $out.='<article class="trb-artist-profile trb-artist-tile" id="trb-artista-'.$a['id'].'"'.$edit.'><a class="trb-artist-tile-link" href="'.esc_url($url).'" aria-label="'.esc_attr('Scopri '.$a['name']).'"><div class="trb-artist-identity">'.studio_artist_image($a).'</div><div class="trb-artist-tile-caption"><h3>'.esc_html($a['name']).'</h3><span aria-hidden="true">↗</span></div></a></article>';
  }
  return $out.'</section>';
 }

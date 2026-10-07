@@ -237,8 +237,15 @@ jobs:
             for slug in home artisti demo catalogo news chi-siamo cosa-facciamo booking licenze-audio contatti privacy-policy; do
               route="/${slug}/"
               if [ "${slug}" = home ]; then route="/"; fi
-              ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-site-preview.php' '${GITHUB_SHA}' '${route}'" > "/tmp/trb-public-preview/${slug}.html"
+              ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-site-preview.php' '${GITHUB_SHA}' '${route}'" 2>/dev/null > "/tmp/trb-public-preview/${slug}.html"
             done
+            artist_routes=$(ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-artist-routes.php' '${GITHUB_SHA}'" 2>/dev/null)
+            while IFS= read -r route; do
+              if [[ "$route" =~ ^/artisti/[a-z0-9-]+/$ ]]; then
+                slug="${route#/artisti/}"; slug="${slug%/}"
+                ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-site-preview.php' '${GITHUB_SHA}' '${route}'" 2>/dev/null > "/tmp/trb-public-preview/artist-${slug}.html"
+              fi
+            done <<< "$artist_routes"
             echo "Anonymous public page snapshots exported for offline responsive layout QA."
           fi
 
