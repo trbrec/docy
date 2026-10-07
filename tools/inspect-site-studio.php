@@ -77,7 +77,7 @@ if($mode==='source'){
   if($root['code']==='ok')foreach($d['artist_materials'] as $row){
    $name=$row['public_name'];$segment=trb_artist_promo_folder_segment($name);
    // Case-only folder variants preserve the exact public identity; no alias is imported.
-   $matches=array_values(array_filter($d['promo_archive']['folders'],fn($f)=>mb_strtolower($f,'UTF-8')===mb_strtolower($segment,'UTF-8')));
+   $matches=array_values(array_filter($d['promo_archive']['folders'],fn($f)=>strcasecmp($f,$segment)===0));
    if(count($matches)!==1)continue;$segment=$matches[0];
    $artistPath='/Discografia - TRB rec/'.$segment;$base=$artistPath.'/PROMO';
    $artistRoot=$list($artistPath);
