@@ -57,7 +57,8 @@ function material($kind,$id,$type){
  return $fallback;
 }
 function material_photos($id){
- $primary=material('artist',$id,'photo');$out=$primary?[$primary['hash']=>$primary]:[];
+ $primary=material('artist',$id,'photo');$out=[];
+ if($primary&&@getimagesize($primary['path'])){$reader=wp_get_image_editor($primary['path']);if(!is_wp_error($reader))$out[$primary['hash']]=$primary;unset($reader);}
  foreach((array)get_user_meta($id,'_trb_artist_private_files',true) as $file){
   if(!is_array($file)||($file['group']??'')!=='photo')continue;
   $path=trb_artist_promo_local_photo($file);
@@ -143,7 +144,8 @@ function portal_snapshot(){
   $links=[];foreach(['spotify'=>'Spotify','apple_music'=>'Apple Music','youtube'=>'YouTube','soundcloud'=>'SoundCloud','instagram'=>'Instagram','facebook'=>'Facebook','tiktok'=>'TikTok','threads'=>'Threads','x'=>'X','twitch'=>'Twitch','linkedin'=>'LinkedIn','discord'=>'Discord','snapchat'=>'Snapchat'] as $key=>$label){$url=esc_url_raw(get_user_meta($user->ID,'_trb_artist_'.$key.'_url',true),['https']);if($url)$links[]=['label'=>$label,'url'=>$url];}
   $official=trim((string)get_user_meta($user->ID,'_trb_artist_artist_name',true));
   $website=esc_url_raw((string)($user->user_url??''),['https']);if($website)$links[]=['label'=>'Sito ufficiale','url'=>$website];
-  $artists[]=['id'=>(int)$user->ID,'name_source'=>$official?'artist_profile':'wordpress_public_name','name'=>$name,'bio'=>$bio,'links'=>$links,'photo'=>asset_reference('artist',$user->ID,material('artist',$user->ID,'photo')),'photos'=>array_map(fn($file)=>asset_reference('artist',$user->ID,$file),material_photos($user->ID))];$ids[]=(int)$user->ID;
+  $photos=material_photos($user->ID);
+  $artists[]=['id'=>(int)$user->ID,'name_source'=>$official?'artist_profile':'wordpress_public_name','name'=>$name,'bio'=>$bio,'links'=>$links,'photo'=>asset_reference('artist',$user->ID,($photos[0]??null)),'photos'=>array_map(fn($file)=>asset_reference('artist',$user->ID,$file),$photos)];$ids[]=(int)$user->ID;
  }
  $releases=[];
  if($ids){
