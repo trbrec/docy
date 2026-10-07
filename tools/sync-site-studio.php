@@ -28,7 +28,7 @@ if($mode==='transfer'){
 define('WP_USE_THEMES',false);
 if($mode==='export'){
  require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
- if(!\TRB\Studio\source_site()||\TRB\Studio\VERSION!=='0.1.8')exit(8);
+ if(!\TRB\Studio\source_site()||\TRB\Studio\VERSION!=='0.1.9')exit(8);
  // Observed commercial state: processed is the owner-completed CRM release.
  // A signed contract and non-inactive release are independently required by the adapter.
  update_option('trb_studio_distribution_states',['processed'],false);
@@ -51,14 +51,14 @@ if($mode==='export'){
   if(!mkdir($dir,0700))throw new RuntimeException('bundle_directory');
   $total=0;$d['phase']='assets';
   foreach(['artists'=>'photo','releases'=>'cover'] as $list=>$field)foreach($snapshot[$list] as $item){
-   $ref=$item[$field]??null;if(!$ref)continue;
-   $req=new WP_REST_Request('GET');$req['kind']=$ref['kind'];$req['id']=$ref['id'];
+   $refs=array_merge([$item[$field]??null],$list==='artists'?($item['photos']??[]):[]);foreach($refs as $ref){if(!$ref)continue;
+   $req=new WP_REST_Request('GET');$req['kind']=$ref['kind'];$req['id']=$ref['id'];$req['hash']=$ref['hash'];
    $asset=\TRB\Studio\portal_asset($req);if(is_wp_error($asset))throw new RuntimeException($asset->get_error_code());
    $data=$asset->get_data();if(!hash_equals($ref['hash'],$data['hash']??''))throw new RuntimeException('asset_changed');
    $json=wp_json_encode($data);$total+=strlen($json);if($total>512*1024*1024)throw new RuntimeException('bundle_size');
    $path=$dir.'/'.$ref['kind'].'-'.$ref['id'].'-'.$ref['hash'].'.json';
    if(file_put_contents($path,$json)!==strlen($json))throw new RuntimeException('asset_write');chmod($path,0600);
-  }
+  }}
   $json=wp_json_encode($snapshot);if(strlen($json)>20*1024*1024)throw new RuntimeException('snapshot_size');
   if(file_put_contents($dir.'/snapshot.json',$json)!==strlen($json))throw new RuntimeException('snapshot_write');chmod($dir.'/snapshot.json',0600);
   $pointer=wp_json_encode(['generation'=>$generation,'sha256'=>hash('sha256',$json)]);
@@ -80,7 +80,7 @@ if($mode==='export'){
 }
 if(in_array($mode,['import','report'],true)){
  require '/home/customer/www/new1.trbrec.com/public_html/wp-load.php';
- if(!\TRB\Studio\destination_site()||\TRB\Studio\VERSION!=='0.1.8')exit(11);
+ if(!\TRB\Studio\destination_site()||\TRB\Studio\VERSION!=='0.1.9')exit(11);
  $d=json_decode((string)file_get_contents($report),true);
  update_option('trb_studio_transfer_report',is_array($d)?$d:['ok'=>false,'code'=>'report_invalid'],false);
  if($mode==='report')exit;

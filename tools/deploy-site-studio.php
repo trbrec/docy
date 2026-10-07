@@ -18,7 +18,7 @@ $stage = 'preflight';
 $source = dirname(__DIR__) . '/integrations/site-studio/trb-site-studio';
 $destination = $root . '/wp-content/plugins/trb-site-studio';
 if (!is_file($root . '/wp-load.php') || !is_dir($root . '/wp-content/plugins')) throw new RuntimeException('WordPress path guard');
-$files = ['trb-site-studio.php', 'editor.php', 'portal.php', 'directory.php', 'editor.js', 'editor.css', 'directory.css', 'readme.txt', 'bundle.php'];
+$files = ['trb-site-studio.php', 'editor.php', 'portal.php', 'directory.php', 'editor.js', 'editor.css', 'directory.css', 'readme.txt', 'bundle.php', 'artist-pages.php'];
 foreach ($files as $file) {
     if (!is_file($source . '/' . $file)) throw new RuntimeException('source package incomplete');
     if (str_ends_with($file, '.php')) {
@@ -47,6 +47,7 @@ $approvedPackages[] = json_decode('{"trb-site-studio.php":"d38e33d1bee9ada26324a
 $approvedPackages[] = json_decode('{"bundle.php":"963f6b83d973425904f5e31cf0d7faa7138e545c6b6edfb723dd19a764e22789","directory.css":"aa14b03a33b9162d3eddf057e8ab73881ec11c8ecd9950bcc455e090dad36868","directory.php":"aa98eb4cb9c53407a9576abdb4c7fd9a7f8043f7bf97ccea56dbbb53d66fa02b","editor.css":"42fce36927ce3b88cbf213c0049f3574a87888d8fe427d83a2ee9bc65ad40cec","editor.js":"ebd85e50d29967c45c29eb57fcb21e415fa3e87f38ad82ef0fa8ac51e28f6557","editor.php":"b0868610e332cb422bd1ec130522faf6b891983bc57a5531ba2bbf367cfa966d","portal.php":"5d3fb02baa6b5de65422671dd86c9df31ef4bb3f3e60e22cd2d14a1bb3593a32","readme.txt":"631562913e2ad6e6bee04dcdc8cab59388137ae3f1b927809ce3642372487e78","trb-site-studio.php":"d38e33d1bee9ada26324a666c77ffb20b5ae4f11d731464a813c55d091e246d3"}', true);
 // Exact installed package before the comprehensive visual editor.
 $approvedPackages[] = json_decode('{"bundle.php":"963f6b83d973425904f5e31cf0d7faa7138e545c6b6edfb723dd19a764e22789","portal.php":"5d3fb02baa6b5de65422671dd86c9df31ef4bb3f3e60e22cd2d14a1bb3593a32","directory.css":"924a8130f15be14d394f8e4265035f056bd47a3ba79c4aa015280fddac2760c3","directory.php":"aa98eb4cb9c53407a9576abdb4c7fd9a7f8043f7bf97ccea56dbbb53d66fa02b","editor.css":"42fce36927ce3b88cbf213c0049f3574a87888d8fe427d83a2ee9bc65ad40cec","trb-site-studio.php":"d38e33d1bee9ada26324a666c77ffb20b5ae4f11d731464a813c55d091e246d3","readme.txt":"631562913e2ad6e6bee04dcdc8cab59388137ae3f1b927809ce3642372487e78","editor.js":"ebd85e50d29967c45c29eb57fcb21e415fa3e87f38ad82ef0fa8ac51e28f6557","editor.php":"b0868610e332cb422bd1ec130522faf6b891983bc57a5531ba2bbf367cfa966d"}', true);
+$approvedPackages[] = json_decode('{"bundle.php":"963f6b83d973425904f5e31cf0d7faa7138e545c6b6edfb723dd19a764e22789","portal.php":"5d3fb02baa6b5de65422671dd86c9df31ef4bb3f3e60e22cd2d14a1bb3593a32","directory.css":"924a8130f15be14d394f8e4265035f056bd47a3ba79c4aa015280fddac2760c3","directory.php":"4f678b8d0f2b6c2ea3682b87d582060f8ffc488ae61056a5fb220924f9517df9","editor.css":"a1c2ecdbfc619cff5e942bfec378310c5e407a3c96767529fa28c688817a3f62","trb-site-studio.php":"560e5453c0d0bcc4431e47e4ee25e389fb1cc6be70389894d0b95b5ddee2a018","readme.txt":"631562913e2ad6e6bee04dcdc8cab59388137ae3f1b927809ce3642372487e78","editor.js":"73d5b1247cc1697bea49313b9c374dc87d82a54cf9750c812e8c1ba57fba4f36","editor.php":"85f5f47d80d4fcad394d19d1a0275b036f3f45598415efce21b7e81e019c38d1"}', true);
 $stage = 'copy';
 if (is_dir($destination)) {
     $same = true;
@@ -105,9 +106,10 @@ if (!$already) {
 if (!is_plugin_active($slug)) throw new RuntimeException('plugin activation unconfirmed');
 $stage = 'load-plugin';
 if (!function_exists('TRB\\Studio\\editor_apply')) require_once $destination . '/trb-site-studio.php';
-if (\TRB\Studio\VERSION !== '0.1.8') throw new RuntimeException('version check');
+if (\TRB\Studio\VERSION !== '0.1.9') throw new RuntimeException('version check');
 $stage = 'verification';
 if ($site === 'new1.trbrec.com') {
+    $profiles=\TRB\Studio\sync_artist_pages(\TRB\Studio\directory_data());if(is_wp_error($profiles))throw new RuntimeException('artist pages installation');
     $id = wp_insert_post(['post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'TRB Studio verifica installazione', 'post_content' => '<!-- wp:html --><p>Verifica editor</p><!-- /wp:html -->'], true);
     if (is_wp_error($id)) throw new RuntimeException('test draft creation');
     try {
@@ -126,10 +128,22 @@ if ($site === 'new1.trbrec.com') {
         if (is_wp_error($saved) || !str_contains(get_post($id)->post_content, 'Verifica completata')) throw new RuntimeException('editor save check');
         $conflict = \TRB\Studio\editor_save($request);
         if (!is_wp_error($conflict) || $conflict->get_error_code() !== 'edit_conflict') throw new RuntimeException('editor conflict check');
+        $manifest=\TRB\Studio\studio_manifest($request)->get_data();
+        $source=null;foreach($manifest['sources'] as $entry)if($entry['id']===$id)$source=$entry;
+        $text=null;foreach($source['items'] as $entry)if($entry['kind']==='text')$text=$entry;
+        if(!$text)throw new RuntimeException('complete editor manifest');
+        $before=get_post($id)->post_content;
+        $request->set_body(wp_json_encode(['sources'=>[['id'=>$id,'version'=>$source['version'],'changes'=>[['key'=>$text['key'],'html'=>'Collaudo editor completo']]]]]));
+        $visual=\TRB\Studio\studio_save($request);if(is_wp_error($visual)||!str_contains(get_post($id)->post_content,'Collaudo editor completo'))throw new RuntimeException('complete editor save');
+        $stale=\TRB\Studio\studio_save($request);if(!is_wp_error($stale)||$stale->get_error_code()!=='edit_conflict')throw new RuntimeException('complete editor conflict');
+        $history=get_option('trb_studio_visual_history',[]);$last=end($history);
+        $request->set_body(wp_json_encode(['action'=>'undo','history_id'=>$last['id']]));
+        $undo=\TRB\Studio\studio_save($request);if(is_wp_error($undo)||get_post($id)->post_content!==$before)throw new RuntimeException('complete editor restore');
+        $anonymous=new WP_REST_Request('GET');wp_set_current_user(0);if(\TRB\Studio\studio_permission())throw new RuntimeException('complete editor anonymous');
         wp_set_current_user(0);
         if (\TRB\Studio\editor_permission($request)) throw new RuntimeException('anonymous permission check');
     } finally { wp_set_current_user(0); wp_trash_post($id); }
-    echo "New1: editor installed; real WordPress manifest, save, conflict and anonymous rejection verified.\n";
+    echo "New1: editor installed; real WordPress visual manifest, save, revision restore, conflict and anonymous rejection verified; native artist pages created.\n";
 } else {
     echo "Portal: plugin activation and version verified.\n";
 }
