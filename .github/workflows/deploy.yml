@@ -227,14 +227,20 @@ jobs:
             echo "Owner-only demo submission, processing and email composition verified."
           fi
 
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/(sync-site-studio|render-artist-roster-qa)\.php$' >/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/render-artist-roster-qa.php' '${GITHUB_SHA}'" > /tmp/trb-roster-wordpress.html
+            test -s /tmp/trb-roster-wordpress.html
+            echo "Published WordPress artist cards and real styles exported read-only for responsive QA."
+          fi
+
       - name: Verify published artist roster on desktop, tablet and phone
         if: ${{ success() }}
         shell: bash
         run: |
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/(trb-site-studio/(directory.php|directory.css)|artist-cards.test.cjs)$|^tools/sync-site-studio\.php$' >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/(sync-site-studio|render-artist-roster-qa)\.php$' >/dev/null; then
             npm install --prefix /tmp/trb-roster-browser --no-save playwright@1.62.1
             /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
-            NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs --live
+            TRB_ROSTER_HTML=/tmp/trb-roster-wordpress.html NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs --live
           fi
 
 

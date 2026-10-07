@@ -11,8 +11,7 @@ const path = require('node:path');
  try {
   for (const width of [320,390,768,1024,1366,1920]) {
    await page.setViewportSize({width,height:1000});
-   if(live)await page.goto('https://new1.trbrec.com/artisti/',{waitUntil:'networkidle'});
-   else await page.setContent(fs.readFileSync('/tmp/trb-roster-fixture.html','utf8'));
+   await page.setContent(fs.readFileSync(live?process.env.TRB_ROSTER_HTML:'/tmp/trb-roster-fixture.html','utf8'));
    const result=await page.evaluate(()=>{
     const grid=document.querySelector('.trb-directory-roster');
     if(!grid)throw Error('New roster renderer missing');
@@ -53,7 +52,7 @@ const path = require('node:path');
    assert.equal(await index.locator('nav').isVisible(),true);
    await index.locator('summary').click();
    if(shots)await page.screenshot({path:path.join(shots,`roster-${width}.png`),fullPage:true});
-   console.log(`PASS: ${live?'live':'fixture'} ${width}px, ${result.columns} columns, uniform cards, accessible biography/social/index disclosures`);
+   console.log(`PASS: ${live?'WordPress-rendered':'fixture'} ${width}px, ${result.columns} columns, uniform cards, accessible biography/social/index disclosures`);
   }
  } finally {await browser.close();}
 })().catch(err=>{console.error(err);process.exit(1);});
