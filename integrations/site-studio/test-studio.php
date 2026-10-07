@@ -134,3 +134,18 @@ check(TRB\Studio\studio_effective('artist',$imported)['bio']==='Correzione manua
 check(is_wp_error(TRB\Studio\studio_override_validate('artist',['contract_state'=>'signed'])),'Public editing cannot change contractual or administrative artist data');
 echo "COMPLETE EDITOR TOTAL: $count passed\n";
 
+
+// A misleading image MIME/header must not block the next usable official photograph.
+function trb_artist_promo_local_photo($file){return $file['test_path']??'';}
+function wp_get_image_mime($path){return 'image/jpeg';}
+function wp_get_image_editor($path){return new stdClass();}
+$good=tempnam(sys_get_temp_dir(),'trb-valid-photo-');$bad=tempnam(sys_get_temp_dir(),'trb-bad-photo-');
+try{
+ file_put_contents($good,base64_decode('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAACAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwC3RRRWZxn/2Q=='));
+ file_put_contents($bad,"JPEG header without readable image dimensions");
+ $users[99]=(object)['meta'=>['_trb_artist_private_files'=>[['group'=>'photo','test_path'=>$bad],['group'=>'photo','test_path'=>$good],['group'=>'photo','test_path'=>$good]]]];
+ $photos=TRB\Studio\material_photos(99);
+ check(count($photos)===1&&$photos[0]['hash']===hash_file('sha256',$good),'An unreadable primary photograph is excluded while the next genuine photo is retained');
+ check(count(array_unique(array_column($photos,'hash')))===count($photos),'Duplicate source photographs cannot create a fake three-photo gallery');
+}finally{unlink($good);unlink($bad);unset($users[99]);}
+echo "PHOTO VALIDATION TOTAL: $count passed\n";
