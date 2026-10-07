@@ -3,7 +3,10 @@
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 ini_set('display_errors', '0');
 $stage = 'initial';
-set_exception_handler(static function ($e) { fwrite(STDERR, "TRB Studio installation failed: " . $e->getMessage() . "\n"); exit(1); });
+set_exception_handler(static function ($e) use (&$stage) {
+ if (function_exists('update_option')) update_option('wpvibe_task_trb_studio_install', ['stage' => $stage, 'error' => $e->getMessage(), 'at' => gmdate('c')], false);
+ fwrite(STDERR, "TRB Studio installation failed: " . $e->getMessage() . "\n"); exit(1);
+});
 $revision = $argv[1] ?? '';
 $site = $argv[2] ?? '';
 if (!preg_match('/^[a-f0-9]{40}$/D', $revision) || trim((string) @file_get_contents(dirname(__DIR__) . '/.trb-deployed-sha')) !== $revision) throw new RuntimeException('revision guard');
@@ -54,7 +57,11 @@ if (is_dir($destination)) {
             foreach ($files as $file) if (!isset($package[$file]) && file_exists($destination . '/' . $file)) $match = false;
             if ($match) $known = true;
         }
-        if (!$known) throw new RuntimeException('existing plugin differs from an approved package; no overwrite performed');
+        if (!$known) {
+ $hashes = []; foreach ($files as $file) $hashes[$file] = is_file($destination . '/' . $file) ? hash_file('sha256', $destination . '/' . $file) : '';
+ update_option('wpvibe_task_trb_studio_package_hashes', $hashes, false);
+ throw new RuntimeException('existing plugin differs from an approved package; no overwrite performed');
+}
         $private = dirname($root) . '/private';
         if (!is_dir($private) && !mkdir($private,0700,true)) throw new RuntimeException('backup directory');
         $backup = $private . '/trb-studio-before-' . $revision;
