@@ -20,8 +20,8 @@ body.page-id-936 .trb-directory-roster .trb-artist-profile>.trb-artist-content{p
 body.page-id-936 .trb-directory-roster .trb-artist-content>h3{font-size:20px;font-weight:650;letter-spacing:-.025em;line-height:1.25;height:2.5em;min-height:2.5em;margin:0 0 12px;color:#173328;overflow-wrap:anywhere}
 body.page-id-936 .trb-directory-roster .trb-artist-bio-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;line-clamp:5;overflow:hidden;height:7.5em;min-height:7.5em;margin:0;font-size:14px;line-height:1.5;color:#476052;overflow-wrap:anywhere}
 body.page-id-936 .trb-directory-roster .trb-artist-pending{font-style:italic;color:#536a5c}
-body.page-id-936 .trb-directory-roster .trb-artist-bio{min-height:149px}
-body.page-id-936 .trb-directory-roster .trb-artist-biography{margin:0}
+body.page-id-936 .trb-directory-roster .trb-artist-bio{min-height:149px;margin:0;padding:0;border:0}
+body.page-id-936 .trb-directory-roster .trb-artist-biography{margin:0;padding:0;border:0}
 body.page-id-936 .trb-directory-roster .trb-artist-biography>summary{cursor:pointer;min-height:44px;padding:12px 0;font-size:13px;font-weight:600;color:#25694c}
 body.page-id-936 .trb-directory-roster .trb-bio-open{display:none}
 body.page-id-936 .trb-directory-roster .trb-artist-biography[open] .trb-bio-open{display:inline}
@@ -31,7 +31,7 @@ body.page-id-936 .trb-directory-roster .trb-artist-bio-full{padding-top:2px;padd
 body.page-id-936 .trb-directory-roster .trb-artist-bio-full p{font-size:14px;line-height:1.65;color:#476052;margin:0 0 14px;overflow-wrap:anywhere}
 body.page-id-936 .trb-directory-roster .trb-artist-bio-unavailable{height:44px;margin:0;font-size:12px;line-height:44px;color:#536a5c}
 body.page-id-936 .trb-directory-roster .trb-artist-actions{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;min-height:49px;border-top:1px solid #e1e7de;padding-top:4px;margin-top:8px;align-items:start}
-body.page-id-936 .trb-directory-roster .trb-artist-actions>details{margin:0;min-width:0}
+body.page-id-936 .trb-directory-roster .trb-artist-actions>details{margin:0;padding:0;border:0;min-width:0}
 body.page-id-936 .trb-directory-roster .trb-artist-actions>details[open]{grid-column:1/-1}
 body.page-id-936 .trb-directory-roster .trb-artist-actions>details>summary{min-height:44px;padding:12px 0;font-size:12px;line-height:20px;cursor:pointer;font-weight:600;color:#173328}
 body.page-id-936 .trb-directory-roster .trb-artist-actions .trb-artist-links{gap:6px;margin:4px 0 12px}

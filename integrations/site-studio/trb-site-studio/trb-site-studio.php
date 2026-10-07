@@ -2,12 +2,12 @@
 /**
  * Plugin Name: TRB Site Studio
  * Description: Editor visuale amministratore e directory pubblica collegata al Portale Artisti.
- * Version: 0.1.5
+ * Version: 0.1.6
  * Requires PHP: 8.1
  */
 namespace TRB\Studio;
 if (!defined('ABSPATH')) exit;
-const VERSION = '0.1.5';
+const VERSION = '0.1.6';
 require_once __DIR__.'/editor.php';
 require_once __DIR__.'/portal.php';
 require_once __DIR__.'/bundle.php';
