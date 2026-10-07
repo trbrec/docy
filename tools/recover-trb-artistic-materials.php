@@ -13,7 +13,13 @@ Ha pubblicato numerosi album di musica originale e per la danza ed è fondatore 
 
 Il suo percorso si sviluppa tra palco e studio, con una ricerca costante sul rapporto tra struttura e libertà espressiva e sul dialogo tra musica e immagine. È attivo nella composizione di colonne sonore per videogiochi, ambito in cui la musica assume un ruolo narrativo centrale, pensata per accompagnare l’azione, il movimento e le scelte del giocatore.
 
-Tra composizione, arrangiamento e musica per immagini, Solidoro porta avanti una visione coerente e contemporanea, in cui il suono non è semplice accompagnamento ma parte integrante del racconto, contribuendo alla costruzione dell’esperienza complessiva.','bio_source'=>'/Discografia - TRB rec/Solidoro/Proverò a descriverti/PROMO/INPUT_ARTISTA/Comunicato-stampa-e-bio.docx']];
+Tra composizione, arrangiamento e musica per immagini, Solidoro porta avanti una visione coerente e contemporanea, in cui il suono non è semplice accompagnamento ma parte integrante del racconto, contribuendo alla costruzione dell’esperienza complessiva.','bio_source'=>'/Discografia - TRB rec/Solidoro/Proverò a descriverti/PROMO/INPUT_ARTISTA/Comunicato-stampa-e-bio.docx'],['id'=>41,'expected_display'=>'Edmondo Romano','name'=>'Edmondo Romano e Simona Fasano','photo'=>'/Discografia - DDB/Edmondo Romano  Simona Fasano/ES SÉ female side (EP)/PROMO/INPUT_ARTISTA/Edmondo-Romano-Simona-Fasano-ESSE-Foto-1.jpg','photo_hash'=>'a8e7678d9c50434fa985b9603247cd48f4c82d91d373026126203292bd7b18ca','bio'=>'Edmondo Romano e Simona Fasano uniscono musica e teatro in un progetto nato dal loro incontro a Genova nel 2006. Il loro percorso intreccia composizione, voce, parola, danza e ricerca sonora, con spettacoli, recital e concerti realizzati nell’ambito della Compagnia Teatro Nudo. Dal 2012 la ricerca musicale prosegue anche attraverso Eden Production, tra musica per immagini, sperimentazione, world music e linguaggi contemporanei.
+
+Edmondo Romano è polistrumentista, compositore e produttore. La sua attività attraversa musica sperimentale, etnica, world, minimalista e contemporanea. Ha partecipato a oltre 140 incisioni discografiche e lavorato a colonne sonore cinematografiche, reading poetici, teatro e danza, portando la propria musica in numerosi concerti internazionali. Nei suoi progetti cura anche la produzione artistica e gli aspetti audio, video e grafici.
+
+Simona Fasano è attrice e cantante. La sua ricerca esplora il linguaggio del corpo, del suono e della parola. Nel 2007 ha fondato la Compagnia Teatro Nudo, per la quale realizza spettacoli occupandosi anche di drammaturgia e regia.
+
+Nel progetto ES/SÉ, nato da questo dialogo artistico, strumenti antichi e moderni, vocalità ed elettronica si incontrano in una ricerca che mette al centro suono, parola e interiorità.','bio_source'=>'/Discografia - DDB/Edmondo Romano  Simona Fasano/ES SÉ (Album)/PROMO/INPUT_ARTISTA/Edmondo-Romano-Simona-Fasano-ES_SE-aggiornato.pdf']];
 $uploads=wp_upload_dir();$base=trailingslashit($uploads['basedir']).'trb-artist-private';
 if(!wp_mkdir_p($base))exit(3);
 if(!is_file($base.'/.htaccess'))file_put_contents($base.'/.htaccess',"Require all denied\nDeny from all\nOptions -Indexes\n");
@@ -24,7 +30,7 @@ foreach($items as $item){
  if(!\TRB\Studio\material('artist',$id,'photo')){
   $r=trb_demo_webdav_request('GET',$item['photo']);
   if(is_wp_error($r)||wp_remote_retrieve_response_code($r)!==200)exit(5);
-  $bytes=wp_remote_retrieve_body($r);if(strlen($bytes)>15*1024*1024)exit(6);
+  $bytes=wp_remote_retrieve_body($r);if(isset($item['photo_hash'])&&!hash_equals($item['photo_hash'],hash('sha256',$bytes)))exit(13);if(strlen($bytes)>15*1024*1024)exit(6);
   $tmp=wp_tempnam('trb-recovered');file_put_contents($tmp,$bytes);
   if(!in_array(wp_get_image_mime($tmp),['image/jpeg','image/png','image/webp'],true)){unlink($tmp);exit(7);}
   $ed=wp_get_image_editor($tmp);if(is_wp_error($ed)){unlink($tmp);exit(8);}
