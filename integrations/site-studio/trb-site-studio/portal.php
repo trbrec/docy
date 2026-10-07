@@ -62,6 +62,8 @@ function material_photos($id){
   if(!is_array($file)||($file['group']??'')!=='photo')continue;
   $path=trb_artist_promo_local_photo($file);
   if(!$path||!is_file($path)||!in_array(wp_get_image_mime($path),['image/jpeg','image/png','image/webp'],true))continue;
+  $dimensions=@getimagesize($path);if(!$dimensions||$dimensions[0]<1||$dimensions[1]<1)continue;
+  $reader=wp_get_image_editor($path);if(is_wp_error($reader))continue;unset($reader);
   $hash=hash_file('sha256',$path);$out[$hash]=['path'=>$path,'name'=>$file['name']??basename($path),'hash'=>$hash];
   if(count($out)>=3)break;
  }

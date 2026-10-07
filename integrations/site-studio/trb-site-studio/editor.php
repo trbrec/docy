@@ -195,7 +195,7 @@ add_filter('render_block_core/template-part',function($html,$block){
 
 function studio_override($kind,$id){return (array)get_option('trb_studio_override_'.$kind.'_'.(int)$id,[]);}
 function studio_override_validate($kind,$patch){
- $allow=$kind==='artist'?['name','bio','links','image_id','gallery_ids','position','brightness']:['title','presentation','links','image_id','gallery_ids','position','brightness'];$out=[];
+ $allow=$kind==='artist'?['name','bio','links','image_id','gallery_ids','position','position_x','brightness']:['title','presentation','links','image_id','gallery_ids','position','position_x','brightness'];$out=[];
  if(!is_array($patch)||count($patch)>8)return new \WP_Error('invalid_override','Modifiche non valide.',['status'=>400]);
  foreach($patch as $k=>$v){
   if(!in_array($k,$allow,true))return new \WP_Error('invalid_override','Campo non modificabile.',['status'=>400]);
@@ -207,7 +207,7 @@ function studio_override_validate($kind,$patch){
    foreach($v as $link){$url=studio_url($link['url']??null);if(!$url||!is_string($link['label']??null)||!trim($link['label'])||strlen($link['label'])>120)return new \WP_Error('invalid_links','Indica nome e indirizzo di ogni collegamento.',['status'=>400]);$out[$k][]=['label'=>sanitize_text_field($link['label']),'url'=>$url];}
   }elseif($k==='gallery_ids'){if($kind!=='artist'||!is_array($v)||count($v)>3)return new \WP_Error('invalid_gallery','Scegli fino a tre fotografie.',['status'=>400]);$out[$k]=[];foreach($v as $photo){if(!studio_photo($photo))return new \WP_Error('invalid_photo','Fotografia non valida.',['status'=>400]);$out[$k][]=(int)$photo;}$out[$k]=array_values(array_unique($out[$k]));
   }elseif($k==='image_id'){if(!studio_photo($v))return new \WP_Error('invalid_photo','Fotografia non valida.',['status'=>400]);$out[$k]=(int)$v;
-  }elseif($k==='position'){if(!is_numeric($v)||$v<0||$v>100)return new \WP_Error('invalid_position','Inquadratura non valida.',['status'=>400]);$out[$k]=(int)$v;
+  }elseif($k==='position'||$k==='position_x'){if(!is_numeric($v)||$v<0||$v>100)return new \WP_Error('invalid_position','Inquadratura non valida.',['status'=>400]);$out[$k]=(int)$v;
   }elseif($k==='brightness'){if(!is_numeric($v)||$v<90||$v>125)return new \WP_Error('invalid_brightness','Luminosità non valida.',['status'=>400]);$out[$k]=(int)$v;}
  }
  return $out;
@@ -215,13 +215,13 @@ function studio_override_validate($kind,$patch){
 function studio_effective($kind,$entity){return array_merge($entity,studio_override($kind,$entity['id']));}
 function studio_artist_image($a){
  $o=studio_override('artist',$a['id']);$style='';
- $position=$o['position']??($a['id']===177?23:($a['id']===45?27:35));$style.='object-position:center '.$position.'% !important;';
+ $positionX=$o['position_x']??($a['id']===67?20:50);$position=$o['position']??($a['id']===177?23:($a['id']===45?27:35));$style.='object-position:'.$positionX.'% '.$position.'% !important;';
  $brightness=$o['brightness']??($a['id']===45?112:100);$style.='filter:brightness('.($brightness/100).') !important;';
  return !empty($a['image_id'])?wp_get_attachment_image($a['image_id'],'large',false,['alt'=>$a['name'],'loading'=>'lazy','class'=>'trb-directory-image','style'=>$style]):public_image(0,$a['name']);
 }
 function studio_entity_list(){
  $raw=get_option('trb_studio_directory',['artists'=>[],'releases'=>[]]);$out=[];
- foreach($raw['artists']??[] as $a){$o=studio_override('artist',$a['id']);$a=studio_effective('artist',$a);$out[]=['kind'=>'artist','id'=>$a['id'],'name'=>$a['name'],'bio'=>$a['bio'],'links'=>$a['links'],'image_id'=>$a['image_id']??0,'image'=>wp_get_attachment_image_url($a['image_id']??0,'large')?:'','gallery_ids'=>artist_gallery_ids($a),'gallery'=>array_map(fn($id)=>['id'=>$id,'url'=>wp_get_attachment_image_url($id,'large')],artist_gallery_ids($a)),'url'=>artist_page_url($a),'position'=>$o['position']??($a['id']===177?23:($a['id']===45?27:35)),'brightness'=>$o['brightness']??($a['id']===45?112:100),'version'=>studio_version($o),'manual'=>(bool)$o];}
+ foreach($raw['artists']??[] as $a){$o=studio_override('artist',$a['id']);$a=studio_effective('artist',$a);$out[]=['kind'=>'artist','id'=>$a['id'],'name'=>$a['name'],'bio'=>$a['bio'],'links'=>$a['links'],'image_id'=>$a['image_id']??0,'image'=>wp_get_attachment_image_url($a['image_id']??0,'large')?:'','gallery_ids'=>artist_gallery_ids($a),'gallery'=>array_map(fn($id)=>['id'=>$id,'url'=>wp_get_attachment_image_url($id,'large')],artist_gallery_ids($a)),'url'=>artist_page_url($a),'position_x'=>$o['position_x']??($a['id']===67?20:50),'position'=>$o['position']??($a['id']===177?23:($a['id']===45?27:35)),'brightness'=>$o['brightness']??($a['id']===45?112:100),'version'=>studio_version($o),'manual'=>(bool)$o];}
  if(class_exists('TRB_Promo_Ecosystem'))foreach(get_posts(['post_type'=>'trb_release','post_status'=>['publish','future'],'posts_per_page'=>1000]) as $p){
   $d=\TRB_Promo_Ecosystem::data($p->ID);if(($d['state']??'')!=='published')continue;$o=studio_override('catalog',$p->ID);$assets=apply_filters('trb_promo_release_assets',[],$d,$p->ID);
   $image=(int)($o['image_id']??$assets['cover_id']??0);$out[]=['kind'=>'catalog','id'=>$p->ID,'name'=>$d['title']??$p->post_title,'title'=>$d['title']??$p->post_title,'presentation'=>$o['presentation']??$assets['press_text']??'','links'=>$o['links']??[],'image_id'=>$image,'image'=>wp_get_attachment_image_url($image,'large')?:($assets['cover_url']??''),'position'=>$o['position']??50,'brightness'=>$o['brightness']??100,'version'=>studio_version($o),'manual'=>(bool)$o,'url'=>get_permalink($p->ID)];

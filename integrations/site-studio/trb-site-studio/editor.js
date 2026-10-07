@@ -42,7 +42,7 @@ const previewEntity=(e,d)=>{
 const node=entityNode(e);if(!node)return;const h=node.querySelector(e.kind==='artist'?'h1,h3':'h1');if(h)h.textContent=e.kind==='artist'?d.name:d.title;
 let img=node.querySelector(e.kind==='artist'?'.trb-artist-identity img,.trb-artist-gallery img':'.trb-release-hero img');const url=previewImages.get(e.kind+':'+e.id)||d.image;
 if(url&&!img&&e.kind==='artist'){const wrap=node.querySelector('.trb-artist-identity');if(wrap){img=document.createElement('img');img.className='trb-directory-image';wrap.replaceChildren(img);}}
-if(img){if(url){img.src=url;img.removeAttribute('srcset');img.removeAttribute('sizes');}img.style.setProperty('object-position','center '+d.position+'%','important');img.style.setProperty('filter','brightness('+d.brightness/100+')','important');}
+if(img){if(url){img.src=url;img.removeAttribute('srcset');img.removeAttribute('sizes');}img.style.setProperty('object-position',(d.position_x??50)+'% '+d.position+'%','important');img.style.setProperty('filter','brightness('+d.brightness/100+')','important');}
 if(e.kind==='artist'){const b=node.querySelector('.trb-artist-bio-preview'),full=node.querySelector('.trb-artist-bio-full');if(b){const s=d.bio.replace(/\s+/g,' ').trim();b.textContent=Array.from(s).slice(0,239).join('')+(Array.from(s).length>239?'…':'');}if(full)full.textContent=d.bio;const links=node.querySelector('.trb-artist-socials nav');if(links){links.replaceChildren();for(const x of d.links){const a=document.createElement('a');a.textContent=x.label;a.href=x.url;links.append(a);}}}
 else{const p=node.querySelector('.prose');if(p&&d.presentation!==undefined)p.textContent=d.presentation;}
 };
@@ -62,6 +62,7 @@ if(e.kind==='artist'){
  }
  if(ids.length<3)button('Aggiungi fotografia',()=>choosePhoto(a=>{previewImages.set('photo:'+a.id,a.url);const next=[...new Set([...ids,a.id])];entityPatch(e,{gallery_ids:next});previewGallery(next);selectEntity(e);}));
 }
+if(e.kind==='artist'){const horizontal=input('Inquadratura orizzontale',d.position_x??50,v=>entityPatch(e,{position_x:Number(v)}),'range');horizontal.min=0;horizontal.max=100;}
 const pos=input('Inquadratura verticale',d.position,v=>entityPatch(e,{position:Number(v)}),'range');pos.min=0;pos.max=100;
 const light=input('Luminosità',d.brightness,v=>entityPatch(e,{brightness:Number(v)}),'range');light.min=90;light.max=125;
 input('Collegamenti: nome | indirizzo, uno per riga',(d.links||[]).map(l=>l.label+' | '+l.url).join('\n'),v=>entityPatch(e,{links:v.split('\n').filter(l=>l.trim()).map(l=>{const i=l.indexOf('|');return {label:i<0?'':l.slice(0,i).trim(),url:i<0?l.trim():l.slice(i+1).trim()};})}),'textarea');
