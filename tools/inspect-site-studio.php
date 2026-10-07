@@ -73,13 +73,13 @@ if ($mode === 'source') {
  // Apply the explicitly reviewed choices without replacing an artist's original uploads.
  $choices = [
  41 => '12b39e40753227484488',
- 45 => 'c1dcaa8944e20978e9cc',
+ 45 => 'cf8c440cf241ffb4c933',
  67 => '6f5803326d9741b03300',
  73 => '9326754aa3ff0abe834f',
  103 => '7e1c5d76de6c41638c0e',
  127 => '1fdb4919ecb58845d84a',
  128 => 'c362d3915363d7b17950',
- 177 => '7a8de48c2a07ee287bc2'
+ 177 => 'dc0c0e78d04d17231908'
  ];
  $previous = json_decode((string) @file_get_contents($report), true);
  foreach ($choices as $id => $key) {

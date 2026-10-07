@@ -46,11 +46,14 @@ body.page-id-936 .trb-directory-roster summary:focus-visible,body.page-id-936 .t
 @media(max-width:959px){body.page-id-936 .trb-directory.trb-directory-roster{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}}
 @media(max-width:599px){body.page-id-936 .trb-directory.trb-directory-roster{grid-template-columns:minmax(0,1fr);gap:20px;padding-bottom:40px}body.page-id-936 main .trb-artists-page{padding-top:32px;padding-bottom:22px}body.page-id-936 .trb-directory-roster .trb-artist-profile>.trb-artist-content{padding:18px}}
 
-/* Reviewed photographs: consistent tone and individual framing, original assets preserved. */
-body.page-id-936 .trb-directory-roster .trb-artist-identity>.trb-directory-image:not(.trb-directory-monogram){filter:grayscale(1);object-position:center 35%}
+/* Official photographs retain their colours; original uploads remain unchanged. */
+body.page-id-936 .trb-directory-roster .trb-artist-identity>.trb-directory-image:not(.trb-directory-monogram){filter:none;object-position:center 35%}
 body.page-id-936 .trb-directory-roster #trb-artista-41>.trb-artist-identity>.trb-directory-image{object-fit:cover;object-position:center}
 body.page-id-936 .trb-directory-roster #trb-artista-127>.trb-artist-identity>.trb-directory-image{object-position:center 15%}
 body.page-id-936 .trb-directory-roster #trb-artista-177>.trb-artist-identity>.trb-directory-image{object-position:center 23%}
 body.page-id-936 .trb-directory-roster #trb-artista-128>.trb-artist-identity>.trb-directory-image{object-position:center 58%}
 body.page-id-936 .trb-directory-roster .trb-directory-monogram{position:relative;background:linear-gradient(145deg,#183b2c,#0c1711);color:#afebd2;font-size:44px!important;font-weight:500}
 body.page-id-936 .trb-directory-roster .trb-directory-monogram:after{content:'TRB rec';position:absolute;bottom:18px;font-size:11px;letter-spacing:.12em;color:#afebd2b3}
+
+/* Gentle exposure correction for the darker alternate Arkell portrait. */
+body.page-id-936 .trb-directory-roster #trb-artista-45>.trb-artist-identity>.trb-directory-image{filter:brightness(1.12);object-position:center 27%}
