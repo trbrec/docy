@@ -118,7 +118,7 @@ function artist_bio_preview($text,$name=''){
   if($same||preg_match('/^Bio\s*[–—-]/u',$first))array_shift($lines);
  }
  $plain=trim(preg_replace('/\s+/u',' ',implode(' ',$lines)));
- if(!preg_match('/^(.{0,239})(.)/us',$plain,$match))return $plain;
+ if(!preg_match('/^(.{239})(.)/us',$plain,$match))return $plain;
  $excerpt=preg_replace('/\s+\S*$/u','',$match[1]);
  return rtrim($excerpt?:$match[1]).'…';
 }
