@@ -45,6 +45,8 @@ $approvedPackages[] = json_decode('{"trb-site-studio.php":"915ae7308955c323c2236
 $approvedPackages[] = json_decode('{"trb-site-studio.php":"d38e33d1bee9ada26324a666c77ffb20b5ae4f11d731464a813c55d091e246d3","editor.php":"b0868610e332cb422bd1ec130522faf6b891983bc57a5531ba2bbf367cfa966d","portal.php":"5d3fb02baa6b5de65422671dd86c9df31ef4bb3f3e60e22cd2d14a1bb3593a32","directory.php":"d570b086758e4c73b0f9ed8d97ac277b2ad05839106d9deaa8e9f18becfed7bf","editor.js":"ebd85e50d29967c45c29eb57fcb21e415fa3e87f38ad82ef0fa8ac51e28f6557","editor.css":"42fce36927ce3b88cbf213c0049f3574a87888d8fe427d83a2ee9bc65ad40cec","directory.css":"27909bde8a72c6e5ddfda48f27fe13c8afc42f9517af79dafed06c714a40f164","readme.txt":"631562913e2ad6e6bee04dcdc8cab59388137ae3f1b927809ce3642372487e78","bundle.php":"963f6b83d973425904f5e31cf0d7faa7138e545c6b6edfb723dd19a764e22789"}', true);
 // Verified current package before the requested colour-photo correction.
 $approvedPackages[] = json_decode('{"bundle.php":"963f6b83d973425904f5e31cf0d7faa7138e545c6b6edfb723dd19a764e22789","directory.css":"aa14b03a33b9162d3eddf057e8ab73881ec11c8ecd9950bcc455e090dad36868","directory.php":"aa98eb4cb9c53407a9576abdb4c7fd9a7f8043f7bf97ccea56dbbb53d66fa02b","editor.css":"42fce36927ce3b88cbf213c0049f3574a87888d8fe427d83a2ee9bc65ad40cec","editor.js":"ebd85e50d29967c45c29eb57fcb21e415fa3e87f38ad82ef0fa8ac51e28f6557","editor.php":"b0868610e332cb422bd1ec130522faf6b891983bc57a5531ba2bbf367cfa966d","portal.php":"5d3fb02baa6b5de65422671dd86c9df31ef4bb3f3e60e22cd2d14a1bb3593a32","readme.txt":"631562913e2ad6e6bee04dcdc8cab59388137ae3f1b927809ce3642372487e78","trb-site-studio.php":"d38e33d1bee9ada26324a666c77ffb20b5ae4f11d731464a813c55d091e246d3"}', true);
+// Exact installed package before the comprehensive visual editor.
+$approvedPackages[] = json_decode('{"bundle.php":"963f6b83d973425904f5e31cf0d7faa7138e545c6b6edfb723dd19a764e22789","portal.php":"5d3fb02baa6b5de65422671dd86c9df31ef4bb3f3e60e22cd2d14a1bb3593a32","directory.css":"924a8130f15be14d394f8e4265035f056bd47a3ba79c4aa015280fddac2760c3","directory.php":"aa98eb4cb9c53407a9576abdb4c7fd9a7f8043f7bf97ccea56dbbb53d66fa02b","editor.css":"42fce36927ce3b88cbf213c0049f3574a87888d8fe427d83a2ee9bc65ad40cec","trb-site-studio.php":"d38e33d1bee9ada26324a666c77ffb20b5ae4f11d731464a813c55d091e246d3","readme.txt":"631562913e2ad6e6bee04dcdc8cab59388137ae3f1b927809ce3642372487e78","editor.js":"ebd85e50d29967c45c29eb57fcb21e415fa3e87f38ad82ef0fa8ac51e28f6557","editor.php":"b0868610e332cb422bd1ec130522faf6b891983bc57a5531ba2bbf367cfa966d"}', true);
 $stage = 'copy';
 if (is_dir($destination)) {
     $same = true;
@@ -103,7 +105,7 @@ if (!$already) {
 if (!is_plugin_active($slug)) throw new RuntimeException('plugin activation unconfirmed');
 $stage = 'load-plugin';
 if (!function_exists('TRB\\Studio\\editor_apply')) require_once $destination . '/trb-site-studio.php';
-if (\TRB\Studio\VERSION !== '0.1.7') throw new RuntimeException('version check');
+if (\TRB\Studio\VERSION !== '0.1.8') throw new RuntimeException('version check');
 $stage = 'verification';
 if ($site === 'new1.trbrec.com') {
     $id = wp_insert_post(['post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'TRB Studio verifica installazione', 'post_content' => '<!-- wp:html --><p>Verifica editor</p><!-- /wp:html -->'], true);

@@ -35,6 +35,11 @@ jobs:
         run: |
           php tools/test-release-sheet-data.php
           php tools/test-artist-admin-name.php
+          node --check integrations/site-studio/trb-site-studio/editor.js
+          curl --fail --silent --show-error --location https://wordpress.org/latest.tar.gz -o /tmp/trb-studio-wp.tar.gz
+          mkdir -p /tmp/trb-studio-wp
+          tar -xzf /tmp/trb-studio-wp.tar.gz -C /tmp/trb-studio-wp
+          TRB_WP_TEST_ROOT=/tmp/trb-studio-wp/wordpress php integrations/site-studio/test-studio.php
           node tests/release-draft-restore.test.js
           node tests/release-completed-receipt.test.js
           node tests/release-draft-clear.test.js

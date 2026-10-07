@@ -98,6 +98,8 @@ function public_releases($releases){
 }
 function directory_data(){
  $d=get_option('trb_studio_directory',['artists'=>[],'releases'=>[]]);
+ if(function_exists(__NAMESPACE__.'\\studio_effective'))foreach($d['artists'] as &$a)$a=studio_effective('artist',$a);unset($a);
+ if(function_exists(__NAMESPACE__.'\\studio_effective'))foreach($d['releases'] as &$r){if(!empty($r['catalog_id']))$r=array_merge($r,studio_override('catalog',$r['catalog_id']));}unset($r);
  $d['releases']=public_releases($d['releases']);
  $at=strtotime($d['generated_at']??'');if(!$at||time()-$at>10800)$d['releases']=[];
  return $d;
@@ -138,7 +140,7 @@ function roster(){
  if(!$artists)return admin_permission()?'<p class="trb-studio-admin-note">Directory non ancora sincronizzata. Configura TRB Site Studio prima di pubblicare questa pagina.</p>':'';
  $byid=array_column($artists,null,'id');$out='<section class="trb-directory trb-directory-roster"><h2>Gli artisti TRB rec</h2><details class="trb-roster-index"><summary>Trova un artista <span>'.count($artists).'</span></summary><nav class="trb-artist-index" aria-label="Indice degli artisti">';
  foreach($artists as $a)$out.='<a href="#trb-artista-'.$a['id'].'">'.esc_html($a['name']).'</a>';$out.='</nav></details>';
- foreach($artists as $a){$out.='<article class="trb-artist-profile" id="trb-artista-'.$a['id'].'"><div class="trb-artist-identity">'.public_image($a['image_id'],$a['name']).'</div><div class="trb-artist-content"><h3>'.esc_html($a['name']).'</h3>'.artist_biography($a).'<div class="trb-artist-actions">';
+ foreach($artists as $a){$edit=function_exists(__NAMESPACE__.'\\studio_mode')&&studio_mode()?' data-trb-studio-entity="artist:'.$a['id'].'"':'';$photo=function_exists(__NAMESPACE__.'\\studio_artist_image')?studio_artist_image($a):public_image($a['image_id'],$a['name']);$out.='<article class="trb-artist-profile" id="trb-artista-'.$a['id'].'"'.$edit.'><div class="trb-artist-identity">'.$photo.'</div><div class="trb-artist-content"><h3>'.esc_html($a['name']).'</h3>'.artist_biography($a).'<div class="trb-artist-actions">';
   if($a['links']){$out.='<details class="trb-artist-socials"><summary>Profili ufficiali<span class="screen-reader-text"> di '.esc_html($a['name']).'</span></summary><nav class="trb-artist-links" aria-label="Profili ufficiali di '.esc_attr($a['name']).'">';foreach($a['links'] as $link){$url=esc_url($link['url'],['https']);if($url)$out.='<a href="'.$url.'" target="_blank" rel="noopener noreferrer">'.esc_html($link['label']).'</a>';}$out.='</nav></details>';}
   $releases=artist_releases($a,$d);usort($releases,fn($a,$b)=>strcmp($b['date'],$a['date']));
   if($releases){$out.='<details class="trb-artist-discography"><summary>Release <span>('.count($releases).')</span><span class="screen-reader-text"> e presentazioni di '.esc_html($a['name']).'</span></summary>';foreach($releases as $r)$out.=release_card($r,$byid);$out.='</details>';}

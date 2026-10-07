@@ -99,3 +99,38 @@ $options['trb_studio_directory']=['generated_at'=>gmdate('c'),'artists'=>[['id'=
 check(count(TRB\Studio\directory_data()['artists'])===1&&TRB\Studio\directory_data()['releases']===[],'Takedowns apply immediately while artist profiles remain available');
 
 echo "TOTAL: $count passed\n";
+
+// The complete editor must preserve identities, repeatable navigation and form workflows.
+function wp_json_encode($v){return json_encode($v);}
+function sanitize_text_field($s){return trim(strip_tags($s));}
+function sanitize_textarea_field($s){return trim(strip_tags($s));}
+function esc_url_raw($s,$protocols=[]){return preg_match('~^(?:https?://|mailto:|tel:)~',$s)?$s:'';}
+function get_post_type($id){return $id===501?'attachment':($GLOBALS['posts'][$id]->post_type??false);}
+function get_post_mime_type($id){return $id===501?'image/jpeg':'application/pdf';}
+function wp_get_attachment_image_src($id,$size){return $id===501?['https://example.test/photo-new.jpg',1200,800]:false;}
+$navigation='<nav><a href="/artisti/">Artisti</a><a href="/artisti/">Artisti</a></nav>';
+$visual=TRB\Studio\studio_items($navigation);$anchors=array_values(array_filter($visual,fn($i)=>$i['tag']==='a'));
+check(count($anchors)===2&&$anchors[0]['key']!==$anchors[1]['key'],'Repeated desktop and mobile navigation has distinct editable identities');
+$new=TRB\Studio\studio_apply($navigation,[['key'=>$anchors[1]['key'],'html'=>'Roster','href'=>'/artisti/']]);
+check(substr_count($new,'>Artisti</a>')===1&&substr_count($new,'>Roster</a>')===1,'Changing one repeated link leaves the other untouched');
+$img='<img class="brand-logo" src="/old.jpg" srcset="/old-small.jpg 300w" alt="TRB" width="100" height="50">';
+$images=array_values(TRB\Studio\studio_items($img));
+$new=TRB\Studio\studio_apply($img,[['key'=>$images[0]['key'],'image_id'=>501,'alt'=>'Logo TRB']]);
+check(!is_wp_error($new)&&str_contains($new,'photo-new.jpg')&&!str_contains($new,'srcset')&&str_contains($new,'class="brand-logo"'),'Media replacement preserves layout classes and removes stale responsive sources');
+check(is_wp_error(TRB\Studio\studio_apply($img,[['key'=>$images[0]['key'],'image_id'=>99]])),'Non-image attachments cannot become public photos');
+check(is_wp_error(TRB\Studio\studio_styles(['filter'=>'grayscale(1)']))&&is_wp_error(TRB\Studio\studio_styles(['background-color'=>'url(javascript:evil)'])),'Unrequested photo filters and executable styling are rejected');
+$body='<p>Biografia</p>';$i=TRB\Studio\studio_items($body)[0];
+$new=TRB\Studio\studio_apply($body,[['key'=>$i['key'],'html'=>'Musica <strong>nuova</strong><script>alert(1)</script><img onerror=evil src=x>']]);
+check(!is_wp_error($new)&&!str_contains($new,'<script')&&!str_contains($new,'onerror')&&str_contains($new,'<strong>nuova</strong>'),'Complete editor sanitizes rich text with real WordPress KSES');
+$blueprint=['fields'=>[['element'=>'input_text','attributes'=>['name'=>'artist','placeholder'=>'Nome'],'settings'=>['label'=>'Artista','validation_rules'=>['required'=>['value'=>true]],'conditional_logics'=>['status'=>true,'conditions'=>[['field'=>'type','value'=>'solo']]]]]],'submitButton'=>['element'=>'button','settings'=>['button_ui'=>['text'=>'Invia']]]];
+$formItems=TRB\Studio\studio_form_items($blueprint);$label=array_values(array_filter($formItems,fn($i)=>$i['property']==='label'))[0];
+$patched=TRB\Studio\studio_form_patch(json_encode($blueprint),[['key'=>$label['key'],'value'=>'Nome del progetto']]);$result=json_decode($patched,true);
+check($result['fields'][0]['settings']['validation_rules']===$blueprint['fields'][0]['settings']['validation_rules']&&$result['fields'][0]['settings']['conditional_logics']===$blueprint['fields'][0]['settings']['conditional_logics'],'Editing form labels preserves required fields and conditional workflow');
+check($result['fields'][0]['attributes']['name']==='artist'&&$result['fields'][0]['settings']['label']==='Nome del progetto','Form editing keeps the CRM field identity');
+check(is_wp_error(TRB\Studio\studio_form_patch(json_encode($blueprint),[['key'=>'validation_rules','value'=>'false']])),'Form constraints are not writable through the text editor');
+$options['trb_studio_override_artist_45']=['name'=>'Arkell','bio'=>'Correzione manuale','image_id'=>501];
+$imported=['id'=>45,'name'=>'Nome importato','bio'=>'Bio nuova dal portale','image_id'=>1];
+check(TRB\Studio\studio_effective('artist',$imported)['bio']==='Correzione manuale'&&TRB\Studio\studio_effective('artist',$imported)['image_id']===501,'Manual artist presentation survives a subsequent portal generation');
+check(is_wp_error(TRB\Studio\studio_override_validate('artist',['contract_state'=>'signed'])),'Public editing cannot change contractual or administrative artist data');
+echo "COMPLETE EDITOR TOTAL: $count passed\n";
+
