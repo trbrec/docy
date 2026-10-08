@@ -37,11 +37,11 @@ function scheduled_refresh($force=false){
   $runner='/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy/tools/run-site-studio-cron.php';
   if(is_string($binary)&&str_starts_with($binary,'/')&&is_file($binary)&&is_executable($binary)&&is_file($runner)&&!is_link($runner)&&function_exists('proc_open')){
    $pipes=[];$process=@proc_open([$binary,$runner,$force?'--manual':''],[0=>['file','/dev/null','r'],1=>['file','/dev/null','w'],2=>['file','/dev/null','w']],$pipes);
-   if(is_resource($process)&&proc_close($process)!==0)return new \WP_Error('transfer_failed','Aggiornamento dal portale non riuscito: conservata l’ultima versione valida.');
+   if(!is_resource($process)||proc_close($process)!==0)return new \WP_Error('transfer_failed','Aggiornamento dal portale non riuscito: conservata l’ultima versione valida.');
   }
  }
  // The CLI importer has its own process; discard this request's cached old options.
- foreach(['trb_studio_directory','trb_studio_last_sync','trb_studio_transfer_report','trb_studio_cron_report'] as $key)wp_cache_delete($key,'options');
+ foreach(['trb_studio_directory','trb_studio_images','trb_studio_last_sync','trb_studio_transfer_report','trb_studio_cron_report'] as $key)wp_cache_delete($key,'options');
  return sync_directory();
 }
 add_action('trb_studio_sync', __NAMESPACE__.'\\scheduled_refresh');
