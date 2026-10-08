@@ -16,6 +16,8 @@ if($mode==='transfer'){
  $lock=fopen($root.'/transfer.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))exit(5);
  $phase='target-policy';
  exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg(__FILE__).' '.escapeshellarg($revision).' policy >/dev/null 2>&1',$output,$status);if($status!==0)exit(14);
+ $policy=json_decode((string)file_get_contents($root.'/target-policy.json'),true);
+ if(($policy['enabled']??true)===false&&($argv[3]??'')!=='--manual'){$phase='complete';exit;}
  $phase='export';
  exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg(__FILE__).' '.escapeshellarg($revision).' export >/dev/null 2>&1',$output,$status);
  if($status!==0){
@@ -31,13 +33,13 @@ define('WP_USE_THEMES',false);
 if($mode==='policy'){
  require '/home/customer/www/new1.trbrec.com/public_html/wp-load.php';
  if(!\TRB\Studio\destination_site())exit(15);
- $policy=['revision'=>$revision,'at'=>time(),'takedowns'=>array_values(array_filter((array)get_option('trb_promo_takedowns',[]),fn($v)=>is_string($v)&&preg_match('/^[0-9]{12,14}$/D',$v)))];
+ $policy=['revision'=>$revision,'at'=>time(),'enabled'=>get_option('trb_studio_enabled',true),'takedowns'=>array_values(array_filter((array)get_option('trb_promo_takedowns',[]),fn($v)=>is_string($v)&&preg_match('/^[0-9]{12,14}$/D',$v)))];
  $temp=$root.'/target-policy-'.bin2hex(random_bytes(8)).'.json';$json=wp_json_encode($policy);
  if(file_put_contents($temp,$json)!==strlen($json))exit(16);chmod($temp,0600);if(!rename($temp,$root.'/target-policy.json'))exit(17);exit;
 }
 if($mode==='export'){
  require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
- if(!\TRB\Studio\source_site()||\TRB\Studio\VERSION!=='0.1.9')exit(8);
+ if(!\TRB\Studio\source_site()||\TRB\Studio\VERSION!=='0.1.10')exit(8);
  // Observed commercial state: processed is the owner-completed CRM release.
  // A signed contract and non-inactive release are independently required by the adapter.
  update_option('trb_studio_distribution_states',['processed'],false);
@@ -95,15 +97,16 @@ if($mode==='export'){
 }
 if(in_array($mode,['import','report'],true)){
  require '/home/customer/www/new1.trbrec.com/public_html/wp-load.php';
- if(!\TRB\Studio\destination_site()||\TRB\Studio\VERSION!=='0.1.9')exit(11);
+ if(!\TRB\Studio\destination_site()||\TRB\Studio\VERSION!=='0.1.10')exit(11);
  $d=json_decode((string)file_get_contents($report),true);
  update_option('trb_studio_transfer_report',is_array($d)?$d:['ok'=>false,'code'=>'report_invalid'],false);
  if($mode==='report')exit;
  update_option('trb_studio_transport','private-bundle',false);
  $result=\TRB\Studio\sync_directory();if(is_wp_error($result))exit(12);
- update_option('trb_studio_enabled',true,false);
- if(!wp_next_scheduled('trb_studio_sync'))wp_schedule_event(time()+900,'trb_studio_15min','trb_studio_sync');
+ if(get_option('trb_studio_enabled',null)===null)update_option('trb_studio_enabled',true,false);
+ if(get_option('trb_studio_enabled')&&!wp_next_scheduled('trb_studio_sync'))wp_schedule_event(time()+900,'trb_studio_15min','trb_studio_sync');
  $phase='complete';exit;
 }
 exit(13);
+
 

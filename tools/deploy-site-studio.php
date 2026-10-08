@@ -52,6 +52,7 @@ $approvedPackages[] = json_decode('{"bundle.php":"97365c8c48f5cde6f37943b46b5175
 $approvedPackages[] = json_decode('{"bundle.php":"97365c8c48f5cde6f37943b46b5175804a291b5b52370b4eb5e29964ae862d15","portal.php":"4c28232b880ff15536f31615c1df057065f387ac16ca9d806690b5955a8ba48c","directory.css":"7caad153bd8f34bad811df32b784f19fa2c944f37ca8c1f9a5fad8da4deb3f87","directory.php":"43ea4bb03d178c0f51234b8fc2fc1ad7a939a8f540a86d0bcb344725946cb23f","editor.css":"a1c2ecdbfc619cff5e942bfec378310c5e407a3c96767529fa28c688817a3f62","trb-site-studio.php":"c038d84752ee67bc71ae9182865c700ab26e83fa26d9075ffb0f5f6ae263f088","readme.txt":"c82a4569e01364107bb2856784dc3b74d8720679eac5e85383f8caaa74bc371c","editor.js":"2d3053d46bb102f426045ba42861591e4d075c9ac15ab0b07d0fc9db3e556de6","editor.php":"5dc28ce04edeabcdd704631fc7f744631cfb4c5e1aca5365ae1853383469baa3","artist-pages.php":"fb85ab33c3b7f72b26fa14d8995b10c543a586da1e7b2b7f4152f9c6d99d08e2"}', true);
 $approvedPackages[] = json_decode('{"bundle.php":"97365c8c48f5cde6f37943b46b5175804a291b5b52370b4eb5e29964ae862d15","portal.php":"88daf22a099cdb1ae8c3c36f67a73f9b97a9ef3cf3ed0fb550dd85fa7ff26558","directory.css":"7caad153bd8f34bad811df32b784f19fa2c944f37ca8c1f9a5fad8da4deb3f87","directory.php":"43ea4bb03d178c0f51234b8fc2fc1ad7a939a8f540a86d0bcb344725946cb23f","editor.css":"a1c2ecdbfc619cff5e942bfec378310c5e407a3c96767529fa28c688817a3f62","trb-site-studio.php":"c038d84752ee67bc71ae9182865c700ab26e83fa26d9075ffb0f5f6ae263f088","readme.txt":"c82a4569e01364107bb2856784dc3b74d8720679eac5e85383f8caaa74bc371c","editor.js":"2d3053d46bb102f426045ba42861591e4d075c9ac15ab0b07d0fc9db3e556de6","editor.php":"5dc28ce04edeabcdd704631fc7f744631cfb4c5e1aca5365ae1853383469baa3","artist-pages.php":"fb85ab33c3b7f72b26fa14d8995b10c543a586da1e7b2b7f4152f9c6d99d08e2"}', true);
 $approvedPackages[] = json_decode('{"bundle.php":"97365c8c48f5cde6f37943b46b5175804a291b5b52370b4eb5e29964ae862d15","portal.php":"0fd9eb98f0abed913efd6f0e4bc988739d0a6f9d2d4007e30a95f747d0a010f7","directory.css":"7caad153bd8f34bad811df32b784f19fa2c944f37ca8c1f9a5fad8da4deb3f87","directory.php":"43ea4bb03d178c0f51234b8fc2fc1ad7a939a8f540a86d0bcb344725946cb23f","editor.css":"a1c2ecdbfc619cff5e942bfec378310c5e407a3c96767529fa28c688817a3f62","trb-site-studio.php":"c038d84752ee67bc71ae9182865c700ab26e83fa26d9075ffb0f5f6ae263f088","readme.txt":"c82a4569e01364107bb2856784dc3b74d8720679eac5e85383f8caaa74bc371c","editor.js":"2d3053d46bb102f426045ba42861591e4d075c9ac15ab0b07d0fc9db3e556de6","editor.php":"5dc28ce04edeabcdd704631fc7f744631cfb4c5e1aca5365ae1853383469baa3","artist-pages.php":"fb85ab33c3b7f72b26fa14d8995b10c543a586da1e7b2b7f4152f9c6d99d08e2"}', true);
+$approvedPackages[] = json_decode('{"artist-pages.php":"fb85ab33c3b7f72b26fa14d8995b10c543a586da1e7b2b7f4152f9c6d99d08e2","bundle.php":"97365c8c48f5cde6f37943b46b5175804a291b5b52370b4eb5e29964ae862d15","directory.css":"3310e41e6ed69b0ee70a022c37124ee8f2f278038712a643d1069e04aa1ae99f","directory.php":"43ea4bb03d178c0f51234b8fc2fc1ad7a939a8f540a86d0bcb344725946cb23f","editor.css":"a1c2ecdbfc619cff5e942bfec378310c5e407a3c96767529fa28c688817a3f62","editor.js":"2d3053d46bb102f426045ba42861591e4d075c9ac15ab0b07d0fc9db3e556de6","editor.php":"5dc28ce04edeabcdd704631fc7f744631cfb4c5e1aca5365ae1853383469baa3","portal.php":"0fd9eb98f0abed913efd6f0e4bc988739d0a6f9d2d4007e30a95f747d0a010f7","readme.txt":"c82a4569e01364107bb2856784dc3b74d8720679eac5e85383f8caaa74bc371c","trb-site-studio.php":"c038d84752ee67bc71ae9182865c700ab26e83fa26d9075ffb0f5f6ae263f088"}', true);
 $stage = 'copy';
 if (is_dir($destination)) {
     $same = true;
@@ -110,7 +111,7 @@ if (!$already) {
 if (!is_plugin_active($slug)) throw new RuntimeException('plugin activation unconfirmed');
 $stage = 'load-plugin';
 if (!function_exists('TRB\\Studio\\editor_apply')) require_once $destination . '/trb-site-studio.php';
-if (\TRB\Studio\VERSION !== '0.1.9') throw new RuntimeException('version check');
+if (\TRB\Studio\VERSION !== '0.1.10') throw new RuntimeException('version check');
 $stage = 'verification';
 if ($site === 'new1.trbrec.com') {
     $profiles=\TRB\Studio\sync_artist_pages(\TRB\Studio\directory_data());if(is_wp_error($profiles))throw new RuntimeException('artist pages installation');
@@ -154,4 +155,5 @@ if ($site === 'new1.trbrec.com') {
 echo 'Automatic sync enabled=' . (get_option('trb_studio_enabled') ? 'yes' : 'no') . ".\n";
 
 $stage = 'complete';
+
 

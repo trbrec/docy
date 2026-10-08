@@ -10,6 +10,7 @@ on:
       - 'integrations/site-studio/**'
       - 'tools/deploy-site-studio.php'
       - 'tools/sync-site-studio.php'
+      - 'tools/*site-studio-cron*.php'
       - '.github/workflows/site-studio-checks.yml'
 permissions:
   contents: read
@@ -23,6 +24,7 @@ jobs:
           find integrations/site-studio -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l tools/deploy-site-studio.php
           php -l tools/sync-site-studio.php
+          php tools/test-site-studio-cron.php
           node --check integrations/site-studio/trb-site-studio/editor.js
       - name: Test against WordPress sanitizer
         run: |
@@ -40,6 +42,8 @@ jobs:
       - name: Validate responsive roster and accessible disclosures
         run: |
           TRB_ROSTER_SCREENSHOTS=/tmp/trb-roster-fixture-shots NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/artist-cards.test.cjs
+      - name: Validate complete visual editor interactions
+        run: NODE_PATH=/tmp/trb-roster-browser/node_modules node integrations/site-studio/editor-browser.test.cjs
       - name: Preserve fixture layout screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -47,4 +51,5 @@ jobs:
           name: trb-roster-fixture-shots-${{ github.sha }}
           path: /tmp/trb-roster-fixture-shots
           retention-days: 14
+
 
