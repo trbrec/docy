@@ -1,0 +1,27 @@
+name: International artist profile checks
+on:
+  pull_request:
+    paths:
+      - 'inc/trb-artist-portal.php'
+      - 'assets/js/trb-artist-profile.js'
+      - 'tests/artist-profile-validation.test.js'
+      - 'tools/test-international-profile.php'
+      - '.github/workflows/international-profile-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'inc/trb-artist-portal.php'
+      - 'assets/js/trb-artist-profile.js'
+      - 'tests/artist-profile-validation.test.js'
+      - 'tools/test-international-profile.php'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l inc/trb-artist-portal.php
+      - run: php tools/test-international-profile.php
+      - run: node --check assets/js/trb-artist-profile.js
+      - run: node tests/artist-profile-validation.test.js

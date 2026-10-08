@@ -1,6 +1,10 @@
 (function () {
   'use strict';
 
+  function isItaly(country) {
+    return ['', 'italia', 'italy', 'it', 'ita'].indexOf((country || '').trim().toLowerCase()) !== -1;
+  }
+
   function initAddress() {
     var postcode = document.querySelector('[data-trb-postcode]');
     if (!postcode || !window.trbArtistProfile) return;
@@ -8,6 +12,8 @@
     var province = document.querySelector('[data-trb-province]');
     var country = document.querySelector('[data-trb-country]');
     var status = document.querySelector('[data-trb-postcode-status]');
+    var internationalCity = document.querySelector('[data-trb-international-city]');
+    var streetNumber = document.querySelector('[data-trb-street-number]');
     var lastLoaded = '';
     var requestVersion = 0;
 
@@ -17,6 +23,13 @@
     }
 
     function loadPostcode() {
+      if (!isItaly(country.value)) {
+        ++requestVersion;
+        lastLoaded = '';
+        postcode.setCustomValidity('');
+        setStatus('Codice postale internazionale: conserva lettere, cifre, spazi e trattini. Se non previsto, lascia vuoto.', false);
+        return;
+      }
       var value = postcode.value.replace(/\D/g, '').slice(0, 5);
       postcode.value = value;
       if (value === lastLoaded && value.length === 5) return;
@@ -78,10 +91,34 @@
       province.value = selected && selected.dataset.province ? selected.dataset.province : '';
     }
 
+    function syncCountry(changed) {
+      ++requestVersion;
+      lastLoaded = '';
+      var italian = isItaly(country.value);
+      postcode.required = italian;
+      postcode.pattern = italian ? '[0-9]{5}' : '';
+      postcode.maxLength = italian ? 5 : 40;
+      postcode.inputMode = italian ? 'numeric' : 'text';
+      city.hidden = !italian;
+      city.disabled = !italian;
+      city.required = italian;
+      if (internationalCity) {
+        internationalCity.hidden = italian;
+        internationalCity.disabled = italian;
+        internationalCity.required = !italian;
+      }
+      province.readOnly = italian;
+      province.required = italian;
+      if (streetNumber) streetNumber.required = italian;
+      if (changed) province.value = '';
+      loadPostcode();
+    }
+    country.addEventListener('input', function () { syncCountry(true); });
+    country.addEventListener('change', function () { syncCountry(true); });
     postcode.addEventListener('input', loadPostcode);
     postcode.addEventListener('blur', loadPostcode);
     city.addEventListener('change', updateProvince);
-    if (postcode.value.replace(/\D/g, '').length === 5) loadPostcode();
+    syncCountry(false);
   }
 
   function initPlatforms() {
@@ -134,13 +171,35 @@
     var input = document.querySelector('[data-trb-birthplace]');
     if (!input || !window.trbArtistProfile) return;
     var province = document.querySelector('[data-trb-birth-province]');
+    var country = document.querySelector('[data-trb-birth-country]');
     var list = document.getElementById('trb-birthplace-options');
     var status = document.querySelector('[data-trb-birthplace-status]');
     var places = [];
     var timer;
     var requestVersion = 0;
 
+    function foreignBirthplace() {
+      if (!country || isItaly(country.value)) return false;
+      input.setCustomValidity('');
+      status.textContent = 'Scrivi la località di nascita estera. Provincia o regione sono facoltative se non previste.';
+      status.classList.remove('is-error');
+      return true;
+    }
+
+    function syncBirthCountry(changed) {
+      ++requestVersion;
+      clearTimeout(timer);
+      places = [];
+      list.innerHTML = '';
+      if (changed) province.value = '';
+      var italian = !country || isItaly(country.value);
+      province.readOnly = italian;
+      province.required = italian;
+      if (!foreignBirthplace()) input.dispatchEvent(new Event('input'));
+    }
+
     function selectPlace() {
+      if (foreignBirthplace()) return;
       var value = input.value.toLocaleLowerCase('it');
       var match = places.find(function (place) { return (place.city + ' (' + place.province + ')').toLocaleLowerCase('it') === value || place.city.toLocaleLowerCase('it') === value; });
       if (match) input.value = match.city;
@@ -152,6 +211,8 @@
 
     input.addEventListener('input', function () {
       var version = ++requestVersion;
+      clearTimeout(timer);
+      if (foreignBirthplace()) return;
       var selected = places.find(function (place) { return (place.city + ' (' + place.province + ')').toLocaleLowerCase('it') === input.value.toLocaleLowerCase('it'); });
       if (selected) {
         input.value = selected.city;
@@ -188,6 +249,11 @@
       }, 180);
     });
     input.addEventListener('change', selectPlace);
+    if (country) {
+      country.addEventListener('input', function () { syncBirthCountry(true); });
+      country.addEventListener('change', function () { syncBirthCountry(true); });
+      syncBirthCountry(false);
+    }
   }
 
   function initIdentityValidation() {
@@ -195,15 +261,22 @@
     var taxCode = document.querySelector('[data-trb-tax-code]');
     var documentNumber = document.querySelector('[data-trb-document-number]');
     var documentExpiry = document.querySelector('[data-trb-document-expiry]');
+    var taxCountry = document.querySelector('[data-trb-tax-country]');
+    var documentType = document.querySelector('[data-trb-document-type]');
+    var noExpiry = document.querySelector('[data-trb-no-expiry]');
+    var noExpiryLabel = document.querySelector('[data-trb-no-expiry-label]');
+    function type() { return documentType ? documentType.value : 'cie'; }
+    function indefinite() { return type() === 'foreign_identity' && noExpiry && noExpiry.checked; }
 
     if (phone) {
       phone.addEventListener('input', function () {
-        var normalized = phone.value.replace(/[\s.\-()]/g, '').replace(/^0039/, '+39');
-        phone.setCustomValidity(/^(?:\+39)?3\d{9}$/.test(normalized) ? '' : 'Inserisci un cellulare italiano valido: 10 cifre con iniziale 3; +39 è facoltativo.');
+        var normalized = phone.value.replace(/[\s.\-()]/g, '').replace(/^00/, '+');
+        phone.setCustomValidity(/^(?:3\d{9}|\+[1-9]\d{6,14})$/.test(normalized) ? '' : 'Inserisci un numero SMS con prefisso internazionale e da 7 a 15 cifre complessive.');
       });
       phone.addEventListener('blur', function () {
-        var normalized = phone.value.replace(/[\s.\-()]/g, '').replace(/^0039/, '+39');
-        if (/^(?:\+39)?3\d{9}$/.test(normalized)) phone.value = normalized.indexOf('+39') === 0 ? normalized : '+39' + normalized;
+        var normalized = phone.value.replace(/[\s.\-()]/g, '').replace(/^00/, '+');
+        if (/^3\d{9}$/.test(normalized)) normalized = '+39' + normalized;
+        if (/^\+[1-9]\d{6,14}$/.test(normalized)) phone.value = normalized;
       });
       phone.dispatchEvent(new Event('input'));
     }
@@ -222,19 +295,47 @@
 
     if (taxCode) {
       taxCode.addEventListener('input', function () {
+        var italian = !taxCountry || isItaly(taxCountry.value);
+        taxCode.minLength = italian ? 16 : 1;
+        taxCode.maxLength = italian ? 16 : 200;
+        if (!italian) {
+          taxCode.setCustomValidity(taxCode.value.trim() ? '' : 'Inserisci l’identificativo fiscale della nazione indicata.');
+          return;
+        }
         taxCode.value = taxCode.value.toUpperCase().replace(/\s/g, '').slice(0, 16);
         taxCode.setCustomValidity(taxCode.value.length === 16 && validTaxCode(taxCode.value) ? '' : 'Controlla il codice fiscale: devono essere validi tutti i 16 caratteri, compresa la lettera finale.');
       });
+      if (taxCountry) taxCountry.addEventListener('input', function () { taxCode.dispatchEvent(new Event('input')); });
       taxCode.dispatchEvent(new Event('input'));
     }
 
     if (documentNumber) {
       documentNumber.addEventListener('input', function () {
+        if (type() !== 'cie') {
+          documentNumber.maxLength = 200;
+          documentNumber.pattern = '';
+          documentNumber.setCustomValidity(documentNumber.value.trim() ? '' : 'Inserisci il numero originale del documento.');
+          return;
+        }
+        documentNumber.maxLength = 9;
+        documentNumber.pattern = '[A-Za-z]{2}[0-9]{5}[A-Za-z]{2}';
         documentNumber.value = documentNumber.value.toUpperCase().replace(/[\s-]/g, '').slice(0, 9);
         documentNumber.setCustomValidity(/^[A-Z]{2}[0-9]{5}[A-Z]{2}$/.test(documentNumber.value) ? '' : 'Inserisci il numero CIE nel formato corretto: 2 lettere, 5 cifre e 2 lettere (es. CA12345AB).');
       });
       documentNumber.dispatchEvent(new Event('input'));
     }
+
+    function syncDocument() {
+      if (noExpiry) {
+        noExpiry.disabled = type() !== 'foreign_identity';
+        if (noExpiry.disabled) noExpiry.checked = false;
+      }
+      if (noExpiryLabel) noExpiryLabel.hidden = type() !== 'foreign_identity';
+      if (documentNumber) documentNumber.dispatchEvent(new Event('input'));
+      if (documentExpiry) documentExpiry.dispatchEvent(new Event('change'));
+    }
+    if (documentType) documentType.addEventListener('change', syncDocument);
+    if (noExpiry) noExpiry.addEventListener('change', syncDocument);
 
     if (documentExpiry) {
       documentExpiry.addEventListener('change', function () {
@@ -242,10 +343,14 @@
         var localToday = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
         var maximum = new Date(today.getFullYear() + 10, today.getMonth(), today.getDate());
         var localMaximum = [maximum.getFullYear(), String(maximum.getMonth() + 1).padStart(2, '0'), String(maximum.getDate()).padStart(2, '0')].join('-');
-        documentExpiry.setCustomValidity(documentExpiry.value && documentExpiry.value >= localToday && documentExpiry.value <= localMaximum ? '' : 'Inserisci una scadenza valida, compresa tra oggi e un massimo di 10 anni.');
+        documentExpiry.disabled = !!indefinite();
+        documentExpiry.required = !indefinite();
+        documentExpiry.max = type() === 'cie' ? localMaximum : '';
+        documentExpiry.setCustomValidity(indefinite() || (documentExpiry.value && documentExpiry.value >= localToday && (type() !== 'cie' || documentExpiry.value <= localMaximum)) ? '' : 'Inserisci una scadenza non passata. Il limite di 10 anni si applica alla CIE italiana.');
       });
       documentExpiry.dispatchEvent(new Event('change'));
     }
+    syncDocument();
   }
 
   function initProfileUploadProgress() {
@@ -344,3 +449,4 @@
     window.trbArtistProfileFields.refresh();
   });
 }());
+

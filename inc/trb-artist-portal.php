@@ -840,7 +840,11 @@ function trb_portal_artist_profile_fields() {
 		'phone'       => 'Cellulare abilitato a ricezione SMS',
 		'birth_date'  => 'Data di nascita',
 		'birth_place' => 'Luogo di nascita',
-		'birth_province' => 'Provincia di nascita',
+		'birth_province' => 'Provincia / regione di nascita',
+		'birth_country' => 'Nazione di nascita',
+		'tax_country' => 'Nazione dell’identificativo fiscale',
+		'document_type' => 'Tipo di documento',
+		'document_no_expiry' => 'Documento senza scadenza',
 		'tax_code'    => 'Codice fiscale',
 		'document_number' => 'Numero del documento d’identità',
 		'document_expiry' => 'Scadenza del documento d’identità',
@@ -873,6 +877,36 @@ function trb_portal_artist_profile_fields() {
 
 function trb_portal_artist_profile_value( $key, $user_id = 0 ) {
 	return (string) get_user_meta( $user_id ? $user_id : get_current_user_id(), '_trb_artist_' . $key, true );
+}
+
+/** Countries are entered in their original spelling; only Italy uses the Italian archive. */
+function trb_portal_country_is_italy( $country ) {
+	return in_array( strtolower( trim( (string) $country ) ), array( '', 'italia', 'italy', 'it', 'ita' ), true );
+}
+
+/** Foreign identifiers retain punctuation and Unicode; this is presence validation, not identity verification. */
+function trb_portal_validate_international_identifier( $value ) {
+	$value = trim( sanitize_text_field( (string) $value ) );
+	return '' !== $value && strlen( $value ) <= 200 ? $value : false;
+}
+
+/** Resolve Italian locations locally or preserve free-text international locations. */
+function trb_portal_validate_profile_geography( $country, $city, $province = '', $postcode = '', $birth = false ) {
+	$country = trim( sanitize_text_field( (string) $country ) );
+	$city = trim( sanitize_text_field( (string) $city ) );
+	$province = trim( sanitize_text_field( (string) $province ) );
+	if ( '' === $country || '' === $city ) return false;
+	if ( ! trb_portal_country_is_italy( $country ) ) return array( 'country' => $country, 'city' => $city, 'province' => $province );
+	if ( $birth ) {
+		$match = trb_portal_find_municipality_exact( $city, $province );
+	} else {
+		$match = false;
+		$places = trb_portal_lookup_postcode( $postcode );
+		if ( ! is_wp_error( $places ) ) foreach ( $places as $place ) {
+			if ( strtolower( remove_accents( $city ) ) === strtolower( remove_accents( $place['city'] ) ) ) { $match = $place; break; }
+		}
+	}
+	return $match ? array_merge( $match, array( 'country' => 'Italia' ) ) : false;
 }
 
 /** Resolve an Italian postcode locally, without transmitting profile data. */
@@ -931,8 +965,9 @@ function trb_portal_find_municipality_exact( $city, $province = '' ) {
 
 function trb_portal_validate_mobile( $value ) {
 	$value = preg_replace( '/[\s\.\-\(\)]+/', '', (string) $value );
-	if ( 0 === strpos( $value, '0039' ) ) $value = '+39' . substr( $value, 4 );
-	return preg_match( '/^(?:\+39)?3\d{9}$/', $value ) ? $value : false;
+	if ( 0 === strpos( $value, '00' ) ) $value = '+' . substr( $value, 2 );
+	if ( preg_match( '/^3\d{9}$/', $value ) ) $value = '+39' . $value;
+	return preg_match( '/^\+[1-9]\d{6,14}$/', $value ) ? $value : false;
 }
 
 function trb_portal_validate_tax_code( $value ) {
@@ -951,17 +986,19 @@ function trb_portal_validate_tax_code( $value ) {
  * Validate the serial number printed on an Italian electronic identity card.
  * The official CIE format is two letters, five digits and two letters.
  */
-function trb_portal_validate_identity_document_number( $value ) {
+function trb_portal_validate_identity_document_number( $value, $type = 'cie' ) {
+	if ( in_array( $type, array( 'passport', 'foreign_identity' ), true ) ) return trb_portal_validate_international_identifier( $value );
+	if ( 'cie' !== $type ) return false;
 	$value = strtoupper( preg_replace( '/[\s\-]+/', '', (string) $value ) );
 	return preg_match( '/^[A-Z]{2}[0-9]{5}[A-Z]{2}$/', $value ) ? $value : false;
 }
 
 /** Return a normalized, non-expired CIE expiry date (valid through that day). */
-function trb_portal_validate_identity_document_expiry( $value ) {
+function trb_portal_validate_identity_document_expiry( $value, $type = 'cie' ) {
 	$value = trim( (string) $value );
 	if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts ) || ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) return false;
 	$maximum = ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+10 years' )->format( 'Y-m-d' );
-	return $value >= wp_date( 'Y-m-d' ) && $value <= $maximum ? $value : false;
+	return $value >= wp_date( 'Y-m-d' ) && ( 'cie' !== $type || $value <= $maximum ) ? $value : false;
 }
 
 function trb_portal_identity_document_is_expired( $user_id = 0 ) {
@@ -1036,7 +1073,11 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 		// same effective value in the completion engine so the UI cannot report
 		// a field as missing while showing it as filled.
 		if ( 'country' === $field && '' === trim( $value ) ) $value = 'Italia';
-		$complete = 'document_number' === $field ? (bool) trb_portal_validate_identity_document_number( $value ) : ( 'document_expiry' === $field ? (bool) trb_portal_validate_identity_document_expiry( $value ) : '' !== trim( $value ) );
+		$type = trb_portal_artist_profile_value( 'document_type', $user_id ) ?: 'cie';
+		$complete = 'document_number' === $field ? (bool) trb_portal_validate_identity_document_number( $value, $type ) : ( 'document_expiry' === $field ? (bool) trb_portal_validate_identity_document_expiry( $value, $type ) : '' !== trim( $value ) );
+		if ( 'document_expiry' === $field && 'foreign_identity' === $type && '1' === trb_portal_artist_profile_value( 'document_no_expiry', $user_id ) ) $complete = true;
+		if ( in_array( $field, array( 'province', 'postal_code', 'street_number' ), true ) && ! trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country', $user_id ) ) ) $complete = true;
+		if ( 'birth_province' === $field && ! trb_portal_country_is_italy( trb_portal_artist_profile_value( 'birth_country', $user_id ) ) ) $complete = true;
 		$add( $field, $label, 'contract', $complete );
 	}
 	$document_labels = array();
@@ -1145,30 +1186,36 @@ function trb_portal_handle_artist_profile() {
 			}
 			update_user_meta( $user_id, $account_field, $submitted_value );
 		}
+		$country = isset( $_POST['trb_artist_country'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_country'] ) ) ) : 'Italia';
 		$postcode = isset( $_POST['trb_artist_postal_code'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_postal_code'] ) ) : '';
-		$city = isset( $_POST['trb_artist_city'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_city'] ) ) : '';
-		$places = trb_portal_lookup_postcode( $postcode );
-		$matched = false;
-		if ( ! is_wp_error( $places ) ) foreach ( $places as $place ) {
-			if ( strtolower( remove_accents( $city ) ) === strtolower( remove_accents( $place['city'] ) ) ) { $matched = $place; break; }
-		}
+		$city = isset( $_POST['trb_artist_city'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_city'] ) ) ) : '';
+		$province = isset( $_POST['trb_artist_province'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_province'] ) ) : '';
+		$matched = trb_portal_validate_profile_geography( $country, $city, $province, $postcode );
 		if ( ! $matched ) {
 			wp_safe_redirect( add_query_arg( 'trb_profile', 'invalid_address', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 			exit;
 		}
 		$_POST['trb_artist_city'] = $matched['city'];
 		$_POST['trb_artist_province'] = $matched['province'];
-		$_POST['trb_artist_country'] = 'Italia';
+		$_POST['trb_artist_country'] = trb_portal_country_is_italy( $country ) ? 'Italia' : $country;
 	}
 	if ( isset( $_POST['trb_artist_company_section'] ) ) {
 		$birth_place = isset( $_POST['trb_artist_birth_place'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_place'] ) ) : '';
 		$birth_province = isset( $_POST['trb_artist_birth_province'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_province'] ) ) : '';
-		$birth_match = trb_portal_find_municipality_exact( $birth_place, $birth_province );
+		$birth_country = isset( $_POST['trb_artist_birth_country'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_country'] ) ) ) : 'Italia';
+		$birth_match = trb_portal_validate_profile_geography( $birth_country, $birth_place, $birth_province, '', true );
+		$_POST['trb_artist_birth_country'] = trb_portal_country_is_italy( $birth_country ) ? 'Italia' : $birth_country;
+		$tax_country = isset( $_POST['trb_artist_tax_country'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_tax_country'] ) ) ) : 'Italia';
+		$_POST['trb_artist_tax_country'] = trb_portal_country_is_italy( $tax_country ) ? 'Italia' : $tax_country;
+		$document_type = isset( $_POST['trb_artist_document_type'] ) ? sanitize_key( wp_unslash( $_POST['trb_artist_document_type'] ) ) : 'cie';
+		$no_expiry = 'foreign_identity' === $document_type && ! empty( $_POST['trb_artist_document_no_expiry'] );
+		$_POST['trb_artist_document_no_expiry'] = $no_expiry ? '1' : '';
+		$_POST['trb_artist_document_type'] = $document_type;
 		$phone = isset( $_POST['trb_artist_phone'] ) ? trb_portal_validate_mobile( wp_unslash( $_POST['trb_artist_phone'] ) ) : false;
-		$tax_code = isset( $_POST['trb_artist_tax_code'] ) ? trb_portal_validate_tax_code( wp_unslash( $_POST['trb_artist_tax_code'] ) ) : false;
-		$document_number = isset( $_POST['trb_artist_document_number'] ) ? trb_portal_validate_identity_document_number( wp_unslash( $_POST['trb_artist_document_number'] ) ) : false;
-		$document_expiry = isset( $_POST['trb_artist_document_expiry'] ) ? trb_portal_validate_identity_document_expiry( wp_unslash( $_POST['trb_artist_document_expiry'] ) ) : false;
-		$error = ! $birth_match ? 'invalid_birthplace' : ( ! $phone ? 'invalid_phone' : ( ! $tax_code ? 'invalid_tax_code' : ( ! $document_number ? 'invalid_document_number' : ( ! $document_expiry ? 'invalid_document_expiry' : '' ) ) ) );
+		$tax_code = isset( $_POST['trb_artist_tax_code'] ) && '' !== $tax_country ? ( trb_portal_country_is_italy( $tax_country ) ? trb_portal_validate_tax_code( wp_unslash( $_POST['trb_artist_tax_code'] ) ) : trb_portal_validate_international_identifier( wp_unslash( $_POST['trb_artist_tax_code'] ) ) ) : false;
+		$document_number = isset( $_POST['trb_artist_document_number'] ) ? trb_portal_validate_identity_document_number( wp_unslash( $_POST['trb_artist_document_number'] ), $document_type ) : false;
+		$document_expiry = $no_expiry ? '' : ( isset( $_POST['trb_artist_document_expiry'] ) ? trb_portal_validate_identity_document_expiry( wp_unslash( $_POST['trb_artist_document_expiry'] ), $document_type ) : false );
+		$error = ! $birth_match ? 'invalid_birthplace' : ( ! $phone ? 'invalid_phone' : ( ! $tax_code ? 'invalid_tax_code' : ( ! $document_number ? 'invalid_document_number' : ( ! $no_expiry && ! $document_expiry ? 'invalid_document_expiry' : '' ) ) ) );
 		if ( $error ) {
 			wp_safe_redirect( add_query_arg( 'trb_profile', $error, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 			exit;
@@ -4110,13 +4157,13 @@ function trb_portal_render_artist_profile_section() {
 	<section id="profilo" class="trb-portal__section trb-portal__profile-section">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Prima della prima release servono dati completi e verificabili. Li riuseremo per preparare le pratiche e, in seguito, i contratti.</p></div>
 		<?php if ( $saved ) : ?><div class="trb-portal__message trb-portal__message--success">Profilo artista aggiornato.</div><?php endif; ?>
-		<?php if ( $invalid_address ) : ?><div class="trb-portal__message trb-portal__message--error">Indirizzo non salvato: il Comune non corrisponde al CAP indicato. Inserisci nuovamente il CAP e seleziona il Comune proposto.</div><?php endif; ?>
-		<?php if ( 'invalid_birthplace' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: seleziona Comune e Provincia di nascita fra i risultati dell’archivio italiano.</div><?php endif; ?>
-		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero di cellulare italiano valido, con 10 cifre e iniziale 3; il prefisso +39 è facoltativo.</div><?php endif; ?>
-		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: il codice fiscale non supera il controllo formale e della lettera finale. Verifica attentamente i 16 caratteri.</div><?php endif; ?>
-		<?php if ( 'invalid_document_number' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: il numero della Carta d’Identità Elettronica deve contenere 2 lettere, 5 cifre e 2 lettere, ad esempio CA12345AB.</div><?php endif; ?>
-		<?php if ( 'invalid_document_expiry' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: la scadenza deve essere valida, non antecedente a oggi e non superiore a 10 anni.</div><?php endif; ?>
-		<?php if ( $document_expired ) : ?><?php $renewal_deadline = ( new DateTimeImmutable( trb_portal_artist_profile_value( 'document_expiry' ), wp_timezone() ) )->modify( '+30 days' ); $renewal_days = max( 0, (int) ( new DateTimeImmutable( 'today', wp_timezone() ) )->diff( $renewal_deadline )->format( '%r%a' ) ); ?><div class="trb-portal__message trb-portal__message--error"><strong>Carta d’identità scaduta</strong><p>Il profilo rimane attivo, ma non puoi avviare nuove release finché non inserisci numero e scadenza della nuova CIE e carichi nuovamente il fronte. <?php echo $renewal_days > 0 ? esc_html( 'Hai ancora ' . $renewal_days . ' giorni per completare l’aggiornamento.' ) : 'Il termine di 30 giorni per l’aggiornamento è trascorso.'; ?></p></div><?php endif; ?>
+		<?php if ( $invalid_address ) : ?><div class="trb-portal__message trb-portal__message--error">Indirizzo non salvato: indica nazione e città; per l’Italia seleziona il Comune corrispondente al CAP.</div><?php endif; ?>
+		<?php if ( 'invalid_birthplace' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: indica nazione e località di nascita; per l’Italia seleziona il Comune proposto.</div><?php endif; ?>
+		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero SMS con prefisso internazionale e da 7 a 15 cifre complessive.</div><?php endif; ?>
+		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: verifica la nazione fiscale e l’identificativo. Per l’Italia sono richiesti i 16 caratteri con lettera finale valida.</div><?php endif; ?>
+		<?php if ( 'invalid_document_number' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: verifica tipo e numero del documento. Per la CIE italiana usa 2 lettere, 5 cifre e 2 lettere; per passaporto o documento estero riporta il numero originale.</div><?php endif; ?>
+		<?php if ( 'invalid_document_expiry' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: indica una scadenza valida e non passata. Il limite di 10 anni vale per la CIE italiana; solo per documenti esteri senza scadenza seleziona l’apposita dichiarazione.</div><?php endif; ?>
+		<?php if ( $document_expired ) : ?><?php $renewal_deadline = ( new DateTimeImmutable( trb_portal_artist_profile_value( 'document_expiry' ), wp_timezone() ) )->modify( '+30 days' ); $renewal_days = max( 0, (int) ( new DateTimeImmutable( 'today', wp_timezone() ) )->diff( $renewal_deadline )->format( '%r%a' ) ); ?><div class="trb-portal__message trb-portal__message--error"><strong>Documento d’identità scaduto</strong><p>Il profilo rimane attivo, ma non puoi avviare nuove release finché non inserisci numero e scadenza del nuovo documento e carichi nuovamente il fronte. <?php echo $renewal_days > 0 ? esc_html( 'Hai ancora ' . $renewal_days . ' giorni per completare l’aggiornamento.' ) : 'Il termine di 30 giorni per l’aggiornamento è trascorso.'; ?></p></div><?php endif; ?>
 		<?php if ( 'invalid_account_name' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci nome e cognome anagrafici completi.</div><?php endif; ?>
 		<?php if ( 'artist_name_taken' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Questo nome d’arte risulta già assegnato a un altro account. Apri una segnalazione se ritieni che si tratti di un errore.</div><?php endif; ?>
 		<?php if ( 'bio_required' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Allega la biografia artistica in formato TXT, DOCX, ODT o RTF prima di salvare l’identità artistica.</div><?php endif; ?>
@@ -4138,22 +4185,26 @@ function trb_portal_render_artist_profile_section() {
 						<label>Nome anagrafico <span>*</span><input type="text" <?php echo '' === trim( (string) $user->first_name ) ? 'name="trb_artist_first_name" required' : 'readonly'; ?> value="<?php echo esc_attr( $user->first_name ); ?>" autocomplete="given-name" aria-describedby="trb-account-data-note" /></label>
 						<label>Cognome anagrafico <span>*</span><input type="text" <?php echo '' === trim( (string) $user->last_name ) ? 'name="trb_artist_last_name" required' : 'readonly'; ?> value="<?php echo esc_attr( $user->last_name ); ?>" autocomplete="family-name" aria-describedby="trb-account-data-note" /></label>
 						<label>E-mail di riferimento <span>*</span><input type="email" value="<?php echo esc_attr( $user->user_email ); ?>" autocomplete="email" readonly aria-describedby="trb-account-data-note" /></label>
-						<label>Cellulare abilitato a ricezione SMS <span>*</span><input type="tel" name="trb_artist_phone" autocomplete="tel" inputmode="tel" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" placeholder="Es. +39 333 1234567" required /><small>Numero italiano utilizzabile anche per la ricezione degli OTP contrattuali.</small></label>
+						<label>Cellulare abilitato a ricezione SMS <span>*</span><input type="tel" name="trb_artist_phone" autocomplete="tel" inputmode="tel" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" placeholder="Es. +39 333 1234567" required /><small>Inserisci il prefisso internazionale, ad esempio +39 o +216. Usa un numero abilitato agli SMS.</small></label>
 						<label>Data di nascita <span>*</span><input type="date" name="trb_artist_birth_date" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_date' ) ); ?>" required /></label>
-						<label>Comune di nascita <span>*</span><input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" autocomplete="off" list="trb-birthplace-options" data-trb-birthplace required /><datalist id="trb-birthplace-options"></datalist><small data-trb-birthplace-status>Digita almeno due lettere e seleziona il Comune dall’archivio italiano.</small></label>
-						<label>Provincia di nascita <span>*</span><input type="text" name="trb_artist_birth_province" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_province' ) ); ?>" data-trb-birth-province readonly required /></label>
-						<label class="trb-portal__field-wide">Codice fiscale <span>*</span><input type="text" name="trb_artist_tax_code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_code' ) ); ?>" minlength="16" maxlength="16" autocapitalize="characters" spellcheck="false" data-trb-tax-code required /><small>Il sistema controlla struttura e carattere finale prima del salvataggio.</small></label>
-						<label>Numero della Carta d’Identità Elettronica <span>*</span><input type="text" name="trb_artist_document_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'document_number' ) ); ?>" autocomplete="off" minlength="9" maxlength="20" pattern="[A-Za-z]{2}[0-9]{5}[A-Za-z]{2}" autocapitalize="characters" spellcheck="false" placeholder="Es. CA12345AB" data-trb-document-number required /><small>Inserisci i 9 caratteri stampati sulla CIE: 2 lettere, 5 cifre e 2 lettere.</small></label>
-						<label>Scadenza della Carta d’Identità Elettronica <span>*</span><input type="date" name="trb_artist_document_expiry" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'document_expiry' ) ); ?>" min="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>" max="<?php echo esc_attr( ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+10 years' )->format( 'Y-m-d' ) ); ?>" data-trb-document-expiry required /><small>Alla scadenza riceverai un’e-mail e avrai 30 giorni per caricare il solo fronte della nuova CIE. Il profilo resterà attivo, ma non potrai avviare nuove release fino all’aggiornamento.</small></label>
+						<label>Nazione di nascita <span>*</span><input type="text" name="trb_artist_birth_country" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_country' ) ?: 'Italia' ); ?>" data-trb-birth-country required /><small>Indica la nazione. Per nascite all’estero puoi scrivere qualsiasi località.</small></label>
+						<label>Comune / località di nascita <span>*</span><input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" autocomplete="off" list="trb-birthplace-options" data-trb-birthplace required /><datalist id="trb-birthplace-options"></datalist><small data-trb-birthplace-status>Per l’Italia seleziona il Comune proposto; per l’estero scrivi la località.</small></label>
+						<label>Provincia / regione di nascita <input type="text" name="trb_artist_birth_province" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_province' ) ); ?>" data-trb-birth-province <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'birth_country' ) ) ? 'readonly required' : ''; ?> /><small>Per l’estero è facoltativa se non prevista.</small></label>
+						<label>Nazione fiscale <span>*</span><input type="text" name="trb_artist_tax_country" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_country' ) ?: 'Italia' ); ?>" data-trb-tax-country required /></label>
+						<label>Tipo di documento <span>*</span><select name="trb_artist_document_type" data-trb-document-type><?php foreach ( array( 'cie' => 'Carta d’identità elettronica italiana', 'passport' => 'Passaporto', 'foreign_identity' => 'Documento d’identità estero' ) as $type => $label ) : ?><option value="<?php echo esc_attr( $type ); ?>" <?php selected( trb_portal_artist_profile_value( 'document_type' ) ?: 'cie', $type ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></label>
+						<label class="trb-portal__field-wide">Codice fiscale / identificativo fiscale <span>*</span><input type="text" name="trb_artist_tax_code" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'tax_code' ) ); ?>" maxlength="200" autocapitalize="characters" spellcheck="false" data-trb-tax-code required /><small>Per la nazione fiscale Italia resta obbligatorio un codice fiscale italiano valido. Per altre nazioni indica l’identificativo fiscale locale.</small></label>
+						<label>Numero del documento <span>*</span><input type="text" name="trb_artist_document_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'document_number' ) ); ?>" autocomplete="off" maxlength="200" autocapitalize="characters" spellcheck="false" placeholder="Es. CA12345AB" data-trb-document-number required /><small>Riporta il numero come stampato sul documento. Il formato a 9 caratteri si applica soltanto alla CIE italiana.</small></label>
+						<label>Scadenza del documento <span>*</span><input type="date" name="trb_artist_document_expiry" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'document_expiry' ) ); ?>" min="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>" data-trb-document-expiry required /><small>Alla scadenza riceverai un’e-mail e avrai 30 giorni per aggiornare il documento. Il profilo resterà attivo, ma non potrai avviare nuove release fino all’aggiornamento.</small></label>
+						<label data-trb-no-expiry-label><input type="checkbox" name="trb_artist_document_no_expiry" value="1" data-trb-no-expiry <?php checked( trb_portal_artist_profile_value( 'document_no_expiry' ), '1' ); ?> /> Il documento estero non ha una scadenza</label>
+						<label>Nazione di residenza <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ?: 'Italia' ); ?>" data-trb-country required /></label>
 						<label>Indirizzo di residenza <span>*</span><input type="text" name="trb_artist_street" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street' ) ); ?>" required /></label>
-						<label>Numero civico <span>*</span><input type="text" name="trb_artist_street_number" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
-						<label>CAP <span>*</span><input type="text" name="trb_artist_postal_code" autocomplete="postal-code" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" data-trb-postcode required /><small data-trb-postcode-status>Inserisci il CAP: Comune e provincia saranno ricavati dall’archivio nazionale.</small></label>
-						<label>Città <span>*</span><select name="trb_artist_city" autocomplete="address-level2" data-trb-city required><option value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>"><?php echo esc_html( trb_portal_artist_profile_value( 'city' ) ? trb_portal_artist_profile_value( 'city' ) : 'Inserisci prima il CAP' ); ?></option></select></label>
-						<label>Provincia <span>*</span><input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" data-trb-province readonly required /></label>
-						<label>Nazione <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ? trb_portal_artist_profile_value( 'country' ) : 'Italia' ); ?>" data-trb-country readonly required /></label>
+						<label>Numero civico <input type="text" name="trb_artist_street_number" data-trb-street-number value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
+						<label>CAP / codice postale <input type="text" name="trb_artist_postal_code" autocomplete="postal-code" maxlength="40" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" data-trb-postcode <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'required' : ''; ?> /><small data-trb-postcode-status>Per l’Italia inserisci il CAP; per l’estero indica il codice postale se previsto.</small></label>
+						<label>Città <span>*</span><select name="trb_artist_city" autocomplete="address-level2" data-trb-city <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'required' : 'disabled hidden'; ?>><option value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>"><?php echo esc_html( trb_portal_artist_profile_value( 'city' ) ? trb_portal_artist_profile_value( 'city' ) : 'Inserisci prima il CAP' ); ?></option></select><input type="text" name="trb_artist_city" autocomplete="address-level2" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>" data-trb-international-city <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'disabled hidden' : 'required'; ?> /></label>
+						<label>Provincia / regione <input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" data-trb-province <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'readonly required' : ''; ?> /><small>Per l’estero è facoltativa se non prevista.</small></label>
 					</div><p id="trb-account-data-note" class="trb-portal__field-help">Se nome o cognome sono vuoti puoi inserirli ora. Dopo il primo salvataggio, per correggere nome, cognome o e-mail, usa il pulsante “Apri una segnalazione” in alto.</p>
 					<?php if ( 'trb' !== $profile ) : ?><details class="trb-portal__company-details" <?php echo $company_requested ? 'open' : ''; ?>><summary>Hai una partita IVA o devi ricevere una fattura intestata a un’azienda?</summary><div><label class="trb-portal__invoice-toggle"><input type="checkbox" name="trb_artist_invoice_requested" value="1" <?php checked( $company_requested ); ?> /> Inserisci dati aziendali per fattura specifica</label><div class="trb-portal__field-grid"><label>Ragione sociale <input type="text" name="trb_artist_company_name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_name' ) ); ?>" /></label><label>Partita IVA <input type="text" name="trb_artist_company_vat" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_vat' ) ); ?>" /></label><label>Codice SDI <input type="text" name="trb_artist_company_sdi" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_sdi' ) ); ?>" /></label><label>Indirizzo della sede aziendale <input type="text" name="trb_artist_company_address" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'company_address' ) ); ?>" /></label></div></div></details><?php endif; ?>
-					<div class="trb-portal__private-documents"><strong>Documenti riservati</strong><p><?php echo $identity_refresh_required ? 'La CIE precedente è scaduta: devi allegare il fronte del nuovo documento.' : 'Carica i due fronti richiesti: carta d’identità e codice fiscale o tessera sanitaria. Restano esclusivamente nella tua pratica e non vengono pubblicati.'; ?></p><div class="trb-portal__field-grid"><label>Carta d’identità — fronte<?php if ( $identity_refresh_required ) : ?> <span>*</span><?php endif; ?> <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" <?php echo $identity_refresh_required ? 'required' : ''; ?> /></label><label>Codice fiscale o tessera sanitaria — fronte <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label></div><?php trb_portal_render_private_files( 'documents' ); ?></div>
+					<div class="trb-portal__private-documents"><strong>Documenti riservati</strong><p><?php echo $identity_refresh_required ? 'Il documento precedente è scaduto: devi allegare il fronte del nuovo documento.' : 'Carica il documento d’identità (oppure la pagina anagrafica del passaporto) e il documento fiscale italiano o estero. Restano esclusivamente nella tua pratica e non vengono pubblicati.'; ?></p><div class="trb-portal__field-grid"><label>Documento d’identità / passaporto<?php if ( $identity_refresh_required ) : ?> <span>*</span><?php endif; ?> <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_id_front" accept="application/pdf,image/jpeg,image/png" <?php echo $identity_refresh_required ? 'required' : ''; ?> /></label><label>Documento fiscale italiano o estero <small>PDF, JPG o PNG</small><input type="file" name="trb_artist_tax_front" accept="application/pdf,image/jpeg,image/png" /></label></div><?php trb_portal_render_private_files( 'documents' ); ?></div>
 					<button class="trb-button" type="submit">Salva i dati contrattuali</button>
 				</form>
 			</details>
@@ -6159,8 +6210,8 @@ function trb_portal_check_identity_expirations() {
 		$name      = trb_resource_artist_legal_greeting_name($user);
 		$subject   = '[Portale Artisti] Carta d’identità scaduta';
 		$message   = 'deadline' === $notice_stage
-			? "Gentile {$name},\n\nsono trascorsi 30 giorni dalla scadenza della Carta d’Identità Elettronica registrata nel Portale Artisti. Il profilo resta accessibile, ma non puoi avviare nuove release finché non inserisci numero e scadenza della nuova CIE e carichi nuovamente il fronte.\n\nAggiorna i documenti: {$dashboard}\n\nTRB rec - Music Publishing"
-			: "Gentile {$name},\n\nla Carta d’Identità Elettronica registrata nel Portale Artisti è scaduta il {$expiry}. Hai 30 giorni per inserire numero e scadenza della nuova CIE e caricare nuovamente il fronte. Il profilo resta accessibile, ma fino all’aggiornamento non puoi avviare nuove release.\n\nAggiorna i documenti: {$dashboard}\n\nTRB rec - Music Publishing";
+			? "Gentile {$name},\n\nsono trascorsi 30 giorni dalla scadenza della Carta d’Identità Elettronica registrata nel Portale Artisti. Il profilo resta accessibile, ma non puoi avviare nuove release finché non inserisci numero e scadenza del nuovo documento e carichi nuovamente il fronte.\n\nAggiorna i documenti: {$dashboard}\n\nTRB rec - Music Publishing"
+			: "Gentile {$name},\n\nla Carta d’Identità Elettronica registrata nel Portale Artisti è scaduta il {$expiry}. Hai 30 giorni per inserire numero e scadenza del nuovo documento e caricare nuovamente il fronte. Il profilo resta accessibile, ma fino all’aggiornamento non puoi avviare nuove release.\n\nAggiorna i documenti: {$dashboard}\n\nTRB rec - Music Publishing";
 		$headers   = array( 'From: TRB rec - Music Publishing <info@trbrec.com>' );
 		$artist_sent = wp_mail( $user->user_email, $subject, $message, $headers );
 		$admin_sent  = wp_mail( 'info@trbrec.com', $subject . ' — ' . $name, "L’artista {$name} ({$user->user_email}) ha una CIE scaduta dal {$expiry}. Il profilo resta accessibile; è sospeso soltanto l’avvio di nuove release fino all’aggiornamento di numero, scadenza e fronte.\n\nProfilo utente: " . admin_url( 'user-edit.php?user_id=' . $user->ID ), $headers );
@@ -6464,4 +6515,5 @@ function trb_portal_document_title( $title ) {
 	return $title;
 }
 add_filter( 'pre_get_document_title', 'trb_portal_document_title', 99 );
+
 
