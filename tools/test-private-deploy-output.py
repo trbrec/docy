@@ -33,6 +33,13 @@ for command in commands:
             assert required in export,'Public managed artist route guard missing'
         assert 'getMessage' not in export
         continue
+    if '/tools/inspect-demo-crm-source.php' in command:
+        assert '2>/dev/null' in command and 'crm_source_checks=$(' in command
+        source=Path('tools/inspect-demo-crm-source.php').read_text()
+        for required in ('ob_start();','register_shutdown_function','ob_end_clean();','array_fill_keys($allowed,false);',"$clean[$key]=($checks[$key]??false)===true;",'json_encode($clean)'):
+            assert required in source,'Fixed boolean source diagnostic guard missing'
+        assert 'getMessage' not in source
+        continue
     assert '>/dev/null 2>&1' in command,'Production diagnostics must not publish raw stdout or stderr'
 print('Production diagnostic output isolation passed.')
 
