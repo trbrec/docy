@@ -1,0 +1,187 @@
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 99;
+
+  .top_header {
+    background-color: #282E4B;
+    padding: 0 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .left_contents, .right_contents {
+      ul {
+        display: flex;
+        margin-bottom: 0;
+
+        li {
+          position: relative;
+
+          &.is-active {
+            background-color: var(--brand_color);
+            height: 4px;
+
+            a {
+              color: #ffffff;
+            }
+          }
+
+          &::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 0;
+            width: 100%;
+            background-color: var(--brand_color);
+            transition: all .25s ease;
+          }
+
+          a {
+            color: #f1f1f1;
+            font-size: 14px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            padding: 8px 15px;
+            letter-spacing: .05rem;
+            height: 46px;
+
+            img {
+              max-width: 25px;
+              height: auto;
+              margin-right: 6px;
+            }
+
+            &:hover {
+              background-color: #0d1635;
+            }
+          }
+        }
+      }
+    }
+
+    .right_contents {
+      ul {
+        justify-content: flex-end;
+      }
+    }
+  }
+
+  @media (max-width: 991px) {
+    .top_header {
+      padding: 0 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; /* Firefox */
+      position: relative;
+      
+      &::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Edge */
+      }
+
+      // Scroll indicator - gradient on the right
+      &::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 40px;
+        background: linear-gradient(to left, #282E4B 0%, rgba(40, 46, 75, 0) 100%);
+        pointer-events: none;
+        z-index: 1;
+        transition: opacity 0.3s ease;
+      }
+
+      // Hide indicator when scrolled to the end
+      &.scrolled-to-end::after {
+        opacity: 0;
+      }
+
+      .left_contents {
+        display: block !important;
+        flex-shrink: 0;
+
+        ul {
+          flex-wrap: nowrap;
+          padding: 0;
+
+          li {
+            flex-shrink: 0;
+            white-space: nowrap;
+
+            a {
+              padding: 8px 12px;
+              font-size: 13px;
+              height: 46px;
+
+              img {
+                max-width: 20px;
+                margin-right: 4px;
+              }
+            }
+          }
+        }
+      }
+
+      .right_contents {
+        flex-shrink: 0;
+
+        ul {
+          flex-wrap: nowrap;
+          padding: 0;
+
+          li {
+            flex-shrink: 0;
+            white-space: nowrap;
+
+            a {
+              padding: 8px 12px;
+              font-size: 13px;
+              height: 46px;
+
+              img {
+                max-width: 20px;
+                margin-right: 4px;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  @media (max-width: 575px) {
+    .top_header {
+      padding: 0 8px;
+
+      .left_contents ul li a,
+      .right_contents ul li a {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+    }
+  }
+
+  & + .navbar {
+    position: relative;
+  }
+}
+
+.top_header + .navbar {
+  position: relative;
+}
+
+body.docy_top_header {
+  .search-banner-light .container {
+    padding-top: 50px;
+  }
+
+  .mobile_main_menu:not(.navbar_fixed) {
+    top: 40px;
+  }
+}

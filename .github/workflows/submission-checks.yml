@@ -1,0 +1,110 @@
+name: Portal pre-merge checks
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validation dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg python3-yaml
+      - name: Validate workflow YAML and duplicate keys
+        run: /usr/bin/python3 tools/check-workflow-yaml.py
+      - name: PHP syntax and submission diagnostics
+        run: |
+          find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+          php tools/test-submission-diagnostics.php
+          php tools/test-onboarding-entry.php
+          php tools/test-onboarding-workflow.php
+          php tools/test-release-credit-roles.php
+          php tools/test-symphonic-credits.php
+          php tools/test-release-sheet-data.php
+          php tools/test-artist-admin-name.php
+          php tools/test-release-intake.php
+          php tools/test-release-integrity.php
+          php tools/test-release-recovery.php
+          php tools/test-release-file-retry.php
+          php tools/test-cover-diagnostics.php
+          node tests/release-file-retry.test.js
+          php tools/test-crm-transfer-health.php
+          php tools/test-acr-budget-notices.php
+          php tools/test-pcm-full-scale.php
+          php tools/test-true-peak.php
+          php tools/test-master-acceptance.php
+          php tools/test-demo-delivery-window.php
+          php tools/test-demo-runtime-recovery.php
+          php tools/test-demo-staged-upload.php
+          node tests/demo-chunk-upload.test.js
+          php tools/test-demo-context.php
+          php tools/test-demo-email.php
+          php tools/test-onboarding-pcloud.php
+          php tools/test-onboarding-drive.php
+          php tools/test-onboarding.php
+          php tools/test-onboarding-service.php
+          php tools/test-onboarding-plan-change.php
+          php tools/test-onboarding-identity-recovery.php
+          php tools/test-onboarding-reader.php
+          php tools/test-onboarding-wp-proxy.php
+          php tools/test-onboarding-automatic-signature.php
+          php tools/test-onboarding-adapters.php
+          php tools/test-onboarding-mail.php
+          php tools/test-onboarding-profile.php
+          php tools/test-onboarding-intake.php
+          node tests/onboarding-signature.test.js
+          node tests/onboarding-document.test.js
+          node tests/onboarding-drive.test.js
+          node tests/onboarding-form.test.js
+          node tests/artist-profile-validation.test.js
+          node --check assets/js/trb-demo-evaluation.js
+          php tools/test-audio-inventory.php
+          php tools/test-rights-owner-review.php
+          php tools/test-crm-inline-review.php
+          node tests/release-credit-options.test.js
+          node tests/symphonic-credit-validation.test.js
+          node tests/release-single-title.test.js
+          php tools/test-release-draft-normalizer.php
+          php tools/test-release-staging-cleanup.php
+          php tools/test-release-chunk-transfer.php
+          node tests/release-draft-restore.test.js
+          node tests/release-receipt-resume.test.js
+          node tests/release-completed-receipt.test.js
+          node tests/release-draft-clear.test.js
+          php tools/test-release-draft-clear.php
+          php tools/test-acr-dual-recovery.php
+          node tests/release-master-retry.test.js
+          node tests/release-audio-validation-race.test.js
+          python3 tools/portal-audit.py
+          python3 tools/test-private-deploy-output.py
+
+      - name: Render synthetic service email preview
+        run: php tools/test-onboarding-mail.php --preview
+      - name: Install browser for mobile layout validation
+        run: |
+          npm install --prefix /tmp/trb-browser-qa --no-save playwright@1.62.1
+          /tmp/trb-browser-qa/node_modules/.bin/playwright install --with-deps chromium
+      - name: Validate artist quick edit interactions
+        run: NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/artist-admin-name.test.cjs
+      - name: Validate mobile form and service email layouts
+        run: NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/onboarding-responsive.test.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-mail-preview
+          path: |
+            mail-preview.html
+            welcome-preview.html
+            welcome-mobile.png
+            welcome-ddb-preview.html
+            welcome-ddb-mobile.png
+            ready-mobile.png
+            ready-desktop.png
+            ready-ddb-mobile.png
+            form-mobile.png
+            formula-mobile.png
+            formula-desktop.png
+            waiting-mobile.png
+            mail-mobile.png
+          retention-days: 3

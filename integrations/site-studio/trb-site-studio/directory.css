@@ -1,0 +1,103 @@
+.trb-artists-page,.trb-directory{box-sizing:border-box;width:min(1240px,calc(100% - 64px));margin:0 auto;padding:64px 0;color:#173328}.trb-artists-page h1{font-size:clamp(36px,5vw,64px);line-height:1.08;letter-spacing:-.04em;max-width:1000px}.trb-artists-page>p:last-child{max-width:1040px;font-size:19px;line-height:1.65}.trb-directory h2{font-size:clamp(28px,4vw,44px);line-height:1.2}.trb-directory h3{font-size:clamp(24px,3vw,34px);line-height:1.2}.trb-directory p{font-size:17px;line-height:1.7;overflow-wrap:anywhere}.trb-directory-kicker{font-size:12px!important;font-weight:750;letter-spacing:.1em;text-transform:uppercase}.trb-artist-index,.trb-artist-links{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 36px}.trb-directory a{display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;border:1px solid #9eb8a6;color:#173328;background:#dcece0;text-decoration:none;border-radius:5px}.trb-directory a:hover{background:#afebd2}.trb-directory a:focus-visible,.trb-directory summary:focus-visible{outline:3px solid #287653;outline-offset:4px}.trb-artist-profile{display:grid;grid-template-columns:minmax(220px,30%) minmax(0,1fr);gap:48px;padding:48px 0;border-top:1px solid #9eb8a6;scroll-margin-top:130px}.trb-directory-image{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:cover;border-radius:8px}.trb-directory-monogram{display:grid;place-items:center;background:#dcece0;color:#173328;font:700 72px system-ui}.trb-artist-discography summary{cursor:pointer;min-height:44px;padding:12px 0;font-weight:700}.trb-release-profile{display:grid;grid-template-columns:150px minmax(0,1fr);gap:24px;padding:28px 0;border-top:1px solid #c0d4c7;scroll-margin-top:130px}.trb-release-profile h3{font-size:24px;margin:4px 0 10px}.trb-release-profile p{font-size:16px}.trb-coming-soon{border-top:1px solid #9eb8a6}.trb-studio-admin-note{padding:24px;border:1px solid #9eb8a6;background:#f2f6ef;color:#173328}@media(max-width:700px){.trb-artists-page,.trb-directory{width:calc(100% - 40px);padding:36px 0}.trb-artist-profile{grid-template-columns:1fr;gap:24px;padding:32px 0}.trb-artist-identity{max-width:360px}.trb-release-profile{grid-template-columns:96px minmax(0,1fr);gap:16px}.trb-directory p{font-size:16px}}@media(max-width:380px){.trb-release-profile{grid-template-columns:1fr}.trb-release-profile>.trb-directory-image{max-width:180px}}
+
+
+/* Compact roster. This scope does not alter Coming soon or release pages. */
+body.page-id-936 .trb-directory-roster .screen-reader-text{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
+body.page-id-936 main .trb-artists-page{max-width:1440px;padding-top:52px;padding-bottom:28px}
+body.page-id-936 main .trb-artists-page h1{font-size:clamp(32px,3.6vw,48px);line-height:1.1;margin:12px 0 18px}
+body.page-id-936 .trb-directory.trb-directory-roster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;max-width:1440px;padding-top:0;padding-bottom:64px;align-items:start}
+body.page-id-936 .trb-directory-roster>h2{grid-column:1/-1;margin:0;padding-top:22px;font-size:20px;letter-spacing:-.025em}
+body.page-id-936 .trb-directory-roster>.trb-roster-index{grid-column:1/-1;margin-top:-12px;margin-bottom:2px;border-bottom:1px solid #d7dfd5}
+body.page-id-936 .trb-directory-roster .trb-roster-index>summary{width:fit-content;font-size:13px;font-weight:600;min-height:44px;padding:12px 0;cursor:pointer;color:#476052}
+body.page-id-936 .trb-directory-roster .trb-roster-index>summary>span{font-size:11px;margin-left:6px;color:#476052}
+body.page-id-936 .trb-directory-roster .trb-artist-index{margin:4px 0 18px;gap:6px}
+body.page-id-936 .trb-directory-roster>.trb-artist-profile{display:flex;flex-direction:column;gap:0;padding:0;margin:0;min-width:0;border:1px solid #d7dfd5;border-radius:8px;background:#fff;overflow:hidden;align-self:start;scroll-margin-top:108px;box-shadow:0 2px 8px #17332804}
+body.page-id-936 .trb-directory-roster .trb-artist-profile>.trb-artist-identity{width:100%;aspect-ratio:3/2;height:auto;max-width:none;background:#e5ece4}
+body.page-id-936 .trb-directory-roster .trb-artist-profile>.trb-artist-identity>.trb-directory-image{display:block;width:100%;height:100%;aspect-ratio:3/2;object-fit:cover;border-radius:0}
+body.page-id-936 .trb-directory-roster #trb-artista-41>.trb-artist-identity>.trb-directory-image{object-fit:contain}
+body.page-id-936 .trb-directory-roster .trb-artist-profile>.trb-artist-identity>.trb-directory-monogram{display:grid;place-items:center;font-size:44px;font-weight:500;letter-spacing:-.04em;color:#afebd2;background:linear-gradient(145deg,#183b2c,#0c1711)}
+body.page-id-936 .trb-directory-roster .trb-artist-profile>.trb-artist-content{padding:20px;min-width:0}
+body.page-id-936 .trb-directory-roster .trb-artist-content>h3{font-size:20px;font-weight:650;letter-spacing:-.025em;line-height:1.25;height:2.5em;min-height:2.5em;margin:0 0 12px;color:#173328;overflow-wrap:anywhere}
+body.page-id-936 .trb-directory-roster .trb-artist-bio-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:5;line-clamp:5;overflow:hidden;height:7.5em;min-height:7.5em;margin:0;font-size:14px;line-height:1.5;color:#476052;overflow-wrap:anywhere}
+body.page-id-936 .trb-directory-roster .trb-artist-pending{font-style:italic;color:#536a5c}
+body.page-id-936 .trb-directory-roster .trb-artist-bio{min-height:149px;margin:0;padding:0;border:0}
+body.page-id-936 .trb-directory-roster .trb-artist-biography{margin:0;padding:0;border:0}
+body.page-id-936 .trb-directory-roster .trb-artist-biography>summary{cursor:pointer;min-height:44px;padding:12px 0;font-size:13px;font-weight:600;color:#25694c}
+body.page-id-936 .trb-directory-roster .trb-bio-open{display:none}
+body.page-id-936 .trb-directory-roster .trb-artist-biography[open] .trb-bio-open{display:inline}
+body.page-id-936 .trb-directory-roster .trb-artist-biography[open] .trb-bio-closed{display:none}
+body.page-id-936 .trb-directory-roster .trb-artist-bio:has(.trb-artist-biography[open]) .trb-artist-bio-preview{display:none}
+body.page-id-936 .trb-directory-roster .trb-artist-bio-full{padding-top:2px;padding-bottom:8px}
+body.page-id-936 .trb-directory-roster .trb-artist-bio-full p{font-size:14px;line-height:1.65;color:#476052;margin:0 0 14px;overflow-wrap:anywhere}
+body.page-id-936 .trb-directory-roster .trb-artist-bio-unavailable{height:44px;margin:0;font-size:12px;line-height:44px;color:#536a5c}
+body.page-id-936 .trb-directory-roster .trb-artist-actions{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;min-height:49px;border-top:1px solid #e1e7de;padding-top:4px;margin-top:8px;align-items:start}
+body.page-id-936 .trb-directory-roster .trb-artist-actions>details{margin:0;padding:0;border:0;min-width:0}
+body.page-id-936 .trb-directory-roster .trb-artist-actions>details[open]{grid-column:1/-1}
+body.page-id-936 .trb-directory-roster .trb-artist-actions>details>summary{min-height:44px;padding:12px 0;font-size:12px;line-height:20px;cursor:pointer;font-weight:600;color:#173328}
+body.page-id-936 .trb-directory-roster .trb-artist-actions .trb-artist-links{gap:6px;margin:4px 0 12px}
+body.page-id-936 .trb-directory-roster .trb-artist-links>a{font-size:12px;line-height:1.3;min-height:40px;padding:9px 11px;background:#f2f6ef;border:1px solid #d7dfd5;border-radius:4px;color:#173328}
+body.page-id-936 .trb-directory-roster .trb-artist-links>a:hover{background:#afebd2;border-color:#8ecbb0}
+body.page-id-936 .trb-directory-roster .trb-artist-discography .trb-release-profile{grid-template-columns:56px minmax(0,1fr);gap:12px;padding:16px 0;margin:0}
+body.page-id-936 .trb-directory-roster .trb-release-profile>.trb-directory-image{width:56px;height:56px;aspect-ratio:1;border-radius:4px}
+body.page-id-936 .trb-directory-roster .trb-release-profile h3{font-size:15px;line-height:1.3;margin:4px 0 8px}
+body.page-id-936 .trb-directory-roster .trb-release-profile p{font-size:13px;line-height:1.6}
+body.page-id-936 .trb-directory-roster summary:focus-visible,body.page-id-936 .trb-directory-roster a:focus-visible{outline:3px solid #25694c;outline-offset:3px}
+@media(min-width:1200px){body.page-id-936 .trb-directory.trb-directory-roster{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:959px){body.page-id-936 .trb-directory.trb-directory-roster{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}}
+@media(max-width:599px){body.page-id-936 .trb-directory.trb-directory-roster{grid-template-columns:minmax(0,1fr);gap:20px;padding-bottom:40px}body.page-id-936 main .trb-artists-page{padding-top:32px;padding-bottom:22px}body.page-id-936 .trb-directory-roster .trb-artist-profile>.trb-artist-content{padding:18px}}
+
+/* Official photographs retain their colours; original uploads remain unchanged. */
+body.page-id-936 .trb-directory-roster .trb-artist-identity>.trb-directory-image:not(.trb-directory-monogram){filter:none;object-position:center 35%}
+body.page-id-936 .trb-directory-roster #trb-artista-41>.trb-artist-identity>.trb-directory-image{object-fit:cover;object-position:center}
+body.page-id-936 .trb-directory-roster #trb-artista-127>.trb-artist-identity>.trb-directory-image{object-position:center 15%}
+body.page-id-936 .trb-directory-roster #trb-artista-177>.trb-artist-identity>.trb-directory-image{object-position:center 23%}
+body.page-id-936 .trb-directory-roster #trb-artista-128>.trb-artist-identity>.trb-directory-image{object-position:center 58%}
+body.page-id-936 .trb-directory-roster .trb-directory-monogram{position:relative;background:linear-gradient(145deg,#183b2c,#0c1711);color:#afebd2;font-size:44px!important;font-weight:500}
+body.page-id-936 .trb-directory-roster .trb-directory-monogram:after{content:'TRB rec';position:absolute;bottom:18px;font-size:11px;letter-spacing:.12em;color:#afebd2b3}
+
+/* Gentle exposure correction for the darker alternate Arkell portrait. */
+body.page-id-936 .trb-directory-roster #trb-artista-45>.trb-artist-identity>.trb-directory-image{filter:brightness(1.12);object-position:center 27%}
+
+/* Artist directory: photographic tiles with one direct route per artist. */
+body .trb-directory.trb-roster-tiles{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:30px 24px!important;padding:0!important;width:min(1200px,calc(100% - 64px))!important;margin:32px auto 72px!important;align-items:start!important}
+body .trb-roster-tiles>.trb-artist-tile{display:block!important;border:0!important;background:transparent!important;border-radius:0!important;overflow:visible!important;box-shadow:none!important}
+body .trb-artist-tile-link{display:block!important;text-decoration:none!important;color:inherit!important;padding:0!important;border:0!important;background:transparent!important;min-height:0!important;border-radius:0!important}
+body .trb-roster-tiles .trb-artist-identity{aspect-ratio:4/5!important;height:auto!important;max-height:none!important;border-radius:8px!important;overflow:hidden;background:#dce6e0}
+body .trb-roster-tiles .trb-directory-image{height:100%!important;width:100%!important;object-fit:cover!important;filter:none}
+body .trb-roster-tiles .trb-artist-tile-caption{display:flex;gap:12px;align-items:start;justify-content:space-between;padding:16px 0 0!important;height:100px;min-height:100px}
+body .trb-roster-tiles h3{font-size:clamp(17px,1.55vw,22px)!important;line-height:1.25!important;margin:0!important;font-weight:650!important;letter-spacing:-.02em!important;overflow-wrap:anywhere}
+body .trb-artist-tile-caption>span{font-size:23px;line-height:1;opacity:.6}
+body .trb-artist-tile-link:hover h3{text-decoration:underline;text-underline-offset:4px}
+body .trb-artist-tile-link:focus-visible{outline:3px solid #23624c;outline-offset:6px;border-radius:8px}
+body .trb-artist-page{max-width:1200px!important;width:100%!important;margin:0 auto!important;padding:36px 24px 80px!important;color:#173328;box-sizing:border-box}
+.trb-artist-page *{box-sizing:border-box}
+body .trb-artist-back{font-size:14px;text-decoration:none;color:inherit;display:inline-block;margin-bottom:40px}
+body .trb-artist-page-heading{margin:0 0 36px!important}
+body .trb-artist-page h1{font-size:clamp(38px,6.5vw,82px)!important;line-height:1.04!important;letter-spacing:-.045em!important;margin:10px 0 0!important;overflow-wrap:anywhere;font-weight:650!important}
+body .trb-artist-gallery{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:56px!important}
+body .trb-artist-gallery.trb-gallery-count-1{grid-template-columns:minmax(0,700px)}
+body .trb-artist-gallery.trb-gallery-count-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+body .trb-gallery-photo{display:block;aspect-ratio:4/5;overflow:hidden;border-radius:8px;background:#dce6e0}
+body .trb-gallery-count-1 .trb-gallery-photo{aspect-ratio:5/4}
+body .trb-artist-gallery .trb-directory-image{display:block;width:100%!important;height:100%!important;object-fit:cover!important;filter:none;border-radius:0!important}
+body .trb-artist-page-story{display:grid;grid-template-columns:minmax(0,2fr) minmax(220px,1fr);gap:72px;margin-bottom:64px}
+body .trb-artist-page h2{font-size:clamp(25px,3vw,36px)!important;line-height:1.2!important;letter-spacing:-.025em!important;margin:8px 0 24px!important}
+body .trb-artist-page p{font-size:17px;line-height:1.75;overflow-wrap:anywhere}
+body .trb-artist-page .trb-directory-kicker{font-size:11px!important;line-height:1.5!important;letter-spacing:.16em!important;font-weight:650!important;margin:0!important}
+body .trb-artist-page .trb-artist-bio-full{font-size:17px;line-height:1.75}
+body .trb-artist-page-links{padding-top:24px}
+body .trb-artist-page-links .trb-artist-links{display:grid;gap:10px}
+body .trb-artist-page-links .trb-artist-links a{display:flex;justify-content:space-between;border:1px solid #cbd8d0;border-radius:5px;padding:14px 16px;text-decoration:none;color:inherit;font-size:15px}
+body .trb-artist-page-discography{padding-top:40px;border-top:1px solid #cbd8d0}
+body .trb-artist-page-discography h2 span{font-size:16px;opacity:.6;margin-left:8px}
+body .trb-artist-release-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px 24px}
+body .trb-artist-release-grid .trb-release-profile{display:block!important;padding:0!important;background:transparent!important;border:0!important;min-width:0}
+body .trb-artist-release-grid .trb-release-profile>.trb-directory-image,body .trb-artist-release-grid .trb-release-profile>.trb-directory-placeholder{aspect-ratio:1!important;width:100%!important;height:auto!important;object-fit:cover!important;border-radius:6px}
+body .trb-artist-release-grid .trb-release-profile>div{padding:18px 0 0!important;min-width:0}
+body .trb-artist-release-grid h3{font-size:22px!important;margin:10px 0!important;line-height:1.25!important}
+body .trb-artist-release-grid p{font-size:14px;line-height:1.6}
+body .trb-artist-release-grid .trb-artist-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+body .trb-artist-release-grid .trb-artist-links a{font-size:12px;border:1px solid #cbd8d0;padding:8px 10px;border-radius:4px;color:inherit;text-decoration:none}
+@media(max-width:1199px){body .trb-directory.trb-roster-tiles{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media(max-width:959px){body .trb-directory.trb-roster-tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important}body .trb-artist-page-story{gap:32px}body .trb-artist-release-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:599px){body .trb-directory.trb-roster-tiles{gap:24px 14px!important;width:calc(100% - 40px)!important;margin-top:24px!important}body .trb-roster-tiles .trb-artist-tile-caption{height:80px;min-height:80px}body .trb-roster-tiles h3{font-size:16px!important}body .trb-artist-tile-caption>span{font-size:18px}body .trb-artist-page{padding:24px 20px 56px!important}body .trb-artist-back{margin-bottom:28px}body .trb-artist-gallery{gap:8px;margin-bottom:32px!important}body .trb-artist-gallery:not(.trb-gallery-count-1){grid-template-columns:repeat(2,minmax(0,1fr))}body .trb-gallery-count-3 .trb-gallery-photo:first-child{grid-column:1/-1;aspect-ratio:5/4}body .trb-artist-page-story{grid-template-columns:1fr;gap:12px;margin-bottom:40px}body .trb-artist-page-links{padding-top:8px}body .trb-artist-release-grid{gap:26px 16px}body .trb-artist-release-grid h3{font-size:18px!important}body .trb-artist-release-grid .trb-artist-links{display:grid}}

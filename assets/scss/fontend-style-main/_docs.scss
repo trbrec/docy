@@ -1,0 +1,26 @@
+#post {
+  h2, h3, h4 {
+    font-weight: 500;
+    margin-bottom: 20px;
+  }
+}
+
+@media screen and (min-width: 1500px) {
+  body{
+    &.boxed{
+      .ezd-container-fluid {
+        max-width: 1470px;
+      }    
+    }
+  }
+}
+
+@media screen and ( min-width: 1300px ) {
+  body{
+    &.boxed{
+      .ezd-container-fluid {
+        max-width: 1240px;
+      }    
+    }
+  }
+}

@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+const source=fs.readFileSync('assets/js/trb-release-upload.js','utf8');
+const remoteToken='11111111-1111-1111-1111-111111111111',oldToken='22222222-2222-2222-2222-222222222222';
+let remote={version:1,savedAt:1,pairs:[['trb_release_title','Saved']],submissionToken:remoteToken,explicitResume:true};
+const values={draft:JSON.stringify({version:1,savedAt:999,pairs:[['trb_release_title','Other']],submissionToken:oldToken}),'draft:receipt':oldToken};
+const field={value:'new-token'},form={dataset:{draftKey:'draft'},querySelector(s){return s.includes('submission_token')?field:null;},querySelectorAll(){return[];},insertBefore(){}};
+const context={module:{exports:{}},console,localStorage:{getItem:k=>values[k]||null,setItem:(k,v)=>values[k]=v},document:{addEventListener(){},querySelector(){return{textContent:JSON.stringify(remote)};},createElement(){return{};}}};
+vm.runInNewContext(source.replace('module.exports={draftShape:','module.exports={restoreDraft,restoreIntakeToken,draftShape:'),context);
+assert.equal(context.module.exports.restoreDraft(form),true);
+context.module.exports.restoreIntakeToken(form);
+assert.equal(field.value,remoteToken,'Explicit server receipt must beat stale local receipt');
+delete values.draft;delete values['draft:receipt'];field.value='fresh';form.dataset={draftKey:'draft'};remote.explicitResume=false;
+context.module.exports.restoreDraft(form);context.module.exports.restoreIntakeToken(form);
+assert.equal(field.value,remoteToken,'New browser must retain server receipt');
+console.log('PASS explicit resume and new-browser receipt continuity');

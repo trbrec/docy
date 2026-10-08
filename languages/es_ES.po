@@ -1,0 +1,6580 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Docy\n"
+"POT-Creation-Date: 2025-06-24 16:19+0600\n"
+"PO-Revision-Date: 2025-06-24 16:19+0600\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: es_ES\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.4.4\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-Flags-xgettext: --add-comments=translators:\n"
+"X-Poedit-WPHeader: style.css\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;"
+"esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;_n_noop:1,2;"
+"_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.min.js\n"
+"X-Poedit-SearchPathExcluded-1: assets\n"
+
+#: 404.php:26
+msgid "404 page background shape."
+msgstr "Forma de fondo de 404 páginas."
+
+#: 404.php:32 404.php:46
+msgid "4 illustration"
+msgstr "4 Ilustración"
+
+#: 404.php:39
+msgid "0 illustration"
+msgstr "0 ilustración"
+
+#: 404.php:53 options/opt_404.php:13
+msgid "Error! We can't find the page you're looking for."
+msgstr "¡Error! No podemos encontrar la página que estás buscando."
+
+#: 404.php:54
+msgid "We can't seem to find the page you're looking for"
+msgstr "Parece que no podemos encontrar la página que estás buscando"
+
+#: 404.php:58 bbpress/form-search.php:21 searchform.php:5
+#: woocommerce/product-searchform.php:24
+msgid "Search"
+msgstr "Buscar"
+
+#: 404.php:62
+msgid "Go Back to home Page"
+msgstr "Volver a la página de inicio"
+
+#: bbpress/alert-topic-lock.php:21
+msgid "Leave"
+msgstr "Salir"
+
+#: bbpress/alert-topic-lock.php:22
+msgid "Stay"
+msgstr "Permanecer"
+
+#: bbpress/content-single-topic-lead.php:54
+msgid " Replies"
+msgstr " Respuestas"
+
+#: bbpress/content-single-topic-lead.php:65
+msgid "Subscribed"
+msgstr "Suscrito"
+
+#: bbpress/content-single-topic-lead.php:128
+msgid "Tagged:"
+msgstr "Etiquetado:"
+
+#: bbpress/content-single-topic.php:33
+msgid "All Replies"
+msgstr "Todas las respuestas"
+
+#: bbpress/content-statistics.php:20
+msgid "Registered Users"
+msgstr "Usuarios Registrados"
+
+#: bbpress/content-statistics.php:25 bbpress/user-profile.php:34
+#: options/opt_forum.php:3 options/opt_forum.php:192
+msgid "Forums"
+msgstr "Foros"
+
+#: bbpress/content-statistics.php:30 bbpress/loop-forums.php:24
+msgid "Topics"
+msgstr "Temas"
+
+#: bbpress/content-statistics.php:36 bbpress/loop-forums.php:25
+msgid "Replies"
+msgstr "Respuestas"
+
+#: bbpress/content-statistics.php:42
+msgid "Topic Tags"
+msgstr "Etiquetas de tema"
+
+#: bbpress/content-statistics.php:49
+msgid "Empty Topic Tags"
+msgstr "Vaciar las Etiquetas del Tema"
+
+#: bbpress/content-statistics.php:58
+msgid "Hidden Topics"
+msgstr "Temas ocultos"
+
+#: bbpress/content-statistics.php:69
+msgid "Hidden Replies"
+msgstr "Respuestas Ocultas"
+
+#: bbpress/feedback-logged-in.php:17
+msgid "You are already logged in."
+msgstr "Ya has iniciado sesión."
+
+#: bbpress/feedback-no-access.php:16
+msgid "Private"
+msgstr "Privado"
+
+#: bbpress/feedback-no-access.php:20
+msgid "You do not have permission to view this forum."
+msgstr "No tiene permiso para ver este foro."
+
+#: bbpress/feedback-no-forums.php:17
+msgid "Oh, bother! No forums were found here."
+msgstr "Oh, No se han encontrado foros aquí."
+
+#: bbpress/feedback-no-replies.php:17
+msgid "Oh, bother! No replies were found here."
+msgstr "Oh, No se encontraron respuestas aquí."
+
+#: bbpress/feedback-no-search.php:17
+msgid "Oh, bother! No search results were found here."
+msgstr "Oh, No se encontraron resultados de búsqueda aquí."
+
+#: bbpress/feedback-no-topics.php:17
+msgid "Oh, bother! No topics were found here."
+msgstr "Oh, No se encontraron temas aquí."
+
+#: bbpress/form-anonymous.php:18
+msgid "Author Information"
+msgstr "Información del Autor"
+
+#: bbpress/form-anonymous.php:18
+msgid "Your information:"
+msgstr "Tu información:"
+
+#: bbpress/form-anonymous.php:23
+msgid "Name (required):"
+msgstr "Nombre (requerido):"
+
+#: bbpress/form-anonymous.php:28
+msgid "Mail (will not be published) (required):"
+msgstr "Correo (no será publicado) (requerido):"
+
+#: bbpress/form-anonymous.php:33
+msgid "Website:"
+msgstr "Sitio Web:"
+
+#: bbpress/form-forum.php:34 bbpress/form-topic.php:41
+#, php-format
+msgid "Now Editing &ldquo;%s&rdquo;"
+msgstr "Ahora editando &ldquo;%s&rdquo;"
+
+#: bbpress/form-forum.php:37
+#, php-format
+msgid "Create New Forum in &ldquo;%s&rdquo;"
+msgstr "Crear nuevo foro en &ldquo;%s&rdquo;"
+
+#: bbpress/form-forum.php:38
+msgid "Create New Forum"
+msgstr "Crea un nuevo foro"
+
+#: bbpress/form-forum.php:50 bbpress/form-reply.php:46
+msgid ""
+"This forum is closed to new content, however your posting capabilities still "
+"allow you to post."
+msgstr ""
+"Este foro está cerrado a nuevos contenidos, sin embargo, sus capacidades de "
+"publicación todavía le permiten publicar."
+
+#: bbpress/form-forum.php:60 bbpress/form-reply.php:56
+#: bbpress/form-topic.php:68
+msgid "Your account has the ability to post unrestricted HTML content."
+msgstr ""
+"Su cuenta tiene la capacidad para publicar contenido HTML sin restricciones."
+
+#: bbpress/form-forum.php:73
+#, php-format
+msgid "Forum Name (Maximum Length: %d):"
+msgstr "Nombre del foro (Longitud máxima: %d):"
+
+#: bbpress/form-forum.php:88 bbpress/form-reply.php:77
+msgid ""
+"You may use these <abbr title=\"HyperText Markup Language\">HTML</abbr> tags "
+"and attributes:"
+msgstr ""
+"Puedes utilizar estas etiquetas y atributos <abbr title=“HyperText Markup "
+"Language”>HTML</abbr>:"
+
+#: bbpress/form-forum.php:99
+msgid "Forum Moderators:"
+msgstr "Moderadores del Foro:"
+
+#: bbpress/form-forum.php:110
+msgid "Forum Type:"
+msgstr "Tipo de foro:"
+
+#: bbpress/form-forum.php:119
+msgid "Status:"
+msgstr "Estado:"
+
+#: bbpress/form-forum.php:128
+msgid "Visibility:"
+msgstr "Visibilidad:"
+
+#: bbpress/form-forum.php:137
+msgid "Parent Forum:"
+msgstr "Foro superior:"
+
+#: bbpress/form-forum.php:142
+msgid "&mdash; No parent &mdash;"
+msgstr "&mdash; No padre &mdash;"
+
+#: bbpress/form-forum.php:158 bbpress/form-reply-move.php:79
+#: bbpress/form-reply.php:174 bbpress/form-topic-merge.php:101
+#: bbpress/form-topic-split.php:105 bbpress/form-topic.php:224
+#: woocommerce/single-product-reviews.php:72
+msgid "Submit"
+msgstr "Enviar"
+
+#: bbpress/form-forum.php:183
+#, php-format
+msgid "The forum &#8216;%s&#8217; is closed to new content."
+msgstr "El foro  &#8216;%s&#8217; está cerrado a nuevo contenido."
+
+#: bbpress/form-forum.php:194
+msgid "You cannot create new forums."
+msgstr "No puede crear nuevos foros."
+
+#: bbpress/form-forum.php:195
+msgid "You must be logged in to create new forums."
+msgstr "Debes iniciar sesión para crear nuevos foros."
+
+#: bbpress/form-protected.php:17
+msgid "Protected"
+msgstr "Protegido"
+
+#: bbpress/form-reply-move.php:25
+#, php-format
+msgid "Move reply \"%s\""
+msgstr "Mover respuesta \"%s\""
+
+#: bbpress/form-reply-move.php:31
+msgid ""
+"You can either make this reply a new topic with a new title, or merge it "
+"into an existing topic."
+msgstr ""
+"Puede hacer que esta respuesta sea un tema nuevo con un nuevo título o "
+"fusionarlo en un tema existente."
+
+#: bbpress/form-reply-move.php:37
+msgid ""
+"If you choose an existing topic, replies will be ordered by the time and "
+"date they were created."
+msgstr ""
+"Si elige un tema existente, las respuestas se ordenarán por la fecha y hora "
+"en que fueron creadas."
+
+#: bbpress/form-reply-move.php:42
+msgid "Move Method"
+msgstr "Mover método"
+
+#: bbpress/form-reply-move.php:46 bbpress/form-topic-split.php:46
+#, php-format
+msgid "New topic in %s titled:"
+msgstr "Nuevo tema en %s titulado:"
+
+#: bbpress/form-reply-move.php:47
+#, php-format
+msgid "Moved: %s"
+msgstr "Movido: %s"
+
+#: bbpress/form-reply-move.php:54 bbpress/form-topic-split.php:54
+msgid "Use an existing topic in this forum:"
+msgstr "Utiliza un tema existente en este foro:"
+
+#: bbpress/form-reply-move.php:74 bbpress/form-topic-merge.php:96
+#: bbpress/form-topic-split.php:100
+msgid "This process cannot be undone."
+msgstr "Este proceso no puede deshacerse."
+
+#: bbpress/form-reply-move.php:93
+msgid "You do not have permission to edit this reply."
+msgstr "No tiene permiso para editar esta respuesta."
+
+#: bbpress/form-reply-move.php:94
+msgid "You cannot edit this reply."
+msgstr "No puede editar esta respuesta."
+
+#: bbpress/form-reply-search.php:16
+msgid "Search replies:"
+msgstr "Buscar respuestas:"
+
+#: bbpress/form-reply-search.php:17
+msgid "Search in Reply"
+msgstr "Buscar en respuesta"
+
+#: bbpress/form-reply.php:28
+#, php-format
+msgid "Reply To: %s"
+msgstr "Responder a: %s"
+
+#: bbpress/form-reply.php:28
+#, php-format
+msgid "Reply #%1$s in %2$s"
+msgstr "Responder #%1$s en%2$s"
+
+#: bbpress/form-reply.php:36
+msgid ""
+"This topic is marked as closed to new replies, however your posting "
+"capabilities still allow you to reply."
+msgstr ""
+"Este debate se ha marcado como cerrado para nuevas respuestas, pero tus "
+"permisos de publicación todavía te permiten hacerlo."
+
+#: bbpress/form-reply.php:88
+msgid "Tags:"
+msgstr "Etiquetas:"
+
+#: bbpress/form-reply.php:106 bbpress/form-topic.php:207
+msgid "Notify the author of follow-up replies via email"
+msgstr "Notificar al autor de las respuestas  vía e-mail"
+
+#: bbpress/form-reply.php:110 bbpress/form-topic.php:212
+msgid "Notify me of follow-up replies via email"
+msgstr "Notificarme las respuestas vía e-mail"
+
+#: bbpress/form-reply.php:127
+msgid "Reply To:"
+msgstr "Responder a:"
+
+#: bbpress/form-reply.php:136
+msgid "Reply Status:"
+msgstr "Estado de la respuesta"
+
+#: bbpress/form-reply.php:151 bbpress/form-topic.php:174
+msgid "Keep a log of this edit:"
+msgstr "Mantener un registro de esta edición:"
+
+#: bbpress/form-reply.php:155 bbpress/form-topic.php:178
+msgid "Optional reason for editing:"
+msgstr "Motivos opcionales para editar:"
+
+#: bbpress/form-reply.php:198
+#, php-format
+msgid "The topic &#8216;%s&#8217; is closed to new replies."
+msgstr "El tema &#8216;%s&#8217; está cerrado a nuevas respuestas."
+
+#: bbpress/form-reply.php:208 bbpress/form-topic.php:249
+#, php-format
+msgid "The forum &#8216;%s&#8217; is closed to new topics and replies."
+msgstr "El foro &#8216;%s&#8217; está cerrado a nuevos temas y respuestas."
+
+#: bbpress/form-reply.php:219
+msgid "You cannot reply to this topic."
+msgstr "No se puede responder a este tema."
+
+#: bbpress/form-reply.php:220
+msgid "You must be logged in to reply to this topic."
+msgstr "Usted debe estar logeado para responder a este tema."
+
+#: bbpress/form-search.php:18
+msgid "Search for:"
+msgstr "Buscar:"
+
+#: bbpress/form-topic-merge.php:25
+#, php-format
+msgid "Merge topic \"%s\""
+msgstr "Combinar tema \"%s\""
+
+#: bbpress/form-topic-merge.php:31
+msgid ""
+"Select the topic to merge this one into. The destination topic will remain "
+"the lead topic, and this one will change into a reply."
+msgstr ""
+"Seleccione el tema para combinar este en. El tema de destino seguirá siendo "
+"el tema principal, y éste se convertirá en una respuesta."
+
+#: bbpress/form-topic-merge.php:32
+msgid ""
+"To keep this topic as the lead, go to the other topic and use the merge tool "
+"from there instead."
+msgstr ""
+"Para mantener este tema como el líder, vaya al otro tema y use la "
+"herramienta de combinación desde allí."
+
+#: bbpress/form-topic-merge.php:38
+msgid ""
+"Replies to both topics are merged chronologically, ordered by the time and "
+"date they were published. Topics may be updated to a 1 second difference to "
+"maintain chronological order based on the merge direction."
+msgstr ""
+"Las respuestas a ambos temas se fusionan cronológicamente, ordenadas por "
+"hora y fecha de publicación. Los temas pueden ser actualizados con una "
+"diferencia de 1 segundo para mantener el orden cronológico basado en la "
+"dirección de la fusión."
+
+#: bbpress/form-topic-merge.php:43
+msgid "Destination"
+msgstr "Destino"
+
+#: bbpress/form-topic-merge.php:47
+msgid "Merge with this topic:"
+msgstr "Combinar con este tema:"
+
+#: bbpress/form-topic-merge.php:62
+msgid "There are no other topics in this forum to merge with."
+msgstr "No hay otros temas en este foro para fusionarse."
+
+#: bbpress/form-topic-merge.php:70 bbpress/form-topic-split.php:74
+msgid "Topic Extras"
+msgstr "Temas Extras"
+
+#: bbpress/form-topic-merge.php:77
+msgid "Merge topic subscribers"
+msgstr "Combinar los suscriptores del tema"
+
+#: bbpress/form-topic-merge.php:82
+msgid "Merge topic favoriters"
+msgstr "Combinar temas favoritos"
+
+#: bbpress/form-topic-merge.php:87
+msgid "Merge topic tags"
+msgstr "Fusionar etiquetas de tema"
+
+#: bbpress/form-topic-merge.php:115 bbpress/form-topic-split.php:119
+msgid "You do not have permission to edit this topic."
+msgstr "No tienes acceso a este grupo."
+
+#: bbpress/form-topic-merge.php:116 bbpress/form-topic-split.php:120
+msgid "You cannot edit this topic."
+msgstr "No puedes editar este tema."
+
+#: bbpress/form-topic-search.php:17
+msgid "Search topics:"
+msgstr "Buscar temas:"
+
+#: bbpress/form-topic-search.php:18
+msgid "Search in Topics"
+msgstr "Buscar en Temas"
+
+#: bbpress/form-topic-split.php:25
+#, php-format
+msgid "Split topic \"%s\""
+msgstr "Dividir el tema \"%s\""
+
+#: bbpress/form-topic-split.php:31
+msgid ""
+"When you split a topic, you are slicing it in half starting with the reply "
+"you just selected. Choose to use that reply as a new topic with a new title, "
+"or merge those replies into an existing topic."
+msgstr ""
+"Cuando divide un tema, lo está dividiendo a la mitad comenzando con la "
+"respuesta que acaba de seleccionar. Elija usar esa respuesta como un tema "
+"nuevo con un título nuevo, o combine esas respuestas en un tema existente."
+
+#: bbpress/form-topic-split.php:37
+msgid ""
+"If you use the existing topic option, replies within both topics will be "
+"merged chronologically. The order of the merged replies is based on the time "
+"and date they were posted."
+msgstr ""
+"Si utiliza la opción de tema existente, las respuestas dentro de ambos temas "
+"se combinarán cronológicamente. El orden de las respuestas fusionadas se "
+"basa en la fecha y hora en que fueron publicadas."
+
+#: bbpress/form-topic-split.php:42
+msgid "Split Method"
+msgstr "Método dividido"
+
+#: bbpress/form-topic-split.php:47
+#, php-format
+msgid "Split: %s"
+msgstr "Dividir: %s"
+
+#: bbpress/form-topic-split.php:81
+msgid "Copy subscribers to the new topic"
+msgstr "Copiar suscriptores al nuevo tema"
+
+#: bbpress/form-topic-split.php:86
+msgid "Copy favoriters to the new topic"
+msgstr "Copiar los favoritos al nuevo tema"
+
+#: bbpress/form-topic-split.php:91
+msgid "Copy topic tags to the new topic"
+msgstr "Copiar etiquetas de tema al nuevo tema"
+
+#: bbpress/form-topic-tag.php:19
+#, php-format
+msgid "Manage Tag: \"%s\""
+msgstr "Administrar Etiqueta: “%s”"
+
+#: bbpress/form-topic-tag.php:23
+msgid "Rename"
+msgstr "Renombrar"
+
+#: bbpress/form-topic-tag.php:27
+msgid "Leave the slug empty to have one automatically generated."
+msgstr "Deja el alias vacío para obtener uno generado automáticamente."
+
+#: bbpress/form-topic-tag.php:33
+msgid ""
+"Changing the slug affects its permalink. Any links to the old slug will stop "
+"working."
+msgstr ""
+"Cambio del alias afecta a su enlace permanente. Cualquier enlace slug "
+"anterior dejará de funcionar."
+
+#: bbpress/form-topic-tag.php:40
+msgid "Name:"
+msgstr "Nombre:"
+
+#: bbpress/form-topic-tag.php:45
+msgid "Slug:"
+msgstr "Slug:"
+
+#: bbpress/form-topic-tag.php:50
+msgid "Description:"
+msgstr "Descripción:"
+
+#: bbpress/form-topic-tag.php:55 inc/tgm/class-tgm-plugin-activation.php:2782
+msgid "Update"
+msgstr "Actualizar"
+
+#: bbpress/form-topic-tag.php:69 bbpress/form-topic-tag.php:85
+msgid "Merge"
+msgstr "Unir"
+
+#: bbpress/form-topic-tag.php:73
+msgid "Merging tags together cannot be undone."
+msgstr "La fusión de etiquetas en conjunto no se puede deshacer."
+
+#: bbpress/form-topic-tag.php:80
+msgid "Existing tag:"
+msgstr "Etiqueta existente:"
+
+#: bbpress/form-topic-tag.php:85
+#, php-format
+msgid ""
+"Are you sure you want to merge the \"%s\" tag into the tag you specified?"
+msgstr ""
+"¿Seguro que deseas fusionar la etiqueta  “%s” en la etiqueta que ha "
+"especificado?"
+
+#: bbpress/form-topic-tag.php:100 bbpress/form-topic-tag.php:117
+msgid "Delete"
+msgstr "Borrar"
+
+#: bbpress/form-topic-tag.php:104
+msgid "This does not delete your topics. Only the tag itself is deleted."
+msgstr ""
+"Esto no elimina sus temas asociados, solo se elimina la propia etiqueta."
+
+#: bbpress/form-topic-tag.php:109
+msgid "Deleting a tag cannot be undone."
+msgstr "Eliminación de una etiqueta no se puede deshacer."
+
+#: bbpress/form-topic-tag.php:110
+msgid "Any links to this tag will no longer function."
+msgstr "Cualquier enlace a esta etiqueta dejará de funcionar."
+
+#: bbpress/form-topic-tag.php:117
+#, php-format
+msgid ""
+"Are you sure you want to delete the \"%s\" tag? This is permanent and cannot "
+"be undone."
+msgstr ""
+"¿Estás seguro que quieres eliminar la etiqueta “%s” ? Esto es permanente y "
+"no puede deshacerse."
+
+#: bbpress/form-topic.php:44
+#, php-format
+msgid "Create New Topic in &ldquo;%s&rdquo;"
+msgstr "Crear nuevo tema en &ldquo;%s&rdquo;"
+
+#: bbpress/form-topic.php:45
+msgid "Create New Topic"
+msgstr "Crear Nuevo Tema"
+
+#: bbpress/form-topic.php:57
+msgid ""
+"This forum is marked as closed to new topics, however your posting "
+"capabilities still allow you to create a topic."
+msgstr ""
+"Este foro se ha marcado como cerrado para debates nuevos, pero tus permisos "
+"de publicación todavía te permiten hacerlo."
+
+#: bbpress/form-topic.php:83
+#, php-format
+msgid "Topic Title (Maximum Length: %d):"
+msgstr "Nombre del tema (Longitud máxima: %d):"
+
+#: bbpress/form-topic.php:100
+#, php-format
+msgid "You may use these %s tags and attributes:"
+msgstr "Puede utilizar estas etiquetas y atributos %s:"
+
+#: bbpress/form-topic.php:112
+msgid "Topic Tags:"
+msgstr "Etiquetas del tema:"
+
+#: bbpress/form-topic.php:126 bbpress/loop-search-forum.php:25
+msgid "Forum:"
+msgstr "Foro:"
+
+#: bbpress/form-topic.php:129
+msgid "&mdash; No forum &mdash;"
+msgstr "&mdash; No hay foro &mdash;"
+
+#: bbpress/form-topic.php:145
+msgid "Topic Type:"
+msgstr "Tipo de tema:"
+
+#: bbpress/form-topic.php:157
+msgid "Topic Status:"
+msgstr "Estado del tema:"
+
+#: bbpress/form-topic.php:262
+msgid "You cannot create new topics."
+msgstr "No puedes crear nuevos temas."
+
+#: bbpress/form-topic.php:263
+msgid "You must be logged in to create new topics."
+msgstr "Debes iniciar sesión para crear temas nuevos."
+
+#: bbpress/form-user-edit.php:20
+msgid "Name"
+msgstr "Nombre"
+
+#: bbpress/form-user-edit.php:27
+msgid "First Name"
+msgstr "Nombre"
+
+#: bbpress/form-user-edit.php:28
+#, fuzzy
+#| msgid "First Name"
+msgid "Enter First Name"
+msgstr "Nombre"
+
+#: bbpress/form-user-edit.php:32
+msgid "Last Name"
+msgstr "Apellido"
+
+#: bbpress/form-user-edit.php:33
+#, fuzzy
+#| msgid "Last Name"
+msgid "Enter Last Name"
+msgstr "Apellido"
+
+#: bbpress/form-user-edit.php:37
+msgid "Nickname"
+msgstr "Apodo"
+
+#: bbpress/form-user-edit.php:38
+#, fuzzy
+#| msgid "Nickname"
+msgid "Enter Nickname"
+msgstr "Apodo"
+
+#: bbpress/form-user-edit.php:42
+msgid "Display Name"
+msgstr "Nombre para mostrar"
+
+#: bbpress/form-user-edit.php:52
+msgid "Website"
+msgstr "Sitio web"
+
+#: bbpress/form-user-edit.php:53
+msgid "Enter Website URL"
+msgstr ""
+
+#: bbpress/form-user-edit.php:69
+msgid "Biographical Info"
+msgstr "Información biográfica"
+
+#: bbpress/form-user-edit.php:70
+#, fuzzy
+#| msgid "About Yourself"
+msgid "Write about yourself"
+msgstr "Acerca de ti"
+
+#: bbpress/form-user-edit.php:81
+msgid "Account"
+msgstr "Cuenta"
+
+#: bbpress/form-user-edit.php:87 bbpress/form-user-login.php:20
+#: bbpress/form-user-register.php:29 inc/reg_process.php:16
+#: woocommerce/myaccount/form-login.php:94
+msgid "Username"
+msgstr "Nombre de usuario"
+
+#: bbpress/form-user-edit.php:92 bbpress/form-user-register.php:34
+#: comments.php:59
+msgid "Email"
+msgstr "Email"
+
+#: bbpress/form-user-edit.php:100
+msgid "Language"
+msgstr "Idioma"
+
+#: bbpress/form-user-edit.php:111
+msgid "User Role"
+msgstr "Rol de Usuario"
+
+#: bbpress/form-user-edit.php:118
+msgid "Network Role"
+msgstr "Rol de red"
+
+#: bbpress/form-user-edit.php:121
+msgid "Grant this user super admin privileges for the Network."
+msgstr "Conceda a este usuario privilegios de superadministrador para la red."
+
+#: bbpress/form-user-edit.php:141
+msgid "Update Profile"
+msgstr "Actualizar Perfil"
+
+#: bbpress/form-user-edit.php:141
+msgid "Update User"
+msgstr "Actualizar Usuario"
+
+#: bbpress/form-user-login.php:17 bbpress/form-user-login.php:38
+msgid "Log In"
+msgstr "Iniciar sesión"
+
+#: bbpress/form-user-login.php:25 bbpress/form-user-passwords.php:19
+#: inc/reg_process.php:24 inc/reg_process.php:25
+#: woocommerce/global/form-login.php:39 woocommerce/myaccount/form-login.php:48
+#: woocommerce/myaccount/form-login.php:113
+msgid "Password"
+msgstr "Contraseña"
+
+#: bbpress/form-user-login.php:31
+msgid "Keep me signed in"
+msgstr "Mantenerme conectado"
+
+#: bbpress/form-user-lost-pass.php:17
+msgid "Lost Password"
+msgstr "Contraseña perdida"
+
+#: bbpress/form-user-lost-pass.php:21
+msgid "Username or Email"
+msgstr "Nombre de usuario o correo electrónico"
+
+#: bbpress/form-user-lost-pass.php:31
+msgid "Reset My Password"
+msgstr "Restablecer mi contraseña"
+
+#: bbpress/form-user-passwords.php:20
+msgid "Generate Password"
+msgstr "Generar contraseña"
+
+#: bbpress/form-user-passwords.php:23
+msgid "Cancel password change"
+msgstr "Cancelar cambio de contraseña"
+
+#: bbpress/form-user-passwords.php:25
+#: inc/csf/classes/comment-options.class.php:202
+#: inc/csf/classes/metabox-options.class.php:279
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: bbpress/form-user-passwords.php:38
+msgid "Hide password"
+msgstr "Ocultar la contraseña"
+
+#: bbpress/form-user-passwords.php:49
+msgid "Repeat New Password"
+msgstr "Repita la nueva contraseña"
+
+#: bbpress/form-user-passwords.php:51
+msgid "Type your new password again."
+msgstr "Escribe tu nueva contraseña nuevamente."
+
+#: bbpress/form-user-passwords.php:55
+msgid "Confirm"
+msgstr "Confirmar"
+
+#: bbpress/form-user-register.php:17
+msgid "Create an Account"
+msgstr "Crea una cuenta"
+
+#: bbpress/form-user-register.php:23
+msgid "Your username must be unique, and cannot be changed later."
+msgstr "Su nombre de usuario debe ser único y no puede modificarse más tarde."
+
+#: bbpress/form-user-register.php:24
+msgid ""
+"We use your email address to email you a secure password and verify your "
+"account."
+msgstr ""
+"Usamos tu dirección de correo electrónico para enviarte una contraseña "
+"segura y verificar tu cuenta."
+
+#: bbpress/form-user-register.php:42 woocommerce/myaccount/form-login.php:85
+#: woocommerce/myaccount/form-login.php:127
+msgid "Register"
+msgstr "Registrarse"
+
+#: bbpress/loop-forums.php:19
+msgid "Forum"
+msgstr "Foro"
+
+#: bbpress/loop-forums.php:25
+msgid "Posts"
+msgstr "Entradas"
+
+#: bbpress/loop-forums.php:26
+msgid "Last Post"
+msgstr "Ultima publicación"
+
+#: bbpress/loop-search-forum.php:17
+#, php-format
+msgid "Last updated %s"
+msgstr "Última actualización %s"
+
+#: bbpress/loop-search-reply.php:22
+msgid "In reply to: "
+msgstr "En respuesta a: "
+
+#: bbpress/loop-search-topic.php:25
+msgid "Topic:"
+msgstr "Tema:"
+
+#: bbpress/loop-search-topic.php:32
+msgid "in group forum "
+msgstr "en el foro del grupo "
+
+#: bbpress/loop-search-topic.php:36
+msgid "in forum "
+msgstr "en el foro "
+
+#: bbpress/loop-search.php:19 bbpress/loop-search.php:41
+#: bbpress/loop-topics-head.php:10 options/opt_blog.php:155
+msgid "Author"
+msgstr "Autor"
+
+#: bbpress/loop-search.php:23 bbpress/loop-search.php:45
+msgid "Search Results"
+msgstr "Resultados de la búsqueda"
+
+#: bbpress/loop-topics-head.php:13
+msgid "Filter by author"
+msgstr "Filtrar por autor"
+
+#: bbpress/loop-topics-head.php:15
+msgid "Search users"
+msgstr "Buscar usuarios"
+
+#: bbpress/loop-topics-head.php:26
+msgid "Label"
+msgstr "Etiqueta"
+
+#: bbpress/loop-topics-head.php:29
+msgid "Filter by label"
+msgstr "Filtrar por etiqueta"
+
+#: bbpress/loop-topics-head.php:31
+msgid "Search label"
+msgstr "Etiqueta de búsqueda"
+
+#: bbpress/loop-topics-head.php:42
+msgid "Sort"
+msgstr "Ordenar"
+
+#: bbpress/loop-topics-head.php:45 woocommerce/loop/orderby.php:47
+msgid "Sort by"
+msgstr "Ordenar por"
+
+#: bbpress/loop-topics-head.php:48
+msgid "Newest"
+msgstr "Más Reciente"
+
+#: bbpress/loop-topics-head.php:51 search.php:67
+msgid "Oldest"
+msgstr "Más Antiguo"
+
+#: bbpress/loop-topics-head.php:53
+msgid "Most commented"
+msgstr "Más comentado"
+
+#: bbpress/loop-topics-head.php:56
+msgid "Least commented"
+msgstr "Menos comentado"
+
+#: bbpress/loop-topics-head.php:59
+msgid "Recently updated"
+msgstr "Actualizado recientemente"
+
+#: bbpress/loop-topics-head.php:62
+msgid "Least recently updated"
+msgstr "Actualizado menos recientemente"
+
+#: bbpress/loop-topics.php:141
+#, fuzzy
+#| msgid "Oops! No Post Found"
+msgid "Oops! No Posts Found"
+msgstr "¡Vaya! No se ha encontrado ninguna publicación"
+
+#: bbpress/user-details.php:35
+#, php-format
+msgid "%s's Profile"
+msgstr "Perfil de %s"
+
+#: bbpress/user-details.php:35 bbpress/user-profile.php:18
+msgid "Profile"
+msgstr "Perfil"
+
+#: bbpress/user-details.php:41
+#, php-format
+msgid "%s's Topics Started"
+msgstr "%s Temas Iniciados"
+
+#: bbpress/user-details.php:41
+msgid "Topics Started"
+msgstr "Temas comenzados"
+
+#: bbpress/user-details.php:47
+#, php-format
+msgid "%s's Replies Created"
+msgstr "%s’s Respuestas Creadas"
+
+#: bbpress/user-details.php:47
+msgid "Replies Created"
+msgstr "Respuestas creadas"
+
+#: bbpress/user-details.php:54
+#, php-format
+msgid "%s's Engagements"
+msgstr "Interacciones de %s"
+
+#: bbpress/user-details.php:54
+msgid "Engagements"
+msgstr "Compromiso"
+
+#: bbpress/user-details.php:62
+#, php-format
+msgid "%s's Favorites"
+msgstr "%s Favoritos"
+
+#: bbpress/user-details.php:62 inc/classes/Docy_Forum_Class.php:147
+msgid "Favorites"
+msgstr "Favoritos"
+
+#: bbpress/user-details.php:72
+#, php-format
+msgid "%s's Subscriptions"
+msgstr "Suscripciones de %s"
+
+#: bbpress/user-details.php:72
+msgid "Subscriptions"
+msgstr "Suscripciones"
+
+#: bbpress/user-details.php:79
+#, php-format
+msgid "Edit %s's Profile"
+msgstr "Editar perfil de %s"
+
+#: bbpress/user-details.php:79
+msgid "Edit"
+msgstr "Editar"
+
+#: bbpress/user-engagements.php:19
+msgid "Topics Engaged In"
+msgstr "Temas en los que participa"
+
+#: bbpress/user-favorites.php:19
+msgid "Favorite Forum Topics"
+msgstr "Temas Favoritos en el Foro"
+
+#: bbpress/user-profile.php:19
+#, php-format
+msgid "Registered: %s"
+msgstr "Registrado: %s"
+
+#: bbpress/user-profile.php:29
+#, php-format
+msgid "Website: %s"
+msgstr "Sitio web: %s"
+
+#: bbpress/user-profile.php:38
+#, php-format
+msgid "Last Activity: %s"
+msgstr "Última actividad: %s"
+
+#: bbpress/user-profile.php:42
+#, php-format
+msgid "Topics Started: %s"
+msgstr "Topics Started: %s"
+
+#: bbpress/user-profile.php:43
+#, php-format
+msgid "Replies Created: %s"
+msgstr "Respuestas creadas: %s"
+
+#: bbpress/user-profile.php:44
+#, php-format
+msgid "Forum Role: %s"
+msgstr "Función del foro: %s"
+
+#: bbpress/user-replies-created.php:19
+msgid "Forum Replies Created"
+msgstr "Respuestas Creadas en el Foro"
+
+#: bbpress/user-subscriptions.php:23
+msgid "Subscribed Forums"
+msgstr "Foros Suscritos"
+
+#: bbpress/user-subscriptions.php:38
+msgid "Subscribed Topics"
+msgstr "Temas suscritos"
+
+#: bbpress/user-topics-created.php:19
+msgid "Forum Topics Started"
+msgstr "Temas del Foro Iniciados"
+
+#: comments.php:48
+msgid "Comments are closed."
+msgstr "Los comentarios están cerrados."
+
+#: comments.php:56
+msgid "Website (Optional)"
+msgstr "Sitio web (Opcional)"
+
+#: comments.php:58
+msgid "Full Name"
+msgstr "Nombre completo"
+
+#: comments.php:58
+msgid "Full Name *"
+msgstr "Nombre completo"
+
+#: comments.php:59 woocommerce/single-product-reviews.php:69
+msgid "Email *"
+msgstr "Email *"
+
+#: comments.php:67
+msgid "Leave a Comment"
+msgstr "Deja un comentario"
+
+#: comments.php:70
+msgid "Comment"
+msgstr "Comentario"
+
+#: footer.php:30
+#, fuzzy
+#| msgid "©2023 Spider-Themes. All rights reserved"
+msgid "©2025 Spider Themes. All rights reserved"
+msgstr "©2023 Spider-Themes. Todos los derechos reservados"
+
+#: footer.php:41 options/opt_general.php:225 options/opt_general.php:232
+msgid "Back to Top"
+msgstr "Volver arriba"
+
+#: functions.php:59 options/opt_menu.php:15 options/opt_menu.php:21
+msgid "Main Menu"
+msgstr "Menú principal"
+
+#: header.php:64
+msgid "Toggle navigation"
+msgstr "Cambiar modo de Navegación"
+
+#. Theme Name of the plugin/theme
+#: inc/Admin.php:26 inc/Admin.php:27 inc/Admin.php:39
+#: inc/admin/settings-options.php:14
+msgid "Docy"
+msgstr "Docy"
+
+#: inc/Admin.php:40
+#, fuzzy
+#| msgid "Welcome "
+msgid "Welcome"
+msgstr "Bienvenido "
+
+#: inc/Admin.php:49 inc/Admin.php:50
+#: inc/admin/dashboard/Docy_admin_dashboard.php:23
+#: inc/admin/notices/welcome-notice.php:32
+msgid "Register/Verify"
+msgstr "Registrarse/Verificar"
+
+#: inc/Admin.php:60 inc/Admin.php:61
+#, fuzzy
+#| msgid "Header"
+msgid "Headers"
+msgstr "Cabecera"
+
+#: inc/Admin.php:72 inc/Admin.php:73
+#, fuzzy
+#| msgid "Footer"
+msgid "Footers"
+msgstr "Pie de página"
+
+#: inc/Admin.php:88
+#, fuzzy
+#| msgid "Welcome to Docy!"
+msgid "Welcome to the Docy Theme"
+msgstr "¡Bienvenido a Docy!"
+
+#: inc/Admin.php:89
+msgid ""
+"Docy is the ultimate WordPress theme for creating comprehensive "
+"documentation, knowledge base, and LMS websites. Our theme is loaded with "
+"powerful features, seamless integration with popular plugins, and extensive "
+"customization options to suit your needs."
+msgstr ""
+
+#: inc/Admin.php:93
+msgid "Watch this video to get an overview of the Docy Theme and its features."
+msgstr ""
+
+#: inc/Admin.php:96
+msgid "Watch More Videos"
+msgstr ""
+
+#: inc/Admin.php:108 inc/admin/support/knowledge.php:6
+msgid "Knowledge Base"
+msgstr "Base de Conocimiento"
+
+#: inc/Admin.php:110
+msgid "Find the full documentation for the Docy Theme:"
+msgstr ""
+
+#: inc/Admin.php:112
+#, fuzzy
+#| msgid "Documentations"
+msgid "View Documentation"
+msgstr "Documentaciones"
+
+#: inc/Admin.php:123 inc/admin/support/support.php:20
+msgid "Support"
+msgstr "Soporte"
+
+#: inc/Admin.php:125
+msgid ""
+"If your questions that have not been answered by our documentation or video "
+"tutorials, just drop us a line."
+msgstr ""
+
+#: inc/Admin.php:127 inc/admin/support/ticket.php:6
+msgid "Submit a Ticket"
+msgstr "Enviar un Ticket"
+
+#: inc/Admin.php:138
+msgid "Changelogs"
+msgstr "Registros de cambios"
+
+#: inc/Admin.php:140
+msgid "View the changelogs for the latest updates and features:"
+msgstr ""
+
+#: inc/Admin.php:142
+#, fuzzy
+#| msgid "View Changelog"
+msgid "View Changelogs"
+msgstr "Ver cambios"
+
+#: inc/Admin.php:153
+#, fuzzy
+#| msgid "Update User"
+msgid "Rate Us"
+msgstr "Actualizar Usuario"
+
+#: inc/Admin.php:155
+msgid "We love to hear from you, we would appreciate every single review."
+msgstr ""
+
+#: inc/Admin.php:157
+#, fuzzy
+#| msgid "Submit a Ticket"
+msgid "Submit a Review"
+msgstr "Enviar un Ticket"
+
+#: inc/admin/dashboard/Docy_admin_dashboard.php:22
+msgid "Docy Dashboard"
+msgstr "Panel de control de Docy"
+
+#: inc/admin/dashboard/dashboard.php:4
+msgid "Welcome to Docy!"
+msgstr "¡Bienvenido a Docy!"
+
+#: inc/admin/dashboard/dashboard.php:5
+msgid "Verify Your Purchase of Docy WordPress Theme"
+msgstr "Verifica tu compra de Docy WordPress Theme"
+
+#: inc/admin/features.php:3
+msgid "Unlock Features You Paid For!"
+msgstr "¡Desbloquee las funciones extras!"
+
+#: inc/admin/features.php:8
+msgid "One-Click Demo Import"
+msgstr "Importación de demostración con un clic"
+
+#: inc/admin/features.php:9
+msgid "Choose a pre-built layout for starting a quick design process."
+msgstr "Elija un diseño prediseñado para iniciar un proceso de diseño rápido."
+
+#: inc/admin/features.php:12
+msgid "Premium and Useful Plugins"
+msgstr "Complementos útiles y premium"
+
+#: inc/admin/features.php:13
+msgid "Get access to premium and exclusive plugins for free."
+msgstr "Obtenga acceso a plugins premium y exclusivos de forma gratuita."
+
+#: inc/admin/features.php:16
+msgid "Premium, Dedicated Support"
+msgstr "Soporte Premium y Dedicado"
+
+#: inc/admin/features.php:17
+msgid "Get access to top-notch support."
+msgstr "Acceda a una asistencia de primera categoría."
+
+#: inc/admin/features.php:22
+msgid "Need Help?"
+msgstr "¿Necesitas ayuda?"
+
+#: inc/admin/features.php:27
+msgid "Docy Documentation"
+msgstr "Documentación de Docy"
+
+#: inc/admin/features.php:32
+msgid "Docy YouTube Playlist"
+msgstr "Lista de reproducción de YouTube de Docy"
+
+#: inc/admin/notices/deactivate-plugins.php:13
+msgid ""
+"We replaced the ACF metaboxes with the Theme Settings options framework to "
+"make the theme more lightweight and dependency free."
+msgstr ""
+
+#: inc/admin/notices/deactivate-plugins.php:14
+msgid ""
+"Deactivate ACF Pro plugin to avoid conflict with the new metabox fields."
+msgstr ""
+
+#: inc/admin/notices/deactivate-plugins.php:18
+#, fuzzy
+#| msgid "Deactivate Redux Framework"
+msgid "Deactivate ACF Pro"
+msgstr "Desactivar Redux Framework"
+
+#: inc/admin/notices/welcome-notice.php:13
+#, fuzzy
+#| msgid "Saturation"
+msgid "Congratulations!"
+msgstr "Saturación"
+
+#: inc/admin/notices/welcome-notice.php:14
+msgid ""
+"Docy is now installed and ready to use. We've assembled some links to get "
+"you started."
+msgstr ""
+
+#: inc/admin/notices/welcome-notice.php:20
+#: template-parts/contents/mobile-toc-share.php:51
+#, fuzzy
+#| msgid "Docy Core"
+msgid "Docy theme"
+msgstr "Núcleo Docy"
+
+#: inc/admin/notices/welcome-notice.php:25
+#, fuzzy
+#| msgid "Reply To: %s"
+msgid "Ready To GO"
+msgstr "Responder a: %s"
+
+#: inc/admin/notices/welcome-notice.php:26
+msgid ""
+"Now you need to configure the theme step by step to build your dream "
+"website. Follow the steps bellow to get started with Docy."
+msgstr ""
+
+#: inc/admin/notices/welcome-notice.php:31
+msgid "01"
+msgstr ""
+
+#: inc/admin/notices/welcome-notice.php:35
+msgid "02"
+msgstr ""
+
+#: inc/admin/notices/welcome-notice.php:36
+#: inc/tgm/class-tgm-plugin-activation.php:302
+msgid "Install Required Plugins"
+msgstr "Instalar Plugins Requeridos"
+
+#: inc/admin/notices/welcome-notice.php:39
+msgid "03"
+msgstr ""
+
+#: inc/admin/notices/welcome-notice.php:40
+msgid "Import Demo"
+msgstr "Importar Demo"
+
+#: inc/admin/notices/welcome-notice.php:45
+msgid "then, go to the theme settings"
+msgstr ""
+
+#: inc/admin/notices/welcome-notice.php:52
+#, fuzzy
+#| msgid "Documentations"
+msgid "Documentation"
+msgstr "Documentaciones"
+
+#: inc/admin/notices/welcome-notice.php:53
+msgid ""
+"Need more details? Please check our full documentation for detailed "
+"information on how to use Docy."
+msgstr ""
+
+#: inc/admin/notices/welcome-notice.php:56
+#, fuzzy
+#| msgid "Blank (Open in new tab)"
+msgid "(opens in a new tab)"
+msgstr "En blanco (Abrir en una pestaña nueva)"
+
+#: inc/admin/notices/welcome-notice.php:63
+#, fuzzy
+#| msgid "Go to Documentation"
+msgid "Read full documentation"
+msgstr "Ir a documentación"
+
+#: inc/admin/notices/welcome-notice.php:69
+#, fuzzy
+#| msgid "Return to the Dashboard"
+msgid "Return to your dashboard"
+msgstr "Volver al Escritorio"
+
+#: inc/admin/registration.php:23
+msgid "Where can find purchase code!"
+msgstr "¡Dónde puede encontrar el código de compra!"
+
+#: inc/admin/settings-options.php:12
+msgid "Theme Settings"
+msgstr "Ajustes de tema"
+
+#: inc/admin/support/changelog.php:3 inc/admin/support/knowledge.php:3
+msgid "Docy Knowledge Base"
+msgstr "Base de conocimientos de Docy"
+
+#: inc/admin/support/changelog.php:6
+msgid "Changelog"
+msgstr "Registro de cambios"
+
+#: inc/admin/support/changelog.php:7
+msgid "See what’s new with each update."
+msgstr "Vea las novedades de cada actualización."
+
+#: inc/admin/support/changelog.php:9
+msgid "View Changelog"
+msgstr "Ver cambios"
+
+#: inc/admin/support/knowledge.php:7
+msgid "Extended documentation with articles, FAQs and more."
+msgstr ""
+"Documentación ampliada con artículos, preguntas frecuentes y mucho más."
+
+#: inc/admin/support/knowledge.php:9
+msgid "Go to Documentation"
+msgstr "Ir a documentación"
+
+#: inc/admin/support/support.php:19
+msgid "Liquid Support"
+msgstr "Soporte líquido"
+
+#: inc/admin/support/ticket.php:7
+msgid "Feel free to reach our support team for further assistance."
+msgstr ""
+"No dude en ponerse en contacto con nuestro equipo de soporte para obtener "
+"más ayuda."
+
+#: inc/admin/support/ticket.php:9
+msgid "Contact Us"
+msgstr "Contáctenos"
+
+#: inc/ajax_actions.php:121
+#, fuzzy
+#| msgid "Search Results"
+msgid "Show More Results"
+msgstr "Resultados de la búsqueda"
+
+#: inc/ajax_actions.php:272 inc/ajax_actions.php:390 inc/ajax_actions.php:527
+#: inc/ajax_actions.php:611
+msgid "Oops! No results matched your search."
+msgstr "¡Vaya! Ningún resultado coincidió con su búsqueda."
+
+#: inc/ajax_actions.php:273 inc/ajax_actions.php:391 inc/ajax_actions.php:528
+#: inc/ajax_actions.php:612
+msgid "You could search again."
+msgstr "Podrías buscar de nuevo."
+
+#: inc/bbpress-config.php:161
+#, fuzzy
+#| msgid "Select a font"
+msgid "Select an option"
+msgstr "انتخاب فونت"
+
+#: inc/classes/Docy_Forum_Class.php:142
+msgid "TOPIC"
+msgstr "TEMA"
+
+#: inc/classes/Docy_Forum_Class.php:146
+msgid "Comments"
+msgstr "Comentarios"
+
+#: inc/classes/Docy_Forum_Class.php:161
+msgid " Open"
+msgstr " Abrir"
+
+#: inc/classes/Docy_Forum_Class.php:172
+msgid " Closed"
+msgstr " Cerrado"
+
+#: inc/classes/Docy_Forum_Class.php:183
+msgid "Sticky"
+msgstr "Sticky"
+
+#: inc/classes/Docy_Forum_Class.php:188
+msgid "Closed"
+msgstr "Cerrado"
+
+#: inc/classes/Docy_Walker_Comment.php:47
+msgid "Your comment is awaiting moderation."
+msgstr "Tu comentario está esperando ser moderado."
+
+#: inc/classes/Docy_Walker_Comment.php:52
+msgid "Reply"
+msgstr "Responder"
+
+#: inc/classes/Docy_register_theme.php:83
+#, php-format
+msgid "The %s theme needs to be registered. %sRegister Now%s"
+msgstr "El tema %s necesita ser registrado. %sRegistrar ahora%s"
+
+#: inc/classes/Docy_register_theme.php:93
+#, php-format
+msgid "Purchase code is invalid. Need a license? %sPurchase Now%s"
+msgstr ""
+"El código de compra no es válido. ¿Necesita una licencia? %s ¡Compre ahora%s"
+
+#: inc/classes/Docy_register_theme.php:107
+msgid "Purchase Verified"
+msgstr "Compra verificada"
+
+#: inc/classes/Docy_register_theme.php:107
+msgid "Purchase Code Invalid"
+msgstr "Código de compra no válido"
+
+#: inc/classes/Docy_register_theme.php:110
+msgid "Verify by . . ."
+msgstr "Verifique por . . ."
+
+#: inc/classes/Docy_register_theme.php:140
+msgid "Enter your purchase code"
+msgstr "Introduce tu código de compra"
+
+#: inc/classes/Docy_register_theme.php:141
+msgid "Register your copy"
+msgstr "Registre su copia"
+
+#: inc/csf/classes/admin-options.class.php:169
+msgid "Error while saving the changes."
+msgstr "Error mientras se guardaban los cambios."
+
+#: inc/csf/classes/admin-options.class.php:229
+msgid "Settings successfully imported."
+msgstr "Ajustes importados con éxito."
+
+#: inc/csf/classes/admin-options.class.php:241
+#: inc/csf/classes/admin-options.class.php:257
+msgid "Default settings restored."
+msgstr "Se restauraron las opciones por defecto."
+
+#: inc/csf/classes/admin-options.class.php:328
+msgid "Settings saved."
+msgstr "Ajustes guardados."
+
+#: inc/csf/classes/admin-options.class.php:509
+msgid "You have unsaved changes, save your changes!"
+msgstr "Tiene cambios sin guardar, ¡guárdelos!"
+
+#: inc/csf/classes/admin-options.class.php:511
+msgid "show all settings"
+msgstr "mostrar todos los ajustes"
+
+#: inc/csf/classes/admin-options.class.php:513 inc/csf/fields/icon/icon.php:57
+#: inc/csf/fields/map/map.php:23
+#: template-parts/header-elements/layout-default.php:22
+#: template-parts/header-elements/layout-search.php:27
+msgid "Search..."
+msgstr "Buscar..."
+
+#: inc/csf/classes/admin-options.class.php:516
+#: inc/csf/classes/admin-options.class.php:639
+#: woocommerce/myaccount/form-reset-password.php:45
+msgid "Save"
+msgstr "Guardar"
+
+#: inc/csf/classes/admin-options.class.php:516
+#: inc/csf/classes/admin-options.class.php:639
+msgid "Saving..."
+msgstr "Guardando…"
+
+#: inc/csf/classes/admin-options.class.php:517
+#: inc/csf/classes/admin-options.class.php:640
+msgid "Reset Section"
+msgstr "Restablecer sección"
+
+#: inc/csf/classes/admin-options.class.php:517
+#: inc/csf/classes/admin-options.class.php:640
+msgid "Are you sure to reset this section options?"
+msgstr "¿Está seguro de restablecer estas opciones de sección?"
+
+#: inc/csf/classes/admin-options.class.php:518
+#: inc/csf/classes/admin-options.class.php:641
+msgid "Reset All"
+msgstr "Restablecer todo"
+
+#: inc/csf/classes/admin-options.class.php:518
+#: inc/csf/classes/admin-options.class.php:641
+#: inc/csf/classes/comment-options.class.php:201
+#: inc/csf/classes/metabox-options.class.php:278
+#: inc/csf/fields/backup/backup.php:31
+msgid "Reset"
+msgstr "Reiniciar"
+
+#: inc/csf/classes/admin-options.class.php:518
+#: inc/csf/classes/admin-options.class.php:641
+msgid "Are you sure you want to reset all settings to default values?"
+msgstr ""
+"¿Estás seguro de que quieres restablecer todos los ajustes a los valores por "
+"defecto?"
+
+#: inc/csf/classes/admin-options.class.php:616
+#: inc/csf/classes/comment-options.class.php:184
+#: inc/csf/classes/metabox-options.class.php:261
+#: inc/csf/fields/button_set/button_set.php:56
+#: inc/csf/fields/checkbox/checkbox.php:82 inc/csf/fields/radio/radio.php:75
+#: inc/csf/fields/select/select.php:113 inc/csf/functions/actions.php:41
+msgid "No data available."
+msgstr "Datos no disponibles."
+
+#: inc/csf/classes/comment-options.class.php:202
+#: inc/csf/classes/metabox-options.class.php:279
+msgid "update post"
+msgstr "Publicación de actualización"
+
+#: inc/csf/classes/setup.class.php:606
+msgid "Are you sure?"
+msgstr "¿Estás seguro?"
+
+#: inc/csf/classes/setup.class.php:607
+#, php-format
+msgid "Please enter %s or more characters"
+msgstr "Introduce %s o más caracteres"
+
+#: inc/csf/classes/setup.class.php:608
+msgid "Searching..."
+msgstr "Buscando..."
+
+#: inc/csf/classes/setup.class.php:609
+msgid "No results found."
+msgstr "No se encontraron resultados."
+
+#: inc/csf/classes/setup.class.php:710
+msgid "Oops! Not allowed."
+msgstr "¡Vaya! No permitido."
+
+#: inc/csf/classes/setup.class.php:778 inc/csf/classes/setup.class.php:782
+msgid "Field not found!"
+msgstr "¡Campo no encontrado!"
+
+#: inc/csf/classes/shortcode-options.class.php:210
+#: inc/csf/fields/group/group.php:23 options/opt_footer.php:215
+msgid "Add New"
+msgstr "Añadir nuevo"
+
+#: inc/csf/classes/shortcode-options.class.php:247
+#: inc/csf/functions/actions.php:16 inc/csf/functions/actions.php:68
+#: inc/csf/functions/actions.php:106 inc/csf/functions/actions.php:141
+#: inc/csf/functions/actions.php:170
+msgid "Error: Invalid nonce verification."
+msgstr "Error: Verificación de nonce no válida."
+
+#: inc/csf/fields/background/background.php:36
+#: inc/csf/fields/media/media.php:59
+msgid "Not selected"
+msgstr "No seleccionado"
+
+#: inc/csf/fields/background/background.php:72 inc/csf/fields/date/date.php:31
+#: inc/csf/fields/datetime/datetime.php:36 options/opt_header.php:992
+msgid "From"
+msgstr "Desde"
+
+#: inc/csf/fields/background/background.php:90 inc/csf/fields/date/date.php:32
+#: inc/csf/fields/datetime/datetime.php:37 options/opt_header.php:993
+msgid "To"
+msgstr "Hasta"
+
+#: inc/csf/fields/background/background.php:108
+msgid "Direction"
+msgstr "Dirección"
+
+#: inc/csf/fields/background/background.php:114
+msgid "Gradient Direction"
+msgstr "Dirección del gradiente"
+
+#: inc/csf/fields/background/background.php:115
+msgid "&#8659; top to bottom"
+msgstr "&#8659; de arriba hacia abajo"
+
+#: inc/csf/fields/background/background.php:116
+msgid "&#8658; left to right"
+msgstr "&#8658; de izquierda a derecha"
+
+#: inc/csf/fields/background/background.php:117
+msgid "&#8664; corner top to right"
+msgstr "&#8664; esquina de arriba a derecha"
+
+#: inc/csf/fields/background/background.php:118
+msgid "&#8665; corner top to left"
+msgstr "&#8665; esquina de arriba a izquierda"
+
+#: inc/csf/fields/background/background.php:161
+msgid "Background Position"
+msgstr "Posición de fondo"
+
+#: inc/csf/fields/background/background.php:162
+msgid "Left Top"
+msgstr "Izquierda superior"
+
+#: inc/csf/fields/background/background.php:163
+msgid "Left Center"
+msgstr "Izquierda centro"
+
+#: inc/csf/fields/background/background.php:164
+msgid "Left Bottom"
+msgstr "Izquierda abajo"
+
+#: inc/csf/fields/background/background.php:165
+msgid "Center Top"
+msgstr "Centro Arriba"
+
+#: inc/csf/fields/background/background.php:166
+msgid "Center Center"
+msgstr "Centro Centro"
+
+#: inc/csf/fields/background/background.php:167
+msgid "Center Bottom"
+msgstr "Centro Abajo"
+
+#: inc/csf/fields/background/background.php:168
+msgid "Right Top"
+msgstr "Derecha superior"
+
+#: inc/csf/fields/background/background.php:169
+msgid "Right Center"
+msgstr "Derecha centro"
+
+#: inc/csf/fields/background/background.php:170
+msgid "Right Bottom"
+msgstr "Derecha abajo"
+
+#: inc/csf/fields/background/background.php:184
+msgid "Background Repeat"
+msgstr "Repetir fondo"
+
+#: inc/csf/fields/background/background.php:185
+msgid "Repeat"
+msgstr "Repetir"
+
+#: inc/csf/fields/background/background.php:186
+msgid "No Repeat"
+msgstr "No repetir"
+
+#: inc/csf/fields/background/background.php:187
+msgid "Repeat Horizontally"
+msgstr "Repetir Horizontalmente"
+
+#: inc/csf/fields/background/background.php:188
+msgid "Repeat Vertically"
+msgstr "Repetir Verticalmente"
+
+#: inc/csf/fields/background/background.php:202
+msgid "Background Attachment"
+msgstr "Adjunto de fondo"
+
+#: inc/csf/fields/background/background.php:203
+msgid "Scroll"
+msgstr "Scroll"
+
+#: inc/csf/fields/background/background.php:204
+msgid "Fixed"
+msgstr "Fijo"
+
+#: inc/csf/fields/background/background.php:218
+msgid "Background Size"
+msgstr "Tamaño de fondo"
+
+#: inc/csf/fields/background/background.php:219
+msgid "Cover"
+msgstr "Cubrir"
+
+#: inc/csf/fields/background/background.php:220
+msgid "Contain"
+msgstr "Contiene"
+
+#: inc/csf/fields/background/background.php:221
+msgid "Auto"
+msgstr "Automático"
+
+#: inc/csf/fields/background/background.php:235
+msgid "Background Origin"
+msgstr "Origen del Fondo"
+
+#: inc/csf/fields/background/background.php:236
+#: inc/csf/fields/background/background.php:254
+msgid "Padding Box"
+msgstr "Relleno de la caja"
+
+#: inc/csf/fields/background/background.php:237
+#: inc/csf/fields/background/background.php:253
+msgid "Border Box"
+msgstr "Caja de borde"
+
+#: inc/csf/fields/background/background.php:238
+#: inc/csf/fields/background/background.php:255
+msgid "Content Box"
+msgstr "Caja de contenido"
+
+#: inc/csf/fields/background/background.php:252
+msgid "Background Clip"
+msgstr "Recorte del fondo"
+
+#: inc/csf/fields/background/background.php:269
+msgid "Background Blend Mode"
+msgstr "Modo de fusión de fondo"
+
+#: inc/csf/fields/background/background.php:270
+#: inc/csf/fields/link_color/link_color.php:36
+#: inc/csf/fields/typography/typography.php:186
+msgid "Normal"
+msgstr "Normal"
+
+#: inc/csf/fields/background/background.php:271
+msgid "Multiply"
+msgstr "Multiplicar"
+
+#: inc/csf/fields/background/background.php:272
+msgid "Screen"
+msgstr "Pantalla"
+
+#: inc/csf/fields/background/background.php:273 options/opt_header.php:975
+msgid "Overlay"
+msgstr "Cubrir"
+
+#: inc/csf/fields/background/background.php:274
+msgid "Darken"
+msgstr "Oscurecer"
+
+#: inc/csf/fields/background/background.php:275
+msgid "Lighten"
+msgstr "Aclarar"
+
+#: inc/csf/fields/background/background.php:276
+msgid "Color Dodge"
+msgstr "Sobreexposición del color"
+
+#: inc/csf/fields/background/background.php:277
+msgid "Saturation"
+msgstr "Saturación"
+
+#: inc/csf/fields/background/background.php:278
+msgid "Color"
+msgstr "Color"
+
+#: inc/csf/fields/background/background.php:279
+msgid "Luminosity"
+msgstr "Luminosidad"
+
+#: inc/csf/fields/backup/backup.php:26
+msgid "Import"
+msgstr "Importar"
+
+#: inc/csf/fields/backup/backup.php:29
+msgid "Export & Download"
+msgstr "Exportar y Descargar"
+
+#: inc/csf/fields/border/border.php:25 inc/csf/fields/spacing/spacing.php:25
+msgid "top"
+msgstr "arriba"
+
+#: inc/csf/fields/border/border.php:26 inc/csf/fields/spacing/spacing.php:26
+msgid "right"
+msgstr "derecha"
+
+#: inc/csf/fields/border/border.php:27 inc/csf/fields/spacing/spacing.php:27
+msgid "bottom"
+msgstr "abajo"
+
+#: inc/csf/fields/border/border.php:28 inc/csf/fields/spacing/spacing.php:28
+msgid "left"
+msgstr "izquierda"
+
+#: inc/csf/fields/border/border.php:29 inc/csf/fields/spacing/spacing.php:29
+msgid "all"
+msgstr "todo"
+
+#: inc/csf/fields/border/border.php:51
+#: inc/csf/fields/typography/typography.php:214
+msgid "Solid"
+msgstr "Sólido"
+
+#: inc/csf/fields/border/border.php:52
+#: inc/csf/fields/typography/typography.php:217
+msgid "Dashed"
+msgstr "Discontinua"
+
+#: inc/csf/fields/border/border.php:53
+#: inc/csf/fields/typography/typography.php:216
+msgid "Dotted"
+msgstr "Punteado"
+
+#: inc/csf/fields/border/border.php:54
+#: inc/csf/fields/typography/typography.php:215
+msgid "Double"
+msgstr "Doble"
+
+#: inc/csf/fields/border/border.php:55
+msgid "Inset"
+msgstr "Recuadro"
+
+#: inc/csf/fields/border/border.php:56
+msgid "Outset"
+msgstr "Exterior"
+
+#: inc/csf/fields/border/border.php:57
+msgid "Groove"
+msgstr "Ranura"
+
+#: inc/csf/fields/border/border.php:58
+msgid "ridge"
+msgstr "rugoso"
+
+#: inc/csf/fields/border/border.php:59
+#: inc/csf/fields/typography/typography.php:199
+#: inc/csf/fields/typography/typography.php:213
+msgid "None"
+msgstr "Ninguno"
+
+#: inc/csf/fields/checkbox/checkbox.php:23
+msgid "Check/Uncheck All"
+msgstr "Comprobar/Desmarcar todo"
+
+#: inc/csf/fields/dimensions/dimensions.php:22
+msgid "width"
+msgstr "ancho"
+
+#: inc/csf/fields/dimensions/dimensions.php:23
+msgid "height"
+msgstr "altura"
+
+#: inc/csf/fields/gallery/gallery.php:20
+msgid "Add Gallery"
+msgstr "Agregar Galería"
+
+#: inc/csf/fields/gallery/gallery.php:21
+msgid "Edit Gallery"
+msgstr "Editar galería"
+
+#: inc/csf/fields/gallery/gallery.php:22 inc/filter_actions.php:187
+#: woocommerce/single-product/add-to-cart/variable.php:46
+msgid "Clear"
+msgstr "Limpiar"
+
+#: inc/csf/fields/group/group.php:41 inc/csf/fields/repeater/repeater.php:27
+msgid "Error: Field ID conflict."
+msgstr "Error: Conflicto de ID de campo."
+
+#: inc/csf/fields/group/group.php:52 inc/csf/fields/group/group.php:107
+#: inc/csf/fields/repeater/repeater.php:48
+#: inc/csf/fields/repeater/repeater.php:76
+msgid "Are you sure to delete this item?"
+msgstr "¿Está seguro de eliminar este elemento?"
+
+#: inc/csf/fields/group/group.php:141 inc/csf/fields/repeater/repeater.php:89
+msgid "You cannot add more."
+msgstr "No puede agregar más."
+
+#: inc/csf/fields/group/group.php:142 inc/csf/fields/repeater/repeater.php:90
+msgid "You cannot remove more."
+msgstr "No puedes eliminar más."
+
+#: inc/csf/fields/icon/icon.php:20 inc/csf/fields/icon/icon.php:53
+msgid "Add Icon"
+msgstr "Añadir Icono"
+
+#: inc/csf/fields/icon/icon.php:21
+msgid "Remove Icon"
+msgstr "Eliminar Icono"
+
+#: inc/csf/fields/link/link.php:20
+msgid "Add Link"
+msgstr "Añadir enlace"
+
+#: inc/csf/fields/link/link.php:21
+msgid "Edit Link"
+msgstr "Editar enlace"
+
+#: inc/csf/fields/link/link.php:22
+msgid "Remove Link"
+msgstr "Eliminar enlace"
+
+#: inc/csf/fields/link_color/link_color.php:37
+msgid "Hover"
+msgstr "Hover"
+
+#: inc/csf/fields/link_color/link_color.php:38
+#: inc/tgm/class-tgm-plugin-activation.php:2380
+msgid "Active"
+msgstr "Activo"
+
+#: inc/csf/fields/link_color/link_color.php:39
+msgid "Visited"
+msgstr "Visitado"
+
+#: inc/csf/fields/link_color/link_color.php:40
+msgid "Focus"
+msgstr "Enfoque"
+
+#: inc/csf/fields/map/map.php:24
+msgid "Latitude"
+msgstr "Latitud"
+
+#: inc/csf/fields/map/map.php:25
+msgid "Longitude"
+msgstr "Longitud"
+
+#: inc/csf/fields/media/media.php:25 inc/csf/fields/upload/upload.php:24
+msgid "Upload"
+msgstr "Subir"
+
+#: inc/csf/fields/media/media.php:26 inc/csf/fields/upload/upload.php:25
+msgid "Remove"
+msgstr "Eliminar"
+
+#: inc/csf/fields/sorter/sorter.php:21 options/opt_customizer.php:15
+#: options/opt_header.php:550 options/opt_header.php:728
+msgid "Enabled"
+msgstr "Habilitado"
+
+#: inc/csf/fields/sorter/sorter.php:22 options/opt_customizer.php:16
+#: options/opt_header.php:551 options/opt_header.php:729
+msgid "Disabled"
+msgstr "Desactivado"
+
+#: inc/csf/fields/switcher/switcher.php:20 options/opt_privacy.php:12
+msgid "On"
+msgstr "Activado"
+
+#: inc/csf/fields/switcher/switcher.php:21 options/opt_privacy.php:13
+msgid "Off"
+msgstr "Apagado"
+
+#: inc/csf/fields/typography/typography.php:96
+msgid "Font Family"
+msgstr "Familia de Fuente"
+
+#: inc/csf/fields/typography/typography.php:97
+msgid "Select a font"
+msgstr "انتخاب فونت"
+
+#: inc/csf/fields/typography/typography.php:105
+msgid "Backup Font Family"
+msgstr "Respaldar familia de fuente"
+
+#: inc/csf/fields/typography/typography.php:119
+#: inc/csf/fields/typography/typography.php:132
+#: inc/csf/fields/typography/typography.php:145
+#: inc/csf/fields/typography/typography.php:160
+#: inc/csf/fields/typography/typography.php:176
+#: inc/csf/fields/typography/typography.php:189
+#: inc/csf/fields/typography/typography.php:203
+#: inc/csf/fields/typography/typography.php:221 inc/filter_actions.php:189
+#: inc/meta/meta_action_button.php:15 inc/meta/meta_banner.php:14
+#: inc/meta/meta_banner.php:27 inc/meta/meta_header.php:12
+#: inc/meta/meta_header.php:24 inc/meta/meta_header.php:37
+#: inc/meta/meta_header_doc.php:14 inc/meta/meta_header_doc.php:27
+#: inc/meta/meta_post_banner.php:13 inc/template-functions.php:230
+#: inc/template-functions.php:854 options/opt_footer.php:26
+#: options/opt_header.php:34 options/opt_header.php:108
+#: options/opt_header.php:757
+msgid "Default"
+msgstr "Por defecto"
+
+#: inc/csf/fields/typography/typography.php:130
+msgid "Font Style"
+msgstr "Estilo de Fuente"
+
+#: inc/csf/fields/typography/typography.php:144
+#: inc/csf/fields/typography/typography.php:145
+msgid "Load Extra Styles"
+msgstr "Cargar estilos extra"
+
+#: inc/csf/fields/typography/typography.php:158
+msgid "Subset"
+msgstr "Subconjunto"
+
+#: inc/csf/fields/typography/typography.php:168
+msgid "Text Align"
+msgstr "Alineación del texto"
+
+#: inc/csf/fields/typography/typography.php:170
+msgid "Inherit"
+msgstr "Heredar"
+
+#: inc/csf/fields/typography/typography.php:171 options/opt_menu.php:31
+msgid "Left"
+msgstr "Izquierda"
+
+#: inc/csf/fields/typography/typography.php:172 options/opt_menu.php:32
+msgid "Center"
+msgstr "Centro"
+
+#: inc/csf/fields/typography/typography.php:173 options/opt_menu.php:33
+msgid "Right"
+msgstr "Derecha"
+
+#: inc/csf/fields/typography/typography.php:174
+msgid "Justify"
+msgstr "Justificar"
+
+#: inc/csf/fields/typography/typography.php:175
+msgid "Initial"
+msgstr "Inicial"
+
+#: inc/csf/fields/typography/typography.php:184
+msgid "Font Variant"
+msgstr "Variante de fuente"
+
+#: inc/csf/fields/typography/typography.php:187
+msgid "Small Caps"
+msgstr "Mayúsculas pequeñas"
+
+#: inc/csf/fields/typography/typography.php:188
+msgid "All Small Caps"
+msgstr "Todas las gorras pequeñas"
+
+#: inc/csf/fields/typography/typography.php:197
+msgid "Text Transform"
+msgstr "Transformación de texto"
+
+#: inc/csf/fields/typography/typography.php:200
+msgid "Capitalize"
+msgstr "Capitalizar"
+
+#: inc/csf/fields/typography/typography.php:201
+msgid "Uppercase"
+msgstr "Mayúsculas"
+
+#: inc/csf/fields/typography/typography.php:202
+msgid "Lowercase"
+msgstr "Minúsculas"
+
+#: inc/csf/fields/typography/typography.php:211
+msgid "Text Decoration"
+msgstr "Decoración del texto"
+
+#: inc/csf/fields/typography/typography.php:218
+msgid "Wavy"
+msgstr "Ondulado"
+
+#: inc/csf/fields/typography/typography.php:219
+msgid "Overline"
+msgstr "Sobrerayado"
+
+#: inc/csf/fields/typography/typography.php:220
+msgid "Line-through"
+msgstr "Tachada"
+
+#: inc/csf/fields/typography/typography.php:233
+msgid "Font Size"
+msgstr "Tamaño de fuente"
+
+#: inc/csf/fields/typography/typography.php:245
+msgid "Line Height"
+msgstr "Altura de la línea"
+
+#: inc/csf/fields/typography/typography.php:257
+msgid "Letter Spacing"
+msgstr "Espacio entre letras"
+
+#: inc/csf/fields/typography/typography.php:269
+msgid "Word Spacing"
+msgstr "Espaciado entre palabras"
+
+#: inc/csf/fields/typography/typography.php:284 options/opt_footer.php:113
+msgid "Font Color"
+msgstr "Color de fuente"
+
+#: inc/csf/fields/typography/typography.php:295
+msgid "Custom Style"
+msgstr "Estilo personalizado"
+
+#: inc/csf/fields/typography/typography.php:362
+msgid "Custom Web Fonts"
+msgstr "Fuentes web personalizadas"
+
+#: inc/csf/fields/typography/typography.php:368
+msgid "Safe Web Fonts"
+msgstr "Fuentes web seguras"
+
+#: inc/csf/fields/typography/typography.php:388
+msgid "Google Web Fonts"
+msgstr "Fuentes web de Google"
+
+#: inc/csf/functions/actions.php:72 inc/csf/functions/actions.php:110
+msgid "Error: Invalid key."
+msgstr "Error: Clave Invalida."
+
+#: inc/csf/functions/actions.php:114
+msgid "Error: The response is not a valid JSON response."
+msgstr "Error: La respuesta no es una respuesta JSON válida."
+
+#: inc/csf/functions/actions.php:174
+msgid "Error: Invalid term ID."
+msgstr "Error: ID de término no válido."
+
+#: inc/csf/functions/actions.php:180
+msgid "Error: You do not have permission to do that."
+msgstr "Error: No tienes permiso para hacer eso."
+
+#: inc/csf/functions/validate.php:14 inc/csf/functions/validate.php:86
+msgid "Please enter a valid email address."
+msgstr "Por favor, introduce una dirección de correo electrónico válida."
+
+#: inc/csf/functions/validate.php:32 inc/csf/functions/validate.php:106
+msgid "Please enter a valid number."
+msgstr "Por favor escribe un número válido."
+
+#: inc/csf/functions/validate.php:50 inc/csf/functions/validate.php:126
+msgid "This field is required."
+msgstr "Este campo es obligatorio."
+
+#: inc/csf/functions/validate.php:68 inc/csf/functions/validate.php:146
+msgid "Please enter a valid URL."
+msgstr "Por favor, introduzca una URL válido."
+
+#: inc/demo_config.php:23
+msgid "Install and activate all "
+msgstr "Instalar y activar todo "
+
+#: inc/demo_config.php:25
+msgid "required plugins"
+msgstr "Plugins requeridos"
+
+#: inc/demo_config.php:26
+msgid "before you click on the \"Import\" button."
+msgstr "antes de hacer clic en el botón \"Importar\"."
+
+#: inc/demo_config.php:30
+msgid "After importing a demo, you will find all the pages in "
+msgstr "Después de importar una demostración, encontrará todas las páginas en "
+
+#: inc/demo_config.php:32
+msgid "Pages."
+msgstr "Paginas."
+
+#: inc/demo_config.php:33
+msgid "Other pages will be imported along with the main Homepage demo."
+msgstr ""
+"Otras páginas se importarán junto con la demostración principal de la página "
+"de inicio."
+
+#: inc/demo_config.php:38
+msgid "If you fail to import the demo data, follow the alternative way"
+msgstr ""
+"Si no puede importar los datos de demostración, siga la forma alternativa"
+
+#: inc/demo_config.php:40
+msgid "here."
+msgstr "aquí."
+
+#: inc/demo_config.php:54
+msgid "Creative Helpdesk"
+msgstr "Servicio de asistencia técnica creativa"
+
+#: inc/demo_config.php:67
+#, fuzzy
+#| msgid "Cool Knowledgebase"
+msgid "Cool Knowledge Base"
+msgstr "Base de conocimientos genial"
+
+#: inc/demo_config.php:80
+msgid "Classic Helpdesk"
+msgstr "Helpdesk clásico"
+
+#: inc/demo_config.php:93
+#, fuzzy
+#| msgid "Light Knowledgebase"
+msgid "Light Knowledge Base"
+msgstr "Base de conocimientos ligera"
+
+#: inc/demo_config.php:106
+msgid "Support Forum"
+msgstr "Foro de soporte"
+
+#: inc/demo_config.php:119
+msgid "Multi Helpdesk"
+msgstr "Mesa de ayuda múltiple"
+
+#: inc/demo_config.php:132
+msgid "Book Chapters / Tutorials"
+msgstr "Capítulos de libros / Tutoriales"
+
+#: inc/demo_config.php:145
+msgid "User Manuals"
+msgstr "Manuales de usuario"
+
+#: inc/demo_config.php:158
+msgid "Focused Helpdesk"
+msgstr "Helpdesk enfocado"
+
+#: inc/demo_config.php:171
+msgid "LMS"
+msgstr "LMS"
+
+#: inc/filter_actions.php:42
+#, fuzzy
+#| msgid "Post Icon"
+msgid "Elegant Icons"
+msgstr "Icono de la Entrada"
+
+#: inc/filter_actions.php:188
+msgid "Clear color"
+msgstr "Limpiar el color"
+
+#: inc/filter_actions.php:190
+msgid "Select default color"
+msgstr "Seleccionar color de texto por defecto"
+
+#: inc/filter_actions.php:191
+msgid "Select Color"
+msgstr "Seleccionar Color"
+
+#: inc/filter_actions.php:192
+msgid "Color value"
+msgstr "Valor del color"
+
+#: inc/filter_actions.php:212
+msgid "Changelogs Settings"
+msgstr "Configuración de registros de cambios"
+
+#: inc/filter_actions.php:213
+msgid "Settings"
+msgstr "Ajustes"
+
+#: inc/meta/all-meta-boxes.php:9
+#, fuzzy
+#| msgid "Documentations"
+msgid "Docy:: Meta Options"
+msgstr "Documentaciones"
+
+#: inc/meta/meta-post-format.php:9
+#, fuzzy
+#| msgid "Videos"
+msgid "Video"
+msgstr "Videos"
+
+#: inc/meta/meta-post-format.php:24
+#, fuzzy
+#| msgid "Videos"
+msgid "Video URL"
+msgstr "Videos"
+
+#: inc/meta/meta-register-login.php:9
+msgid "Docy:: Sign up / Sign in Page Options"
+msgstr ""
+
+#: inc/meta/meta-register-login.php:19
+#, fuzzy
+#| msgid "Preset Columns"
+msgid "Left Column"
+msgstr "Columnas predefinidas"
+
+#: inc/meta/meta-register-login.php:25 options/opt_footer.php:207
+#: options/opt_forum.php:56 options/opt_forum.php:134 options/opt_forum.php:288
+msgid "Title"
+msgstr "Título"
+
+#: inc/meta/meta-register-login.php:26
+msgid "We are design changers do what matters."
+msgstr ""
+
+#: inc/meta/meta-register-login.php:32
+#, fuzzy
+#| msgid "top ornament"
+msgid "Top Ornament Image"
+msgstr "Adorno superior"
+
+#: inc/meta/meta-register-login.php:38
+#, fuzzy
+#| msgid "bottom ornament"
+msgid "Bottom Ornament Image"
+msgstr "adorno inferior"
+
+#: inc/meta/meta-register-login.php:44
+#, fuzzy
+#| msgid "Left Featured Image"
+msgid "Featured Image"
+msgstr "Imagen destacada izquierda"
+
+#: inc/meta/meta-register-login.php:51
+#, fuzzy
+#| msgid "Right Center"
+msgid "Right Column"
+msgstr "Derecha centro"
+
+#: inc/meta/meta-register-login.php:56
+#, fuzzy
+#| msgid "Right Items"
+msgid "Right Title"
+msgstr "Elementos correctos"
+
+#: inc/meta/meta-register-login.php:57
+#, fuzzy
+#| msgid "Create an Account"
+msgid "Create your Account"
+msgstr "Crea una cuenta"
+
+#: inc/meta/meta-register-login.php:63 options/opt_404.php:17
+#: options/opt_forum.php:64 options/opt_forum.php:296
+msgid "Subtitle"
+msgstr "Subtítulo"
+
+#: inc/meta/meta-register-login.php:64
+#, fuzzy
+#| msgid "Create an account?"
+msgid "Already have an account? Sign in"
+msgstr "¿Crear una cuenta?"
+
+#: inc/meta/meta-register-login.php:70
+msgid "Shortcode"
+msgstr ""
+
+#: inc/meta/meta-register-login.php:71
+msgid "The Shortcode will be rendered between the Login form and Title area."
+msgstr ""
+
+#: inc/meta/meta-register-login.php:72
+msgid ""
+"You can place here any shortcode as like social login shortcode or ther "
+"content"
+msgstr ""
+
+#: inc/meta/meta-register-login.php:78
+#, fuzzy
+#| msgid "Button label"
+msgid "Submit Button Label"
+msgstr "Etiqueta de botón"
+
+#: inc/meta/meta-register-login.php:79 inc/reg_process.php:9
+msgid "Create an account"
+msgstr "Crear una cuenta"
+
+#: inc/meta/meta-register-login.php:86 inc/meta/meta-register-login.php:92
+msgid "Agree Checkbox"
+msgstr ""
+
+#: inc/meta/meta-register-login.php:93 options/opt_footer.php:38
+#: options/opt_header.php:1006 options/opt_header.php:1058
+#: options/opt_header.php:1074 options/opt_header.php:1098
+#: options/opt_shop.php:92
+msgid "Yes"
+msgstr "Sí"
+
+#: inc/meta/meta-register-login.php:94 options/opt_footer.php:39
+#: options/opt_header.php:1007 options/opt_header.php:1059
+#: options/opt_header.php:1075 options/opt_header.php:1099
+#: options/opt_shop.php:93
+msgid "No"
+msgstr "No"
+
+#: inc/meta/meta-register-login.php:103
+msgid "Agreement Label"
+msgstr ""
+
+#: inc/meta/meta-register-login.php:104
+msgid "I accept the politic of confidentiality"
+msgstr ""
+
+#: inc/meta/meta-register-login.php:111
+msgid "Alert Message"
+msgstr ""
+
+#: inc/meta/meta-register-login.php:112
+msgid ""
+"The alert message will throw if the checkbox is not checked before "
+"submitting the form."
+msgstr ""
+
+#: inc/meta/meta-register-login.php:113 inc/reg_process.php:12
+msgid ""
+"Please indicate that you have read and agree to the Terms and Conditions and "
+"Privacy Policy"
+msgstr ""
+"Por favor, indique que ha leído y acepta los Términos y condiciones y la "
+"Política de privacidad"
+
+#: inc/meta/meta_action_button.php:4 options/opt_header.php:250
+#: options/opt_header.php:258
+msgid "Action Button"
+msgstr "Botón de acción"
+
+#: inc/meta/meta_action_button.php:11 options/opt_header.php:263
+msgid "Button Visibility"
+msgstr "Visibilidad de los botones"
+
+#: inc/meta/meta_action_button.php:12 inc/meta/meta_action_button.php:16
+#: inc/meta/meta_banner.php:15 inc/meta/meta_banner.php:28
+#: inc/meta/meta_header.php:49 inc/meta/meta_header_doc.php:28
+#: options/opt_blog.php:115 options/opt_blog.php:125 options/opt_blog.php:136
+#: options/opt_blog.php:147 options/opt_blog.php:158 options/opt_blog.php:184
+#: options/opt_blog.php:307 options/opt_blog.php:316 options/opt_blog.php:326
+#: options/opt_blog.php:336 options/opt_blog.php:385 options/opt_blog.php:396
+#: options/opt_forum.php:27 options/opt_forum.php:99 options/opt_forum.php:195
+#: options/opt_forum.php:273 options/opt_general.php:381
+#: options/opt_general.php:392 options/opt_header.php:120
+#: options/opt_header.php:266 options/opt_header.php:539
+#: options/opt_header.php:658 options/opt_header.php:675
+#: options/opt_header.php:702 options/opt_header.php:977
+#: options/opt_header.php:1255
+msgid "Show"
+msgstr "Mostrar"
+
+#: inc/meta/meta_action_button.php:13 inc/meta/meta_action_button.php:17
+#: inc/meta/meta_banner.php:16 inc/meta/meta_banner.php:29
+#: inc/meta/meta_header.php:50 inc/meta/meta_header_doc.php:29
+#: options/opt_blog.php:116 options/opt_blog.php:126 options/opt_blog.php:137
+#: options/opt_blog.php:148 options/opt_blog.php:159 options/opt_blog.php:185
+#: options/opt_blog.php:308 options/opt_blog.php:317 options/opt_blog.php:327
+#: options/opt_blog.php:337 options/opt_blog.php:386 options/opt_blog.php:397
+#: options/opt_color_scheme.php:62 options/opt_dark.php:19
+#: options/opt_forum.php:28 options/opt_forum.php:100 options/opt_forum.php:196
+#: options/opt_forum.php:274 options/opt_general.php:243
+#: options/opt_general.php:382 options/opt_general.php:393
+#: options/opt_header.php:121 options/opt_header.php:267
+#: options/opt_header.php:540 options/opt_header.php:659
+#: options/opt_header.php:676 options/opt_header.php:703
+#: options/opt_header.php:978 options/opt_header.php:1256
+msgid "Hide"
+msgstr "Ocultar"
+
+#: inc/meta/meta_action_button.php:25
+#, fuzzy
+#| msgid "Add Link"
+msgid "Link"
+msgstr "Añadir enlace"
+
+#: inc/meta/meta_action_button.php:33
+#, fuzzy
+#| msgid "Border Box"
+msgid "Border Radius"
+msgstr "Caja de borde"
+
+#: inc/meta/meta_action_button.php:42 inc/meta/meta_banner.php:47
+#: inc/meta/meta_footer.php:20 inc/meta/meta_header_doc.php:37
+#: options/opt_footer.php:154 options/opt_general.php:294
+#: options/opt_general.php:326 options/opt_header.php:391
+#: options/opt_menu.php:157
+msgid "Background Color"
+msgstr "Color de fondo"
+
+#: inc/meta/meta_action_button.php:51 inc/meta/meta_banner.php:39
+#, fuzzy
+#| msgid "Title Color"
+msgid "Text Color"
+msgstr "Color del título"
+
+#: inc/meta/meta_action_button.php:60 options/opt_header.php:381
+#: options/opt_menu.php:167
+msgid "Border Color"
+msgstr "Color del borde"
+
+#: inc/meta/meta_action_button.php:70
+#, fuzzy
+#| msgid "Hover background color"
+msgid "Hover Background Color"
+msgstr "Color de fondo al pasar por encima"
+
+#: inc/meta/meta_action_button.php:80
+#, fuzzy
+#| msgid "Hover Color"
+msgid "Hover Text Color"
+msgstr "Color al pasar por encima"
+
+#: inc/meta/meta_action_button.php:89 options/opt_header.php:412
+msgid "Hover Border Color"
+msgstr "Color del Borde (Hover)"
+
+#: inc/meta/meta_banner.php:4 inc/meta/meta_banner.php:11
+#: inc/meta/meta_post_banner.php:4
+#, fuzzy
+#| msgid "Search Banner"
+msgid "Banner"
+msgstr "Banner Ara"
+
+#: inc/meta/meta_banner.php:12 inc/meta/meta_banner.php:25
+msgid "The Default option value is getting from the Theme Settings page."
+msgstr ""
+
+#: inc/meta/meta_banner.php:24 options/opt_general.php:379
+#, fuzzy
+#| msgid "Breadcrumbs"
+msgid "Breadcrumb"
+msgstr "Breadcrumbs"
+
+#: inc/meta/meta_banner.php:56
+#, fuzzy
+#| msgid "Featured"
+msgid "Featured Video"
+msgstr "Destacado"
+
+#: inc/meta/meta_banner.php:62
+msgid "YouTube Video URL"
+msgstr ""
+
+#: inc/meta/meta_banner.php:63
+msgid "Only YouTube video link supported."
+msgstr ""
+
+#: inc/meta/meta_banner.php:68
+#: template-parts/header-elements/search-banner/featured-video.php:14
+msgid "Video Thumbnail"
+msgstr ""
+
+#: inc/meta/meta_footer.php:4 options/opt_footer.php:4
+#: options/opt_footer.php:17
+msgid "Footer"
+msgstr "Pie de página"
+
+#: inc/meta/meta_footer.php:10
+#, fuzzy
+#| msgid "Visibility:"
+msgid "Footer Visibility"
+msgstr "Visibilidad:"
+
+#: inc/meta/meta_footer.php:11
+#, fuzzy
+#| msgid "Show"
+msgid "Shown"
+msgstr "Mostrar"
+
+#: inc/meta/meta_footer.php:12
+#, fuzzy
+#| msgid "Hidden Topics"
+msgid "Hidden"
+msgstr "Temas ocultos"
+
+#: inc/meta/meta_footer.php:29 inc/meta/meta_page.php:10
+#: options/opt_footer.php:65 options/opt_header.php:232
+#: options/opt_header.php:792
+msgid "Padding"
+msgstr "Relleno"
+
+#: inc/meta/meta_header.php:4 options/opt_header.php:6
+msgid "Header"
+msgstr "Cabecera"
+
+#: inc/meta/meta_header.php:10
+msgid "Navbar Type"
+msgstr ""
+
+#: inc/meta/meta_header.php:13 inc/meta/meta_header_doc.php:15
+#: options/opt_header.php:110
+#, fuzzy
+#| msgid "Black Logo"
+msgid "Black"
+msgstr "Logotipo negro"
+
+#: inc/meta/meta_header.php:14 inc/meta/meta_header_doc.php:16
+#: options/opt_header.php:109
+#, fuzzy
+#| msgid "White Logo"
+msgid "White"
+msgstr "Logotipo blanco"
+
+#: inc/meta/meta_header.php:22 options/opt_header.php:88
+msgid "Navbar Position"
+msgstr "Posición de la barra de navegación"
+
+#: inc/meta/meta_header.php:25 options/opt_header.php:94
+msgid "Absolute"
+msgstr "Absoluto"
+
+#: inc/meta/meta_header.php:26 options/opt_header.php:95
+#: options/opt_header.php:1141
+msgid "Static"
+msgstr "Estático"
+
+#: inc/meta/meta_header.php:34 options/opt_header.php:41
+msgid "Header Width"
+msgstr "Ancho Cabecera"
+
+#: inc/meta/meta_header.php:38 options/opt_header.php:46
+msgid "Boxed"
+msgstr "Boxed"
+
+#: inc/meta/meta_header.php:39 options/opt_header.php:47
+msgid "Wide"
+msgstr "Ancho"
+
+#: inc/meta/meta_header.php:40
+#, fuzzy
+#| msgid "Full Width"
+msgid "Full-Width"
+msgstr "Ancho completo"
+
+#: inc/meta/meta_header.php:48 options/opt_header.php:117
+#: options/opt_header.php:726 options/opt_header.php:1034
+msgid "Search Form"
+msgstr "Formulario de Búsqueda"
+
+#: inc/meta/meta_header.php:58 inc/meta/meta_header_doc.php:46
+#, fuzzy
+#| msgid "Menu Active Color"
+msgid "Menu Item Color"
+msgstr "Menú Color activo"
+
+#: inc/meta/meta_header_doc.php:4
+#, fuzzy
+#| msgid "Theme Settings"
+msgid "Header Settings"
+msgstr "Ajustes de tema"
+
+#: inc/meta/meta_header_doc.php:11
+#, fuzzy
+#| msgid "Header"
+msgid "Header Type"
+msgstr "Cabecera"
+
+#: inc/meta/meta_header_doc.php:12
+msgid "The header type will on the header elements based on the chooses type"
+msgstr ""
+
+#: inc/meta/meta_header_doc.php:24 options/opt_header.php:635
+#: options/opt_header.php:643 options/opt_header.php:655
+msgid "Search Banner"
+msgstr "Banner Ara"
+
+#: inc/meta/meta_header_doc.php:25
+msgid "The default option comes from Theme Settings > Header > Search Banner."
+msgstr ""
+
+#: inc/meta/meta_header_doc.php:38
+#, fuzzy
+#| msgid "Hover background color"
+msgid "The header background-color"
+msgstr "Color de fondo al pasar por encima"
+
+#: inc/meta/meta_header_doc.php:47
+#, fuzzy
+#| msgid "Menu item's font color on hover stats."
+msgid "Menu items font color"
+msgstr ""
+"Color de fuente del elemento de menú en las estadísticas de desplazamiento."
+
+#: inc/meta/meta_post_banner.php:11
+#, fuzzy
+#| msgid "banner shape"
+msgid "Banner Type"
+msgstr "Forma del banner"
+
+#: inc/meta/meta_post_banner.php:14
+#, fuzzy
+#| msgid "Item Active Color"
+msgid "Creative Colorful"
+msgstr "Color activo del artículo"
+
+#: inc/meta/meta_post_banner.php:15
+#, fuzzy
+#| msgid "Title-bar"
+msgid "Classic Titlebar"
+msgstr "Barra de título"
+
+#: inc/meta/meta_post_banner.php:16
+#, fuzzy
+#| msgid "Wave Shape 01"
+msgid "Curved Shape"
+msgstr "Forma de onda 01"
+
+#: inc/meta/meta_post_banner.php:17
+#, fuzzy
+#| msgid "Gradient Direction"
+msgid "Gradient Banner"
+msgstr "Dirección del gradiente"
+
+#: inc/meta/meta_post_banner.php:25 options/opt_404.php:48
+#, fuzzy
+#| msgid "Wave Shape 01"
+msgid "Shape 01"
+msgstr "Forma de onda 01"
+
+#: inc/meta/meta_post_banner.php:32 options/opt_404.php:61
+#, fuzzy
+#| msgid "Wave Shape 02"
+msgid "Shape 02"
+msgstr "Forma de onda 02"
+
+#: inc/meta/meta_post_banner.php:39 options/opt_blog.php:279
+#: options/opt_footer.php:142 options/opt_footer.php:149
+#: options/opt_header.php:830
+msgid "Background"
+msgstr "Fondo"
+
+#: inc/meta/meta_post_banner.php:50
+#, fuzzy
+#| msgid "Hover Color"
+msgid "Overlay Color"
+msgstr "Color al pasar por encima"
+
+#: inc/meta/meta_post_banner.php:58 options/opt_blog.php:290
+msgid "Title Color"
+msgstr "Color del título"
+
+#: inc/meta/meta_sidebar.php:5 options/opt_shop.php:31
+msgid "Sidebar"
+msgstr "Barra lateral"
+
+#: inc/meta/meta_sidebar.php:11
+#, fuzzy
+#| msgid "TOPIC"
+msgid "TOC"
+msgstr "TEMA"
+
+#: inc/meta/meta_sidebar.php:12
+msgid "TOC will work on the default page template only."
+msgstr ""
+
+#: inc/meta/meta_video.php:4
+#, fuzzy
+#| msgid "Footer Options"
+msgid "Video Options"
+msgstr "Opciones de pie de página"
+
+#: inc/meta/meta_video.php:11
+#, fuzzy
+#| msgid "Upload"
+msgid "Upload Video"
+msgstr "Subir"
+
+#: inc/reg_process.php:17
+#, fuzzy
+#| msgid "Username"
+msgid "User name"
+msgstr "Nombre de usuario"
+
+#: inc/reg_process.php:20
+msgid "Your email"
+msgstr "Tu correo electrónico"
+
+#: inc/reg_process.php:21 woocommerce/myaccount/form-login.php:103
+#, fuzzy
+#| msgctxt "placeholder"
+#| msgid "Email address *"
+msgid "Email address"
+msgstr "Email *"
+
+#: inc/reg_process.php:50
+msgid "Username too short. At least 4 characters is required"
+msgstr ""
+
+#: inc/reg_process.php:53
+msgid "Sorry, that username already exists!"
+msgstr ""
+
+#: inc/reg_process.php:56
+msgid "Sorry, the username you entered is not valid"
+msgstr ""
+
+#: inc/reg_process.php:59
+msgid "Password length must be greater than 5"
+msgstr ""
+
+#: inc/reg_process.php:62
+msgid "Email is not valid"
+msgstr ""
+
+#: inc/reg_process.php:65
+msgid "Email already in use"
+msgstr ""
+
+#: inc/reg_process.php:71
+msgid "ERROR"
+msgstr ""
+
+#: inc/reg_process.php:77
+msgid "No Error"
+msgstr ""
+
+#: inc/sidebars.php:6
+msgid "Primary Sidebar"
+msgstr "Barra lateral principal"
+
+#: inc/sidebars.php:7
+msgid "Place widgets in sidebar widgets area."
+msgstr "Coloque los widgets en el área de widgets de la barra lateral."
+
+#: inc/sidebars.php:17
+msgid "Forum Sidebar"
+msgstr "Barra Lateral del Foro"
+
+#: inc/sidebars.php:18
+msgid "Add widgets here for the Forum Archive Sidebar area"
+msgstr ""
+"Agregue widgets aquí para el área de la barra lateral del archivo del foro"
+
+#: inc/sidebars.php:29
+msgid "Shop sidebar"
+msgstr "Barra lateral de la tienda"
+
+#: inc/sidebars.php:30
+msgid "Place widgets here for WooCommerce shop page."
+msgstr "Coloca los widgets aquí para la página de la tienda WooCommerce."
+
+#: inc/sidebars.php:41
+msgid "Footer Widgets"
+msgstr "Widgets del pie de página"
+
+#: inc/sidebars.php:42
+msgid "Add widgets here for Footer widgets area"
+msgstr "Agregar widgets aquí para el área de widgets de pie de página"
+
+#: inc/template-functions.php:157
+msgid "Search ..."
+msgstr "Buscar ..."
+
+#: inc/template-functions.php:162
+msgid "Back to home Page"
+msgstr "Volver a la página de inicio"
+
+#: inc/template-functions.php:178
+msgid "No Comments"
+msgstr "Sin comentarios"
+
+#: inc/template-functions.php:180
+msgid "1 Comment"
+msgstr "1 Comentario"
+
+#: inc/template-functions.php:182
+msgid " Comments"
+msgstr " Comentarios"
+
+#: inc/template-functions.php:308 options/opt_header.php:1265
+#: template-parts/header-elements/search-banner/breadcrumb.php:3
+msgid "Home"
+msgstr "Inicio"
+
+#: inc/template-functions.php:311 inc/template-functions.php:406
+#: inc/template-functions.php:884 options/opt_blog.php:30
+msgid "Blog"
+msgstr "Blog"
+
+#: inc/template-functions.php:622
+msgid " minute"
+msgstr " minuto"
+
+#: inc/template-functions.php:624
+msgid " minutes"
+msgstr " minutos"
+
+#: inc/template-functions.php:887 options/opt_shop.php:13
+#: options/opt_shop.php:18 options/opt_shop.php:27
+msgid "Shop"
+msgstr "Tienda"
+
+#: inc/template-functions.php:898
+msgid "Search result for: “"
+msgstr "Resultado de la búsqueda de: “"
+
+#: inc/tgm/class-tgm-plugin-activation.php:303
+msgid "Install Plugins"
+msgstr "Instalar Plugins"
+
+#. translators: %s: plugin name.
+#: inc/tgm/class-tgm-plugin-activation.php:305
+#, php-format
+msgid "Installing Plugin: %s"
+msgstr "Instalando Plugin: %s"
+
+#. translators: %s: plugin name.
+#: inc/tgm/class-tgm-plugin-activation.php:307
+#, fuzzy, php-format
+msgid "Updating Plugin: %s"
+msgstr "Actualizando Plugin: %s"
+
+#: inc/tgm/class-tgm-plugin-activation.php:308
+msgid "Something went wrong with the plugin API."
+msgstr "Algo salió mal con la API del plugin."
+
+#. translators: 1: plugin name(s).
+#: inc/tgm/class-tgm-plugin-activation.php:311
+#, php-format
+msgid "This theme requires the following plugin: %1$s."
+msgid_plural "This theme requires the following plugins: %1$s."
+msgstr[0] "Este tema necesita el siguiente plugin: %1$s."
+msgstr[1] "Este tema necesita los siguientes plugins: %1$s."
+
+#. translators: 1: plugin name(s).
+#: inc/tgm/class-tgm-plugin-activation.php:317
+#, php-format
+msgid "This theme recommends the following plugin: %1$s."
+msgid_plural "This theme recommends the following plugins: %1$s."
+msgstr[0] "Este tema recomienda el siguiente complemento: %1$s."
+msgstr[1] "Este tema recomienda los siguientes plugins: %1$s."
+
+#. translators: 1: plugin name(s).
+#: inc/tgm/class-tgm-plugin-activation.php:323
+#, php-format
+msgid ""
+"The following plugin needs to be updated to its latest version to ensure "
+"maximum compatibility with this theme: %1$s."
+msgid_plural ""
+"The following plugins need to be updated to their latest version to ensure "
+"maximum compatibility with this theme: %1$s."
+msgstr[0] ""
+"El siguiente plugin debe actualizarse a su última versión para garantizar la "
+"máxima compatibilidad con este tema: %1$s."
+msgstr[1] ""
+"Los siguientes plugins necesitan actualizarse a la versión más reciente para "
+"asegurar la máxima compatibilidad con este tema: %1$s."
+
+#. translators: 1: plugin name(s).
+#: inc/tgm/class-tgm-plugin-activation.php:329
+#, php-format
+msgid "There is an update available for: %1$s."
+msgid_plural "There are updates available for the following plugins: %1$s."
+msgstr[0] "Hay una actualización disponible para: %1$s."
+msgstr[1] "Hay actualizaciones disponibles para los siguientes plugins: %1$s."
+
+#. translators: 1: plugin name(s).
+#: inc/tgm/class-tgm-plugin-activation.php:335
+#, php-format
+msgid "The following required plugin is currently inactive: %1$s."
+msgid_plural "The following required plugins are currently inactive: %1$s."
+msgstr[0] "El siguiente complemento requerido está inactivo: %1$s."
+msgstr[1] "El siguiente plugin requerido se encuentra inactivo: %1$s."
+
+#. translators: 1: plugin name(s).
+#: inc/tgm/class-tgm-plugin-activation.php:341
+#, php-format
+msgid "The following recommended plugin is currently inactive: %1$s."
+msgid_plural "The following recommended plugins are currently inactive: %1$s."
+msgstr[0] "El siguiente plugin recomendado esta actualmente inactivo: %1$s."
+msgstr[1] "El siguiente plugin recomendado está inactivo: %1$s."
+
+#: inc/tgm/class-tgm-plugin-activation.php:346
+msgid "Begin installing plugin"
+msgid_plural "Begin installing plugins"
+msgstr[0] "Comenzar a instalar el plugin"
+msgstr[1] "Comenzar a instalar los plugins"
+
+#: inc/tgm/class-tgm-plugin-activation.php:351
+msgid "Begin updating plugin"
+msgid_plural "Begin updating plugins"
+msgstr[0] "Comenzar a actualizar el plugin"
+msgstr[1] "Comenzar la actualización de los plugins"
+
+#: inc/tgm/class-tgm-plugin-activation.php:356
+msgid "Begin activating plugin"
+msgid_plural "Begin activating plugins"
+msgstr[0] "Comenzar a activar el plugin"
+msgstr[1] "Comenzar a activar plugins"
+
+#: inc/tgm/class-tgm-plugin-activation.php:360
+#, fuzzy
+msgid "Return to Required Plugins Installer"
+msgstr "Volver al instalador de plugins requeridos"
+
+#: inc/tgm/class-tgm-plugin-activation.php:361
+#: inc/tgm/class-tgm-plugin-activation.php:886
+#: inc/tgm/class-tgm-plugin-activation.php:2592
+#: inc/tgm/class-tgm-plugin-activation.php:3639
+msgid "Return to the Dashboard"
+msgstr "Volver al Escritorio"
+
+#: inc/tgm/class-tgm-plugin-activation.php:362
+#: inc/tgm/class-tgm-plugin-activation.php:3218
+msgid "Plugin activated successfully."
+msgstr "Plugin activado correctamente."
+
+#: inc/tgm/class-tgm-plugin-activation.php:363
+#: inc/tgm/class-tgm-plugin-activation.php:3011
+msgid "The following plugin was activated successfully:"
+msgid_plural "The following plugins were activated successfully:"
+msgstr[0] "El siguiente plugin ha sido activado con éxito:"
+msgstr[1] "Los siguientes plugins se activaron con éxito:"
+
+#. translators: 1: plugin name.
+#: inc/tgm/class-tgm-plugin-activation.php:365
+#, php-format
+msgid "No action taken. Plugin %1$s was already active."
+msgstr "No se realizó ninguna acción. El plugin %1$s ya estaba activado."
+
+#. translators: 1: plugin name.
+#: inc/tgm/class-tgm-plugin-activation.php:367
+#, php-format
+msgid ""
+"Plugin not activated. A higher version of %s is needed for this theme. "
+"Please update the plugin."
+msgstr ""
+"Plugin no activado. Una versión superior de %s es necesaria para este tema. "
+"Por favor actualice el plugin."
+
+#. translators: 1: dashboard link.
+#: inc/tgm/class-tgm-plugin-activation.php:369
+#, php-format
+msgid "All plugins installed and activated successfully. %1$s"
+msgstr "Todos los plugins instalados y activados con éxito. %1$s"
+
+#: inc/tgm/class-tgm-plugin-activation.php:370
+msgid "Dismiss this notice"
+msgstr "Descartar este aviso"
+
+#: inc/tgm/class-tgm-plugin-activation.php:371
+msgid ""
+"There are one or more required or recommended plugins to install, update or "
+"activate."
+msgstr ""
+"Hay uno o más plugins necesarios o recomendados para instalar, actualizar o "
+"activar."
+
+#: inc/tgm/class-tgm-plugin-activation.php:372
+msgid "Please contact the administrator of this site for help."
+msgstr ""
+"Por favor, póngase en contacto con el administrador de este sitio para "
+"obtener ayuda."
+
+#: inc/tgm/class-tgm-plugin-activation.php:575
+msgid "This plugin needs to be updated to be compatible with your theme."
+msgstr "Este plugin debe actualizarse para que sea compatible con tu tema."
+
+#: inc/tgm/class-tgm-plugin-activation.php:576
+msgid "Update Required"
+msgstr "Actualización Requerida"
+
+#: inc/tgm/class-tgm-plugin-activation.php:693
+msgid "Set the parent_slug config variable instead."
+msgstr "Establezca la variable de configuración parent_slug."
+
+#: inc/tgm/class-tgm-plugin-activation.php:993
+msgid ""
+"The remote plugin package does not contain a folder with the desired slug "
+"and renaming did not work."
+msgstr ""
+"El paquete del plugin externo no contiene una carpeta con el slug deseado y "
+"el renombrado no ha funcionado."
+
+#: inc/tgm/class-tgm-plugin-activation.php:993
+#: inc/tgm/class-tgm-plugin-activation.php:996
+msgid ""
+"Please contact the plugin provider and ask them to package their plugin "
+"according to the WordPress guidelines."
+msgstr ""
+"Por favor, póngase en contacto con el proveedor del plugin para que "
+"empaqueten su plugin de acuerdo con las directrices de Wordpress ."
+
+#: inc/tgm/class-tgm-plugin-activation.php:996
+msgid ""
+"The remote plugin package consists of more than one file, but the files are "
+"not packaged in a folder."
+msgstr ""
+"El paquete remoto de plugin consiste en más de un archivo, pero los mismos "
+"no fueron empaquetados en una carpeta."
+
+#: inc/tgm/class-tgm-plugin-activation.php:1180
+#: inc/tgm/class-tgm-plugin-activation.php:3007
+msgctxt "plugin A *and* plugin B"
+msgid "and"
+msgstr "y"
+
+#. translators: %s: version number
+#: inc/tgm/class-tgm-plugin-activation.php:2041
+#, php-format
+msgid "TGMPA v%s"
+msgstr "TGMPA v%s"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2332
+#: woocommerce/global/form-login.php:35 woocommerce/global/form-login.php:39
+#: woocommerce/myaccount/form-login.php:43
+#: woocommerce/myaccount/form-login.php:49
+#: woocommerce/myaccount/form-login.php:95
+#: woocommerce/myaccount/form-login.php:104
+#: woocommerce/myaccount/form-login.php:113
+#: woocommerce/myaccount/form-lost-password.php:28
+#: woocommerce/myaccount/form-reset-password.php:28
+#: woocommerce/myaccount/form-reset-password.php:32
+#, fuzzy
+msgid "Required"
+msgstr "Requerido"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2335
+msgid "Recommended"
+msgstr "Recomendado"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2351
+msgid "WordPress Repository"
+msgstr "Repositorio de WordPress"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2354
+msgid "External Source"
+msgstr "Fuente externa"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2357
+msgid "Pre-Packaged"
+msgstr "Pre-Empaquetado"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2374
+msgid "Not Installed"
+msgstr "No instalado"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2378
+msgid "Installed But Not Activated"
+msgstr "Instalado pero no activado"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2386
+msgid "Required Update not Available"
+msgstr "Actualización requerida no disponible"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2389
+msgid "Requires Update"
+msgstr "Requiere actualización"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2392
+msgid "Update recommended"
+msgstr "Actualización recomendada"
+
+#. translators: 1: install status, 2: update status
+#: inc/tgm/class-tgm-plugin-activation.php:2401
+#, php-format
+msgctxt "Install/Update Status"
+msgid "%1$s, %2$s"
+msgstr "%1$s, %2$s"
+
+#. translators: 1: number of plugins.
+#: inc/tgm/class-tgm-plugin-activation.php:2447
+#, php-format
+msgctxt "plugins"
+msgid "All <span class=\"count\">(%s)</span>"
+msgid_plural "All <span class=\"count\">(%s)</span>"
+msgstr[0] "Todo <span class=\"count\">(%s)</span>"
+msgstr[1] "Todo <span class=\"count\">(%s)</span>"
+
+#. translators: 1: number of plugins.
+#: inc/tgm/class-tgm-plugin-activation.php:2451
+#, php-format
+msgid "To Install <span class=\"count\">(%s)</span>"
+msgid_plural "To Install <span class=\"count\">(%s)</span>"
+msgstr[0] "Para instalar <span class=\"count\">(%s)</span>"
+msgstr[1] "Para instalar <span class=\"count\">(%s)</span>"
+
+#. translators: 1: number of plugins.
+#: inc/tgm/class-tgm-plugin-activation.php:2455
+#, php-format
+msgid "Update Available <span class=\"count\">(%s)</span>"
+msgid_plural "Update Available <span class=\"count\">(%s)</span>"
+msgstr[0] "Actualización Disponible <span class=\"count\">(%s)</span>"
+msgstr[1] "Actualización Disponible <span class=\"count\">(%s)</span>"
+
+#. translators: 1: number of plugins.
+#: inc/tgm/class-tgm-plugin-activation.php:2459
+#, php-format
+msgid "To Activate <span class=\"count\">(%s)</span>"
+msgid_plural "To Activate <span class=\"count\">(%s)</span>"
+msgstr[0] "Para Activar <span class=\"count\">(%s)</span>"
+msgstr[1] "Para Activar <span class=\"count\">(%s)</span>"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2541
+msgctxt "as in: \"version nr unknown\""
+msgid "unknown"
+msgstr "desconocido"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2549
+msgid "Installed version:"
+msgstr "Versión instalada:"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2557
+msgid "Minimum required version:"
+msgstr "Versión mínima requerida:"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2569
+msgid "Available version:"
+msgstr "Versión disponible:"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2592
+msgid "No plugins to install, update or activate."
+msgstr "No hay plugins para instalar, actualizar o activar."
+
+#: inc/tgm/class-tgm-plugin-activation.php:2606
+msgid "Plugin"
+msgstr "Plugin"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2607
+msgid "Source"
+msgstr "Fuente"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2608
+msgid "Type"
+msgstr "Tipo"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2612
+msgid "Version"
+msgstr "Versión"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2613
+msgid "Status"
+msgstr "Estado"
+
+#. translators: %2$s: plugin name in screen reader markup
+#: inc/tgm/class-tgm-plugin-activation.php:2662
+#, php-format
+msgid "Install %2$s"
+msgstr "Instalar %2$s"
+
+#. translators: %2$s: plugin name in screen reader markup
+#: inc/tgm/class-tgm-plugin-activation.php:2667
+#, php-format
+msgid "Update %2$s"
+msgstr "Actualizar %2$s"
+
+#. translators: %2$s: plugin name in screen reader markup
+#: inc/tgm/class-tgm-plugin-activation.php:2673
+#, php-format
+msgid "Activate %2$s"
+msgstr "Activar %2$s"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2743
+msgid "Upgrade message from the plugin author:"
+msgstr "Mensaje de actualización del autor del plugin:"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2776
+msgid "Install"
+msgstr "Instalar"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2785
+msgid "Activate"
+msgstr "Activar"
+
+#: inc/tgm/class-tgm-plugin-activation.php:2816
+msgid "No plugins were selected to be installed. No action taken."
+msgstr ""
+"Ningún plugin seleccionado para ser instalado. Ninguna acción a realizar."
+
+#: inc/tgm/class-tgm-plugin-activation.php:2818
+msgid "No plugins were selected to be updated. No action taken."
+msgstr ""
+"No se seleccionaron complementos para actualizarse. Ninguna acción tomada."
+
+#: inc/tgm/class-tgm-plugin-activation.php:2859
+msgid "No plugins are available to be installed at this time."
+msgstr "No hay plugins disponibles para ser instalados en este momento."
+
+#: inc/tgm/class-tgm-plugin-activation.php:2861
+msgid "No plugins are available to be updated at this time."
+msgstr "No hay plugins disponibles para ser actualizados en este momento."
+
+#: inc/tgm/class-tgm-plugin-activation.php:2967
+msgid "No plugins were selected to be activated. No action taken."
+msgstr ""
+"Ningún plugin seleccionado para ser activado. Ninguna acción a realizar."
+
+#: inc/tgm/class-tgm-plugin-activation.php:2993
+msgid "No plugins are available to be activated at this time."
+msgstr "No hay plugins disponibles para ser activados en este momento."
+
+#: inc/tgm/class-tgm-plugin-activation.php:3217
+msgid "Plugin activation failed."
+msgstr "La activación del plugin ha fallado."
+
+#. translators: 1: plugin name, 2: action number 3: total number of actions.
+#: inc/tgm/class-tgm-plugin-activation.php:3557
+#, php-format
+msgid "Updating Plugin %1$s (%2$d/%3$d)"
+msgstr "Actualizando Plugin %1$s (%2$d/%3$d)"
+
+#. translators: 1: plugin name, 2: error message.
+#: inc/tgm/class-tgm-plugin-activation.php:3560
+#, php-format
+msgid "An error occurred while installing %1$s: <strong>%2$s</strong>."
+msgstr ""
+"Se produjo un error durante la instalación de %1$s: <strong>%2$s</strong>."
+
+#. translators: 1: plugin name.
+#: inc/tgm/class-tgm-plugin-activation.php:3562
+#, php-format
+msgid "The installation of %1$s failed."
+msgstr "La instalación de %1$s ha fallado."
+
+#: inc/tgm/class-tgm-plugin-activation.php:3566
+#, fuzzy
+msgid ""
+"The installation and activation process is starting. This process may take a "
+"while on some hosts, so please be patient."
+msgstr ""
+"El proceso de instalación y activación se está iniciando. Este proceso puede "
+"tardar un poco en algunos servidores, así que por favor sea paciente."
+
+#. translators: 1: plugin name.
+#: inc/tgm/class-tgm-plugin-activation.php:3568
+#, php-format
+msgid "%1$s installed and activated successfully."
+msgstr "%1$s instalado y activado correctamente."
+
+#: inc/tgm/class-tgm-plugin-activation.php:3568
+#: inc/tgm/class-tgm-plugin-activation.php:3576
+msgid "Show Details"
+msgstr "Mostrar detalles"
+
+#: inc/tgm/class-tgm-plugin-activation.php:3568
+#: inc/tgm/class-tgm-plugin-activation.php:3576
+msgid "Hide Details"
+msgstr "Ocultar detalles"
+
+#: inc/tgm/class-tgm-plugin-activation.php:3569
+msgid "All installations and activations have been completed."
+msgstr "Todas las instalaciones y activaciones han sido completadas."
+
+#. translators: 1: plugin name, 2: action number 3: total number of actions.
+#: inc/tgm/class-tgm-plugin-activation.php:3571
+#, php-format
+msgid "Installing and Activating Plugin %1$s (%2$d/%3$d)"
+msgstr "Instalando y activando el plugin %1$s (%2$d/%3$d)"
+
+#: inc/tgm/class-tgm-plugin-activation.php:3574
+msgid ""
+"The installation process is starting. This process may take a while on some "
+"hosts, so please be patient."
+msgstr ""
+"El proceso de instalación se está iniciando. Este proceso puede tardar un "
+"poco en algunos servidores, así que por favor sea paciente."
+
+#. translators: 1: plugin name.
+#: inc/tgm/class-tgm-plugin-activation.php:3576
+#, php-format
+msgid "%1$s installed successfully."
+msgstr "%1$s instalado correctamente."
+
+#: inc/tgm/class-tgm-plugin-activation.php:3577
+msgid "All installations have been completed."
+msgstr "Todas las instalaciones se han completado."
+
+#. translators: 1: plugin name, 2: action number 3: total number of actions.
+#: inc/tgm/class-tgm-plugin-activation.php:3579
+#, php-format
+msgid "Installing Plugin %1$s (%2$d/%3$d)"
+msgstr "Instalando Plugin %1$s (%2$d/%3$d)"
+
+#: inc/tgm/plugin_activation.php:40
+msgid "Elementor"
+msgstr "Elementor"
+
+#: inc/tgm/plugin_activation.php:46
+msgid "Docy Core"
+msgstr "Núcleo Docy"
+
+#: inc/tgm/plugin_activation.php:54 inc/tgm/plugin_activation.php:158
+msgid "Advanced Custom Fields-pro"
+msgstr "Advanced Custom Fields-pro"
+
+#: inc/tgm/plugin_activation.php:61 inc/tgm/plugin_activation.php:172
+msgid "EazyDocs"
+msgstr "EazyDocs"
+
+#: inc/tgm/plugin_activation.php:67
+#, fuzzy
+#| msgid "Pro Element"
+msgid "Spider Elements"
+msgstr "Elemento Pro"
+
+#: inc/tgm/plugin_activation.php:73 inc/tgm/plugin_activation.php:184
+msgid "bbPress"
+msgstr "bbPress"
+
+#: inc/tgm/plugin_activation.php:79 inc/tgm/plugin_activation.php:190
+msgid "BBP Core"
+msgstr "Núcleo BBP"
+
+#: inc/tgm/plugin_activation.php:85 inc/tgm/plugin_activation.php:178
+msgid "wooCommerce"
+msgstr "wooCommerce"
+
+#: inc/tgm/plugin_activation.php:91
+msgid "One Click Demo Import"
+msgstr "Importar demo en un clic"
+
+#: inc/tgm/plugin_activation.php:97 inc/tgm/plugin_activation.php:196
+#, fuzzy
+#| msgid "Changelog"
+msgid "Changeloger"
+msgstr "Registro de cambios"
+
+#: inc/tgm/plugin_activation.php:103
+msgid "Smart bbPress nVerify"
+msgstr "Smart bbPress nVerificar"
+
+#: inc/tgm/plugin_activation.php:148
+msgid ""
+"Elementor is a free drag & drop page builder plugin that will help you to "
+"create any layout you can imagine with WordPress."
+msgstr ""
+"Elementor es un plugin gratuito de creación de páginas de arrastrar y soltar "
+"que te ayudará a crear cualquier diseño que puedas imaginar con WordPress."
+
+#: inc/tgm/plugin_activation.php:154
+msgid "Docy Core is a required plugin for Docy theme."
+msgstr ""
+
+#: inc/tgm/plugin_activation.php:159
+msgid ""
+"Advanced Custom Fields Pro is a premium plugin that allows you to add custom "
+"fields to your WordPress edit screens."
+msgstr ""
+"Advanced Custom Fields Pro es un complemento premium que le permite agregar "
+"campos personalizados a sus pantallas de edición de WordPress."
+
+#: inc/tgm/plugin_activation.php:165
+#, fuzzy
+#| msgid "Pro Element"
+msgid "Pro Elements"
+msgstr "Elemento Pro"
+
+#: inc/tgm/plugin_activation.php:166
+msgid ""
+"Free WordPress plugin that enables PRO features in the Elementor page "
+"builder. If you have Elementor Pro, no need to install this plugin."
+msgstr ""
+"Plugin gratuito de WordPress que habilita las funciones PRO en el creador de "
+"páginas Elementor. Si tiene Elementor Pro, no es necesario instalar este "
+"complemento."
+
+#: inc/tgm/plugin_activation.php:173
+msgid ""
+"EazyDocs is a free WordPress plugin that allows you to create a knowledge "
+"base, documentation, or wiki for your website."
+msgstr ""
+"EazyDocs es un plugin gratuito de WordPress que le permite crear una base de "
+"conocimientos, documentación o wiki para su sitio web."
+
+#: inc/tgm/plugin_activation.php:179
+msgid ""
+"WooCommerce is a free eCommerce plugin that allows you to sell anything. If "
+"you need to sell product, you have to install it. Otherwise, you can skip "
+"this plugin."
+msgstr ""
+"WooCommerce es un plugin gratuito de comercio electrónico que te permite "
+"vender cualquier cosa. Si necesita vender producto, debe instalarlo. De lo "
+"contrario, puede omitir este complemento."
+
+#: inc/tgm/plugin_activation.php:185
+msgid ""
+"bbPress is forum software with a twist from the creators of WordPress. If "
+"you don't want the Forum feature, you can skip installing this plugin."
+msgstr ""
+"bbPress es un software de foro con un giro de los creadores de WordPress. Si "
+"no desea la función Foro, puede omitir la instalación de este complemento."
+
+#: inc/tgm/plugin_activation.php:191
+msgid ""
+"BBP Core is a required plugin for bbPress forum. If you don't want the Forum "
+"feature, you can skip installing this plugin."
+msgstr ""
+"BBP Core es un plugin necesario para el foro bbPress. Si no desea la función "
+"Foro, puede omitir la instalación de este complemento."
+
+#: inc/tgm/plugin_activation.php:197
+msgid "Install this plugin if you want to publish changelog of products"
+msgstr ""
+
+#: options/opt_404.php:4
+msgid "404 Error Page"
+msgstr "Página de error 404"
+
+#: options/opt_404.php:10
+msgid "Title Text"
+msgstr "Texto del título"
+
+#: options/opt_404.php:20
+msgid ""
+"Sorry for the inconvenience. Go to our homepage or check out our latest "
+"collections for Fashion, Chair, Decoration..."
+msgstr ""
+"Disculpen las molestias. Entra en nuestra página web o echa un vistazo a "
+"nuestras últimas colecciones de Moda, Silla, Decoración..."
+
+#: options/opt_404.php:24
+msgid "Home Button Title"
+msgstr "Título del botón de inicio"
+
+#: options/opt_404.php:27
+msgid "Back to Home Page"
+msgstr "Volver a la Página de Inicio"
+
+#: options/opt_404.php:33
+msgid "Button Text Color"
+msgstr "Color del texto del botón"
+
+#: options/opt_404.php:42
+msgid "Button Background Color"
+msgstr "Color de fondo del botón"
+
+#: options/opt_404.php:74
+#, fuzzy
+#| msgid "Wave Shape 01"
+msgid "Shape 03"
+msgstr "Forma de onda 01"
+
+#: options/opt_404.php:87
+msgid "Background shape"
+msgstr "Forma del fondo"
+
+#: options/opt_404.php:88
+msgid "Upload here the default background shape image"
+msgstr "Cargar aquí la imagen de fondo por defecto"
+
+#: options/opt_backup.php:3 options/opt_backup.php:14
+msgid "Backup"
+msgstr "Copia de seguridad"
+
+#: options/opt_backup.php:10
+msgid "Export / Import"
+msgstr "Exportar/Importar"
+
+#: options/opt_blog.php:3
+msgid "Blog Pages"
+msgstr "Páginas del blog"
+
+#: options/opt_blog.php:13 options/opt_blog.php:20
+msgid "Blog archive"
+msgstr "Archivo del Blog"
+
+#: options/opt_blog.php:26
+#, fuzzy
+#| msgid "Blog page title"
+msgid "Blog page Title"
+msgstr "Título de la página del blog"
+
+#: options/opt_blog.php:27
+#, fuzzy
+#| msgid ""
+#| "Controls the title text that displays in the page title bar only if your "
+#| "front page displays your latest post in \"Settings > Reading\"."
+msgid ""
+"Controls the title text that displays on the Blog page Titlebar/Search "
+"Banner."
+msgstr ""
+"Controla el texto del título que se muestra en la barra de título de la "
+"página sólo si la página principal muestra su última publicación en "
+"\"Configuración > Lectura\"."
+
+#: options/opt_blog.php:34
+#, fuzzy
+#| msgid "Blog page title"
+msgid "Blog page Subtitle"
+msgstr "Título de la página del blog"
+
+#: options/opt_blog.php:35
+#, fuzzy
+#| msgid ""
+#| "Controls the title text that displays in the page title bar only if your "
+#| "front page displays your latest post in \"Settings > Reading\"."
+msgid ""
+"Controls the title text that displays on the Blog page Titlebar/Search "
+"Banner.\"."
+msgstr ""
+"Controla el texto del título que se muestra en la barra de título de la "
+"página sólo si la página principal muestra su última publicación en "
+"\"Configuración > Lectura\"."
+
+#: options/opt_blog.php:41
+msgid "Blog Layout"
+msgstr "Diseño del Blog"
+
+#: options/opt_blog.php:42
+msgid "The Blog layout will also apply on the blog category and tag pages."
+msgstr ""
+"El diseño del blog también se aplicará en la categoría de blog y en las "
+"páginas de etiquetas."
+
+#: options/opt_blog.php:56
+msgid "Enable Masonry Layout"
+msgstr ""
+
+#: options/opt_blog.php:57
+msgid "Enable masonry layout for blog grid style."
+msgstr ""
+
+#: options/opt_blog.php:63
+msgid "Column"
+msgstr "Columna"
+
+#: options/opt_blog.php:67
+msgid "Two"
+msgstr "Dos"
+
+#: options/opt_blog.php:68
+msgid "Three"
+msgstr "Tres"
+
+#: options/opt_blog.php:69
+msgid "Four"
+msgstr "Cuatro"
+
+#: options/opt_blog.php:76
+#, fuzzy
+#| msgid "Post title length"
+msgid "Post Title Length"
+msgstr "Longitud del título de la publicación"
+
+#: options/opt_blog.php:77
+#, fuzzy
+#| msgid "Blog post title length in character"
+msgid "Set the Blog post title length in character"
+msgstr "Longitud del título de la entrada del blog en caracteres"
+
+#: options/opt_blog.php:88
+msgid "Post Word Excerpt"
+msgstr "Extracto de Post Word"
+
+#: options/opt_blog.php:89
+msgid ""
+"Define the number of words to display for each post on the blog page. If the "
+"post excerpt is empty, the content will be taken from the post content."
+msgstr ""
+
+#: options/opt_blog.php:101
+msgid "Continue Reading Label"
+msgstr "Etiqueta de Seguir leyendo"
+
+#: options/opt_blog.php:104 template-parts/contents/content-sticky.php:4
+#: template-parts/contents/content-video.php:4
+#: template-parts/contents/content.php:4
+msgid "Continue Reading"
+msgstr "Continuar leyendo"
+
+#: options/opt_blog.php:111 options/opt_blog.php:298
+msgid "Post Meta"
+msgstr "Meta de la publicación"
+
+#: options/opt_blog.php:112
+msgid "Show/hide post meta on blog archive page"
+msgstr "Mostrar/ocultar meta de mensajes en la página de archivo del blog"
+
+#: options/opt_blog.php:122
+msgid "Post category"
+msgstr "Categoría del artículo"
+
+#: options/opt_blog.php:133
+msgid "Post Date"
+msgstr "Fecha de publicación"
+
+#: options/opt_blog.php:144
+msgid "Post Reading Time"
+msgstr "Tiempo de lectura posterior"
+
+#: options/opt_blog.php:173
+msgid "Post Format Icon"
+msgstr "Icono de formato de Publicacion"
+
+#: options/opt_blog.php:180
+msgid "Post Icon"
+msgstr "Icono de la Entrada"
+
+#: options/opt_blog.php:181
+msgid "Post Icon show"
+msgstr "Mostrar icono de publicación"
+
+#: options/opt_blog.php:193
+msgid "Post Standard"
+msgstr "Post Estándar"
+
+#: options/opt_blog.php:200
+msgid "Post Video"
+msgstr "Publicar Vídeo"
+
+#: options/opt_blog.php:208
+msgid "Icon Size"
+msgstr "Tamaño del Icono"
+
+#: options/opt_blog.php:227
+msgid "Blog single"
+msgstr "Blog sencillo"
+
+#: options/opt_blog.php:235
+#, fuzzy
+#| msgid "Title-bar"
+msgid "Title Bar"
+msgstr "Barra de título"
+
+#: options/opt_blog.php:242
+#, fuzzy
+#| msgid "Search Banner Layout"
+msgid "Banner Layout"
+msgstr "Diseño de banner de búsqueda"
+
+#: options/opt_blog.php:243
+msgid "Select the default banner layout for blog post single page."
+msgstr ""
+
+#: options/opt_blog.php:259
+#, fuzzy
+#| msgid "Wave Shape 01"
+msgid "Shape 1"
+msgstr "Forma de onda 01"
+
+#: options/opt_blog.php:269
+#, fuzzy
+#| msgid "Wave Shape 02"
+msgid "Shape 2"
+msgstr "Forma de onda 02"
+
+#: options/opt_blog.php:303
+#, fuzzy
+#| msgid "Post Meta"
+msgid "Meta"
+msgstr "Meta de la publicación"
+
+#: options/opt_blog.php:304
+msgid "Post meta includes Date, Reading Time and Categories."
+msgstr "Post meta incluye fecha, tiempo de lectura y categorías."
+
+#: options/opt_blog.php:313
+#, fuzzy
+#| msgid "Post Date"
+msgid "Date"
+msgstr "Fecha de publicación"
+
+#: options/opt_blog.php:323
+#, fuzzy
+#| msgid "Post Reading Time"
+msgid "Reading Time"
+msgstr "Tiempo de lectura posterior"
+
+#: options/opt_blog.php:333 template-parts/single-post/post-meta-top.php:7
+msgid "Categories"
+msgstr "Categorías"
+
+#: options/opt_blog.php:346
+#, fuzzy
+#| msgid "No Comments"
+msgid "Post Contents"
+msgstr "Sin comentarios"
+
+#: options/opt_blog.php:352 options/opt_blog.php:363
+#, fuzzy
+#| msgid "Continue Reading"
+msgid "Content Padding"
+msgstr "Continuar leyendo"
+
+#: options/opt_blog.php:353
+msgid "Apply horizontal padding to reduce text width and enhance readability."
+msgstr ""
+
+#: options/opt_blog.php:354
+msgid ""
+"Horizontal padding to the text post content except images, videos, tables "
+"etc."
+msgstr ""
+
+#: options/opt_blog.php:357 options/opt_forum.php:159
+#: options/opt_general.php:49 options/opt_general.php:60
+#: options/opt_general.php:90 options/opt_general.php:370
+#, fuzzy
+msgid "Enable"
+msgstr "Habilitar"
+
+#: options/opt_blog.php:358 options/opt_forum.php:160
+#: options/opt_general.php:50 options/opt_general.php:61
+#: options/opt_general.php:91 options/opt_general.php:371
+msgid "Disable"
+msgstr "Deshabilitar"
+
+#: options/opt_blog.php:381
+#, fuzzy
+#| msgid "Tags:"
+msgid "Tags"
+msgstr "Etiquetas:"
+
+#: options/opt_blog.php:382
+msgid "The Post Tags shows at the bottom of the post content."
+msgstr ""
+"Las etiquetas de publicación se muestran en la parte inferior del contenido "
+"de la publicación."
+
+#: options/opt_blog.php:393
+msgid "Related posts "
+msgstr "Entradas Relacionadas "
+
+#: options/opt_blog.php:402
+#, fuzzy
+#| msgid "Related Products Title"
+msgid "Related Posts Title"
+msgstr "Título de productos relacionados"
+
+#: options/opt_blog.php:405
+msgid "Related Post"
+msgstr "Entrada Relacionada"
+
+#: options/opt_blog.php:410
+#, fuzzy
+#| msgid "Related posts count"
+msgid "Related Posts Count"
+msgstr "Las publicaciones relacionadas cuentan"
+
+#: options/opt_color_scheme.php:5
+#, fuzzy
+#| msgid "Sticky Appearance"
+msgid "Appearance"
+msgstr "Apariencia pegajosa"
+
+#: options/opt_color_scheme.php:10
+msgid "Color Scheme"
+msgstr "Esquema de Color"
+
+#: options/opt_color_scheme.php:17 options/opt_dark.php:35
+msgid "Accent Color"
+msgstr "Acentuar el color"
+
+#: options/opt_color_scheme.php:25
+msgid "Secondary Color"
+msgstr "Color Secundario"
+
+#: options/opt_color_scheme.php:26
+msgid "Normally used in Titles, Gradient Colors"
+msgstr "Normalmente se usa en títulos, colores degradados"
+
+#: options/opt_color_scheme.php:34
+msgid "Paragraph Color"
+msgstr "Color del Párrafo"
+
+#: options/opt_color_scheme.php:35
+msgid "Normally used in meta content, paragraph, doc lists, subtitles, icon"
+msgstr ""
+"Normalmente se usa en metacontenido, párrafo, listas de documentos, "
+"subtítulos, icono"
+
+#: options/opt_color_scheme.php:43
+msgid "Background Gradient Color"
+msgstr "Color de Gradiente de Fondo"
+
+#: options/opt_color_scheme.php:44
+#, fuzzy
+#| msgid "This color applied to Post Single, Forum pages, Search Results page"
+msgid ""
+"This color applied to Post Single, Archive (tags, category, author) pages, "
+"Forum pages, Search Results page"
+msgstr ""
+"Este color se aplica a Publicar único, páginas de foro, página de resultados "
+"de búsqueda"
+
+#: options/opt_color_scheme.php:59
+msgid "Container Box Shadow"
+msgstr "Sombra de la caja del contenedor"
+
+#: options/opt_color_scheme.php:60
+msgid "This color applied to Post Single, Forum pages, Search Results page"
+msgstr ""
+"Este color se aplica a Publicar único, páginas de foro, página de resultados "
+"de búsqueda"
+
+#: options/opt_color_scheme.php:61 options/opt_dark.php:18
+#: options/opt_general.php:242
+msgid "SHow"
+msgstr "Mostrar"
+
+#: options/opt_custom_code.php:3
+msgid "Custom Code"
+msgstr "Código personalizado"
+
+#: options/opt_custom_code.php:10
+msgid "CSS Code"
+msgstr "Código CSS"
+
+#: options/opt_custom_code.php:11
+#, fuzzy
+#| msgid "Paste your CSS code here."
+msgid "Paste/write your CSS code here."
+msgstr "Pega tu código CSS aquí."
+
+#: options/opt_custom_code.php:20
+msgid "JS Code"
+msgstr "Código JS"
+
+#: options/opt_custom_code.php:21
+#, fuzzy
+#| msgid "Paste your JS code here."
+msgid "Paste/write your JS code here."
+msgstr "Pega tu código JS aquí."
+
+#: options/opt_customizer.php:7 options/opt_customizer.php:22
+#, fuzzy
+#| msgid "Custom Code"
+msgid "Customizer"
+msgstr "Código personalizado"
+
+#: options/opt_customizer.php:14
+msgid "Options Visibility on Customizer"
+msgstr ""
+
+#: options/opt_dark.php:4 options/opt_dark.php:9
+msgid "Dark Mode"
+msgstr "Modo oscuro"
+
+#: options/opt_dark.php:14
+msgid "Dark Mode Switcher"
+msgstr "Conmutador de modo oscuro"
+
+#: options/opt_dark.php:15
+msgid "Show/Hide the Dark Mode Switcher on the Header navigation bar."
+msgstr ""
+"Muestre/oculte el conmutador de modo oscuro en la barra de navegación del "
+"encabezado."
+
+#: options/opt_dark.php:24
+msgid "Active Dark Mode"
+msgstr "Modo oscuro activo"
+
+#: options/opt_dark.php:25
+msgid "Activate the Dark Mode by default."
+msgstr "Active el modo oscuro de forma predeterminada."
+
+#: options/opt_dark.php:36
+msgid "Accent Color for dark mode"
+msgstr "Color de énfasis para el modo oscuro"
+
+#: options/opt_footer.php:12
+msgid "Footer Options"
+msgstr "Opciones de pie de página"
+
+#: options/opt_footer.php:22
+msgid "Footer Style"
+msgstr "Estilo de pie de página"
+
+#: options/opt_footer.php:27
+msgid "Simple"
+msgstr "Simple"
+
+#: options/opt_footer.php:28 options/opt_footer.php:91
+#: options/opt_header.php:35 options/opt_header.php:145
+#: options/opt_header.php:758
+msgid "Elementor Template"
+msgstr "Plantilla Elementor"
+
+#: options/opt_footer.php:36
+msgid "Preset Columns"
+msgstr "Columnas predefinidas"
+
+#: options/opt_footer.php:37
+msgid ""
+"If you enable this switcher, the Footer Widget columns will set as preset "
+"(33.33% + 22.22% + 22.22% + 22.22%) on the demo of Docy."
+msgstr ""
+"Si habilita este conmutador, las columnas del widget de pie de página se "
+"establecerán como preestablecidas (33.33% + 22.22% + 22.22% + 22.22%) en la "
+"demostración de Docy."
+
+#: options/opt_footer.php:45
+msgid "Footer Column"
+msgstr "Columna del Footer"
+
+#: options/opt_footer.php:50
+msgid "Two Column"
+msgstr "Dos columnas"
+
+#: options/opt_footer.php:51
+msgid "Three Column"
+msgstr "Tres columnas"
+
+#: options/opt_footer.php:52
+msgid "Four Column"
+msgstr "Cuatro Columnas"
+
+#: options/opt_footer.php:66
+msgid "Padding around the footer columns (Top Right Bottom Left)"
+msgstr ""
+"Relleno alrededor de las columnas del pie de página (arriba a la derecha, "
+"abajo a la izquierda)"
+
+#: options/opt_footer.php:77
+msgid "Ornament Illustration"
+msgstr "Ilustración de adornos"
+
+#: options/opt_footer.php:78
+msgid ""
+"This is for beautiful design purpose. You can replace the default "
+"illustration or delete it from here."
+msgstr ""
+"Esto es para un hermoso propósito de diseño. Puede reemplazar la ilustración "
+"predeterminada o eliminarla desde aquí."
+
+#: options/opt_footer.php:106
+msgid "Font colors"
+msgstr "Colores de fuente"
+
+#: options/opt_footer.php:117
+msgid "Widget Title Color"
+msgstr "Color del Título del Widget"
+
+#: options/opt_footer.php:123
+msgid "Normal Font color"
+msgstr "Color de fuente normal"
+
+#: options/opt_footer.php:130
+msgid "Hover Font color"
+msgstr "Color de fuente de desplazamiento"
+
+#: options/opt_footer.php:162
+msgid "Bottom Background Color"
+msgstr "Color de fondo del Fondo inferior"
+
+#: options/opt_footer.php:163
+msgid "Footer bottom background color"
+msgstr "Color de fondo de footer inferior"
+
+#: options/opt_footer.php:175 options/opt_footer.php:182
+msgid "Footer Bottom"
+msgstr "Footer Bottom"
+
+#: options/opt_footer.php:186
+msgid "Copyright Text"
+msgstr "Texto de Copyright"
+
+#: options/opt_footer.php:189
+msgid "© 2025 All Rights Reserved by Spider-Themes"
+msgstr ""
+
+#: options/opt_footer.php:201
+msgid "Useful Links"
+msgstr ""
+
+#: options/opt_footer.php:212
+msgid "URL"
+msgstr "URL"
+
+#: options/opt_forum.php:13 options/opt_forum.php:20
+msgid "Forum Archive"
+msgstr "Archivo del Foro"
+
+#: options/opt_forum.php:24
+msgid "Top Call to Action"
+msgstr "Llamado a la acción principal"
+
+#: options/opt_forum.php:37
+msgid "Top Call to Action Controls"
+msgstr "Principales controles de llamada a la acción"
+
+#: options/opt_forum.php:45 options/opt_forum.php:113
+msgid "Left Featured Image"
+msgstr "Imagen destacada izquierda"
+
+#: options/opt_forum.php:59
+msgid "Can't find an answer?"
+msgstr "¿No encuentras una respuesta?"
+
+#: options/opt_forum.php:67
+msgid "Make use of a qualified tutor to get the answer"
+msgstr "Haga uso de un tutor calificado para obtener la respuesta"
+
+#: options/opt_forum.php:72 options/opt_forum.php:142
+msgid "Button Title"
+msgstr "Título del botón"
+
+#: options/opt_forum.php:75
+msgid "Ask a Question"
+msgstr "Haz una pregunta"
+
+#: options/opt_forum.php:79 options/opt_header.php:293
+msgid "Button URL"
+msgstr "URL del botón"
+
+#: options/opt_forum.php:96 options/opt_forum.php:105
+msgid "Bottom Call to Action"
+msgstr "Llamada a la acción inferior"
+
+#: options/opt_forum.php:106
+msgid "Control here the bottom Call to Action area of the Forum archive pages."
+msgstr ""
+"Controle aquí el área inferior de Llamada a la acción de las páginas de "
+"archivo del Foro."
+
+#: options/opt_forum.php:123 options/opt_header.php:845
+msgid "Background Image"
+msgstr "Imagen de fondo"
+
+#: options/opt_forum.php:137
+msgid "New to Communities?"
+msgstr "¿Nuevo en las comunidades?"
+
+#: options/opt_forum.php:145
+msgid "Join the community "
+msgstr "Únete a la comunidad "
+
+#: options/opt_forum.php:156
+#, fuzzy
+#| msgid "Action Button"
+msgid "Signup Button"
+msgstr "Botón de acción"
+
+#: options/opt_forum.php:166
+#, fuzzy
+#| msgid "Sign up Page"
+msgid "Select signup Page d"
+msgstr "Página de registro"
+
+#: options/opt_forum.php:174
+#, php-format
+msgid ""
+"This setting will work if the Membership checkbox is checked from the "
+"general <a href=\"%s\">settings</a>"
+msgstr ""
+
+#: options/opt_forum.php:175
+#, php-format
+msgid ""
+"Use this shortcode to show the bbpress default signup form <b>%s</b> Or skip "
+"the selection if need the wordprss register form"
+msgstr ""
+
+#: options/opt_forum.php:185
+msgid "Topics Archive"
+msgstr "Archivo de temas"
+
+#: options/opt_forum.php:202
+msgid "Forums Number"
+msgstr "Número de foros"
+
+#: options/opt_forum.php:203
+msgid "Forums to show above the topics list."
+msgstr "Foros para mostrar encima de la lista de temas."
+
+#: options/opt_forum.php:220 options/opt_forum.php:227
+msgid "Topic Details"
+msgstr "Detalles del tema"
+
+#: options/opt_forum.php:231
+msgid "Replies Order"
+msgstr "Orden de respuestas"
+
+#: options/opt_forum.php:236
+msgid "Ascending"
+msgstr "Ascendente"
+
+#: options/opt_forum.php:237
+msgid "Descending"
+msgstr "Descendente"
+
+#: options/opt_forum.php:241
+msgid "Title Prefix"
+msgstr "Prefijo de título"
+
+#: options/opt_forum.php:244
+msgid "Q:"
+msgstr "Q:"
+
+#: options/opt_forum.php:250
+msgid "Title Prefix Typography"
+msgstr "Tipografía de prefijo de título"
+
+#: options/opt_forum.php:264
+#, fuzzy
+#| msgid "Subscriptions"
+msgid "Subscription"
+msgstr "Suscripciones"
+
+#: options/opt_forum.php:265
+msgid "Subscription settings for logged out users."
+msgstr ""
+
+#: options/opt_forum.php:270
+msgid "Enable / Disable"
+msgstr "Habilitar / Deshabilitar"
+
+#: options/opt_forum.php:280
+#, fuzzy
+#| msgid "Subscribed"
+msgid "Subscribe Button"
+msgstr "Suscrito"
+
+#: options/opt_forum.php:283
+#, fuzzy
+#| msgid "Subscribed"
+msgid "Subscribe"
+msgstr "Suscrito"
+
+#: options/opt_forum.php:291
+#, fuzzy
+#| msgid "Join the community "
+msgid "Login to the community"
+msgstr "Únete a la comunidad "
+
+#: options/opt_forum.php:299
+#, fuzzy
+#| msgid "You must be logged in to reply to this topic."
+msgid "You must be logged in to subscribe to this topic."
+msgstr "Usted debe estar logeado para responder a este tema."
+
+#: options/opt_forum.php:303
+#, fuzzy
+#| msgid "Action Button"
+msgid "Login Button"
+msgstr "Botón de acción"
+
+#: options/opt_forum.php:306 woocommerce/global/form-login.php:50
+#: woocommerce/global/form-login.php:51 woocommerce/myaccount/form-login.php:33
+#, fuzzy
+msgid "Login"
+msgstr "Iniciar sesión"
+
+#: options/opt_forum.php:311
+#, fuzzy
+#| msgid "Topic Type:"
+msgid "Login Type"
+msgstr "Tipo de tema:"
+
+#: options/opt_forum.php:316
+#, fuzzy
+#| msgid "Default"
+msgid "Default Login"
+msgstr "Por defecto"
+
+#: options/opt_forum.php:317
+#, fuzzy
+#| msgid "Custom Code"
+msgid "Custom Page"
+msgstr "Código personalizado"
+
+#: options/opt_forum.php:323
+#, fuzzy
+#| msgid "Select a font"
+msgid "Select Page"
+msgstr "انتخاب فونت"
+
+#: options/opt_forum.php:338
+msgid "Users"
+msgstr "Usuarios"
+
+#: options/opt_forum.php:345
+#, fuzzy
+#| msgid "Hide Details"
+msgid "User Details"
+msgstr "Ocultar detalles"
+
+#: options/opt_forum.php:349
+msgid "User Menu Background"
+msgstr "Fondo del menú de usuario"
+
+#: options/opt_forum.php:350 options/opt_header.php:818
+msgid "Select a pre-designed banner background style."
+msgstr "Seleccione un estilo de fondo de banner prediseñado."
+
+#: options/opt_forum.php:357
+#, fuzzy
+#| msgid "Keymaster Icon"
+msgid "Key master Icon"
+msgstr "Icono de Keymaster"
+
+#: options/opt_forum.php:366
+msgid "Moderator Icon"
+msgstr "Icono de moderador"
+
+#: options/opt_forum.php:375
+msgid "Participant Icon"
+msgstr "Icono de participante"
+
+#: options/opt_forum.php:384
+msgid "Blocked Icon"
+msgstr "Icono bloqueado"
+
+#: options/opt_forum.php:398
+#, fuzzy
+#| msgid "Create New Topic"
+msgid "Create Topic Form"
+msgstr "Crear Nuevo Tema"
+
+#: options/opt_forum.php:405
+#, fuzzy
+msgid "Login Form"
+msgstr "Iniciar sesión"
+
+#: options/opt_forum.php:409
+msgid "Login Form Shortcode"
+msgstr ""
+
+#: options/opt_forum.php:410
+msgid ""
+"You can replace the default bbPress login form with your own login form "
+"shortcode."
+msgstr ""
+
+#: options/opt_forum.php:411
+msgid ""
+"You can use the <a href=\"https://t.ly/iyGmC\" target=\"_blank\"> "
+"[docy_login_form] </a> shortcode for the Login form. Leave the field empty "
+"to use the bbPress default login form. "
+msgstr ""
+
+#: options/opt_general.php:3
+msgid "General"
+msgstr "General"
+
+#: options/opt_general.php:10
+#, fuzzy
+#| msgid "Theme Settings"
+msgid "General Settings"
+msgstr "Ajustes de tema"
+
+#: options/opt_general.php:19
+#, fuzzy
+#| msgid "Sidebar Editor"
+msgid "Sidebar Widgets Editor"
+msgstr "Editor de barra lateral"
+
+#: options/opt_general.php:21
+msgid "Classic"
+msgstr "Clásico"
+
+#: options/opt_general.php:22
+#, fuzzy
+#| msgid "Gutenburg"
+msgid "Gutenberg"
+msgstr "Gutenburg"
+
+#: options/opt_general.php:24
+#, fuzzy
+#| msgid ""
+#| "If enabled classic, it will be restored the previous widgets settings "
+#| "screens and disables the block editor from managing widgets."
+msgid ""
+"If enabled classic, it will be restored the old Widgets screen and disables "
+"the block editor from managing widgets."
+msgstr ""
+"Si se habilita clásico, se restaurarán las pantallas de configuración de "
+"widgets anteriores y deshabilitará el editor de bloques para administrar "
+"widgets."
+
+#: options/opt_general.php:30
+#, fuzzy
+#| msgid "Post Types"
+msgid "Custom Post Types"
+msgstr "Tipo de Publicación"
+
+#: options/opt_general.php:31
+#, fuzzy
+#| msgid ""
+#| "If you disable a posttype, all the assets and elementor widgets of the "
+#| "post type will be disabled"
+msgid ""
+"If you disable a post type, all the assets, widgets associated with that "
+"post type will be disabled."
+msgstr ""
+"Si deshabilita un posttype, todos los widgets de activos y elementor del "
+"tipo de publicación se deshabilitarán."
+
+#: options/opt_general.php:35
+msgid "FAQs"
+msgstr "FAQs"
+
+#: options/opt_general.php:36
+msgid "Videos"
+msgstr "Videos"
+
+#: options/opt_general.php:47
+#, fuzzy
+#| msgid "Page"
+msgid "Page TOC"
+msgstr "Página"
+
+#: options/opt_general.php:48
+msgid "Enable/disable TOC (Table of Contents) in Page sidebar."
+msgstr ""
+
+#: options/opt_general.php:58
+#, fuzzy
+#| msgid "Post Tags"
+msgid "Post TOC"
+msgstr "Etiquetas del post"
+
+#: options/opt_general.php:59
+msgid "Enable/disable TOC (Table of Contents) in Post sidebar."
+msgstr ""
+
+#: options/opt_general.php:74 options/opt_general.php:81
+msgid "Preloader"
+msgstr "Precargador"
+
+#: options/opt_general.php:89
+msgid "Pre-loader"
+msgstr "Pre-cargador"
+
+#: options/opt_general.php:97
+msgid "Enable Pre-loader on"
+msgstr "Activar precargador activado"
+
+#: options/opt_general.php:101
+msgid "All Pages"
+msgstr "Todas las páginas"
+
+#: options/opt_general.php:102
+msgid "Specific Pages"
+msgstr "Páginas específicas"
+
+#: options/opt_general.php:110
+msgid "Page IDs"
+msgstr "ID de página"
+
+#: options/opt_general.php:111
+msgid "Input the multiple page IDs in comma separated format."
+msgstr "Introduzca los ID de página múltiples en formato separado por comas."
+
+#: options/opt_general.php:112
+#, php-format
+msgid "%s How to find page ID %s"
+msgstr "%s Cómo encontrar el ID de página %s"
+
+#: options/opt_general.php:124
+msgid "Pre-loader Logo"
+msgstr "Logotipo del precargador"
+
+#: options/opt_general.php:136
+msgid "Logo Title"
+msgstr "Título del logo"
+
+#: options/opt_general.php:141
+msgid "Logo Title Color"
+msgstr "Color Titulo Logo"
+
+#: options/opt_general.php:156
+msgid "Preloader Title"
+msgstr "Título del precargador"
+
+#: options/opt_general.php:161
+msgid "Preloader Title Color"
+msgstr "Color del título del precargador"
+
+#: options/opt_general.php:176 options/opt_general.php:182
+msgid "Quotes"
+msgstr "Citas"
+
+#: options/opt_general.php:177
+msgid "The quotes will display randomly under the title."
+msgstr "Las citas se mostrarán aleatoriamente debajo del título."
+
+#: options/opt_general.php:189
+msgid ""
+"We design Docy for the readers, optimizing not for page views or engagement"
+msgstr ""
+"Diseñamos Docy para los lectores, optimizando no para páginas vistas o "
+"engagement"
+
+#: options/opt_general.php:193
+msgid "Docy turns out that context is a key part of learning."
+msgstr "Docy resulta que el contexto es una parte clave del aprendizaje."
+
+#: options/opt_general.php:197
+msgid "You can create any type of product documentation with Docy"
+msgstr "Puede crear cualquier tipo de documentación de producto con Docy"
+
+#: options/opt_general.php:201
+msgid "Advanced visual search system powered by Ajax"
+msgstr "Sistema avanzado de búsqueda visual impulsado por Ajax"
+
+#: options/opt_general.php:209
+msgid "Preloader Quotes Color"
+msgstr "Preloader cotiza el color"
+
+#: options/opt_general.php:238
+msgid "Back to Top Button"
+msgstr "Botón Volver arriba"
+
+#: options/opt_general.php:239
+msgid "Show/hide back to top button globally settings"
+msgstr "Mostrar/ocultar la configuración global del botón Volver al principio"
+
+#: options/opt_general.php:249
+msgid "Position"
+msgstr "Posición"
+
+#: options/opt_general.php:264
+msgid "Margin"
+msgstr ""
+
+#: options/opt_general.php:278
+msgid "Normal Color"
+msgstr "Color normal"
+
+#: options/opt_general.php:284 options/opt_general.php:316
+msgid "Icon Color"
+msgstr "Color del icono"
+
+#: options/opt_general.php:310
+msgid "Hover Color"
+msgstr "Color al pasar por encima"
+
+#: options/opt_general.php:345
+msgid "Ajax Search"
+msgstr "Búsqueda Ajax"
+
+#: options/opt_general.php:352 options/opt_header.php:1207
+#, fuzzy
+#| msgid "Search Results"
+msgid "Ajax Search Results"
+msgstr "Resultados de la búsqueda"
+
+#: options/opt_general.php:358
+msgid "Ajax Search Result Limit"
+msgstr "Límite de resultados de búsqueda de Ajax"
+
+#: options/opt_general.php:359
+msgid ""
+"This will limit the doc sections and articles in Ajax live search results. "
+"Input -1 for show all results."
+msgstr ""
+"Esto limitará las secciones de documentos y artículos en los resultados de "
+"búsqueda en vivo de Ajax. Entrada -1 para mostrar todos los resultados."
+
+#: options/opt_general.php:368
+msgid "Tab Filters"
+msgstr "Filtros de pestañas"
+
+#: options/opt_general.php:369
+#, fuzzy
+#| msgid "If you disable it, the docs search will show by default."
+msgid "If you disable it, the search filter tabs will be removed."
+msgstr ""
+"Si lo deshabilita, la búsqueda de documentos se mostrará de forma "
+"predeterminada."
+
+#: options/opt_general.php:380
+#, fuzzy
+#| msgid "Showing the single result"
+#| msgid_plural "Showing all %d results"
+msgid "Show / Hide the breadcrumbs in search results"
+msgstr "Mostrando un único resultado"
+
+#: options/opt_general.php:390
+msgid "Thumbnail"
+msgstr ""
+
+#: options/opt_general.php:391
+msgid "Show / Hide the thumbnail in search results"
+msgstr ""
+
+#: options/opt_general.php:401
+msgid "Select Post Types to Include"
+msgstr ""
+
+#: options/opt_general.php:402
+msgid ""
+"Choose one or more post types (e.g., Pages, Posts, Products) to filter "
+"results."
+msgstr ""
+
+#: options/opt_header.php:16
+msgid "Layout & Settings"
+msgstr "Diseño y configuración"
+
+#: options/opt_header.php:25
+msgid "Layout & Setting"
+msgstr "Diseño y configuración"
+
+#: options/opt_header.php:30
+#, fuzzy
+#| msgid "Footer Style"
+msgid "Header Style"
+msgstr "Estilo de pie de página"
+
+#: options/opt_header.php:42
+msgid ""
+"Set the default Header width here. It will apply on the theme's Header "
+"globally."
+msgstr ""
+"Establezca el ancho de encabezado predeterminado aquí. Se aplicará en el "
+"encabezado del tema a nivel mundial."
+
+#: options/opt_header.php:48
+msgid "Full Width"
+msgstr "Ancho completo"
+
+#: options/opt_header.php:55
+msgid "Sticky Navbar"
+msgstr "Sticky Navbar"
+
+#: options/opt_header.php:63
+msgid "Sticky Appearance"
+msgstr "Apariencia pegajosa"
+
+#: options/opt_header.php:64
+msgid "Set the sticky appearance based on scrolling states."
+msgstr ""
+"Establezca la apariencia adhesiva en función de los estados de "
+"desplazamiento."
+
+#: options/opt_header.php:68
+msgid "Stick all Time"
+msgstr "Quédate todo el tiempo"
+
+#: options/opt_header.php:69
+msgid "Stick on Up Scrolling"
+msgstr "Stick on Up Scrolling"
+
+#: options/opt_header.php:76
+msgid "Header Layout"
+msgstr "Diseño de la cabecera"
+
+#: options/opt_header.php:89
+msgid "The Navbar Position will apply globally except the blog single page."
+msgstr ""
+"La posición de la barra de navegación se aplicará globalmente, excepto la "
+"página única del blog."
+
+#: options/opt_header.php:90
+msgid "The Static position recommended with disabling the Search Banner"
+msgstr ""
+"La posición estática recomendada para deshabilitar el banner de búsqueda"
+
+#: options/opt_header.php:102
+#, fuzzy
+#| msgid "Hover Color"
+msgid "Navbar Color"
+msgstr "Color al pasar por encima"
+
+#: options/opt_header.php:103
+msgid "Select the default color for the selected Navbar style."
+msgstr ""
+
+#: options/opt_header.php:104
+msgid ""
+"The selected style would apply main navbar area's elements (logo, menu "
+"items, action button)"
+msgstr ""
+
+#: options/opt_header.php:128
+#, fuzzy
+#| msgid "Search Form"
+msgid "Search Form Dimension"
+msgstr "Formulario de Búsqueda"
+
+#: options/opt_header.php:159 options/opt_header.php:166
+msgid "Logo"
+msgstr "Logo"
+
+#: options/opt_header.php:167
+msgid ""
+"The logo will display in the website’s navigation bar. If you’re uploading "
+"an SVG logo, there’s no need to upload a separate Retina logo, as SVG files "
+"maintain high resolution on all screens."
+msgstr ""
+
+#: options/opt_header.php:171
+msgid "Black Logo"
+msgstr "Logotipo negro"
+
+#: options/opt_header.php:172
+msgid "Upload here the black version of your logo."
+msgstr "Sube aquí la versión negra de tu logo."
+
+#: options/opt_header.php:184
+msgid "White Logo"
+msgstr "Logotipo blanco"
+
+#: options/opt_header.php:185
+#, fuzzy
+#| msgid "Upload here the white version of your logo."
+msgid ""
+"Upload here the white version of your logo. This logo is useful for the Dark "
+"mode."
+msgstr "Sube aquí la versión blanca de tu logo."
+
+#: options/opt_header.php:195
+msgid "Black Retina Logo"
+msgstr "Logotipo de Retina Negro"
+
+#: options/opt_header.php:196 options/opt_header.php:207
+msgid "The retina logo should be double (2x) of your original logo size."
+msgstr ""
+"El logotipo de la retina debe ser el doble (2x) del tamaño original del "
+"logotipo."
+
+#: options/opt_header.php:206
+msgid "White Retina Logo"
+msgstr "Logotipo blanco de Retina"
+
+#: options/opt_header.php:217
+msgid "Logo dimensions"
+msgstr "Dimensiones del logotipo"
+
+#: options/opt_header.php:218
+msgid "Set a custom height width for your uploaded logo."
+msgstr "Establezca un ancho de altura personalizado para su logotipo cargado."
+
+#: options/opt_header.php:233
+msgid ""
+"Padding around the logo. Input the padding as clockwise (Top Right Bottom "
+"Left)"
+msgstr ""
+"Acolchado alrededor del logotipo. Introducir el acolchado en el sentido de "
+"las agujas del reloj (arriba a la derecha abajo a la izquierda)"
+
+#: options/opt_header.php:273
+#, fuzzy
+#| msgid "Button label"
+msgid "Button Label"
+msgstr "Etiqueta de botón"
+
+#: options/opt_header.php:274
+msgid "Leave the button label field empty to hide the menu action button."
+msgstr ""
+"Deje vacío el campo de etiqueta del botón para ocultar el botón de acción "
+"del menú."
+
+#: options/opt_header.php:277
+msgid "Get Started"
+msgstr "Comenzar"
+
+#: options/opt_header.php:282
+#, fuzzy
+#| msgid "You are logged in"
+msgid "Button Label on Logged in"
+msgstr "Usted ha iniciado sesión"
+
+#: options/opt_header.php:283
+#, fuzzy
+#| msgid "Button label"
+msgid "Button label in login mode"
+msgstr "Etiqueta de botón"
+
+#: options/opt_header.php:301
+msgid "Button URL Target"
+msgstr "Destino de URL de botón"
+
+#: options/opt_header.php:305 options/opt_header.php:587
+msgid "Blank (Open in new tab)"
+msgstr "En blanco (Abrir en una pestaña nueva)"
+
+#: options/opt_header.php:306 options/opt_header.php:588
+msgid "Self (Open in the same tab)"
+msgstr "Self (Abrir en la misma pestaña)"
+
+#: options/opt_header.php:313
+msgid "Button padding"
+msgstr "Relleno de botones"
+
+#: options/opt_header.php:314
+msgid "Padding around the menu action button."
+msgstr "Acolchado alrededor del botón de acción del menú."
+
+#: options/opt_header.php:327
+#, fuzzy
+#| msgid "Button URL"
+msgid "Button Icon"
+msgstr "URL del botón"
+
+#: options/opt_header.php:328
+#, fuzzy
+#| msgid "Button Colors"
+msgid "Button icon properties"
+msgstr "Colores del botón"
+
+#: options/opt_header.php:336 options/opt_header.php:567
+msgid "Icon"
+msgstr "Icono"
+
+#: options/opt_header.php:337
+#, fuzzy
+#| msgid "Padding around the menu action button."
+msgid "Select an icon for the menu action button."
+msgstr "Acolchado alrededor del botón de acción del menú."
+
+#: options/opt_header.php:345
+#, fuzzy
+#| msgid "Position"
+msgid "Icon Position"
+msgstr "Posición"
+
+#: options/opt_header.php:346
+#, fuzzy
+#| msgid "Padding around the menu action button."
+msgid "Select the icon position for the menu action button."
+msgstr "Acolchado alrededor del botón de acción del menú."
+
+#: options/opt_header.php:350
+msgid "Before"
+msgstr ""
+
+#: options/opt_header.php:351
+msgid "After"
+msgstr ""
+
+#: options/opt_header.php:362
+msgid "Button Colors"
+msgstr "Colores del botón"
+
+#: options/opt_header.php:363
+msgid "Button style attributes on normal (non sticky) mode."
+msgstr "Atributos de estilo de botón en modo normal (no pegajoso)."
+
+#: options/opt_header.php:371 options/opt_header.php:458
+msgid "Font color"
+msgstr "Color de fuente"
+
+#: options/opt_header.php:402
+msgid "Hover Font Color"
+msgstr "Color de fuente hover"
+
+#: options/opt_header.php:403
+msgid "Font color on hover stats."
+msgstr "El color de las fuentes en las estadísticas de los flotadores."
+
+#: options/opt_header.php:413
+msgid "Border color on hover stats."
+msgstr "Color del borde en las estadísticas de desplazamiento."
+
+#: options/opt_header.php:423 options/opt_header.php:491
+msgid "Hover background color"
+msgstr "Color de fondo al pasar por encima"
+
+#: options/opt_header.php:424
+msgid "Background color on hover stats."
+msgstr "Color de fondo en las estadísticas de los flotadores."
+
+#: options/opt_header.php:439
+msgid "Sticky Button Style"
+msgstr "Estilo Botón Pegajoso"
+
+#: options/opt_header.php:440
+msgid "Button colors on sticky mode."
+msgstr "Colores de los botones en el modo pegajoso."
+
+#: options/opt_header.php:447
+msgid "Border color"
+msgstr "Color del borde"
+
+#: options/opt_header.php:448
+msgid "Border color on header sticky mode."
+msgstr "Color del borde en el modo adhesivo del encabezado."
+
+#: options/opt_header.php:459
+msgid "Font color on header sticky mode."
+msgstr "Color de fuente en el modo adhesivo del encabezado."
+
+#: options/opt_header.php:468 options/opt_header.php:742
+#: options/opt_header.php:1279
+msgid "Background color"
+msgstr "Color de fondo"
+
+#: options/opt_header.php:469
+msgid "Background color on header sticky mode."
+msgstr "Color de fondo en el modo adhesivo del encabezado."
+
+#: options/opt_header.php:481
+msgid "Hover font color"
+msgstr "Pase el color de fuente"
+
+#: options/opt_header.php:482
+msgid "Font hover color on Header sticky mode."
+msgstr "Color de desplazamiento de fuente en el modo adhesivo del encabezado."
+
+#: options/opt_header.php:492 options/opt_header.php:504
+msgid "Background hover color on Header sticky mode.."
+msgstr "Color de desplazamiento de fondo en el modo adhesivo del encabezado."
+
+#: options/opt_header.php:503
+msgid "Hover border color"
+msgstr "Color del borde al pasar el Ratón"
+
+#: options/opt_header.php:528 options/opt_header.php:537
+msgid "Top Header"
+msgstr "Cabecera superior"
+
+#: options/opt_header.php:538
+msgid "Toggle this switch to Show/Hide the Top Header."
+msgstr "Cambie este interruptor a Mostrar/Ocultar el encabezado superior."
+
+#: options/opt_header.php:548
+msgid "Active Current Site"
+msgstr "Sitio de corriente activa"
+
+#: options/opt_header.php:549
+msgid "Show the current website menu item URL activated."
+msgstr "Mostrar la URL del elemento de menú del sitio web actual activada."
+
+#: options/opt_header.php:560
+msgid "Left Items"
+msgstr "Elementos izquierdos"
+
+#: options/opt_header.php:561
+msgid "Add your menu items for the left side Top Header."
+msgstr ""
+"Agregue los elementos de su menú para el encabezado superior izquierdo."
+
+#: options/opt_header.php:573 options/opt_header.php:613
+msgid "Menu Item"
+msgstr "Elemento del menú"
+
+#: options/opt_header.php:579 options/opt_header.php:619
+msgid "Menu URL"
+msgstr "URL del menú"
+
+#: options/opt_header.php:583
+msgid "Menu URL Target"
+msgstr "Destino de URL de menú"
+
+#: options/opt_header.php:595
+msgid "Menu Item 01"
+msgstr "Elemento de menú 01"
+
+#: options/opt_header.php:599 options/opt_header.php:623
+msgid "Add Item"
+msgstr "Agregar Elemento"
+
+#: options/opt_header.php:606
+msgid "Right Items"
+msgstr "Elementos correctos"
+
+#: options/opt_header.php:607
+msgid "Add your menu items for the right side Top Header."
+msgstr "Agregue los elementos de su menú para el encabezado superior derecho."
+
+#: options/opt_header.php:649 options/opt_typo.php:22 options/opt_typo.php:62
+msgid "Important Note:"
+msgstr "Nota importantes:"
+
+#: options/opt_header.php:651
+msgid ""
+"By default, the Search Banner is displays on all pages. You can hide Search "
+"Banner from a specific page from Options :: Page > Banner"
+msgstr ""
+
+#: options/opt_header.php:667
+#, fuzzy
+#| msgid "Preloader Title"
+msgid "Banner Title"
+msgstr "Título del precargador"
+
+#: options/opt_header.php:673
+#, fuzzy
+#| msgid "Page title"
+msgid "Page Title"
+msgstr "Título de página"
+
+#: options/opt_header.php:674
+#, fuzzy
+#| msgid "Give here the shop page title"
+msgid "Show / Hide the page title"
+msgstr "Indique aquí el título de la página de la tienda"
+
+#: options/opt_header.php:681
+#, fuzzy
+#| msgid "Title Color"
+msgid "Title color"
+msgstr "Color del título"
+
+#: options/opt_header.php:694
+#, fuzzy
+#| msgid "Subtitle"
+msgid "Banner Subtitle"
+msgstr "Subtítulo"
+
+#: options/opt_header.php:700
+#, fuzzy
+#| msgid "Page title"
+msgid "Page Subtitle"
+msgstr "Título de página"
+
+#: options/opt_header.php:701
+msgid "Page subtitle will get from the page excerpt."
+msgstr ""
+
+#: options/opt_header.php:708
+#, fuzzy
+#| msgid "Subtitle"
+msgid "Subtitle color"
+msgstr "Subtítulo"
+
+#: options/opt_header.php:720
+#, fuzzy
+#| msgid "Search Form"
+msgid "Banner Search Form"
+msgstr "Formulario de Búsqueda"
+
+#: options/opt_header.php:727
+msgid "Enable/Disable the Search Form on the banner area."
+msgstr ""
+
+#: options/opt_header.php:734
+#, fuzzy
+#| msgid "Border color"
+msgid "Placeholder color"
+msgstr "Color del borde"
+
+#: options/opt_header.php:753
+msgid "Search Banner Layout"
+msgstr "Diseño de banner de búsqueda"
+
+#: options/opt_header.php:765
+msgid "Select Elementor Layout"
+msgstr "Seleccione el diseño del elementor"
+
+#: options/opt_header.php:777
+msgid "Search Banner Design"
+msgstr "Diseño de banner de búsqueda"
+
+#: options/opt_header.php:793
+msgid ""
+"Padding around the Search Banner. Input the padding as clockwise (Top Right "
+"Bottom Left)"
+msgstr ""
+"Relleno alrededor del banner de búsqueda. Introduzca el relleno en el "
+"sentido de las agujas del reloj (arriba a la derecha, abajo a la izquierda)"
+
+#: options/opt_header.php:809
+#, fuzzy
+#| msgid "Background Size"
+msgid "Background Styling"
+msgstr "Tamaño de fondo"
+
+#: options/opt_header.php:817
+msgid "Banner Background Style"
+msgstr "Estilo de fondo del banner"
+
+#: options/opt_header.php:859
+msgid "Left Leaf Image"
+msgstr "Imagen de la hoja izquierda"
+
+#: options/opt_header.php:873
+msgid "Right Leaf Image"
+msgstr "Imagen de la hoja derecha"
+
+#: options/opt_header.php:887
+msgid "Man Image"
+msgstr "Imagen del hombre"
+
+#: options/opt_header.php:901
+msgid "Flower Image"
+msgstr "Imagen de la flor"
+
+#: options/opt_header.php:915
+msgid "Background Shape Image"
+msgstr "Imagen de forma de fondo"
+
+#: options/opt_header.php:916
+msgid ""
+"We used here a transparent image that are containing stars. So you can use "
+"here similar transparent image or any other image."
+msgstr ""
+"Usamos aquí una imagen transparente que contiene estrellas. Así que puedes "
+"usar aquí una imagen transparente similar o cualquier otra imagen."
+
+#: options/opt_header.php:931
+msgid "Wave Shape 01"
+msgstr "Forma de onda 01"
+
+#: options/opt_header.php:932 options/opt_header.php:948
+msgid ""
+"We used here a transparent wave shape image. You can use here similar "
+"transparent shape image or any other image."
+msgstr ""
+"Utilizamos aquí una imagen transparente en forma de onda. Puede usar aquí "
+"una imagen de forma transparente similar o cualquier otra imagen."
+
+#: options/opt_header.php:947
+msgid "Wave Shape 02"
+msgstr "Forma de onda 02"
+
+#: options/opt_header.php:965
+#, fuzzy
+#| msgid "Overlay"
+msgid "Banner Overlay"
+msgstr "Cubrir"
+
+#: options/opt_header.php:976
+msgid "Show/hide banner overlay color"
+msgstr ""
+
+#: options/opt_header.php:989
+#, fuzzy
+#| msgid "Background Gradient Color"
+msgid "Overlay Gradient Color"
+msgstr "Color de Gradiente de Fondo"
+
+#: options/opt_header.php:990
+msgid "Use transparent colors to see the blur effect."
+msgstr ""
+
+#: options/opt_header.php:1004
+#, fuzzy
+#| msgid "Overlay"
+msgid "Overlay Blur"
+msgstr "Cubrir"
+
+#: options/opt_header.php:1005
+msgid "Enable/disable background overlay blur effect."
+msgstr ""
+
+#: options/opt_header.php:1017
+msgid "Blur Density"
+msgstr ""
+
+#: options/opt_header.php:1018
+#, fuzzy
+#| msgid "This color applied to Post Single, Forum pages, Search Results page"
+msgid ""
+"Adjust the blur intensity for Post Single, Forum pages, Search Results page"
+msgstr ""
+"Este color se aplica a Publicar único, páginas de foro, página de resultados "
+"de búsqueda"
+
+#: options/opt_header.php:1044
+msgid "Search Placeholder"
+msgstr "Buscar Marcador de Posición"
+
+#: options/opt_header.php:1045
+msgid "Search (\"/\" to focus)"
+msgstr "Buscar (\"/\" para enfocar)"
+
+#: options/opt_header.php:1053
+msgid "Focus Search"
+msgstr "Búsqueda de enfoque"
+
+#: options/opt_header.php:1054
+msgid ""
+"When you enter the cursor in the search field, a transparent overlay color "
+"will appear on other elements of the page."
+msgstr ""
+"Cuando ingrese el cursor en el campo de búsqueda, aparecerá un color de "
+"superposición transparente en otros elementos de la página."
+
+#: options/opt_header.php:1069
+msgid "Focus Search by /"
+msgstr "Enfoque Buscar por /"
+
+#: options/opt_header.php:1070
+msgid ""
+"If you enable this setting, your website visitors can focus (enter the mouse "
+"cursor) on the search form by pressing the \"/\" key of the keyboard."
+msgstr ""
+"Si habilita esta configuración, los visitantes de su sitio web pueden "
+"enfocarse (ingrese el cursor del mouse) en el formulario de búsqueda "
+"presionando la tecla \"/\" del teclado."
+
+#: options/opt_header.php:1087
+msgid "Search Keywords"
+msgstr "Palabra clave"
+
+#: options/opt_header.php:1095
+msgid "Do you want it?"
+msgstr ""
+
+#: options/opt_header.php:1108
+msgid "Keywords Label"
+msgstr "Etiqueta de palabras clave"
+
+#: options/opt_header.php:1111
+msgid "Popular Searches"
+msgstr "Búsquedas populares"
+
+#: options/opt_header.php:1120
+#, fuzzy
+#| msgid "Clear color"
+msgid "Label color"
+msgstr "Limpiar el color"
+
+#: options/opt_header.php:1137
+#, fuzzy
+#| msgid "Keywords"
+msgid "Keywords By"
+msgstr "Palabras clave"
+
+#: options/opt_header.php:1138
+msgid "Select your preferred keywords type."
+msgstr ""
+
+#: options/opt_header.php:1139
+msgid ""
+"Static keywords are predefined, while dynamic keywords are generated by "
+"queries from website visitors"
+msgstr ""
+
+#: options/opt_header.php:1142
+msgid "Dynamic (Sort by popular)"
+msgstr ""
+
+#: options/opt_header.php:1155
+#, fuzzy
+#| msgid "Keywords"
+msgid "Keywords Limit"
+msgstr "Palabras clave"
+
+#: options/opt_header.php:1156
+msgid "Set the number of keywords to show."
+msgstr ""
+
+#: options/opt_header.php:1170
+msgid "Keywords"
+msgstr "Palabras clave"
+
+#: options/opt_header.php:1178
+msgid "Text"
+msgstr ""
+
+#: options/opt_header.php:1182
+msgid "Add Keyword"
+msgstr "Añadir palabra clave"
+
+#: options/opt_header.php:1191
+#, fuzzy
+#| msgid "Keywords"
+msgid "Keywords color"
+msgstr "Palabras clave"
+
+#: options/opt_header.php:1219 woocommerce/order/order-details.php:131
+msgid "Note:"
+msgstr ""
+
+#: options/opt_header.php:1222
+#, php-format
+msgid ""
+"Get the Ajax Search results related settings in %1$s Theme Settings > "
+"General > Ajax Search%2$s Settings page"
+msgstr ""
+
+#: options/opt_header.php:1236 options/opt_header.php:1246
+msgid "Breadcrumbs"
+msgstr "Breadcrumbs"
+
+#: options/opt_header.php:1247
+msgid ""
+"Breadcrumbs are a great way to help your visitors navigate your website. The "
+"breadcrumbs displays below to the Search Banner."
+msgstr ""
+
+#: options/opt_header.php:1253
+msgid "Show/Hide Breadcrumb"
+msgstr "Mostrar / Ocultar Breadcrumb"
+
+#: options/opt_header.php:1254
+msgid "Toggle this switch to Show/Hide the Breadcrumb bar."
+msgstr ""
+"Cambie este interruptor a Mostrar/Ocultar la barra de ruta de navegación."
+
+#: options/opt_header.php:1264
+msgid "Frontpage Name"
+msgstr "Nombre de Frontpage"
+
+#: options/opt_header.php:1272
+msgid "Updated Text"
+msgstr "Texto actualizado"
+
+#: options/opt_header.php:1273
+#: template-parts/header-elements/search-banner/breadcrumb.php:2
+msgid "Updated on"
+msgstr "Actualizado el"
+
+#: options/opt_header.php:1289
+#, fuzzy
+#| msgid "Font color"
+msgid "Text color"
+msgstr "Color de fuente"
+
+#: options/opt_menu.php:5
+msgid "Menu"
+msgstr "Menú"
+
+#: options/opt_menu.php:27
+msgid "Navbar Meu Alignment"
+msgstr "Alineación de Navbar Meu"
+
+#: options/opt_menu.php:42
+msgid "Normal menu colors"
+msgstr "Colores normales del menú"
+
+#: options/opt_menu.php:43
+msgid "The following settings will only apply on the normal header mode.."
+msgstr ""
+"La siguiente configuración solo se aplicará en el modo de encabezado normal."
+
+#: options/opt_menu.php:48
+msgid "Item Color"
+msgstr "Color de Ítem"
+
+#: options/opt_menu.php:49
+msgid "This is the menu item font color."
+msgstr "Este es el color de fuente del elemento de menú."
+
+#: options/opt_menu.php:59
+msgid "Item Hover Color"
+msgstr "Color de desplazamiento del elemento"
+
+#: options/opt_menu.php:60
+msgid "Menu item's font color on hover stats."
+msgstr ""
+"Color de fuente del elemento de menú en las estadísticas de desplazamiento."
+
+#: options/opt_menu.php:73
+msgid "Item Active Color"
+msgstr "Color activo del artículo"
+
+#: options/opt_menu.php:74
+msgid "Menu item's font color on active stats."
+msgstr "Color de fuente del elemento de menú en estadísticas activas."
+
+#: options/opt_menu.php:88
+msgid "Sticky menu colors"
+msgstr "Colores fijos del menú"
+
+#: options/opt_menu.php:89
+msgid "The following settings will only apply on the sticky header mode.."
+msgstr ""
+"Los siguientes ajustes sólo se aplicarán en el modo de encabezado pegajoso..."
+
+#: options/opt_menu.php:94 options/opt_menu.php:136
+msgid "Menu Color"
+msgstr "Color del menú"
+
+#: options/opt_menu.php:95
+msgid "Menu item font color on sticky menu mode."
+msgstr "Color de la fuente del elemento de menú en el modo de menú pegajoso."
+
+#: options/opt_menu.php:105
+msgid "Menu Hover Color"
+msgstr "Color del menú al pasar por encima"
+
+#: options/opt_menu.php:106
+msgid "Menu item hover font color on header sticky mode"
+msgstr ""
+"El elemento de menú pasa el color de la fuente en el modo adhesivo del "
+"encabezado"
+
+#: options/opt_menu.php:116
+msgid "Menu Active Color"
+msgstr "Menú Color activo"
+
+#: options/opt_menu.php:117
+msgid "Menu item active font color on header sticky mode"
+msgstr ""
+"Elemento del menú color de fuente activo en el modo de encabezado pegajoso"
+
+#: options/opt_menu.php:130
+msgid "Dropdown menu colors"
+msgstr "Colores del menú desplegable"
+
+#: options/opt_menu.php:131
+msgid "The following settings will only apply on the dropdown header mode.."
+msgstr ""
+"La siguiente configuración solo se aplicará en el modo de encabezado "
+"desplegable."
+
+#: options/opt_menu.php:146
+msgid "Menu Hover/Active Color"
+msgstr "Menú flotante/Color activo"
+
+#: options/opt_menu.php:184
+msgid "Menu item padding"
+msgstr "Relleno de elementos de menú"
+
+#: options/opt_menu.php:185
+msgid ""
+"Padding around menu item. Default is 37px 0px 37px 0px. You can reduce the "
+"top and bottom padding to make the menu bar height smaller."
+msgstr ""
+"Relleno alrededor del elemento de menú. El valor predeterminado es 37px 0px "
+"37px 0px. Puede reducir el relleno superior e inferior para reducir la "
+"altura de la barra de menús."
+
+#: options/opt_menu.php:195
+msgid "Menu item margin"
+msgstr "Margen de la opción de menú"
+
+#: options/opt_menu.php:196
+msgid "Margin around menu item."
+msgstr "Margen alrededor del elemento de menú."
+
+#: options/opt_privacy.php:3
+msgid "Privacy"
+msgstr "Privacidad"
+
+#: options/opt_privacy.php:10
+msgid "Privacy Bar"
+msgstr "Barra de Privacidad"
+
+#: options/opt_privacy.php:11
+msgid "Turn on to enable a privacy bar at the bottom of the page."
+msgstr ""
+"Activar para habilitar una barra de privacidad en la parte inferior de la "
+"página."
+
+#: options/opt_privacy.php:23
+msgid "Privacy Bar Text"
+msgstr "Texto de la Barra de Privacidad"
+
+#: options/opt_privacy.php:26
+msgid "By using this website, you automatically accept that we use cookies."
+msgstr ""
+"Al utilizar este sitio web, usted acepta automáticamente que usemos cookies."
+
+#: options/opt_privacy.php:37
+msgid "Privacy Bar Button Text"
+msgstr "Texto de Botón de Barra de Privacidad"
+
+#: options/opt_privacy.php:40
+msgid "Understood"
+msgstr "Entendido"
+
+#: options/opt_privacy.php:45
+msgid "Privacy Bar Padding"
+msgstr "Relleno de Barra de Privacidad"
+
+#: options/opt_privacy.php:55
+msgid "Privacy Bar Background Color"
+msgstr "Color de Fondo de la Barra de Privacidad"
+
+#: options/opt_shop.php:4
+#, fuzzy
+#| msgid "wooCommerce"
+msgid "Shop/wooCommerce"
+msgstr "wooCommerce"
+
+#: options/opt_shop.php:22
+msgid "Page title"
+msgstr "Título de página"
+
+#: options/opt_shop.php:23
+msgid "Give here the shop page title"
+msgstr "Indique aquí el título de la página de la tienda"
+
+#: options/opt_shop.php:24
+msgid "This text will show on the shop page banner"
+msgstr "Este texto aparecerá en el banner de la página de la tienda"
+
+#: options/opt_shop.php:32
+msgid "Select the sidebar position of Shop page"
+msgstr "Seleccione la posición de la barra lateral de la página Tienda"
+
+#: options/opt_shop.php:48 options/opt_shop.php:55
+msgid "Product Single"
+msgstr "Producto individual"
+
+#: options/opt_shop.php:59
+msgid "Related Products Title"
+msgstr "Título de productos relacionados"
+
+#: options/opt_shop.php:62
+msgid "Related products"
+msgstr "Productos relacionados"
+
+#: options/opt_shop.php:65
+msgid "Related Products Subtitle"
+msgstr "Subtítulos de productos relacionados"
+
+#: options/opt_shop.php:76
+msgid "Gutenberg Blocks"
+msgstr "Bloques de Gutenberg"
+
+#: options/opt_shop.php:83
+msgid "Blocks"
+msgstr ""
+
+#: options/opt_shop.php:87
+msgid "Unload WC Gutenberg Assets"
+msgstr "Descargar activos de WC Gutenberg"
+
+#: options/opt_shop.php:88
+msgid ""
+"WC gutenberg assets loads globally. If you don't use wooCommerce gutenberg "
+"blocks, it's recommended to unload the unnecessary assets."
+msgstr ""
+"WC gutenberg assets se carga a nivel mundial. Si no utiliza los bloques "
+"gutenberg de wooCommerce, se recomienda descargar los activos innecesarios."
+
+#: options/opt_social_links.php:3 options/opt_social_links.php:11
+msgid "Social links"
+msgstr "Enlaces sociales"
+
+#: options/opt_social_links.php:16 woocommerce/single-product/meta.php:51
+msgid "Facebook"
+msgstr "Facebook"
+
+#: options/opt_social_links.php:23 woocommerce/single-product/meta.php:52
+msgid "Twitter"
+msgstr "Twitter"
+
+#: options/opt_social_links.php:30
+msgid "Instagram"
+msgstr "Instagram"
+
+#: options/opt_social_links.php:36
+msgid "LinkedIn"
+msgstr "LinkedIn"
+
+#: options/opt_social_links.php:43
+msgid "Youtube"
+msgstr "Youtube"
+
+#: options/opt_social_links.php:49
+msgid "Dribbble"
+msgstr "Dribbble"
+
+#: options/opt_social_links.php:55
+msgid "GitHub"
+msgstr "GitHub"
+
+#: options/opt_typo.php:3 options/opt_typo.php:10 options/opt_typo.php:15
+msgid "Typography Settings"
+msgstr "Ajustes de tipografía"
+
+#: options/opt_typo.php:24 options/opt_typo.php:64
+msgid ""
+"This tab contains general typography options. Additional typography options "
+"for specific areas can be found within other tabs. Example: For menu "
+"typography options go to the Menu Settings tab."
+msgstr ""
+"Esta ficha contiene opciones generales de tipografía. Se pueden encontrar "
+"opciones de tipografía adicionales para áreas específicas dentro de otras "
+"pestañas. Ejemplo: Para las opciones de tipografía del menú, vaya a la "
+"pestaña Configuración del menú."
+
+#: options/opt_typo.php:30
+msgid "Body Typography"
+msgstr "Tipografía del cuerpo"
+
+#: options/opt_typo.php:31
+msgid "These settings control the typography for the body text globally."
+msgstr ""
+"Esta configuración controla la tipografía del texto del cuerpo globalmente."
+
+#: options/opt_typo.php:48 options/opt_typo.php:55
+msgid "Headers Typography"
+msgstr "Tipografía de encabezados"
+
+#: options/opt_typo.php:70
+msgid "H1 Headers Typography"
+msgstr "Tipografía de encabezados H1"
+
+#: options/opt_typo.php:71
+msgid "These settings control the typography for all H1 Headers."
+msgstr "Estos ajustes controlan la tipografía para todos los encabezados H1."
+
+#: options/opt_typo.php:85
+msgid "H2 Headers Typography"
+msgstr "Tipografía de encabezados H2"
+
+#: options/opt_typo.php:86
+msgid ""
+"These settings control the typography for all H2 Headers. The h2 title tag "
+"used in the most section title."
+msgstr ""
+"Esta configuración controla la tipografía de todos los encabezados H2. La "
+"etiqueta de título h2 utilizada en el título de la sección más."
+
+#: options/opt_typo.php:100
+msgid "H3 Headers Typography"
+msgstr "Tipografía de encabezados H3"
+
+#: options/opt_typo.php:101
+msgid "These settings control the typography for all H3 Headers."
+msgstr "Estos ajustes controlan la tipografía para todos los encabezados H3."
+
+#: options/opt_typo.php:115
+msgid "H4 Headers Typography"
+msgstr "Tipografía de encabezados H4"
+
+#: options/opt_typo.php:116
+msgid "These settings control the typography for all H4 Headers."
+msgstr "Estos ajustes controlan la tipografía para todos los encabezados H4."
+
+#: options/opt_typo.php:130
+msgid "H5 Headers Typography"
+msgstr "Tipografía de encabezados H5"
+
+#: options/opt_typo.php:138
+msgid "These settings control the typography for all H5 Headers."
+msgstr ""
+"Estas configuraciones controlan la tipografía para todos los encabezados H5."
+
+#: options/opt_typo.php:152
+msgid "H6 Headers Typography"
+msgstr "Tipografía de encabezados H6"
+
+#: options/opt_typo.php:153
+msgid "These settings control the typography for all H6 Headers."
+msgstr "Estos ajustes controlan la tipografía para todos los encabezados H6."
+
+#: page-signin.php:29 page-signup.php:27
+msgid "top ornament"
+msgstr "Adorno superior"
+
+#: page-signin.php:36 page-signup.php:33
+msgid "bottom ornament"
+msgstr "adorno inferior"
+
+#: page-signin.php:43
+msgid "door"
+msgstr "puerta"
+
+#: page-signin.php:52 page-signup.php:48
+#, fuzzy
+#| msgid "Back to Home Page"
+msgid "Back to Home"
+msgstr "Volver a la Página de Inicio"
+
+#: page-signin.php:79
+msgid "Welcome "
+msgstr "Bienvenido "
+
+#: page-signin.php:83
+msgid "You are logged in"
+msgstr "Usted ha iniciado sesión"
+
+#: page-signup.php:39
+msgid "man image with lock"
+msgstr "Imagen de hombre con bloqueo"
+
+#: page.php:61 single-elementor_library.php:11 single.php:69
+msgid "Pages:"
+msgstr "Páginas:"
+
+#: page.php:65 single-elementor_library.php:15 single.php:73
+msgid "Page"
+msgstr "Página"
+
+#: search.php:34
+#, fuzzy, php-format
+#| msgid "%1$s review for %2$s"
+#| msgid_plural "%1$s reviews for %2$s"
+msgid "Found %1$s results for \"%2$s\""
+msgstr "%1$s revisión para%2$s"
+
+#: search.php:41
+msgid "All"
+msgstr "Todo"
+
+#: search.php:61
+msgid "Relevance"
+msgstr ""
+
+#: search.php:64
+msgid "Latest"
+msgstr ""
+
+#: single.php:82
+msgid "Tags : "
+msgstr "Etiquetas: "
+
+#: template-parts/contents/content-none.php:14
+msgid "Nothing Found"
+msgstr "Nada Encontrado"
+
+#: template-parts/contents/content-none.php:21
+#, fuzzy, php-format
+msgid ""
+"Ready to publish your first post? <a href=\"%1$s\">Get started here</a>."
+msgstr ""
+"Listo para publicar su primer post? <a href=\"%1$s\"> Comienza aquí </a>."
+
+#: template-parts/contents/content-none.php:25
+msgid ""
+"Sorry, but nothing matched your search terms. Please try again with some "
+"different keywords."
+msgstr ""
+"Lo sentimos, pero nada coincide con sus términos de búsqueda. Por favor, "
+"inténtelo de nuevo con algunas palabras clave diferentes."
+
+#: template-parts/contents/content-none.php:29
+msgid ""
+"It seems we can&rsquo;t find what you&rsquo;re looking for. Perhaps "
+"searching can help."
+msgstr ""
+"Parece que no podemos encontrar lo que estamos buscando. Tal vez la búsqueda "
+"puede ayudar."
+
+#: template-parts/contents/content-search.php:5
+#: template-parts/contents/content.php:20
+msgid "Featured"
+msgstr "Destacado"
+
+#: template-parts/contents/mobile-toc-share.php:6
+msgid "Table of Contents"
+msgstr ""
+
+#: template-parts/contents/mobile-toc-share.php:12
+#: template-parts/contents/mobile-toc-share.php:29
+#, fuzzy
+#| msgid "plus icon"
+msgid "Cross icon"
+msgstr "Icono más"
+
+#: template-parts/contents/mobile-toc-share.php:21
+#, fuzzy
+#| msgid "Share"
+msgid "Share icon"
+msgstr "Compartir"
+
+#: template-parts/contents/mobile-toc-share.php:22
+#: woocommerce/single-product/photoswipe.php:36
+msgid "Share"
+msgstr "Compartir"
+
+#: template-parts/contents/mobile-toc-share.php:34
+#, fuzzy
+#| msgid "Checkout"
+msgid "Check out this page"
+msgstr "Pagar"
+
+#: template-parts/footers/footer-normal.php:6
+#: template-parts/footers/footer-normal.php:40
+msgid "© 2021 Spider-Themes. All rights reserved"
+msgstr "© 2021 Spider-Themes. Todos los derechos reservados"
+
+#: template-parts/footers/footer-simple.php:6
+msgid "Leaf Illustration"
+msgstr "Ilustración de hojas"
+
+#: template-parts/footers/footer-simple.php:12
+#, fuzzy
+#| msgid "© 2021 Spider-Themes. All rights reserved"
+msgid "© 2025 Spider-Themes. All rights reserved"
+msgstr "© 2021 Spider-Themes. Todos los derechos reservados"
+
+#: template-parts/header-elements/dark-switcher.php:6
+msgid "Toggle dark mode"
+msgstr "Alternar modo oscuro"
+
+#: template-parts/header-elements/search-banner/ajax-search-results.php:1
+msgid "No Results Found"
+msgstr "No se han encontrado resultados"
+
+#: template-parts/header-elements/search-banner/breadcrumb.php:32
+msgid "Search results for \""
+msgstr "Resultados de búsqueda para \""
+
+#: template-parts/header-elements/search-banner/breadcrumb.php:44
+msgid "Published on: "
+msgstr ""
+
+#: template-parts/header-elements/search-banner/featured-video.php:25
+msgid "Copy link"
+msgstr ""
+
+#: template-parts/header-elements/search-banner/featured-video.php:30
+#, fuzzy
+#| msgid "Post Icon"
+msgid "Play Icon"
+msgstr "Icono de la Entrada"
+
+#: template-parts/header-elements/search-banner/featured-video.php:32
+#, fuzzy
+#| msgid "Click here to login"
+msgid "Click to play"
+msgstr "Haga clic aquí para ingresar"
+
+#: template-parts/header-elements/search-banner/search-spinner.php:2
+msgid "loading"
+msgstr "cargando"
+
+#: template-parts/single-post/banner-colorful.php:14
+#: template-parts/single-post/banner-colorful.php:15
+msgid "banner shape"
+msgstr "Forma del banner"
+
+#: template-parts/single-post/banner-colorful.php:23
+#: template-parts/single-post/banner-colorful.php:24
+msgid "plus icon"
+msgstr "Icono más"
+
+#: template-parts/single-post/banner-curved.php:49
+#: template-parts/single-post/banner-curved.php:50
+msgid "Overlay Image"
+msgstr "Imagen de superposición"
+
+#: template-parts/single-post/post-meta-bottom.php:11
+#, fuzzy
+#| msgid "Author"
+msgid "Post Author "
+msgstr "Autor"
+
+#: template-parts/single-post/post-meta-bottom.php:23
+msgid " to read this post"
+msgstr " Para leer este post"
+
+#: template-parts/single-post/post-meta-bottom.php:33
+msgid " Views"
+msgstr " Visitas"
+
+#: template-parts/single-post/post-meta-top.php:17
+msgid "First published on "
+msgstr ""
+
+#: template-parts/single-post/post-meta-top.php:19
+#, fuzzy
+#| msgid "Updated on"
+msgid "Updated on "
+msgstr "Actualizado el"
+
+#: woocommerce/cart/cart-totals.php:28
+msgid "Cart Totals"
+msgstr "Total del carrito"
+
+#: woocommerce/cart/cart-totals.php:31
+msgid "Subtotal"
+msgstr "Subtotal"
+
+#: woocommerce/cart/cart-totals.php:52
+msgid "Shipping "
+msgstr "Envío "
+
+#: woocommerce/cart/cart-totals.php:67
+#, php-format
+msgid "(estimated for %s)"
+msgstr "(estimado para %s)"
+
+#: woocommerce/cart/cart-totals.php:86 woocommerce/order/order-details.php:65
+msgid "Total"
+msgstr "Total"
+
+#: woocommerce/cart/cart.php:32 woocommerce/cart/cart.php:51
+#: woocommerce/cart/cart.php:62
+msgid "PRODUCT"
+msgstr "PRODUCTO"
+
+#: woocommerce/cart/cart.php:33 woocommerce/cart/cart.php:82
+msgid "PRICE"
+msgstr "PRECIO"
+
+#: woocommerce/cart/cart.php:34 woocommerce/cart/cart.php:85
+msgid "QUANTITY"
+msgstr "CANTIDAD"
+
+#: woocommerce/cart/cart.php:35 woocommerce/cart/cart.php:105
+msgid "TOTAL"
+msgstr "TOTAL"
+
+#: woocommerce/cart/cart.php:78 woocommerce/cart/mini-cart.php:69
+msgid "Available on backorder"
+msgstr "Disponible por pedido pendiente"
+
+#: woocommerce/cart/cart.php:118 woocommerce/cart/mini-cart.php:83
+msgid "Remove this item"
+msgstr "Eliminar este artículo"
+
+#: woocommerce/cart/cart.php:133
+msgid "Continue Shopping"
+msgstr "Seguir comprando"
+
+#: woocommerce/cart/cart.php:135
+msgid "Update cart"
+msgstr "Actualizar carrito"
+
+#: woocommerce/cart/cart.php:141
+msgid "Discount Code:"
+msgstr "Código descuento:"
+
+#: woocommerce/cart/cart.php:145
+msgid "Enter your coupon code"
+msgstr "Escriba su Código de Cupón"
+
+#: woocommerce/cart/cart.php:146 woocommerce/checkout/form-coupon.php:43
+msgid "Apply coupon"
+msgstr "Aplicar cupón"
+
+#: woocommerce/cart/cart.php:146 woocommerce/checkout/form-coupon.php:44
+msgid "Apply"
+msgstr "Aplicar"
+
+#: woocommerce/cart/cross-sells.php:27
+msgid "You may be interested in&hellip;"
+msgstr "Usted puede estar interesado en&hellip;"
+
+#: woocommerce/cart/mini-cart.php:100
+msgid "Subtotal :"
+msgstr "Subtotal:"
+
+#: woocommerce/cart/mini-cart.php:103
+msgid "View Cart"
+msgstr "Ver Carrito"
+
+#: woocommerce/cart/mini-cart.php:104
+msgid "Checkout"
+msgstr "Pagar"
+
+#: woocommerce/cart/mini-cart.php:110
+msgid "No products in the cart."
+msgstr "No hay productos en el carrito."
+
+#: woocommerce/cart/proceed-to-checkout-button.php:26
+msgid "Proceed to checkout"
+msgstr "Finalizar pedido"
+
+#: woocommerce/checkout/form-billing.php:26
+msgid "Billing &amp; Shipping"
+msgstr "Facturación &amp; Envío"
+
+#: woocommerce/checkout/form-billing.php:30
+msgid "Billing details"
+msgstr "Detalles de facturación"
+
+#: woocommerce/checkout/form-billing.php:60
+msgid "Create an account?"
+msgstr "¿Crear una cuenta?"
+
+#: woocommerce/checkout/form-checkout.php:26
+msgid "You must be logged in to checkout."
+msgstr "Debes iniciar sesión para realizar el pago."
+
+#: woocommerce/checkout/form-checkout.php:54
+msgid "Your order"
+msgstr "Tu pedido"
+
+#: woocommerce/checkout/form-coupon.php:32
+msgid "Have a coupon?"
+msgstr "¿Tienes un cupón?"
+
+#: woocommerce/checkout/form-coupon.php:34
+msgid "Click here to enter your code"
+msgstr "Haga clic aquí para ingresar su código"
+
+#: woocommerce/checkout/form-coupon.php:39
+msgid "If you have a coupon code, please apply it below."
+msgstr "Si tenés un código de cupón, por favor, aplicálo abajo."
+
+#: woocommerce/checkout/form-coupon.php:42
+msgid "Coupon code"
+msgstr "Código de cupón"
+
+#: woocommerce/checkout/form-login.php:28
+msgid "Returning customer?"
+msgstr "¿Ya eres cliente?"
+
+#: woocommerce/checkout/form-login.php:29
+msgid "Click here to login"
+msgstr "Haga clic aquí para ingresar"
+
+#: woocommerce/checkout/form-login.php:38
+#, fuzzy
+#| msgid ""
+#| "If you have shopped with us before, please enter your details below. If "
+#| "you are a new customer, please proceed to the Billing & Shipping section."
+msgid ""
+"If you have shopped with us before, please enter your details below. If you "
+"are a new customer, please proceed to the Billing section."
+msgstr ""
+"Si ha comprado con nosotros antes, ingrese sus datos a continuación. Si es "
+"un cliente nuevo, vaya a la sección Facturación y envío."
+
+#: woocommerce/checkout/form-shipping.php:26
+msgid "Ship to a different address?"
+msgstr "¿Enviar a una dirección diferente?"
+
+#: woocommerce/checkout/form-shipping.php:60
+#: woocommerce/single-product/tabs/additional-information.php:25
+msgid "Additional information"
+msgstr "Información adicional"
+
+#: woocommerce/checkout/order-received.php:33
+msgid "Thank you. Your order has been received."
+msgstr ""
+
+#: woocommerce/checkout/order-received.php:40
+msgid "Order:"
+msgstr ""
+
+#: woocommerce/checkout/payment.php:35
+msgid ""
+"Sorry, it seems that there are no available payment methods. Please contact "
+"us if you require assistance or wish to make alternate arrangements."
+msgstr ""
+
+#: woocommerce/checkout/payment.php:35
+msgid "Please fill in your details above to see available payment methods."
+msgstr ""
+
+#. translators: $1 and $2 opening and closing emphasis tags respectively
+#: woocommerce/checkout/payment.php:45
+#, php-format
+msgid ""
+"Since your browser does not support JavaScript, or it is disabled, please "
+"ensure you click the %1$sUpdate Totals%2$s button before placing your order. "
+"You may be charged more than the amount stated above if you fail to do so."
+msgstr ""
+
+#: woocommerce/checkout/payment.php:51
+#, fuzzy
+#| msgid "Updated on"
+msgid "Update totals"
+msgstr "Actualizado el"
+
+#: woocommerce/checkout/thankyou.php:33
+msgid ""
+"Unfortunately your order cannot be processed as the originating bank/"
+"merchant has declined your transaction. Please attempt your purchase again."
+msgstr ""
+
+#: woocommerce/checkout/thankyou.php:36
+#, fuzzy
+#| msgid "Privacy"
+msgid "Pay"
+msgstr "Privacidad"
+
+#: woocommerce/checkout/thankyou.php:38
+#, fuzzy
+#| msgid "Account"
+msgid "My account"
+msgstr "Cuenta"
+
+#: woocommerce/checkout/thankyou.php:47
+msgid "Order Summary"
+msgstr ""
+
+#: woocommerce/checkout/thankyou.php:50
+#, fuzzy
+#| msgid "Post Date"
+msgid "Date:"
+msgstr "Fecha de publicación"
+
+#: woocommerce/checkout/thankyou.php:54
+#, fuzzy
+#| msgid "Email"
+msgid "Email:"
+msgstr "Email"
+
+#: woocommerce/checkout/thankyou.php:58
+#, fuzzy
+#| msgid "Total"
+msgid "Total:"
+msgstr "Total"
+
+#: woocommerce/checkout/thankyou.php:62
+msgid "Payment method:"
+msgstr ""
+
+#: woocommerce/global/form-login.php:35
+#: woocommerce/myaccount/form-lost-password.php:28
+#, fuzzy
+#| msgid "Username or Email"
+msgid "Username or email"
+msgstr "Nombre de usuario o correo electrónico"
+
+#: woocommerce/global/form-login.php:57 woocommerce/myaccount/form-login.php:59
+#, fuzzy
+#| msgid "Remember Me"
+msgid "Remember me"
+msgstr "Recuérdame"
+
+#: woocommerce/global/form-login.php:63 woocommerce/myaccount/form-login.php:71
+#, fuzzy
+#| msgid "Lost Password"
+msgid "Lost your password?"
+msgstr "Contraseña perdida"
+
+#. translators: %s: Quantity.
+#: woocommerce/global/quantity-input.php:28
+#, php-format
+msgid "%s quantity"
+msgstr "%s cantidad"
+
+#: woocommerce/global/quantity-input.php:41
+msgctxt "Product quantity input tooltip"
+msgid "Qty"
+msgstr "Cantidad"
+
+#: woocommerce/loop/no-products-found.php:25
+msgid "No products were found matching your selection."
+msgstr "No se encontraron productos que coincidan con su selección."
+
+#. translators: %d: total results
+#: woocommerce/loop/result-count.php:30
+#, php-format
+msgid "Showing the single result"
+msgid_plural "Showing all %d results"
+msgstr[0] "Mostrando un único resultado"
+msgstr[1] "Mostrando todos los %d resultados"
+
+#. translators: 1: first result 2: last result 3: total results
+#: woocommerce/loop/result-count.php:35
+#, php-format
+msgctxt "with first and last result"
+msgid "Showing the single result"
+msgid_plural "Showing %1$d&ndash;%2$d of %3$d results"
+msgstr[0] "Mostrando un único resultado"
+msgstr[1] "Mostrando %1$d&ndash;%2$d de %3$d resultados"
+
+#: woocommerce/loop/sale-flash.php:28
+#: woocommerce/single-product/sale-flash.php:28
+msgid "Sale!"
+msgstr "¡Oferta!"
+
+#: woocommerce/myaccount/form-login.php:41
+#, fuzzy
+#| msgid "Username or Email"
+msgid "Username or email address"
+msgstr "Nombre de usuario o correo electrónico"
+
+#: woocommerce/myaccount/form-login.php:63
+#: woocommerce/myaccount/form-login.php:64
+#, fuzzy
+#| msgid "Log In"
+msgid "Log in"
+msgstr "Iniciar sesión"
+
+#: woocommerce/myaccount/form-login.php:119
+msgid "A link to set a new password will be sent to your email address."
+msgstr ""
+
+#: woocommerce/myaccount/form-lost-password.php:25
+msgid ""
+"Lost your password? Please enter your username or email address. You will "
+"receive a link to create a new password via email."
+msgstr ""
+
+#: woocommerce/myaccount/form-lost-password.php:38
+#: woocommerce/myaccount/form-lost-password.php:39
+#, fuzzy
+#| msgid "Reset My Password"
+msgid "Reset password"
+msgstr "Restablecer mi contraseña"
+
+#: woocommerce/myaccount/form-reset-password.php:25
+#, fuzzy
+#| msgid "Type your new password again."
+msgid "Enter a new password below."
+msgstr "Escribe tu nueva contraseña nuevamente."
+
+#: woocommerce/myaccount/form-reset-password.php:28
+#, fuzzy
+#| msgid "Hide password"
+msgid "New password"
+msgstr "Ocultar la contraseña"
+
+#: woocommerce/myaccount/form-reset-password.php:32
+#, fuzzy
+#| msgid "Repeat New Password"
+msgid "Re-enter new password"
+msgstr "Repita la nueva contraseña"
+
+#: woocommerce/myaccount/lost-password-confirmation.php:20
+msgid "Password reset email has been sent."
+msgstr ""
+
+#: woocommerce/myaccount/lost-password-confirmation.php:25
+msgid ""
+"A password reset email has been sent to the email address on file for your "
+"account, but may take several minutes to show up in your inbox. Please wait "
+"at least 10 minutes before attempting another reset."
+msgstr ""
+
+#: woocommerce/order/order-details-customer.php:31
+#, fuzzy
+#| msgid "Billing details"
+msgid "Billing address"
+msgstr "Detalles de facturación"
+
+#: woocommerce/order/order-details-customer.php:34
+#: woocommerce/order/order-details-customer.php:63
+#: woocommerce/single-product/meta.php:25
+msgid "N/A"
+msgstr "N/A"
+
+#: woocommerce/order/order-details-customer.php:61
+#, fuzzy
+#| msgid "Shipping "
+msgid "Shipping address"
+msgstr "Envío "
+
+#: woocommerce/order/order-details.php:58
+#, fuzzy
+#| msgid "Hide Details"
+msgid "Order details"
+msgstr "Ocultar detalles"
+
+#: woocommerce/order/order-details.php:64
+#, fuzzy
+#| msgid "Product Single"
+msgid "Product"
+msgstr "Producto individual"
+
+#: woocommerce/order/order-details.php:98
+#, fuzzy
+#| msgid "Direction"
+msgid "Actions"
+msgstr "Dirección"
+
+#. translators: %1$s Action name, %2$s Order number.
+#: woocommerce/order/order-details.php:106
+#, fuzzy, php-format
+#| msgid "%1$s review for %2$s"
+#| msgid_plural "%1$s reviews for %2$s"
+msgid "%1$s order number %2$s"
+msgstr "%1$s revisión para%2$s"
+
+#. translators: 1: reviews count 2: product name
+#: woocommerce/single-product-reviews.php:31
+#, php-format
+msgid "%1$s review for %2$s"
+msgid_plural "%1$s reviews for %2$s"
+msgstr[0] "%1$s revisión para%2$s"
+msgstr[1] "%1$s valoraciones en %2$s"
+
+#: woocommerce/single-product-reviews.php:33
+msgid "Reviews"
+msgstr "Comentarios"
+
+#: woocommerce/single-product-reviews.php:59
+#, php-format
+msgid "Leave a Reply to %s"
+msgstr "Dejar una respuesta a %s"
+
+#: woocommerce/single-product-reviews.php:60
+msgid "Add your Review"
+msgstr "Añadir una valoración"
+
+#: woocommerce/single-product-reviews.php:60
+#, php-format
+msgid "Be the first to review &ldquo;%s&rdquo;"
+msgstr "Sé el primero en comentar &ldquo;%s&rdquo;"
+
+#: woocommerce/single-product-reviews.php:66
+msgid "Name *"
+msgstr "Nombre *"
+
+#: woocommerce/single-product-reviews.php:81
+#, php-format
+msgid "You must be <a href=\"%s\">logged in</a> to post a review."
+msgstr "Debes <a href=“%s”>iniciar sesión</a> para publicar un comentario."
+
+#: woocommerce/single-product-reviews.php:86
+msgid "Your Review"
+msgstr "Tu reseña"
+
+#: woocommerce/single-product-reviews.php:92
+msgid "Your rating:"
+msgstr "Tu Valoración:"
+
+#: woocommerce/single-product-reviews.php:94
+msgid "Rate&hellip;"
+msgstr "Rate&hellip;"
+
+#: woocommerce/single-product-reviews.php:95
+msgid "Perfect"
+msgstr "Perfecto"
+
+#: woocommerce/single-product-reviews.php:96
+msgid "Good"
+msgstr "Bueno"
+
+#: woocommerce/single-product-reviews.php:97
+msgid "Average"
+msgstr "Promedio"
+
+#: woocommerce/single-product-reviews.php:98
+msgid "Not that bad"
+msgstr "No tan mal"
+
+#: woocommerce/single-product-reviews.php:99
+msgid "Very poor"
+msgstr "Muy pobre"
+
+#: woocommerce/single-product-reviews.php:109
+msgid ""
+"Only logged in customers who have purchased this product may leave a review."
+msgstr ""
+"Sólo los clientes que han comprado este producto puede dejar una reseña."
+
+#: woocommerce/single-product/add-to-cart/variable.php:32
+msgid "This product is currently out of stock and unavailable."
+msgstr "Este producto está actualmente agotado y no está disponible."
+
+#: woocommerce/single-product/add-to-cart/variation.php:23
+msgid ""
+"Sorry, this product is unavailable. Please choose a different combination."
+msgstr ""
+"Lo sentimos, por el momento este producto solo está disponible directamente "
+"en <a href=“https://pasteleriaalcazar.mx/sucursales” "
+"target=“_blank”>nuestras sucursales</a>."
+
+#: woocommerce/single-product/meta.php:36
+msgid "SKU:"
+msgstr "SKU:"
+
+#: woocommerce/single-product/meta.php:40
+msgid "Category:"
+msgid_plural "Categories:"
+msgstr[0] "Categoría:"
+msgstr[1] "Categorías:"
+
+#: woocommerce/single-product/meta.php:42
+msgid "Tag:"
+msgid_plural "Tags: "
+msgstr[0] "Etiqueta:"
+msgstr[1] "Etiquetas: "
+
+#: woocommerce/single-product/meta.php:49
+msgid "Share ON:"
+msgstr "Compartir ON:"
+
+#: woocommerce/single-product/meta.php:53
+msgid "Pinterest"
+msgstr "Pinterest"
+
+#: woocommerce/single-product/meta.php:54
+msgid "Linkedin"
+msgstr "Linkedin"
+
+#: woocommerce/single-product/photoswipe.php:35
+msgid "Close (Esc)"
+msgstr "Cerrar (Esc)"
+
+#: woocommerce/single-product/photoswipe.php:37
+msgid "Toggle fullscreen"
+msgstr "Cambiar a pantalla completa"
+
+#: woocommerce/single-product/photoswipe.php:38
+msgid "Zoom in/out"
+msgstr "Zoom acercar/alejar"
+
+#: woocommerce/single-product/photoswipe.php:50
+msgid "Previous (arrow left)"
+msgstr "Anterior (flecha izquierda)"
+
+#: woocommerce/single-product/photoswipe.php:51
+msgid "Next (arrow right)"
+msgstr "Siguiente (flecha derecha)"
+
+#: woocommerce/single-product/product-attributes.php:29
+msgid "Weight"
+msgstr "Peso"
+
+#: woocommerce/single-product/product-attributes.php:36
+msgid "Dimensions"
+msgstr "Dimensiones"
+
+#: woocommerce/single-product/product-image.php:43
+msgid "Awaiting product image"
+msgstr "Esperando imagen del producto"
+
+#: woocommerce/single-product/rating.php:42
+msgid " reviews"
+msgstr " reseñas"
+
+#: woocommerce/single-product/review-meta.php:27
+msgid "Your review is awaiting approval"
+msgstr "Su reseña esta a la espera de ser aprobada"
+
+#: woocommerce/single-product/review-meta.php:37
+msgid "verified owner"
+msgstr "propietario verificado"
+
+#: woocommerce/single-product/tabs/description.php:25
+msgid "Description"
+msgstr "Descripción"
+
+#: woocommerce/single-product/up-sells.php:27
+msgid "You may also like&hellip;"
+msgstr "También te puede interesar&hellip;"
+
+#: woocommerce/wc-template-parts/content-list.php:27
+msgid "Add to cart"
+msgstr "Añadir al carrito"
+
+#. Theme URI of the plugin/theme
+msgid "https://wordpress-theme.spider-themes.net/docy/"
+msgstr "https://wordpress-theme.spider-themes.net/docy/"
+
+#. Description of the plugin/theme
+msgid ""
+"Docy is a WordPress theme for documentation and knowledge base with forum. "
+"It is a perfect theme for any kind of documentation, knowledge base, "
+"helpdesk, support center, FAQ, community forum, etc. It is a responsive "
+"theme and looks great on all devices. It is a powerful theme with tons of "
+"features. It has a powerful admin panel with tons of options to customize "
+"the theme."
+msgstr ""
+"Docy es un tema de WordPress para documentación y base de conocimientos con "
+"foro. Es un tema perfecto para cualquier tipo de documentación, base de "
+"conocimientos, mesa de ayuda, centro de soporte, preguntas frecuentes, foro "
+"de la comunidad, etc. Es un tema responsivo y se ve muy bien en todos los "
+"dispositivos. Es un tema poderoso con toneladas de características. Tiene un "
+"potente panel de administración con toneladas de opciones para personalizar "
+"el tema."
+
+#. Author of the plugin/theme
+#, fuzzy
+#| msgid "Pro Element"
+msgid "Spider Themes"
+msgstr "Elemento Pro"
+
+#. Author URI of the plugin/theme
+msgid "https://themeforest.net/user/spider-themes"
+msgstr "https://themeforest.net/user/spider-themes"
+
+#. Template Name of the plugin/theme
+msgid "Sign in Page"
+msgstr "Página de inicio de sesión"
+
+#. Template Name of the plugin/theme
+msgid "Sign up Page"
+msgstr "Página de registro"
+
+#~ msgid ""
+#~ "If post excerpt empty, the excerpt content will take from the post "
+#~ "content. Define here how much word you want to show along with the each "
+#~ "posts in the blog page."
+#~ msgstr ""
+#~ "Si el extracto de la publicación está vacío, el contenido del extracto se "
+#~ "tomará del contenido de la publicación. Defina aquí cuánta palabra desea "
+#~ "mostrar junto con cada publicación en la página del blog."
+
+#~ msgid "Enter the username here."
+#~ msgstr "Introduzca el nombre de usuario aquí."
+
+#~ msgid "Forgotten password?"
+#~ msgstr "¿Olvidaste tu contraseña?"
+
+#~ msgid "Sign in"
+#~ msgstr "Iniciar sesión"
+
+#~ msgid "© 2023 Spider-Themes. All rights reserved"
+#~ msgstr "© 2023 Spider-Themes. Todos los derechos reservados"
+
+#~ msgid "spider-themes"
+#~ msgstr "Temas de araña"
+
+#~ msgid "Contact Info"
+#~ msgstr "Información de contacto"
+
+#~ msgid "About the user"
+#~ msgstr "Acerca del usuario"
+
+#~ msgid "Save Changes"
+#~ msgstr "Guardar cambios"
+
+#~ msgid "Blog Role"
+#~ msgstr "Rol de blog"
+
+#~ msgid "Forum Role"
+#~ msgstr "Rol del Foro"
+
+#~ msgid ""
+#~ "We have detected another Options Framework Plugin installed in this site."
+#~ msgstr ""
+#~ "Hemos detectado otro plugin de Options Framework instalado en este sitio."
+
+#~ msgid ""
+#~ "We've removed dependency from Redux framework. If you don't use Redux "
+#~ "framework's other features, you can deactivate it."
+#~ msgstr ""
+#~ "Hemos eliminado la dependencia del marco Redux. Si no utiliza otras "
+#~ "características del marco Redux, puede desactivarlo."
+
+#~ msgid "Dashboard"
+#~ msgstr "Escritorio"
+
+#~ msgid "Docs"
+#~ msgstr "Documentos"
+
+#~ msgid "No result found!"
+#~ msgstr "No se encontró ningún resultado!"
+
+#, php-format
+#~ msgid "#%d (no title)"
+#~ msgstr "#%d (sin título)"
+
+#~ msgid "folder icon closed"
+#~ msgstr "icono de carpeta cerrada"
+
+#~ msgid "folder icon"
+#~ msgstr "icono de carpeta"
+
+#~ msgid "Pages"
+#~ msgstr "Páginas"
+
+#~ msgid ""
+#~ "The default WordPress widgets will get the perfect design with the "
+#~ "Classic Widgets plugin."
+#~ msgstr ""
+#~ "Los widgets predeterminados de WordPress obtendrán el diseño perfecto con "
+#~ "el complemento Classic Widgets."
+
+#~ msgctxt "placeholder"
+#~ msgid "First name *"
+#~ msgstr "Nombre *"
+
+#~ msgctxt "placeholder"
+#~ msgid "Last name *"
+#~ msgstr "Apellidos *"
+
+#~ msgctxt "placeholder"
+#~ msgid "Company name"
+#~ msgstr "Nombre de la empresa"
+
+#~ msgctxt "placeholder"
+#~ msgid "Town / City *"
+#~ msgstr "Municipio / Ciudad *"
+
+#~ msgctxt "placeholder"
+#~ msgid "Postcode / ZIP (optional)"
+#~ msgstr "Código postal / ZIP (opcional)"
+
+#~ msgctxt "placeholder"
+#~ msgid "Phone"
+#~ msgstr "Teléfono"
+
+#~ msgctxt "placeholder"
+#~ msgid "Company name (optional)"
+#~ msgstr "Nombre de la empresa (opcional)"
+
+#~ msgid "Blog List"
+#~ msgstr "Lista de blog"
+
+#~ msgid "Post meta"
+#~ msgstr "Post meta"
+
+#~ msgid "Posts section title"
+#~ msgstr "Título de la sección Puestos"
+
+#~ msgid "Menu Item 02"
+#~ msgstr "Elemento de menú 02"
+
+#~ msgid "Menu Item 03"
+#~ msgstr "Elemento de menú 03"
+
+#~ msgid "Ornaments"
+#~ msgstr "Adornos"
+
+#~ msgid "Left Ornament"
+#~ msgstr "Adorno izquierdo"
+
+#~ msgid "Upload here the default left ornament image"
+#~ msgstr "Sube aquí la imagen de adorno izquierda predeterminada"
+
+#~ msgid "Right Ornament"
+#~ msgstr "Adorno derecho"
+
+#~ msgid "Upload here the default right ornament image"
+#~ msgstr "Sube aquí la imagen de adorno derecha predeterminada"
+
+#~ msgid "Title-bar padding"
+#~ msgstr "Acolchado de la barra de título"
+
+#~ msgid "Padding around the Title-bar."
+#~ msgstr "Relleno alrededor de la barra de título."
+
+#~ msgid "Alignment"
+#~ msgstr "Alineación"
+
+#~ msgid "Search Banner located on the Doc details, Forum, and Blog pages."
+#~ msgstr ""
+#~ "Banner de búsqueda ubicado en las páginas Detalles del documento, Foro y "
+#~ "Blog."
+
+#~ msgid ""
+#~ "The breadcrumbs (except the On/Off switch and Updated Text options) in "
+#~ "the Docs page getting from the EazyDocs > Settings > Single Doc > "
+#~ "Breadcrumbs. Change the texts from there to see changes on the Docs page."
+#~ msgstr ""
+#~ "Las rutas de navegación (excepto el interruptor de encendido / apagado y "
+#~ "las opciones de texto actualizado) en la página Documentos que se "
+#~ "obtienen de la configuración de > de EazyDocs > Single Doc > Breadcrumbs. "
+#~ "Cambia los textos desde allí para ver los cambios en la página Documentos."
+
+#~ msgid "Shop Page Subtitle"
+#~ msgstr "Subtítulo Página de la tienda"
+
+#~ msgid "Faq"
+#~ msgstr "Preguntas frecuentes"

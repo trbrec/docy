@@ -1,0 +1,28 @@
+name: CRM contract mail queue regression checks
+on:
+  push:
+    branches: [codex/fix-crm-contract-mail-queue-20261001, codex/fix-crm-preview-integrity-20261001]
+permissions:
+  contents: read
+jobs:
+  queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: queue-fixture
+          MYSQL_DATABASE: queue_fixture
+        ports: [33306:3306]
+        options: >-
+          --health-cmd="mysql --protocol=TCP -h127.0.0.1 -uroot -pqueue-fixture -e 'SELECT 1' queue_fixture"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Existing onboarding workflow regressions
+        run: php tools/test-onboarding-workflow.php
+      - name: Owner authorization and real MySQL migration regressions
+        env:
+          TRB_QUEUE_TEST_DSN: mysql:host=127.0.0.1;port=33306;dbname=queue_fixture
+        run: php tools/test-crm-contract-mail-queue.php

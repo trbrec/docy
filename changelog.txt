@@ -1,0 +1,1144 @@
+==Changelog==
+
+----- 4.8.2 (24 July 2026) -----
+Fixed: Theme Settings Menu – Resolved an issue on unregistered installs where the settings menu could disappear behind the license activation screen, blocking access to the Docy settings and registration pages.
+Improved: Account Menu – The Freemius Account page now appears only while a spider-themes.net license is active, keeping the admin menu in sync with your license status.
+Improved: Language/Logo Switcher – Enlarged the toggle icon and adjusted spacing for better visibility, with consistent sizing on both desktop and mobile.
+
+----- 4.8.1 (22 July 2026) -----
+Fixed: Resolved the Docy Theme licensing validation issue.
+Improved: Refined the inline comment editing experience by automatically hiding Reply/Edit actions while a comment is being edited and restoring them after editing is complete.
+Improved: Unified inline comment editor styling by using shared theme color tokens, ensuring a consistent appearance across both light and dark modes.
+Improved: Simplified comment editor styles by removing redundant CSS overrides, resulting in cleaner and more maintainable code.
+
+----- 4.8.0 (17 July 2026) -----
+New: AJAX Comments – Comments now post without reloading the page, so new comments and replies appear instantly right where you're reading.
+New: Inline Comment Editing – Signed-in visitors can edit their own comment directly on the page for a short time after posting, and moderators can edit any comment inline.
+New: Empty Comment State – Added a friendly "No comments yet" prompt that invites readers to start the conversation.
+Improved: Comment Form – Field labels now float into view as you type and required fields are clearly marked, making the form easier to fill in.
+Improved: Comment Thread Layout – Refined spacing, nested reply indentation, and comment action buttons for a cleaner, easier-to-follow discussion.
+Improved: Dark Mode – Added matching styling for the comment editor and status messages so commenting looks consistent in dark mode.
+Fixed: Blog Image Ratio – Resolved an issue where blog card images on post listings could be stretched or distorted, ensuring they maintain their correct aspect ratio.
+
+----- 4.7.0 (10 July 2026) -----
+New: spider-themes.net License Activation – You can now activate Docy with a license key purchased from spider-themes.net, in addition to ThemeForest purchase codes. Both purchase sources unlock the exact same premium features, automatic updates, and support.
+Updated: License Registration Page – Redesigned the registration screen with dedicated tabs for ThemeForest and spider-themes.net, so you can activate whichever purchase source you used and see clear details for your active license.
+Improved: Documentation Tables – Tables now scroll smoothly on mobile screens instead of squeezing columns, with clearer text sizing and consistent cell colors for easier reading.
+Fixed: Navbar Color – A navbar color chosen in Theme Settings now correctly applies on blog and archive pages, instead of being overridden by the banner style.
+Fixed: Setup Checklist – The "Import Demo Content" step now opens the correct importer and is automatically marked complete once a demo has been imported.
+
+----- 4.6.2 (27 June 2026) -----
+New: Color Customizer Preview – Added a direct shortcut button in the theme options to preview color changes live in the WordPress Customizer.
+New: Dark Mode Color Notice – Added a notice in the Color and Dark Mode settings explaining that dark mode switching may not apply when colors are customized.
+Updated: Dark Mode Button – Adjusted the toggle button background color on the header for better visual consistency.
+Updated: Header Options – Removed the "Default" navbar color option for single documentation pages and set "White" as the new default.
+Updated: Theme Settings Structure – Reorganized all visual settings, grouping Colors, Typography, and Dark Mode under a unified Design panel for a cleaner options layout.
+Updated: Cart & Checkout Buttons – Refreshed the primary action buttons with a bolder style and a subtle hover animation for a more responsive feel.
+Improved: WooCommerce Cart – Redesigned the cart page with a cleaner card-based layout, rounded product thumbnails, a refined quantity selector, a polished order summary, and a matching gradient background.
+Improved: Admin Welcome Notice – Spaced and refined the dashboard welcome notice layout elements for a more compact and polished appearance.
+Improved: Color Scheme Options – Added a WCAG accessibility notice to help maintain high text contrast, and improved translations for gradient configuration options.
+Improved: Dark Mode – Added styling compatibility for the EazyDocs login form, ensuring a consistent and clean look in dark mode.
+Improved: Dark Mode Settings – Added a helpful notice explaining default behavior when the front-end switcher is hidden, and ensured the dark accent color is always configurable.
+Improved: Preloader Styling – Swapped static colors for theme variables to support dynamic styling and Dark Mode.
+Improved: Search Settings – Converted the live search limit field to a number input with clear validation controls.
+Fixed: Breadcrumb Navigation – Resolved alignment of the breadcrumb separator icon on the search banner.
+Fixed: Archive Titles – Page titles and breadcrumbs now display the correct name on category, tag, author, and date archive pages.
+Fixed: Theme Settings Defaults – Options now fall back to their intended default values after a settings reset, restoring elements such as preloader colors.
+Fixed: EazyDocs Integration – Prevented Docy from injecting its own search keywords template into the EazyDocs banner, allowing EazyDocs to manage its keywords settings.
+Fixed: Theme Settings Polish – Corrected interface typos, unified switch text widths, and removed redundant notices in typography options.
+
+----- 4.6.1 (12 June 2026) -----
+New: Docs Page Navbar Color – Added a separate navbar color option for single Docs pages (EazyDocs). The field is only visible in Theme Settings when the EazyDocs plugin is active.
+Updated: WooCommerce Compatibility – Ensured compatibility with the latest WooCommerce version.
+Fixed: Shop Product Grid – Corrected product column layout rendering screen sizes.
+
+----- 4.6.0 (31 May 2026) -----
+New: Menu Columns – Added desktop submenu column controls so large dropdown menus can be organized into 2, 3, or 4 columns for easier browsing.
+New: Banner Source Control – Added a banner source selector so you can choose between Theme and EazyDocs banner behavior.
+New: Featured Video Layout – Added improved featured video presentation in blog listing experiences.
+New: Top Header Icons – Added support for displaying icons alongside links in the top header bar.
+Updated: Banner Architecture – Decoupled banner rendering from header logic for better Elementor and page builder compatibility.
+Updated: Header Link Targets – Added controls to open top and right header links in a new tab when needed.
+Updated: Blog Card Presentation – Refined list and grid blog cards with clearer category badges, cleaner meta details, and more consistent layouts across article formats.
+Improved: Dark Mode improved.
+Improved: The blog - list and grid layout design is improved
+Improved: Elementor Pro Compatibility – Enhanced conflict handling so Pro Elements behaves safely when Elementor Pro is active.
+Improved: Dark Mode Experience – Refined dark mode styling for hero search, password-protected fields, and blog content areas.
+Improved: White Header Style – Improved color consistency for the purple header style, ensuring navigation links, action buttons, and mobile menu elements display correctly in white.
+Improved: Header Accessibility – Added a skip-to-content link, improved keyboard navigation for the search toggle, and enhanced screen reader support across header elements.
+Improved: Header Search Experience – Refined the header search toggle with smoother transitions, better focus handling, and clearer loading feedback.
+Improved: Mobile Menu Accessibility – Kept keyboard focus inside the mobile menu, added more reliable Escape support, and improved close behavior for smoother navigation.
+Improved: Single Post Categories – Category links in the single post meta area now navigate directly to the correct category archive page.
+Improved: External Link Accessibility – Header buttons, top bar links, and multi-logo links now better communicate when they open in a new tab for clearer navigation.
+Optimized: Blog Styling Output – Streamlined front-end blog styling assets for cleaner rendering and faster visual consistency.
+Optimized: Print Layout – Removed interactive header controls and overlays from printed pages for a cleaner print-friendly layout.
+Optimized: Live Search Efficiency – Search requests now respect the configured result limit, skip empty queries, and reduce unnecessary loading for snappier results.
+Optimized: Theme Performance – Repeated theme option loading is now handled more efficiently to keep front-end pages feeling responsive.
+Fixed: Security – Strengthened package safety by removing an unsafe workflow artifact.
+Fixed: Blog Cards Rendering – Resolved blog grid and video card display inconsistencies for a more stable browsing experience.
+Fixed: Header Style on Archives – Blog, category, and tag archive pages now correctly apply the white header style when it is explicitly selected in theme settings.
+Fixed: Elementor Header Compatibility – Resolved an issue that could prevent a custom Elementor-built header from rendering correctly.
+Fixed: Dark Mode Toggle – Resolved an issue where the dark mode switch could be unresponsive due to an incorrect element association.
+Fixed: Page Preloader – Resolved an issue where the preloader could incorrectly appear on pages not included in the configured page list.
+Fixed: Live Search Timing – Resolved an issue where older search responses could briefly replace newer results while visitors were still typing.
+Fixed: Search Results Filters – Search tabs now honor the configured tab setting, keep the selected sort order, and support smoother keyboard navigation.
+Fixed: Forum Topic Cards – Reply and favorite counts in dynamically loaded forum listings now display more reliably.
+Fixed: Forum Call To Action – The bottom forum call-to-action now uses the intended button label and background styling more consistently.
+Fixed: Shop View Switching – Grid and list toggles on product archive pages now preserve your current filters and sorting more reliably.
+Fixed: Security – Strengthened admin plugin deactivation actions with safer validation and permission checks.
+
+----- 4.5.1 (08 April 2026) -----
+New: Post Settings – Added an option to show or hide the featured image in the main post content area.
+Updated: Post Banner – Display category badges instead of breadcrumbs on the curved banner layout.
+Improved: Post Meta – Added author information, reading time, and modified date to the single post banner.
+
+----- 4.5.0 (07 March 2026) -----
+New: Page-level Dark Mode controls added directly within the Elementor Page Settings
+New: Added the Multi Logo feature, allowing you to link external sites with a multi-logo display
+New: Added an option to open dropdown logo links in a new tab
+Improved: Better accessibility and keyboard navigation for the Back to Top button and search toggle
+Improved: Updated internal code structure to meet the latest WordPress Standards
+Improved: Enhanced internal code formatting for better reliability
+Optimized: Significant under-the-hood performance improvements to reduce memory usage and speed up overall page loading
+Optimized: Reduced internal background data sizes to help pages load faster
+Optimized: Lightning-fast live search results for visitors using smart caching
+Optimized: Much faster and smoother theme license verification process
+Optimized: Ensured silky smooth page scrolling while the article reading progress bar is active
+Optimized: Improved admin dashboard performance and icon loading speeds
+Security: Safeguarded the live search feature by improving input validation against unauthorized script execution
+Security: Added protective measures to background requests to prevent resource exhaustion and ensure site stability
+Security: Strengthened data capability checks to ensure that only authorized actions can be performed
+Security: Optimized search data storage to prevent excessive database growth and maintain peak performance
+Fixed: Resolved an issue that sometimes caused theme styles to load incorrectly
+Fixed: Resolved a conflict where breadcrumb navigation wasn't displaying correctly alongside the EazyDocs plugin
+Tweaked: Improved the Forumax plugin installation notice with a handy 1-click install button
+Tweaked: Re-organized internal styling files and separated the admin settings style for better maintainability
+
+----- 4.4.0 (28 January 2026) -----
+New: The “Rate the Article” feature, introduced for blog single pages, allows readers to provide valuable feedback, which can be instrumental in enhancing SEO
+New: Antimanual plugin integrated to enhance content protection
+New: Animated Shapes show/hide switcher added to the Hero section widget
+Fixed: bbPress template naming restored for improved compatibility and clarity
+Fixed: Elementor Page Settings background color styling issue resolved
+Fixed: Table of Contents scrolling issue fixed for smoother navigation
+Fixed: Lazy-loaded image loading issues resolved across pages
+Improved: Mobile menu accessibility enhanced with proper button elements, ARIA labels, and keyboard navigation
+Improved: bbPress integration by moving core templates to Forumax (BBP Core) and simplifying plugin dependency handling
+Improved: Cart summary design refined with SCSS updates for better visual consistency
+Improved: Form accessibility enhanced and HTML validation issues resolved
+Improved: Search accessibility enhanced with ARIA labels, keyboard support, and state handling
+Improved: Forums widget loading and registration performance enhanced
+Removed: Deprecated forum-related Elementor widgets and associated assets
+Enhanced: Welcome and Verify/Register pages redesigned with improved UI and smoother license management experience
+Optimized: Homepage queries improved using a single cached query to enhance performance
+Optimized: Google Fonts loading improved using display: swap, HTTPS, and preconnect for better performance
+Optimized: Theme options queries cached to reduce database load and prevent N+1 issues
+Refactored: Forum-related classes, styles, settings, and sidebar logic removed, shifting forum management fully to Forumax
+Refactored: printThis.js cleaned up by removing legacy Internet Explorer-specific code
+Updated: Plugin activation labels updated from “BBP Core” to “Forumax” for consistency
+Updated: Twitter (X) social icon updated to the latest branding
+Updated: Forumax made an optional plugin and Smart bbPress nVerify removed from required plugins
+
+----- 4.3.1 (17 December 2025) -----
+Fixed: License verification issue resolved for smoother activation flow
+Fixed: Security vulnerability patched by preventing Local File Inclusion (LFI) attacks
+Improved: Enhanced submenu arrow icons to properly reflect up to 3 menu depth levels
+Improved: Search breadcrumbs now display conditionally, only when enabled from settings
+Tweaked: Forum “Other” badge design refined for improved visual clarity
+Tweaked: Minor UI, styling, and performance improvements across the theme
+
+----- 4.3.0 (27 November 2025) -----
+Added: Jobus plugin added to the required plugins list (recommended for installation/activation)
+Tweaked: Improved dark mode controls for Elementor widgets
+Tweaked: FAQ tabs behavior and styling refined
+Fixed: Various minor issues fixed and overall performance improved
+
+----- 4.2.0 (18 November 2025) -----
+New: Introduced List and Grid layout options, including customizable Grid columns, in ‘Settings > Shop/WooCommerce > Product Archive’ page
+New: Added “Buy Now” button for direct checkout functionality
+Fixed: Post states display issue resolved in the dashboard
+Fixed: CTA button alignment issue on responsive devices fixed for proper visibility
+Fixed: Removed obsolete `widget-Docs.scss` file and adjusted top header layout on mobile device
+Fixed: Footer layout option corrected and full dark mode support added
+Fixed: Menu widget functionality restored and working as expected
+Fixed: Navigation menu image upload and saving issues resolved
+Fixed: Footer visibility issue based on meta key
+Tweaked: Cart and Checkout page design refined for a smoother user experience
+Tweaked: Loader animation added to “Add to Cart” button to indicate product adding progress
+Tweaked: Layout selector image updated for clearer visual selection
+Improved: Menu design and navigation structure refined for better usability
+Improved: Header default menu color adjusted for improved contrast and readability
+Improved: Minor style enhancements across multiple theme components
+Improved: Overall typography and spacing refined for cleaner visuals
+Improved: Elementor footer template validation refined for better accuracy
+Improved: Elementor footer template validation
+Improved: Default table styling refined for better readability and consistency
+Optimized: Styles separated and essential CSS optimized for faster loading performance
+Deprecated: The Docs Elementor widget is deprecated and will now be maintained via EazyDocs
+
+----- 4.1.5 (13 October 2025) -----
+New: Added image and icon support for Mega Menu items
+Fixed: Elementor footer rendering issue resolved
+Fixed: ACF file domain text loading issue fixed
+Fixed: Footer visibility issue corrected
+Enhanced: Admin dashboard Welcome page design refined for better visual appeal
+Enhanced: Navigation width now perfectly aligned with breadcrumb container
+Improved: Spacing, padding, and alignment across components for consistent and responsive layout
+Improved: Mobile list indentation adjusted and brand color applied to banner background
+Refined: Navigation header responsiveness on mobile devices for smoother experience
+Updated: Dynamic CSS, mobile styles, and TOC sidebar optimized
+
+----- 4.1.4 (17 September 2025) -----
+Adjusted: Burger menu and logo positions reversed on mobile; both now appear on the right for easier single-handed access
+Adjusted: Subscribed Forums header improved
+Enhanced: Search template now integrates Post Type settings
+Enhanced: Forum single page mobile view
+Renamed: "Ajax search result" label updated to "Search result"
+Updated: Recent post thumbnail resized for consistency
+Removed: Duplicate banner from Custom Post Type single page; only the Search banner is now displayed
+
+----- 4.1.3 (12 August 2025) -----
+New: Tooltip and Terms shortcode added in Docy Toolbar
+Enhanced: Forum edit page layout for better usability
+Enhanced: Checkout login form with a modernized design
+Enhanced: Forum single page appearance and user experience
+Enhanced: Overall forum styling for a more cohesive look
+Improved: `Docy_meta` function now reliably applies default values when settings are missing
+Improved: Page elements (links, spacing, lists, blockquotes, tables, etc.) styled for optimal display with block editor enabled
+Improved: Show AJAX search tabs only if the option is enabled
+Optimized: Forum single page CSS now loads conditionally for faster site performance
+Enhanced: User profile pages for Forum Topics Started & Replies Created with refined design
+Refined: HTML component styles on the default page template
+Upgraded: Font Awesome from version 5 to 6 for access to the latest icons
+Updated: WooCommerce template files to ensure compatibility and new features
+Updated: Dark mode Color -> container support
+Deleted: bbPress Forum Topic Info widget moved to BBP Core plugin
+
+----- 4.1.2 (26 June 2025) -----
+New: [docy_share] shortcode added
+New: Added "docs" as the default search term when the EazyDocs plugin is activated
+New: Icon options added in the Theme Settings > Header > Action Button
+New: Translation files added for French, Italian, Chiness, Russian, Arabic, Spanish, Portuguese and German languages
+New: New automated translations added
+New: Added sorting option in forum topic reply
+Fixed: Comment reply layout break
+Fixed: Search results page sorting dark mode issue and call to action dark mode issue
+Tweaked: WP Login Form used in the Login Page instead of a custom login form for easy third party integration with the Login Form
+Tweaked: Design improved in the Login and Sign Up page
+Tweaked: Checkout page design improved (login form and input fields design)
+Tweaked: My Account page login and register form design improved
+Tweaked: Font awesome 5 support added
+Tweaked: Updated ajax search tabs and headings with modified slugs
+Tweaked: Updated product page breadcrumb to product post type slug
+Tweaked: Forum Topic Replies design improved
+Tweaked: Topic Admin links (edit, trash, approve, delete, move, split, spam) moved to right side in three dots dropdown to make the design simple and clean
+Tweaked: My Account page design improved
+Tweaked: Translation file updated
+Tweaked: Update class-tgm-plugin-activation.php
+Tweaked: Reply and topics voting button hooks redefined and improve css
+Tweaked: wp_login_form used in the docy_login_form shortcode
+
+----- 4.1.1 (06 June 2025) -----
+New: Added sorting options in search result page
+New: Default post type added for ajax search
+New: Added social login system in sign-in/sign-up page
+Fixed: Navbar color on taxonomy pages
+Fixed: Custom CSS was not rendering if ACF not active
+Fixed: Hero search dropdown Issue resolved
+Fixed: Header search dark mood issue resolved
+Fixed: The required plugin Docy Core was missing on One Click Demo Import
+Fixed: Blog single gradient banner z-index issue
+Fixed: Hero title typography conflict with Search result item
+Fixed: Namespace conflict issue
+Tweaked: Dark mode improved
+Tweaked: WooCommerce checkout login form design and condition improved
+Tweaked: Updated Responsive css
+Removed: The old Changelogs post type has been removed. We've replaced it with our intelligent Changelogger plugin, designed to save you time and make managing updates more effortless and convenient
+
+----- 4.1.0 (07 May 2025) -----
+New: Horizontal Content Padding option added in the 'Theme Settings > Blog > Blog Single > Post Content' page to reduce text width and enhance readability
+New: Author post meta added in the post single page
+New: Added masonry in the blog grid layout
+New: Author added in the Blog post meta and meta info divided to top & bottom parts besides the post title
+New: Resolved the redirect issue of Sign-in page
+New: Added a new shortcode called "[docy_login_form]" (user can now anywhere insert the login form use this shortcode)
+New: Added a New Post Banner design for blog single page (Theme Settings > Blog pages > Blog Single)
+New: Added [direction] shortcode in Toolbar
+Fixed: Fatal error in Docy_update_checker.php:181
+Fixed: Forum topic content was breaking words into new line. Now words will not break.
+Fixed: Search banner input field focus by slash (/) key press was conflicting with other input fields
+Fixed: Fix deprecation warning by wrapping csf files in hook
+Fixed: Resolved Tab Filter switcher of (Theme Settings >  General > Ajax Search)
+Fixed: Resolved searchbar alignment issue in RTL
+Tweaked: Improved the order confirmation page design
+Tweaked: Comment form design improved
+Tweaked: Post and Page TOC improved on mobile
+Tweaked: Top Navbar items style improved (svg icon support added).
+Tweaked: Categories meta moved to top of the blog title in the Blog single page
+Tweaked: Ajax search results settings moved to 'Theme Settings > General > Ajax Search' page
+Tweaked: Updated the 'docs' references with dynamic slug in search bar and across the site
+Tweaked: bbPress default login form replaced with our own docy_login_form form shortcode
+Tweaked: Forum Topic filters design improved and made it Dark mode compatible
+Tweaked: Top post meta design improved
+Tweaked: Search results page design improved
+Tweaked: Forum page banner design improved
+Tweaked: Integrate Nice select in the topic create page
+Tweaked: Made the Docs widget deprecated. Recommended to use (EazyDocs) Multi Docs widget instead
+
+----- 4.0.4 (29 March 2025) -----
+Tweaked: Improved Forum edit page
+Tweaked: Typography Improved
+Tweaked: Dark mode switcher design improved in the mobile device
+Tweaked: Removed some unncessary code
+Tweaked: Blog grid design improved
+Tweaked: Forum single page design improved
+Tweaked: If the Blog title length set to less than the full title, a suffix will be added automatically
+Tweaked: Menu item active color state improved
+Tweaked: Default border color changed to --black_75 from --black_50 to make border more visible
+Tweaked: Improved Breadcrumb in Ajax search
+Updated: wooCommerce outdated template files
+
+----- 4.0.3 (28 February 2025) -----
+New: Added Language files & New Logo updated
+Fixed: Resolved responsive issue of FAQ widget
+Tweaked: Classic Checkout page design improved (Login form, coupon form and checkout field border color improved)
+Tweaked: wooCommerce Cart page design improved
+Tweaked: Back to Home button added in the Sign in and Sign Up pages
+Tweaked: Sign in and Sign Up pages responsive view improved
+Tweaked: Improved Notice widget design
+Tweaked: Increased PHP version (Requires PHP 8.0)
+Tweaked: Improved TOC in responsive view
+Tweaked: Default option added in the Breadcrumb page meta options
+Tweaked: Parent page added in the child page in Breadcrumb
+
+----- 4.0.2 (05 February 2025) -----
+New: video post format support in blog grid layout
+New: integrated 'Changeloger' & 'Spider Elements' plugin
+Fixed: Title & banner background control of Blog single
+Fixed: Forum Banner and adjust design issue
+Fixed: Forum tabs and pagination
+Fixed: PHP error fixed (it was occurred in the previous version)
+Fixed: Action button meta field option
+Fixed: Forum Topic Single Subscription settings were not working
+Fixed: Resolved Ajax Search results Dark mode color
+Fixed: Pagination of the search result page
+Fixed: Breadcrumb show/hide option in the forum pages
+Fixed: Image Hotspots widget close icon issue resolved
+Fixed: Category-specific post query rendering issue (Before, when you clicked on a category, all posts were showing, not just the ones from that category. Now, when you click on a category, only the posts related to that category will appear.)
+Tweaked: Removed breadcrumb from Forum reply single page
+Tweaked: Remove unnecessary acf fields, some comments code & unused files
+Tweaked: Removed 'page' word from page breadcrumb
+Tweaked: Add Font Awesome icons Instead ionicons
+Tweaked: Improved 404 page theme settings
+Tweaked: Moved elementor style css to main file
+Tweaked: Improved design on the user Profile Edit page 
+Tweaked: Improved the search results page to display the parent document title when searching for any child document under that parent
+
+----- 4.0.1 (04 January 2025) -----
+Tweaked: Breadcrumb design improved in the Ajax search results
+Tweaked: Updated demo xml
+Fixed: Search banner show/hide option was not working
+Fixed: Video Playlist widget
+
+----- 4.0.0 (26 December 2024) -----
+New: Replaced meta fields with CSF (Codestar Framework) fields for better flexibility and improved user-friendliness
+New: Added an option for adding video on the page banner
+New: Search Banner applied on all pages to keep design consistency
+New: Parent page shows on the top of the main page title on the page banner
+New: Modified date added in the Blog post details page
+New: Convert ACF fields to CSF fields
+New: title.php added for search banner template
+New: docy_homepage_ids() added
+New: Remove specified ACF fields and field groups if they conflict with fields created by Codestar
+Tweaked: Search form now supports unlimited post types with a Theme Settings option to choose which post types content appear in search results. you can choose it from 'Theme Settings > Header > Search Banner'
+Tweaked: Menu item active/hover improved
+Tweaked: Remove specified ACF fields and field groups if they conflict with fields created by Codestar
+Tweaked: Badge design improved
+Tweaked: Comment form design improved on mobile device
+Tweaked: Deleted some unnecessary meta
+Tweaked: Titlebar removed
+Tweaked: Mutli Array opt support added in the docy_opt() function
+Tweaked: Fieldset opt support added in the docy_opt function
+Tweaked: Improved breadcrumb design & function
+Tweaked: wooCommerce Cart, checkout page block design improved
+Tweaked: Sticky tab icon style improved
+Tweaked: Grouped product details page design improved
+Fixed: Doc sidebar issue in single doc page on the mobile view
+Fixed: Cart page table header color issue solved
+Fixed: Hero focus z-index issue
+Fixed: video playlist php error
+Fixed: Fixed 'Hero search' widget preset 03 design
+
+----- 3.5.1 (21 September 2024) -----
+New: Blog subtitle field added in the 'Theme Settings > Blog' page
+New: Breadcrumb background and text color change options are added in the 'Theme Settings > Header > Breadcrumb' page
+New: Search banner title and subtitle color change option added in the 'Theme Settings > Header > Search Banner' page
+New: Search banner keywords color change options added in the 'Theme Settings > Header > Search Banner' page
+New: Added Docy theme Congratulations notice (after you actvate the theme, you'll get a congratulations notice with some necessary link)
+Tweaked: Mobile menu design improved
+Tweaked: Improve Post and Page TOC on mobile view
+Fixed: An PHP error fixed on line 270 in the inc/enqueue.php file
+Updated: Language (docy.pot) file
+
+----- 3.5.0 (10 September 2024) -----
+New: Added FAQ in Hero Search Results (You can now search for FAQ items directly from the Hero search)
+New: Sidebar TOC Settings (Added Table of Contents settings in the sidebar for individual pages and posts. you can also set it globally from 'Theme Settings > General')
+New: Page Subtitle option added in the 'Theme Settings > Header > Search Banner' page
+New: Banner Overlay and Blur Option (Added new overlay and blur options for banners in Theme Settings > Header > Search Banner)
+Tweaked: Improved hover styles for dropdown menus
+Tweaked: Displayed theme settings menu in the top bar for better accessibility
+Tweaked: Minor design improvement (changelog design, parent doc link color design improved)
+Tweaked: Optimized video playlist widget for responsiveness and icon display
+Tweaked: Improved rtl style
+Tweaked: Improved hover color design for search result tabs
+Tweaked: Breadcrumb bg color updated
+Tweaked: Search Results Title (Tweaked the title display in the search result page for better clarity and user experience)
+Fixed: Fixed icon size control conditions in the Tabs widget
+Fixed: Resolved WordPress widget issues with Docy theme
+Fixed: Corrected blog feature image size discrepancies
+
+----- 3.4.4 (11 July 2024) -----
+New: Added Docy Dashboard (Welcome Page)
+Fixed: The keyword of the search widget was an issue to change
+Fixed: Forum Single reply page spacing issue solved
+Fixed: Solved Loading spinner Image issue. (previously, there was an issue when the Polylang plugin was activated)
+
+----- 3.4.3 (06 July 2024) -----
+New: Added Elementor Header and Footer. For more info (https://shorturl.at/qf1Ly)
+New: Added customizer visibility option in Theme setting > Customizer (Now you can Visible or invisible the customizer in the frontend)
+New: Added style tabs for FAQ Tabs widget in Docy-core
+Tweaked: Default style improved
+Tweaked: Moved the 'Theme Settings' under 'Docy Theme' Menu in the dashboard
+Tweaked: Improved Show More Results button in ajax search
+Fixed: Action button color,bg,padding etc control option
+Fixed: The collapse issue was fixed in the Forums widget preset-1
+
+----- 3.4.2 (03 May 2024) -----
+New: Background image upload option added for Title-bar in Theme Settings > Header > Title-bar (Now you can set a background image for Title-bar)
+Tweaked: Improved Dark mode
+Tweaked: Improved Mobile menu design
+Fixed: Doc meta options resolved with EazyDocs
+
+----- 3.4.1 (24 April 2024) -----
+New: Signup / Register button option added in Theme Settings > Forums > Signup Button (Now you can enable or disable the register option)
+Tweaked: Improved cart and ajax search results
+Tweaked: Improved gutenberg block editor
+Tweaked: Improved shop responsive, checkout design
+Tweaked: Settings page optimized
+
+----- 3.4.0 (16 March 2024) -----
+New: Page title switcher option added for Search banner in Theme Settings > Header > Search banner (Now you can enable or disable the page title on the search banner)
+New: Search banner show/hide on the page in Theme Settings > Header > Search banner (Now you can show Search banner on pages instead of the default Title-bar design)
+New: Navbar color option in 'Theme Settings > Header' page (Now you can globally set the navbar color from the Theme Settings)
+New: Remove Checkout Fields option added in the 'Theme Settings > Shop' page (Now you can remove any checkout field from the checkout page)
+New: Checkout Fields customization options added in 'Theme Settings > Shop' page (Now you can change the checkout fields label, placeholder)
+New: Popular keywords option added in Theme Settings > Header > Search banner (Now you are able to Select your preferred keywords type static/dynamic )
+New: Shop tab added in search result
+Tweaked: Dark mode improved with the Gradient background Search Banner (Now the dark mode will work perfectly with the Gradient background Search Banner)
+Tweaked: Compatibility improved with the latest wooCommerce block based cart and checkout page
+Tweaked: Checkout page design improved (input fields, spacing, button design, etc.)
+Tweaked: Shop product archive page design improved
+Tweaked: Mobile menu improved with the White Navbar style (Active color)
+Tweaked: Mobile menu design improved (made the scrollbar hidden on the menu item with description)
+Tweaked: Dark mode colors improved
+Tweaked: Theme Form design improved
+Tweaked: Replace author meta by bbPress built in function
+Tweaked: Removed duplicated JS, (same JS exist in EazyDocs)
+Tweaked: Breadcrumb added in search banner Elementor template
+Tweaked: Select Blog Banner Layout
+Tweaked: Tooltip design improved
+Tweaked: Some text has been made translatable
+Tweaked: Subscription button is made visible to logged out visitors (A login notice will appear when clicked on the Subscribe button)
+Fixed: Topic create as anonymous issue solved (It was problem with BBP Core plugin) 
+Fixed: Single doc widget preset 4 show more button issue solved
+Fixed: Topic query by tag issue resolved in topic page
+
+----- 3.3.5 (19 December 2023) -----
+Fixed: FAQ Tabs widget was conflicting if more than one FAQ widget was added on the same page
+Fixed: Deprecated function issue in the Elementor widgets
+Fixed: Alert widget design issue
+Tweaked: Dark mode colors improved
+Tweaked: Compatibility with the latest EazyDocs plugin improved
+
+----- 3.3.4 (06 December 2023) -----
+Fixed: Post types dropdown.
+
+----- 3.3.3 (29 November 2023) -----
+New: Added breadcrumb hide option on search result (Theme Settings > Header > Search Banner).
+New: Added thumbnail hide option on search result (Theme Settings > Header > Search Banner).
+Tweaked: The "Color Scheme" option renamed to "Appearance" in the Theme Settings page.
+Tweaked: Replies created tab design improved on the bbPress user profile page (spacing, search form, pagination).
+Fixed: PHP error fixed in the Replies Created tab of the bbPress user profile page.
+Fixed: Codestar deprecated issues.
+Fixed: Main Menu on header dark mode issue.
+
+----- 3.3.2 (21 November 2023) -----
+Tweaked: Mobile menu improved (Dark mode switcher, logo in the side menu)
+Tweaked: Removed some unnecessary codes
+Tweaked: Dark mode colors improved (table, navbar, etc.)
+Tweaked: Forum design improved
+
+----- 3.3.1 (25 October 2023) -----
+New: Added header SearchBar Width option in the 'Theme Settings > Header > Search Banner' page.
+Tweaked: Default brand color changed to #0866ff to make the design more clean and minimal.
+Tweaked: Dark Mode 'Elementor Container and icon box widget control'.
+Tweaked: Dark mode colors improved
+Tweaked: Gradient background applied to the Category and Tag archive pages
+Tweaked: Dequeued the 'bbp-default' CSS file from the bbPress plugin to improve the theme's loading performance
+Fixed: Pro Elements plugin was not installing with the One Click Demo Import
+Fixed: In some cases, forum.css CSS file wasn't loading on the bbPress shortcode pages
+Fixed: Forum threading replies was broken (You can enable threading from Settings > Forum, then check the 2nd step replies)
+
+----- 3.3.0 (12 September 2023) -----
+New: Elementor Template Library Integration. Now you can import the Elementor all section and page templates from the Docy Template Library.
+New: Top Menu added in the Header area. You can enable it from the 'Theme Settings > Header > Top Header' page.
+Tweak: Add global options for Post banner style (Theme Settings > Blog > Single Post)
+Tweaked: Doc single page breadcrumb width adjusted with the content width
+Tweaked: Blog pagination hover and active state design improved
+Tweaked: Navigation menu search form design (focus state, size balance, etc.) improved
+Tweaked: Theme's default elements style improved (blockquote, code, pre, etc.)
+Tweaked: Some design improved
+Updated: wooCommerce outdated template files.
+
+----- 3.2.1 (12 July 2023) -----
+Fixed: Header wide width was applying on the Full page template. Now, it will only apply on the Header template.
+Fixed: Video post format video animation was breaking on some random posts.
+Tweaked: Blog post format icon controls improved
+Tweaked: Dark mode colors improved
+Tweaked: Integration with the latest EazyDocs plugin improved
+
+----- 3.2.0 (25 June 2023) -----
+Note: This is a major update. Please read the changelog and the blog post (https://tinyurl.com/y8r96t24) carefully before updating the theme.
+New: Redux framework plugin replaced with builtin Theme Settings (Deactivate the Redux framework plugin to avoid conflict with the builtin Theme Settings).
+New: Added Dark Mode Color Controls in Elementor (You can find the dark mode controls in the Elementor Advanced Tab).
+New: Added post format icon for blog post title (To add/change the blog post format icon, go to Theme Settings > Blog Pages > Post Format Icon and select the icon from the dropdown).
+Tweaked: Gutenburg editor compatibility (default block style improved and some block settings are adjusted that were not working in the block editor).
+Tweaked: Product details page design improved (Subtitle shadow added on product image box, Sale price, product tabs, review form consent checkbox, etc).
+Updated: wooCommerce outdated template files.
+Updated: Deprecated demo importer plugin functions.
+Updated: Demo Contents.
+
+----- 3.1.9 (13 May 2023) -----
+Tweaked: Responsive view on mobile devices improved
+Tweaked: Some design improved
+Tweaked: Integration with the latest EazyDocs plugin improved
+Fixed: Forum Call to Action text was not changing from the Theme Settings > Forums > Forum Archive page
+Fixed: FAQ Tabs widget was conflicting if more than one FAQ widget was added on the same page
+
+----- 3.1.8 (11 April 2023) -----
+Tweaked: bbPress user profile page design improved (https://youtu.be/xtOH_BYn8qs)
+Tweaked: Form fields style improved
+Tweaked: Info box Elementor widget improved (if link is not added, the link icon won't show, textarea field added for description text)
+Tweaked: Gradient background applied on all bbPress pages (forum, topic, reply, user profile, etc.)
+Fixed: Topics Started, Forum Replies, Engagements tabs of bbPress user profile page
+
+----- 3.1.7 (28 March 2023) -----
+Fixed: Docs widget's style was missing
+
+----- 3.1.6 (27 March 2023) -----
+Fixed: Forum sidebar wasn't appearing on the Forum archive page
+Fixed: Top Call to Action wasn't showing on the Forum archive page (You can enable it from the Theme Settings > Forums > Forum Archive page)
+Updated: Demo contents
+Tweaked: 404 Error page design improved (arrow icon position aligned according to the button context, responsive view improved)
+Tweaked: Sidebar column width adjusted when the TOC wasn't enabled on the Blog Single Post page
+Tweaked: Deleted some unnecessary options (Theme Settings > Forums > Topics Archive options)
+Tweaked: Deleted some unnecessary CSS
+
+----- 3.1.5 (26 February 2023) -----
+Fixed: The Blog Post's Classic and Curved Shape Title-bar was not showing on the Blog Single Post page
+Tweaked: Search results page design improved
+Tweaked: TOC enabled on Blog Single Post (All Variations)
+Tweaked: Recent Post, Calendar and Search widget design improved
+Tweaked: Dark mode colors improved
+Tweaked: Blog Grid layout and sidebar design improved
+Tweaked: Video post format design improved
+Tweaked: Shop page design improved
+Tweaked: wooCommerce Checkout page design improved
+Tweaked: Direction shortcode rendering improved with text & visual editor mode
+
+----- 3.1.2 (01 February 2023) -----
+New: Added a dedicated single page for the Elementor templates library to improve the template editing experience.
+New: Curved Layout banner type for blog post
+Tweaked: Dark mode integration improved
+Tweaked: Single post view on mobile devices improved
+Tweaked: Calendar widget/block design improved
+Tweaked: Dark mode colors improved
+Tweaked: Made the Sticky tab position sticky in the tab content area. Previously, it was stick on the whole page
+Tweaked: Forum Private reply design improved
+Tweaked: Deleted some unnecessary code
+Updated: wooCommerce template files
+
+----- 3.1.1 (09 January 2023) -----
+New: Banner background style option added for the Search Banner in Theme Settings > Header > Search Banner
+New: Menu items description text support added for the Menu items
+New: Share options for blog single post
+Fixed: Issue with Tooltips Elementor widget
+Fixed: Image placeholder (alt text) was showing when Featured image missed on the Forum Topic Ajax sorting
+Fixed: Some plugins were not installing with the One Click Demo Import
+Tweaked: Link style improved
+Tweaked: FAQ limit option added for the FAQ Elementor widget
+Tweaked: Tab widget dark mode support improved
+Tweaked: Dark mode color improved for the Accordion widget
+Tweaked: Mobile view improved
+
+----- 3.1.0 (09 December 2022) -----
+Note/Blog: Know more about this update here https://tinyurl.com/2guccldu
+New: Check if the required plugins are installed and activated before importing the demo content.
+Fixed: bbPress Recent Topics and Recent Replies widgets icon wasn't showing correctly.
+Tweaked: Shop page design improved
+Removed: Pro Elements from the Docy Core plugin. If you want to use the Pro Elements, you need to install it separately.
+
+----- 3.0.0 (30 November 2022) -----
+Note/Blog: Know more about this update here https://tinyurl.com/2guccldu
+New: Tutor LMS plugin integrated with Full Dark mode support
+New: Some beautiful preset Background Style added for the Title-bar
+New: Accent Color option added for Dark Mode in the 'Theme Settings > Dark Mode' page
+New: Style Guide page added
+New: Wide container added to the Header Width options in the 'Theme Settings > Header > Layout & Settings' page
+New: Documentation added about 'Using of Helper Classes in Docy' here https://tinyurl.com/2g3ejbep
+Fixed: Mobile menu on RTL mode was displaying incorrectly.
+Fixed: An error of type E_ERROR was caused in line 37 of the file /wp-content/plugins/docy-core/widgets/inc/video-playlist/video-playlist-2.php
+Fixed: Navbar position was not working if the default option was selected from the Page Options.
+Tweaked: bbPress user profile page design improved
+Tweaked: Dark mode support added for the Login (Elementor) page
+Tweaked: Link style improved
+Tweaked: ul, ol, li style improved for better readability
+Tweaked: Improved the design of the widget "Recent Posts"
+Tweaked: Improved the design of the wooCommerce Cart page (major improvements done)
+Tweaked: Dark mode colors improved (major improvements done)
+Tweaked: Automatic versioning added to the theme assets (CSS, JS files). So that the browser will not use the cached version of the files.
+Tweaked: Demo xml files moved to our server to make the theme more lightweight
+Tweaked: Product details page design improved, dark mode colors improved
+Tweaked: Navigation menu design improved (spacing, colors, etc.)
+Tweaked: responsive2.css file merged with responsive.css
+Tweaked: Navbar type condition remake for better performance and readability of the code
+Updated: wooCommerce template files
+Updated: Pro Elements
+Removed: OnePage doc page template removed sine it's not used any more
+Removed: Unnecessary meta fields (OnePage Doc meta fields removed since it's transferred to the EazyDocs plugin. Also, the Footnote meta fields removed, and we'll add footnote in the EazyDocs to make more easy)
+
+----- 2.2.7 (01 November 2022) -----
+New: Mega Menu
+Tweaked: Filter by Category option added in the Changelog widget. You can display changelogs for multiple products
+Tweaked: Link color and hover improved
+Tweaked: Docy Nav Menu Elementor widget (width control added, responsive view improved)
+Tweaked: Navigation Menubar in mobile view (the Dark mode switcher moved to the side menu).
+Tweaked: Dark mode colors improved on the mobile side menu
+Tweaked: Main Menu item active color
+
+----- 2.2.6 (21 October 2022) -----
+New: Docy Nav Menu Elementor widget
+Tweaked: Mobile device view improved
+Tweaked: Search results page design improved
+Tweaked: Compatibility with Elementor improved
+Tweaked: Some images optimized to improve the loading speed
+Tweaked: Theme typography improved (link color, hover, paragraph color css)
+
+----- 2.2.5 (06 October 2022) -----
+Fixed: Ajax Search Results was not showing on clicking the keywords
+Tweaked: Forum Subscribe button designed based on the states
+
+----- 2.2.4 (06 October 2022) -----
+New: Title Prefix and Typography options added in the Theme Settings > Forums > Topic Details page
+New: Background Color, Shape change options are added for the Post's Creative Colorful Banner (https://i.postimg.cc/FKyR3wzz/image.png)
+Tweaked: Blog page view improved on mobile device
+Tweaked: Theme's typography improved
+Tweaked: Post meta enabled (showed) on the TOC post layout's banner
+Fixed: Tooltip JS console errors
+Updated: wooCommerce outdated template files
+
+----- 2.2.3 (15 September 2022) -----
+Fixed: Accordion, Tabs and Image hotspot ELementor widgets
+Tweaked: Forum Topic Reply single page design improved (breadcrumb and sidebar added)
+Tweaked: Forum Sidebar added on the bbPress search results page
+Tweaked: Included FAQ tab in the search results page
+
+----- 2.2.2 (09 September 2022) -----
+New: BBP Core plugin integrated for bbPress forum
+Tweaked: Ajax search performance improved
+Tweaked: Blog single page design improved (comments list, comment form, tags, left TOCs)
+Tweaked: Forum Elementor widget's
+Tweaked: Forum elementor widget's (forum style 1) read more button
+
+----- 2.2.1 (30 August 2022) -----
+Tweaked: Forum thumbnail design improved
+Tweaked: Docs mobile menu design improved
+Tweaked: Dark mode colors improved
+Fixed: Elementor Pro plugin conflicts with the Docy Core plugin.
+
+----- 2.2.0 (01 August 2022) -----
+New: 'On Doc Pages' option added in the 'Theme Settings > Header > Search Banner' page
+Tweaked/New: Live search results design changed and improved the results structure to show the results from all contents
+Tweaked: Doc dark mode colors improved
+
+----- 2.1.9 (17 July 2022) -----
+Tweaked: Dark Mode colors improved
+Tweaked: Single Doc Elementor widget's Doc Topic Boxes Cards are now clickable
+Fixed: Docs Tabs not working with chines language (choose numbered ID for not supported language)
+Fixed: PHP error with Pro Elements in the Docy Core plugin
+Fixed: Search Banner was missing on the Shop, Product pages
+
+----- 2.1.8 (01 July 2022) -----
+New: Featured image is shown on the Blog single post page
+Fixed: Title length field reverted for the Recent Posts widget
+Fixed: Dark Mode colors on the Docs page.
+Tweaked: Blog single post (TOC layout)
+
+----- 2.1.7 (28 June 2022) -----
+New: Breadcrumbs options added in Theme Settings > Header
+Fixed: Docy core was conflicting with Elementor PRO (need to update the Docy Core 2.1.7)
+Tweaked: Dark mode colors (comment form)
+Tweaked: Blog classic layout design and markup improved
+
+----- 2.1.6 (24 June 2022) -----
+Removed: Pro Elements plugin removed from required plugins list
+
+----- 2.1.5 (22 June 2022) -----
+New: Position option added in Theme Settings > General > Back to Top
+Tweaked: The wpd-style.css file merged with the style-main.css file to improve the theme's loading performance
+Tweaked: Accordion Articles, Single Doc Elementor widgets design improved
+Tweaked: Keyword hover effect added for Search Form's keywords
+Tweaked: Forum Sign-in Form's password field design improved
+Fixed: If "Focus Search by /" option enabled, the "/" key was not working in the WordPress editor.
+
+----- 2.1.4 (11 June 2022) -----
+Deleted: Old onepage doc template (use the EazyDocs > OnePage Docs)
+Tweaked: Comment form placeholder design
+Tweaked: Compatibility with EazyDocs improved
+Tweaked: Removed some unnecessary CSS
+
+----- 2.1.3 (04 June 2022) -----
+Updated: Docy Core plugin updated to 2.1.3
+Tweaked: Performance improved by removing some unnecessary CSS
+Fixed: The Recent Post widget's reading time was showing wrong.
+
+----- 2.1.2 (28 May 2022) -----
+Updated: Docy Core plugin updated to 2.1.2
+Tweaked: 'FAQ Tabs' Elementor widget (missed skin preview images added, style 2 design improved)
+Fixed: Blog Post Details TOC Layout (the toc items was not showing)
+Tweaked: Blog Post Details left sidebar TOC's child items
+Tweaked: Blog single post improved on mobile view
+Tweaked: Forums Sidebar, Pagination view improved on mobile view
+
+----- 2.1.1 (13 May 2022) -----
+Tweaked: Re-organized SCSS files in the assets/scss folder
+Tweaked: EazyDocs compatibility improved
+Fixed: The forum topic filters were not working due to updating the Bootstrap version.
+
+----- 2.1.0 (11 May 2022) -----
+Tweaked: Eazydocs plugin integration with Docy
+Tweaked: 'inline' attribute added to the [code] shortcode. If you use inline='true' the code will render inline.
+Tweaked: 'Recent Posts' widget (extra space removed on left side of the post when thumbnail not found)
+Fixed: JavaScript error was returning on line number 109 in the main.js
+
+----- 2.0.0 (09 May 2022) -----
+BIG CHANGE: weDocs plugin replaced with our own EazyDocs plugin (Install our new plugin from Appearance > Install Plugins. Then deactivate the weDocs plugin to avoid conflict with EazyDocs)
+Moved: Doc Settings removed from Theme Settings and moved all the Doc related settings to the Eazydocs plugin
+Tweaked: Bootstrap version upgraded to v5.1.3 from v5.0.0-beta3
+Tweaked: Calendar and List style widgets design are improved
+Tweaked: h3, h4 headings support added to TOC layout blog post
+Fixed: wooCommerce product Update cart button was not working
+
+----- 1.8.0 (29 April 2022) -----
+New: List Style docs added to 'Docs' Elementor widget
+New: User Manuals and Focused Knowledge base Demos added
+New: 'Accordion Articles' Elementor widget added
+New: 'Focus Search' option added on Theme Settings > Header > Search Banner
+Tweaked: wooCommerce Product details page design improved
+Tweaked: Search Form Widget (cancel button position, ajax search results position, input background & focus color fields added)
+Fixed: 'Focus Search by /' settings was not working correctly (located on Theme Settings > Header > Search Banner)
+
+----- 1.7.2 (28 April 2022) -----
+New: wooCommerce integrated (If you don't need the Shop feature, no need to the install/activate wooCommerce plugin)
+Tweaked: Search Form widget style (default border removed, search results position overlapping issue fixed)
+Updated: 'Pro Elements' plugin updated to the latest version 3.6.4 (delete the old plugin, then install it again from Appearance > Install Plugins)
+
+----- 1.7.1 (21 April 2022) -----
+New: Book Chapters/Tutorials Homepage demo added
+New: Book Chapters style added to the Docs Elementor widget
+Tweaked: Alignment control for Keywords added to "Search Form" Elementor widget
+
+----- 1.7.0 (18 April 2022) -----
+Fixed: Meta fields
+
+----- 1.6.9 (11 April 2022) -----
+New: Tab, Accordion, Notice/Message, Changelogs, Cheat Sheet, Image Hotspots and Docy List Gutenberg blocks added
+Tweaked: Some responsive issues
+
+----- 1.6.8 (09 April 2022) -----
+Tweaked: Password-protected doc frontend design (the password form) improved
+Fixed: Onepage doc titles
+
+----- 1.6.7 (05 April 2022) -----
+New: Login page (made with Elementor)
+Fixed: Onepage documentation template layout was overlapping on laptop device
+Fixed: Call to action widget style
+
+----- 1.6.6 (31 March 2022) -----
+New: Performance Improved (reduced use of wp_kses_post function to improve the performance )
+Tweaked: RTL improved
+
+----- 1.6.5 (24 March 2022) -----
+New: RTL (Right to Left language) compatibility added
+
+----- 1.6.4 (07 March 2022) -----
+New: Reading Minutes added to Recent Posts widget
+Tweaked: Improved view on small devices (responsive)
+Tweaked: Doc meta design improved (icons removed to make it minimal and clean)
+Tweaked: Ask Questions page design
+Tweaked: Dark mode (Creative Helpdesk homepage, navbar shadow)
+Tweaked: Comments template (spacing, author avatar image was stretching from WordPress 5.9.x version) and Comment form design (input field, placeholder size)
+Tweaked: Search Results page design (visual hierarchy)
+Tweaked: Comments design (spacing, markup improved)
+
+----- 1.6.3 (26 February 2022) -----
+Tweaked: New Topic Form shortcode design (located on the ASK Question page in the demo content)
+Tweaked: Removed character "|" showing on click before to the Forum Topic subscription button
+Tweaked: Forum Topics (Humanize time used instead of date)
+Tweaked: Navbar Menu item color changed to #ebebeb (for white navbar only)
+Tweaked: Forum Topic details page design improved (pagination, spacing)
+Fixed: Navbar Menu color was white (wrong color) on the Category archive page
+Fixed: When leave the Search Banner Simple Light background image empty it shows the default ones (it should display blank if remove the image from settings).
+
+----- 1.6.2 (19 February 2022) -----
+Fixed: Unexpected 0 was showing on the bottom of the ajax loaded doc pages.
+Fixed: Search Banner hide option (Theme Settings > Header > Search Banner) was not working on Doc details page
+Tweaked: Doc left sidebar height on sticky mode adjusted on Laptop device
+
+----- 1.6.1 (16 February 2022) -----
+New: Loading documentation articles asynchronously via Ajax (you can disable ajax from Theme Settings > Doc Settings)
+New: Article reading progress bar for Documentation and Post articles
+Fixed: Forum Topics archive page layout breaks if no topics open
+Tweaked: Docs Elementor widget (active doc select option and controls added for custom ordering)
+Tweaked: Footnote design improved
+
+----- 1.6.0 (11 February 2022) -----
+New: Multi Helpdesk demo added (available on One-Click Demo import)
+Fixed: Docy Button widget's Font-Awesome icon was not rendering
+Fixed: Background color changing option was not working for Simple Footer
+Fixed: Breadcrumb on Search Results page
+New: Box style controls added to Single Doc widget
+Tweaked: _register_controls() function replaced with register_controls() in the Docy Core Elementor widgets
+Tweaked: (bbPress) Recent Replies design improved
+Tweaked: Forum Topic Single page design (Time on Best Answer reply, Border added for image)
+Tweaked: Forum Topic Single page responsive view improved
+Tweaked: Dark Mode colors
+Tweaked: Subscribe widget (added some extra controls, removed default container to make it more flexible to customize)
+Tweaked: "Docy Search Form" Elementor widget improved
+
+----- 1.5.9 (01 February 2022) -----
+Fixed: Breadcrumb was broken on the Topic Reply Edit page
+Tweaked: Dark Mode colors
+Tweaked: Forum Topic page design improved (admin links, user badge, best answer badge)
+Tweaked: Responsive view on small devices (tablet mobile view) improved
+
+----- 1.5.8 (26 January 2022) -----
+Fixed: Font size switcher default font size switch was not working
+Tweaked: Home Forum demo responsive view improved
+Tweaked: Single Forum widget design
+Tweaked: Reply edit page design (duplicate box shadow removed, page background color added)
+Tweaked: Doc right sidebar shown on mobile
+Tweaked: Sticky menu enabled on mobile
+Tweaked: Topic/Reply link added with date
+
+----- 1.5.7 (23 January 2022) -----
+Fixed: Doc link was not working if doc slug change in the "(Docly) Docs List" WordPress widget
+Tweaked: PRO Elements plugin's Elementor plugin active notice removed from dashboard
+
+----- 1.5.6 (19 January 2022) -----
+Tweaked: Mobile menu responsive view (on mobile & tab screen)
+Tweaked: Doc single page responsive view (on mobile & tab screen)
+Deleted: Mega menu (since we aren't using this feature on the theme demo, we deleted this feature)
+Replaced: Code Syntax Highlighter Elementor widget replaced with the Code Highlight widget (used from the PRO Elements plugin)
+Fixed: Mobile was missing on OnePage (on mobile and tab devices)
+
+----- 1.5.5 (13 January 2022) -----
+New: Included Support Forum demo in one click demo import
+Tweaked: Single forum widget spacing and alignment
+Tweaked: "Posts" (PRO Elements) Elementor widget default box shadow
+
+----- 1.5.4 (24 December 2021) -----
+New: Home Forum
+New: PRO Elements (Elementor Pro alternative) included
+New: Show/Hide Estimated reading time & views on single doc page
+Fixed: Helpful vote (yes/no) on doc single page
+Tweaked: Docy Search widget customizability
+
+----- 1.5.3 (20 December 2021) -----
+New: Resolved topic feature added for forum topic
+New: Best answer feature added for forum topic reply
+New: Resolved topic badge on topic list page added
+
+----- 1.5.2 (14 December 2021) -----
+New: Container box-shadow on-off switcher added to Theme Settings > Color Schemes
+New: Private reply feature added for forum topic reply
+New: Solved topic feature added for the forum topic
+New: Best answer feature added for topic replies
+New: Attachment upload option for topic replies
+New: [code] shortcode. Now you can place code anywhere with the [code lang=""] you code goes here [/code] shortcode.
+
+----- 1.5.1 (08 December 2021) -----
+New: Single Doc Widget style fields added for docs content
+Fixed: PHP errors on blog pages
+Fixed: Buttons text change option was not showing for Single Doc Elementor widget
+Fixed: Single Doc widget filtered style issue solved
+
+----- 1.5.0 (7 December 2021) -----
+New: 'terms' shortcode added for showing taxonomy list with description
+New: Post views, Estimated reading time for Docs
+Tweaked: Search form design
+Fixed: bbPress Forums, Topics, Replies were not included in the Search Results > All
+
+----- 1.4.9 (03 December 2021) -----
+New: Creative banner layout for blog post
+New: Video post format support added for blog single page
+New: Forum user roles icon changing options added to Theme Settings > Forum > Users
+Fixed: White logo was showing instead of black logo on the mobile menu items container
+Tweaked: Blog grid layout post design improved
+Tweaked: Forum single page design (Reply, Favorite button hover)
+
+----- 1.4.8 (24 November 2021) -----
+New: Dual Box Notice, Note With Icon and Block Notice style presets added in Docy Alert/Notice Elementor widget
+Tweaked: Shortcode insert support enabled in the Forum post and forum reply content.
+Tweaked: Forum single design hierarchy improved (content paragraph color changed)
+Tweaked: Forum single page view improved on mobile devices
+Fixed: Style changes were not working on the Elementor editor for Table Elementor widget
+Fixed: Navbar menu default colors were showing wrong somewhere
+Fixed: Category and Tag Descriptions show instead of post excerpt on the Category and Tag single pages
+
+----- 1.4.7 (17 November 2021) -----
+Tweaked: Steps panel design
+Tweaked: Forum user profile page design improved
+Tweaked: Blog page design improved
+Tweaked: Dark mode colors
+Tweaked: Post meta design improved by keep it minimal (forum reply meta, blog post comment meta)
+Fixed: Forum user profile page (duplicate titlebar, user topics, user favorites)
+Fixed: Action button background color was not changing from Page Options
+
+----- 1.4.6 (03 November 2021) -----
+New: Sticky Navbar options added to Theme Settings > Header > Layout & Settings
+New: Navbar Meu Alignment option added to Theme Settings > Menu
+Tweaked: Typography improved (tags widget, paragraph font size, color, letter spacing)
+Tweaked: Dark mode colors
+Tweaked: Doc single page (feedback area design improved)
+
+----- 1.4.5 (20 October 2021) -----
+New: Dark Mode options tab added on the Theme Settings page.
+Tweaked: Dark Mode option moved from Theme Settings > Header > Dark Mode to Theme Settings > Dark Mode
+Fixed: Navigation colors based on selected value from Theme Settings and Page settings
+Fixed: Github social icon was not showing
+Deleted: Privacy consent bar feature removed and the Privacy settings tab deleted from the Theme Settings page due to error occurred for that feature.
+
+----- 1.4.4 (13 October 2021) -----
+New: Theme Settings > Header > Layout & Settings
+Fixed: Some options were not working in Theme Settings > Blog
+Fixed: Some options were not working in Theme Settings > Footer
+Tweaked: Dark Mode colors
+
+----- 1.4.3 (10 October 2021) -----
+Fixed: Search banner and static positioned header was showing on page
+Tweaked: Dark mode colors
+
+----- 1.4.2 (10 October 2021) -----
+Fixed: Docy Core plugin was not installing
+New: Search Banner Show/Hide option added to Theme Settings > Header > Search Banner.
+Tweaked: Search banner show/hide switch replaced with Group Buttons on Options :: Doc > Header Settings
+
+----- 1.4.1 (09 October 2021) -----
+New: Theme register/verify menu in the WordPress dashboard
+New: Theme auto update (will unlock on register/verify the theme)
+Tweaked: Docy Core plugin moved to our server.
+
+----- 1.4.0 (06 October 2021) -----
+Fixed: JavaScript console error
+Fixed: Forum Topic Replies (last reply was not showing and +1 reply count was showing in the pagination)
+Fixed: Duplicate titlebar/banner was showing on the Forum search results
+Tweaked: Dark mode colors (banner search input field color, Forum Topics background color)
+
+----- 1.3.9 (04 October 2021) -----
+New: WPML compatibility added for the Docy Core's Elementor widgets
+New: Section Excerpt limit option added to Theme Settings > Doc Settings
+Tweaked: "FAQ Tabs" Elementor widget (Category Order and Order by options added under the Filter tab)
+Tweaked: Border Radius, Margin controls added under Style Search Keywords section in the Hero Eelementor widget
+Fixed: JavaScript console error for Dropdown Options on the Doc right sidebar
+Fixed: Single post TOC layout Sticky Toc switcher was not working
+
+----- 1.3.8 (27 September 2021) -----
+Fixed: Page content show on menu dropdown item hover when has mega menu
+Tweaked: Logo and navigation condition
+Tweaked: Performance improved (artplayer.js, fontawesome css minified, removed some unnecessary CSS)
+Tweaked: content-single-topic-lead.php template used for Topic lead post on Forum Topic page.
+
+----- 1.3.7 (19  September 2021) -----
+New: Blog Toc post layout (https://tinyurl.com/yhd5ptg9)
+Tweaked: Performance improved (some garbage css deleted)
+
+----- 1.3.6 (07  September 2021) -----
+New: "Options :: Post" metabox fields added for blog Post
+New: Post banner type (Colorful, Image) added to Options :: Post > Banner
+Tweaked: Dark Mode colors
+Tweaked: Language parameter (?lang=) added inside the Ajax search forms for WPML compatibility
+
+----- 1.3.5 (02 September 2021) -----
+New: See More link added to the Related and Recent Docs
+Fixed: Custom JS code wasn't rendering
+Tweaked: Search Results page dark mode
+Tweaked: Feedback links markup updated (used p tag instead of h6) at the bottom of the doc details page's feedback link
+Tweaked: Loading Spinner position in the Hero 01 (Creative Helpdesk homepage)
+Tweaked: Dark Mode colors
+
+----- 1.3.4 (31 August 2021) -----
+Tweaked: Aesthetic Search Banner (white logo enabled)
+Tweaked: Pagination added on the top of the replies to the Forum Topic details
+Tweaked: Forum Topics Details Revisions typography improved
+Tweaked: Topic edit form design
+Tweaked: Light Banner design improved
+
+----- 1.3.3 (29 August 2021) -----
+Fixed: Page Titlebar design
+
+----- 1.3.2 (29 August 2021) -----
+New: Theme Settings > Forums > Topic Details (Replies Order option added)
+Tweaked: Forum Topic details page design improved
+Tweaked: Ajax Search Results popup in dark mode (made it dark)
+Tweaked: Topic Edit and Reply Edit pages (deleted duplicate titlebar, breadcrumbs and spacing)
+Tweaked: Dark Mode colors
+Fixed: Doc printing (printing the doc page was printing the layout of the page top bar, search bar, footer, etc).
+Fixed: Doc left sidebar toggle
+
+
+----- 1.3.1 (26 August 2021) -----
+New: Loading spinner added in search form on Ajax search
+Tweaked: wpml-config.xml file updated with still_stuck_text, help_form_link_text, doc_feedback_label
+Tweaked: Dark Mode colors
+Tweaked: Overall theme design improved (design hierarchy improved on Forums Archive, Forum Topic, Search Results, Blog Single pages)
+Tweaked: Theme Settings > Doc Settings > Search Banner Merged to Theme Settings > Header > Search Banner
+Tweaked: Aesthetic Search Banner design
+Fixed: Keywords in Hero section were not showing.
+Fixed: Search form's submit button of Aesthetic Banner design was broken.
+Fixed: Forum freshness (who was last active in a forum) link was not showing correctly
+Fixed: Doc left sidebar toggle was not working on Full width layout
+
+----- 1.3.0 (19 August 2021) -----
+Fixed: JS error on console (TypeError: $(...).tooltipster is not a function)
+Fixed: Some images were not importing on demo import
+Tweaked: SVG images uploading and importing are allowed
+Updated: Online Documentation link updated to https://helpdesk.spider-themes.net/docs/docy-wordpress-theme/
+
+----- 1.2.9 (17 August 2021) -----
+Fixed: Tooltip popups were not appearing.
+Fixed: Author links of Forum Reply on Forum Topic page
+Updated: Tooltipster JS plugin to 4.2.8 from 4.2.7
+Tweaked: Removed the Reply button from the Forum Topic reply
+New: Edit, Move, Split, Trash, Spam, Unapprove, Reply links added for the logged in users at the bottom of the Forum Topic reply
+
+----- 1.2.8 (11 August 2021) -----
+Fixed: Action button colors not changing from Theme Settings
+Fixed: Ajax search was not working on typing on the doc banner's search input field
+Updated: Language (docy.pot) file
+
+----- 1.2.7 (08 July 2021) -----
+Fixed: Forum Tab conditionally removed from Search results page if bbPress plugin deactivated.
+Fixed: Search Banner not showing on the 3rd depth doc page
+
+----- 1.2.6 (21 June 2021) -----
+Tweaked: Alert Elementor widget (display flex issue fixed)
+Fixed: When you unfold the doc section tree, the section title jumps a line and this happens only since the last theme update.
+Updated: Smart bbPress nVerify plugin
+
+----- 1.2.5 (12 June 2021) -----
+New: Search Form on the Header
+New: Integrated the Smart bbPress nVerify plugin and included with the theme.
+
+----- 1.2.4 (10 June 2021) -----
+New: Filter (search doc in documentation chapters) option added to the doc single page.
+New: Doc left sidebar collapse
+Tweaked: Third depth doc support
+Fixed: Fixed some responsive issues on the doc single page
+
+----- 1.2.3 (08 June 2021) -----
+Fixed: Ajax Search not working (immediate fix)
+
+----- 1.2.2 (08 June 2021) -----
+New: Changelogs (custom post and Elementor widget)
+Fixed: Doc navigation active color not applying when the titles start with number
+Tweaked: Performance improved (docs-single.js and dark-mode.js file separated and loaded with dependency)
+Tweaked: Some design part of the theme
+Updated: Demo contents (changelogs added)
+
+----- 1.2.1 (05 June 2021) -----
+New: Ajax Search options tab added to Theme Settings > General
+New: "Style Keywords" group of controls added to the "Hero Search" Elementor widget
+Tweaked: Dependency added to the Ajax search tab (if bbPress forum isn't active, the Forum search tab will be deactivated automatically)
+Tweaked: PHP errors fixed (php errors produce on demo content if bbPress plugin deactivate)
+
+----- 1.2.0 (01 June 2021) -----
+Tweaked: Onepage doc (left navigation active class added and other improvements)
+New: Filter tabs (Docs, Forum, Blog) added on the Ajax search results
+Tweaked: Search results page (filter tabs added, search result items redesigned)
+Tweaked: bbPress breadcrumb design alignments
+Tweaked: Dark Mode support enabled for the forum search results page
+Tweaked: Dark Mode colors
+Tweaked: Performance improved by deleting the unnecessary CSS files and dependency created for forum.css CSS file
+
+----- 1.1.9 (27 May 2021) -----
+Fixed: Style broken issues cause of upgrading to Bootstrap 5
+Tweaked: Improved some design
+
+----- 1.1.8 (25 May 2021) -----
+New: OnePage documentation
+New: Upgraded to Bootstrap 5 support
+Tweaked: Doc Sidebar position adjusted on stick up the Navigation Header
+
+----- 1.1.7 (18 May 2021) -----
+Fixed: Links option not showing on Theme Settings > Footer > Footer Bottom
+Fixed: Updated and New Metafields conflicts with the old metafields
+Fixed: Action button metafield options not working
+
+----- 1.1.6 (08 May 2021) -----
+Tweaked: Color Options (Theme Settings > Color Scheme)
+Fixed: Search Banner 02
+Tweaked: Theme Settings > Header > Search Banner
+Tweaked: Dark Mode
+Tweaked: Doc page meta (Options :: Doc > Header)
+Tweaked: Header and Banner page meta
+
+----- 1.1.5 (05 May 2021) -----
+Tweaked: Docs archives page
+Tweaked: Single doc Elementor widget
+New: New Single Documentation and Multi Documentation pages added
+Updated: Language file (languages/docy.pot)
+Fixed: : PHP error. count(): Parameter must be an array or an object that implements Countable in \docy\wedocs\content-related.php on line 59
+
+----- 1.1.4 (03 May 2021) -----
+New: Cool Knowledge base Homepage demo
+Fixed: Testimonial skin-2
+Fixed: PHP error - explode() expects parameter 2 to be string, array given in docy-core/widgets/Docs.php on line 185
+Tweaked: Dark Mode
+
+----- 1.1.3 (02 May 2021) -----
+Fixed: Search form overlaps by the overlay color on focus
+Tweaked: Dark Mode
+
+----- 1.1.2 (01 May 2021) -----
+New: Cool, Light and Community Search Hero (design inspired from our Docly theme)
+New: Theme Settings > Typography Settings
+New: Related docs
+New: Recently viewed docs
+Fixed: PHP errors on docs page
+
+----- 1.1.1 (25 April 2021) -----
+Tweaked: Dark Mode
+Tweaked: Overall design
+Tweaked: Header responsive
+Fixed: Action button meta
+New: Child Theme included
+
+----- 1.1.0 (21 April 2021) -----
+Fixed: The full theme checked and fixed the random issues
+New: Light Knowledgebase and Classic Helpdesk
+New: One-Click Demo Importer integrated
+Tweaked: The overall theme design
+
+----- 1.0.0 (19 April 2021) -----
+Initial Release

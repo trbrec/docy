@@ -1,0 +1,127 @@
+:is(.single-courses, .single-lesson) {
+    .tutor-wrap {
+        margin-top: 100px;
+        margin-bottom: 100px;
+    }
+    .navbar {
+        position: static;
+    }
+    h1 {
+        font-size: 36px;
+    }
+    .tutor-course-details-top {
+        margin-top: 10px;
+    }
+    a:hover {
+        text-decoration: none;
+    }
+}
+
+.tutor-wrap {
+    padding-top: 80px;
+    padding-bottom: 80px;
+}
+
+.tutor-login-wrap form a.tutor-btn {
+    margin-bottom: 0;
+}
+
+.tutor-card-list-item:nth-child(even) {
+    background-color: var(--black_25);
+}
+
+.tutor-card-list-item:not(:last-child) {
+    border-color: var(--black_50)
+}
+
+body {
+    --tutor-body-color: var(--black_900);
+    --tutor-color-secondary: var(--black_700);
+    --tutor-border-color: var(--black_50);
+    --tutor-body-color-rgb: '';
+    &.body_dark {
+        .tutor-course-content-list-item:hover {
+            background-color: #000000;
+        }
+        .tutor-course-content-list-item:hover .tutor-course-content-list-item-icon {
+            color: #ffffff;
+        }
+        .tutor-course-content-list-item:hover {
+            .tutor-course-content-list-item-title a {
+                color: var(--black_25);
+            }
+        }
+        .tutor-toggle-more-collapsed:before {
+            background: -webkit-linear-gradient(bottom, #131417 15%, rgba(245, 245, 245, 0) 100%) !important;
+        }
+    }
+}
+
+.tutor-form-select-dropdown,
+.tutor-nav:not(.tutor-nav-pills):not(.tutor-nav-tabs), .tutor-accordion-item,
+.tutor-course-single-sidebar-wrapper .tutor-accordion-item-header,
+.tutor-course-single-sidebar-wrapper, .tutor-course-single-sidebar-title,
+.tutor-dashboard .tutor-frontend-dashboard-maincontent ul.tutor-dashboard-permalinks:before {
+    border-color: var(--black_50);
+}
+
+.tutor-course-details-widget-tags .tutor-tag-list li a {
+    margin-bottom: 10px;
+}
+
+.tutor-course-single-sidebar-wrapper,
+.tutor-table tr th,
+.tutor-dashboard .tutor-frontend-dashboard-header:after,
+.tutor-dashboard-menu-divider {
+    background-color: var(--black_50);
+}
+
+.tutor-course-single-sidebar-wrapper .tutor-accordion-item-header,
+.tutor-single-course-sidebar-more>div, .tutor-accordion-item-header,
+.tutor-single-course-sidebar .tutor-sidebar-card .tutor-card-body {
+    background-color: var(--black_25);
+}
+
+.tutor-table tr td, .tutor-form-control,
+.tutor-form-select-dropdown, .tutor-card-list-item,
+.tutor-course-single-sidebar-wrapper .tutor-course-topic-item a,
+.tutor-course-single-sidebar-title,
+.tutor-course-single-sidebar-wrapper .tutor-accordion-item-body,
+.tutor-course-content-list-item, .tutor-form-check-input,
+.tutor-card {
+    background-color: var(--bs-white);
+}
+
+.tutor-color-secondary {
+    color: var(--black_500);
+}
+
+.tutor-course-topic-title {
+    color: var(--black_700);
+}
+
+.tutor-btn-outline-primary,
+.tutor-nav-link, .tutor-nav-link:focus, .tutor-nav-link:hover, .tutor-nav-link:active {
+    text-decoration: none !important;
+}
+
+.tutor-course-details-page .tutor-course-details-tab .tutor-is-sticky {
+    z-index: 1;
+}
+
+.tutor-nav {
+    background: var(--bs-white);
+}
+
+.tutor-btn-ghost {
+    margin-bottom: 40px;
+}
+
+.tutor-tag-list li a {
+    font-size: 14px;
+    padding: 5px 20px;
+}
+
+.tutor-instructor-application-process {
+    padding-top: 0;
+}

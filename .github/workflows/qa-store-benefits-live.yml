@@ -1,0 +1,50 @@
+name: Live Store artist benefits QA
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/qa-store-benefits-live.php
+      - .github/workflows/qa-store-benefits-live.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: store-benefits-live-qa
+  cancel-in-progress: false
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify actual portal recognition and WooCommerce totals with disposable fixtures
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          install -d -m 700 "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: \
+            ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          qa_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /tmp/trb-benefits-qa.XXXXXXXX')
+          qa_run=$(openssl rand -hex 8)
+          cleanup() {
+            ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/qa.php' cleanup '${qa_run}' store; php '${qa_dir}/qa.php' cleanup '${qa_run}' artist; rm -f '${qa_dir}/qa.php'; rmdir '${qa_dir}'"
+          }
+          trap cleanup EXIT
+          scp -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-store-benefits-live.php "${remote}:${qa_dir}/qa.php"
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/qa.php' portal '${qa_run}' ddb"
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/qa.php' store '${qa_run}'"
