@@ -19,6 +19,7 @@ const assert=require('assert/strict');
     await page.evaluate(async()=>{await Promise.all([...document.images].map(i=>i.decode().catch(()=>{})));});
     const data=await page.evaluate(()=>({
      title:document.title,
+     profileBackground:document.querySelector('.trb-artist-page')?getComputedStyle(document.querySelector('main')).backgroundColor:null,
      h1:document.querySelectorAll('main h1').length,
      overflow:document.documentElement.scrollWidth>innerWidth+1,
      overflowElements:[...document.querySelectorAll('main *')].filter(e=>e.getBoundingClientRect().right>innerWidth+2&&getComputedStyle(e).position!=='absolute').slice(0,8).map(e=>e.tagName+'.'+e.className),
@@ -29,6 +30,7 @@ const assert=require('assert/strict');
     const item={page:name,width,...data};results.push(item);
     try {
      assert.equal(data.h1,1,'Exactly one page heading');
+     if(name.startsWith('artist-'))assert.equal(data.profileBackground,'rgb(241, 244, 239)','Individual profile has readable light background');
      assert.equal(data.overflow,false,'Horizontal overflow: '+data.overflowElements.join(', '));
      assert.equal(data.imageFailures,0,'Public images decode');
      if(name==='artisti.html') {
