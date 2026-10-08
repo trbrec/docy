@@ -165,6 +165,13 @@ function portal_snapshot(){
  $payload['revision']=hash('sha256',wp_json_encode([$artists,$releases]));
  $response=rest_ensure_response($payload);$response->header('Cache-Control','private, no-store');return $response;
 }
+function public_image_resize($editor){
+ $size=$editor->get_size();
+ if(!is_array($size)||empty($size['width'])||empty($size['height']))return new \WP_Error('image_dimensions_missing','Dimensioni immagine non disponibili.');
+ // WordPress returns error_getting_dimensions when a smaller image needs no resize.
+ if($size['width']<=1200&&$size['height']<=1200)return true;
+ return $editor->resize(1200,1200,false);
+}
 function portal_asset($request){
  $kind=$request['kind'];$id=(int)$request['id'];
  if($kind==='artist'?!portal_artist_allowed(get_userdata($id)):!portal_release_allowed(get_post($id)))return new \WP_Error('asset_forbidden','Materiale non pubblicabile.',['status'=>404]);
@@ -172,7 +179,7 @@ function portal_asset($request){
  if(!empty($request['hash'])){ $match=null;foreach($kind==='artist'?material_photos($id):[$file] as $candidate)if($candidate&&hash_equals($candidate['hash'],(string)$request['hash']))$match=$candidate;$file=$match; }
  if(!$file||!in_array(wp_get_image_mime($file['path']),['image/jpeg','image/png','image/webp'],true))return new \WP_Error('image_missing','Immagine non disponibile.',['status'=>404]);
  $editor=wp_get_image_editor($file['path']);if(is_wp_error($editor))return $editor;
- $res=$editor->resize(1200,1200,false);if(is_wp_error($res))return $res;$editor->set_quality(88);
+ $res=public_image_resize($editor);if(is_wp_error($res))return $res;$editor->set_quality(88);
  $tmp=wp_tempnam('trb-public-photo');$result=$editor->save($tmp,'image/jpeg');
  if(is_wp_error($result)){if(is_file($tmp))unlink($tmp);return $result;}
  $bytes=file_get_contents($result['path']);unlink($result['path']);if(is_file($tmp))unlink($tmp);

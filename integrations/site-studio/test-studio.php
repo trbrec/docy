@@ -149,3 +149,11 @@ try{
  check(count(array_unique(array_column($photos,'hash')))===count($photos),'Duplicate source photographs cannot create a fake three-photo gallery');
 }finally{unlink($good);unlink($bad);unset($users[99]);}
 echo "PHOTO VALIDATION TOTAL: $count passed\n";
+
+// Small genuine source photographs must remain exportable without enlargement.
+$small=new class {public $calls=0;function get_size(){return ['width'=>800,'height'=>600];}function resize(...$a){++$this->calls;return new WP_Error('error_getting_dimensions');}};
+check(TRB\Studio\public_image_resize($small)===true&&$small->calls===0,'Small official photographs bypass the unnecessary resize and retain their pixels');
+$large=new class {public $args;function get_size(){return ['width'=>600,'height'=>2400];}function resize(...$a){$this->args=$a;return true;}};
+check(TRB\Studio\public_image_resize($large)===true&&$large->args===[1200,1200,false],'Oversized portrait photographs still scale proportionally within the public limit');
+$failed=new class {function get_size(){return ['width'=>2400,'height'=>1800];}function resize(...$a){return new WP_Error('resize_failed');}};
+check(is_wp_error(TRB\Studio\public_image_resize($failed)),'Genuine resize failures are preserved rather than silently ignored');
