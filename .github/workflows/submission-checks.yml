@@ -79,6 +79,7 @@ jobs:
           node tests/release-audio-validation-race.test.js
           python3 tools/portal-audit.py
           python3 tools/test-private-deploy-output.py
+          php tools/test-crm-demo-patch.php
 
       - name: Render synthetic service email preview
         run: php tools/test-onboarding-mail.php --preview
