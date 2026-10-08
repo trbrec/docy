@@ -98,4 +98,9 @@ check(count($public)===2&&!in_array('888608943932',array_column($public,'upc'),t
 $options['trb_studio_directory']=['generated_at'=>gmdate('c'),'artists'=>[['id'=>1]],'releases'=>[['upc'=>'888608943932']]];
 check(count(TRB\Studio\directory_data()['artists'])===1&&TRB\Studio\directory_data()['releases']===[],'Takedowns apply immediately while artist profiles remain available');
 
+function wpautop($text){return '<p>'.str_replace("\n\n","</p>\n<p>",$text).'</p>';}
+$bio=TRB\Studio\artist_biography("Introduzione sufficientemente lunga ".str_repeat("musica ",30)."\n\nSecondo paragrafo <script>alert(1)</script>\n\nTerzo paragrafo.");
+check(str_contains($bio,'<details class="trb-artist-biography">')&&str_contains($bio,'Terzo paragrafo.'),'Expandable biography retains every paragraph');
+check(!str_contains($bio,'<script>')&&str_contains($bio,'&lt;script&gt;'),'Expandable biography escapes uploaded text');
+check(TRB\Studio\artist_biography('')===''&&!str_contains(TRB\Studio\artist_biography('Una sola biografia.'),'<details'),'Empty and single-paragraph biographies avoid redundant disclosure');
 echo "TOTAL: $count passed\n";
