@@ -66,11 +66,14 @@ NEW_6
                 $this->db->prepare("UPDATE assets SET is_primary=0 WHERE submission_id=? AND access_status<>'secured' AND COALESCE(pcloud_file_id,'')=''")->execute([$id]);
 RESET;
     $reset.="\n";
-    if($region!==$reset){
-        // Accept one literal asset-reset statement, preserving every other installed statement.
-        $pattern='~^\\s*\\$this->db->prepare\\("UPDATE assets SET source_url=[^\\r\\n]*"\\)->execute\\(\\[\\$id\\]\\);\\s*$~s';
-        if(preg_match($pattern,$region)!==1||strpos($region,'WHERE submission_id=?')===false)throw new RuntimeException('CRM_DEMO_RESET_CHANGED',201);
-        $source=substr($source,0,$start).$reset.substr($source,$end);
+    if(substr_count($region,$reset)!==1){
+        // Replace one literal source-reset statement; retain all other installed statements verbatim.
+        $pattern='~^[ \t]*\$this->db->prepare\("UPDATE assets SET source_url=[^"\r\n]*"\)->execute\(\[\$id\]\);[ \t]*(?:\r?\n|$)~m';
+        if(preg_match_all($pattern,$region,$matches,PREG_OFFSET_CAPTURE)!==1)throw new RuntimeException('CRM_DEMO_RESET_CHANGED',201);
+        [$oldReset,$resetOffset]=$matches[0][0];
+        if(strpos($oldReset,'WHERE submission_id=?')===false)throw new RuntimeException('CRM_DEMO_RESET_CHANGED',201);
+        $region=substr_replace($region,$reset,$resetOffset,strlen($oldReset));
+        $source=substr($source,0,$start).$region.substr($source,$end);
     }
     $helper=<<<'HELPER'
     /** Explicit opt-out overrides an old hidden social field or a previous contact profile. */

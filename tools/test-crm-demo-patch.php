@@ -11,8 +11,15 @@ if(strpos($legacyPatched,'array_map(static fn(array $row)')===false)throw new Ru
 $variant=str_replace("SET source_url='',access_status","SET source_url='',is_primary=0,access_status",$source);
 if(trb_crm_demo_source_patch($variant)!==$patched)throw new RuntimeException('Literal reset variant not normalized');
 $extra=str_replace("            if (\$materialChanged) {\n","            if (\$materialChanged) {\n                custom_future_behavior();\n",$source);
-$failed=false;try{trb_crm_demo_source_patch($extra);}catch(RuntimeException){$failed=true;}
-if(!$failed)throw new RuntimeException('Unrelated installed reset behavior accepted');
+$extraPatched=trb_crm_demo_source_patch($extra);
+if(strpos($extraPatched,"                custom_future_behavior();\n")===false)throw new RuntimeException('Unrelated installed statement removed');
+if(trb_crm_demo_source_patch($extraPatched)!==$extraPatched)throw new RuntimeException('Patch with retained statement is not idempotent');
+$twoStatements=str_replace("            if (\$materialChanged) {\n","            if (\$materialChanged) {\n                \$this->db->prepare(\"DELETE FROM jobs WHERE type='old_asset_check' AND payload=?\")->execute([\$id]);\n",$source);
+$twoPatched=trb_crm_demo_source_patch($twoStatements);
+if(strpos($twoPatched,'DELETE FROM jobs WHERE type=')===false||trb_crm_demo_source_patch($twoPatched)!==$twoPatched)throw new RuntimeException('Second installed SQL statement not preserved');
+$ambiguous=str_replace("            if (\$materialChanged) {\n","            if (\$materialChanged) {\n                \$this->db->prepare(\"UPDATE assets SET source_url='' WHERE submission_id=?\")->execute([\$id]);\n",$source);
+$failed=false;try{trb_crm_demo_source_patch($ambiguous);}catch(RuntimeException){$failed=true;}
+if(!$failed)throw new RuntimeException('Ambiguous literal reset accepted');
 foreach([$source . $source, str_replace("\$materialChanged = array_key_exists('material_url', \$input);",'changed-anchor',$source)] as $bad){
  $failed=false;try{trb_crm_demo_source_patch($bad);}catch(RuntimeException){$failed=true;}
  if(!$failed)throw new RuntimeException('Changed or duplicate source anchor accepted');
