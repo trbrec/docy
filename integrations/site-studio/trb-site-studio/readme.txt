@@ -1,4 +1,4 @@
-TRB Site Studio 0.1.9
+TRB Site Studio 0.1.10
 
 Complete administrator editor: literal page/header/footer content, images, links, dimensions, colors, Fluent Forms labels/placeholders/help, artist and release presentation overrides, revision restore. Artist photo galleries can contain zero to three verified media images. Source identities and contractual workflow are immutable.
 
@@ -124,3 +124,6 @@ conflitti, nonce, permessi, esclusione QA/DDB/pending, gate distribuzione,
 annullamento, date e coerenza degli ID. Harness con funzioni WordPress simulate;
 non sostituisce un test end-to-end nella specifica installazione.
 
+
+
+0.1.10 — Correct page selection for WordPress-localized numeric IDs; initialize brightness before range clamping; preview artist links and galleries immediately. Native hosting cron refreshes the full source and destination every fifteen minutes when the host exposes crontab, preserving other jobs. WordPress fallback refreshes the source as well; the admin panel distinguishes source freshness from import time and reports the hosting scheduler explicitly. Disabling automatic updates is respected by all schedulers.

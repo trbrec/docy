@@ -36,6 +36,7 @@ jobs:
           php tools/test-release-sheet-data.php
           php tools/test-artist-admin-name.php
           node --check integrations/site-studio/trb-site-studio/editor.js
+          php tools/test-site-studio-cron.php
           curl --fail --silent --show-error --location https://wordpress.org/latest.tar.gz -o /tmp/trb-studio-wp.tar.gz
           mkdir -p /tmp/trb-studio-wp
           tar -xzf /tmp/trb-studio-wp.tar.gz -C /tmp/trb-studio-wp
@@ -121,7 +122,7 @@ jobs:
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/update-trb-stage-name.php' '${GITHUB_SHA}'" >/dev/null 2>&1
             echo "Requested duo stage name verified."
           fi
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/recover-trb-artistic-materials\.php$' >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/recover-trb-artistic-materials\.php$|^tools/(ensure-site-studio-cron|run-site-studio-cron|site-studio-cron-lib)\.php$' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/recover-trb-artistic-materials.php' '${GITHUB_SHA}'" >/dev/null 2>&1
             echo "Reviewed artist biographies and photos restored without overwriting new uploads."
           fi
@@ -140,13 +141,14 @@ jobs:
             fi
             echo "TRB Studio portal installed and verified."
           fi
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/sync-site-studio\.php$|^tools/deploy-site-studio\.php$|^tools/recover-trb-artistic-materials\.php$' >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/sync-site-studio\.php$|^tools/deploy-site-studio\.php$|^tools/recover-trb-artistic-materials\.php$|^tools/(ensure-site-studio-cron|run-site-studio-cron|site-studio-cron-lib)\.php$' >/dev/null; then
             if ! ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/sync-site-studio.php' '${GITHUB_SHA}' transfer" >/dev/null 2>&1; then
               studio_phase=$(ssh "${ssh_opts[@]}" "${remote}" "cat '${DEPLOY_PATH}/.trb-studio-transfer-phase' 2>/dev/null")
               case "${studio_phase}" in initial|export|import|complete) echo "Studio transfer stopped at ${studio_phase}." ;; *) echo "Studio transfer unconfirmed." ;; esac
               exit 1
             fi
             echo "TRB public directory synchronized through the private server bundle."
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/ensure-site-studio-cron.php' '${GITHUB_SHA}'"
           fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^(integrations/onboarding/|inc/trb-candidate-onboarding|assets/js/onboarding/|tools/(deploy-onboarding|onboarding-deploy-status|onboarding-readiness)\.php)' >/dev/null; then
             onboarding_readiness=$(ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/onboarding-readiness.php' '${GITHUB_SHA}'" 2>/dev/null || true)
@@ -280,3 +282,4 @@ jobs:
             -H "Cache-Control: no-cache" \
             -H "User-Agent: TRB-Daily-Site-Health/1.0" \
             "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s)" >/dev/null
+

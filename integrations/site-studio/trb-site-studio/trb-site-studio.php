@@ -2,12 +2,12 @@
 /**
  * Plugin Name: TRB Site Studio
  * Description: Editor visuale amministratore e directory pubblica collegata al Portale Artisti.
- * Version: 0.1.9
+ * Version: 0.1.10
  * Requires PHP: 8.1
  */
 namespace TRB\Studio;
 if (!defined('ABSPATH')) exit;
-const VERSION = '0.1.9';
+const VERSION = '0.1.10';
 require_once __DIR__.'/editor.php';
 require_once __DIR__.'/portal.php';
 require_once __DIR__.'/bundle.php';
@@ -29,7 +29,22 @@ add_action('rest_api_init', function () {
 });
 add_filter('cron_schedules', function($s){$s['trb_studio_15min']=['interval'=>900,'display'=>'TRB Studio: 15 minuti'];return $s;});
 add_action('init', function(){if(destination_site() && get_option('trb_studio_enabled') && !wp_next_scheduled('trb_studio_sync')) wp_schedule_event(time()+60,'trb_studio_15min','trb_studio_sync');});
-add_action('trb_studio_sync', __NAMESPACE__.'\\sync_directory');
+function scheduled_refresh($force=false){
+ if(!destination_site()||(!$force&&!get_option('trb_studio_enabled')))return true;
+ $scheduler=get_option('trb_studio_scheduler',[]);
+ if(get_option('trb_studio_transport')==='private-bundle'&&($force||empty($scheduler['installed']))){
+  $binary=get_option('trb_studio_cli_binary','');
+  $runner='/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy/tools/run-site-studio-cron.php';
+  if(is_string($binary)&&str_starts_with($binary,'/')&&is_file($binary)&&is_executable($binary)&&is_file($runner)&&!is_link($runner)&&function_exists('proc_open')){
+   $pipes=[];$process=@proc_open([$binary,$runner,$force?'--manual':''],[0=>['file','/dev/null','r'],1=>['file','/dev/null','w'],2=>['file','/dev/null','w']],$pipes);
+   if(is_resource($process)&&proc_close($process)!==0)return new \WP_Error('transfer_failed','Aggiornamento dal portale non riuscito: conservata l’ultima versione valida.');
+  }
+ }
+ // The CLI importer has its own process; discard this request's cached old options.
+ foreach(['trb_studio_directory','trb_studio_last_sync','trb_studio_transfer_report','trb_studio_cron_report'] as $key)wp_cache_delete($key,'options');
+ return sync_directory();
+}
+add_action('trb_studio_sync', __NAMESPACE__.'\\scheduled_refresh');
 register_deactivation_hook(__FILE__,function(){wp_clear_scheduled_hook('trb_studio_sync');});
 add_action('admin_menu',function(){add_options_page('TRB Site Studio','TRB Site Studio','manage_options','trb-site-studio',__NAMESPACE__.'\\settings_page');});
 function settings_page(){
@@ -49,14 +64,22 @@ function settings_page(){
   }
   $notice='Impostazioni salvate.';
  }
- if(isset($_POST['trb_studio_sync_now'])){check_admin_referer('trb_studio_settings');$r=sync_directory();$notice=is_wp_error($r)?$r->get_error_message():'Sincronizzazione completata.';}
+ if(isset($_POST['trb_studio_sync_now'])){check_admin_referer('trb_studio_settings');$r=scheduled_refresh(true);$notice=is_wp_error($r)?$r->get_error_message():'Sincronizzazione completata.';}
  echo '<div class="wrap"><h1>TRB Site Studio</h1><p>'.esc_html($notice).'</p>';
  if(!source_site()&&!destination_site()){echo '<p>Installazione non abilitata: questa versione opera solo su artist.trbrec.com e new1.trbrec.com.</p></div>';return;}
  echo '<form method="post">';wp_nonce_field('trb_studio_settings');
  if(source_site()){
   echo '<p>Esporta esclusivamente profili TRB approvati e materiali artistici. Account di prova e documenti amministrativi sono esclusi.</p><p><label>Stati CRM che attestano la distribuzione approvata<br><input class="regular-text" name="states" value="'.esc_attr(implode(',',get_option('trb_studio_distribution_states',[]))).'"></label></p><p>Valori separati da virgole del campo <code>_trb_crm_workflow_status</code>. Da verificare sul portale live: lasciare vuoto fino alla verifica. Lo stato tecnico “approved” non è una decisione di distribuzione.</p>';
  }else{
-  if(get_option('trb_studio_transport')==='private-bundle')echo '<p>Collegamento server attivo: i profili approvati e le release elaborate vengono aggiornati automaticamente. Puoi eseguire qui una sincronizzazione manuale.</p><p><label><input type="checkbox" name="enabled" value="1" '.checked(get_option('trb_studio_enabled'),true,false).'> Aggiorna automaticamente ogni 15 minuti</label></p><p>Il trasferimento server è programmato ogni 15 minuti; eventuali ritardi del servizio di pianificazione compaiono nell’ultimo esito.</p>';
+  if(get_option('trb_studio_transport')==='private-bundle'){
+   $scheduler=get_option('trb_studio_scheduler',[]);$heartbeat=get_option('trb_studio_cron_report',[]);$directory=get_option('trb_studio_directory',[]);
+   $generated=strtotime($directory['generated_at']??'');$age=$generated?max(0,time()-$generated):null;
+   echo '<p>Collegamento server attivo: i profili approvati e le release elaborate vengono aggiornati automaticamente. Puoi eseguire qui una sincronizzazione manuale.</p><p><label><input type="checkbox" name="enabled" value="1" '.checked(get_option('trb_studio_enabled'),true,false).'> Aggiorna automaticamente ogni 15 minuti</label></p>';
+   echo '<p>'.(!empty($scheduler['installed'])?'Cron dell’hosting verificato: ogni 15 minuti, anche senza visite al sito.':'Il refresh WordPress dipende dalle visite; il servizio esterno rimane disponibile come supporto. Il cron dell’hosting non risulta verificato.').'</p>';
+   echo '<p>Ultimo aggiornamento dei dati dal portale: '.esc_html($generated?wp_date('d/m/Y H:i:s',$generated).' · '.(int)ceil($age/60).' minuti fa':'non disponibile').'.</p>';
+   if($age===null||$age>1800)echo '<p><strong>Aggiornamento in ritardo: verificare il collegamento dal portale.</strong></p>';
+   if($heartbeat)echo '<p>Ultimo ciclo server: '.esc_html(wp_date('d/m/Y H:i:s',strtotime($heartbeat['at']??''))).' · '.(!empty($heartbeat['ok'])?'riuscito':'da verificare').'.</p>';
+  }
   else echo '<p>Il collegamento legge esclusivamente gli endpoint filtrati di artist.trbrec.com. Le credenziali restano sul server.</p><p><label>Utente del portale<br><input autocomplete="username" name="portal_user" value="'.esc_attr(get_option('trb_studio_user','')).'"></label></p><p><label>Password applicativa del portale<br><input type="password" autocomplete="new-password" name="portal_password" value=""></label> Lascia vuoto per conservarla.</p><p><label><input type="checkbox" name="enabled" value="1" '.checked(get_option('trb_studio_enabled'),true,false).'> Aggiorna automaticamente ogni 15 minuti</label></p><p>WordPress Cron dipende dalle visite; per intervalli regolari utilizzare il cron dell’hosting.</p>';
   echo '<p>Ultimo esito: '.esc_html(wp_json_encode(get_option('trb_studio_last_sync',[]),JSON_UNESCAPED_UNICODE)).'</p>';
  }
@@ -64,3 +87,4 @@ function settings_page(){
  if(destination_site()) submit_button('Sincronizza adesso','secondary','trb_studio_sync_now');
  echo '</form></div>';
 }
+
