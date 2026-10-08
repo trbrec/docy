@@ -51,12 +51,12 @@ NEW_6
     ];
     foreach($changes as $index=>[$old,$new]){
         if(substr_count($source,$new)===1&&substr_count($source,$old)===0)continue;
-        if(substr_count($source,$old)!==1)throw new RuntimeException('CRM_DEMO_ANCHOR_'.(int)$index);
+        if(substr_count($source,$old)!==1)throw new RuntimeException('CRM_DEMO_ANCHOR_'.(int)$index,100+(int)$index);
         $source=str_replace($old,$new,$source);
     }
     $prefix="            if (\$materialChanged) {\n";
     $suffix="                \$received = new DateTimeImmutable((string)\$before['received_at'], new \\DateTimeZone('UTC'));";
-    if(substr_count($source,$prefix)!==1||substr_count($source,$suffix)!==1)throw new RuntimeException('CRM_DEMO_RESET_BOUNDARY');
+    if(substr_count($source,$prefix)!==1||substr_count($source,$suffix)!==1)throw new RuntimeException('CRM_DEMO_RESET_BOUNDARY',200);
     $start=strpos($source,$prefix)+strlen($prefix);$end=strpos($source,$suffix,$start);
     $region=substr($source,$start,$end-$start);
     $reset=<<<'RESET'
@@ -69,7 +69,7 @@ RESET;
     if($region!==$reset){
         // Accept one literal asset-reset statement, preserving every other installed statement.
         $pattern='~^\\s*\\$this->db->prepare\\("UPDATE assets SET source_url=[^\\r\\n]*"\\)->execute\\(\\[\\$id\\]\\);\\s*$~s';
-        if(preg_match($pattern,$region)!==1||strpos($region,'WHERE submission_id=?')===false)throw new RuntimeException('CRM_DEMO_RESET_CHANGED');
+        if(preg_match($pattern,$region)!==1||strpos($region,'WHERE submission_id=?')===false)throw new RuntimeException('CRM_DEMO_RESET_CHANGED',201);
         $source=substr($source,0,$start).$reset.substr($source,$end);
     }
     $helper=<<<'HELPER'
@@ -83,23 +83,22 @@ RESET;
 
 HELPER;
     if(strpos($source,'function fluentFormSocialInput(')!==false){
-        if(substr_count($source,$helper)!==1)throw new RuntimeException('CRM_DEMO_HELPER_CHANGED');
+        if(substr_count($source,$helper)!==1)throw new RuntimeException('CRM_DEMO_HELPER_CHANGED',210);
     }else{
         $anchor="    /** @return list<string> */\n    private function extractHttpUrls";
-        if(substr_count($source,$anchor)!==1)throw new RuntimeException('CRM_DEMO_HELPER_ANCHOR');
+        if(substr_count($source,$anchor)!==1)throw new RuntimeException('CRM_DEMO_HELPER_ANCHOR',211);
         $source=str_replace($anchor,$helper.$anchor,$source);
     }
     // Earlier live builds exposed only the old primary instead of all retained source links.
     $start=strpos($source,'    public function find(int $id): ?array');
     $end=$start!==false?strpos($source,"\n    public function ",$start+30):false;
-    if($start===false||$end===false)throw new RuntimeException('CRM_DEMO_FIND_ANCHOR');
+    if($start===false||$end===false)throw new RuntimeException('CRM_DEMO_FIND_ANCHOR',220);
     $find=substr($source,$start,$end-$start);
     $pattern='~^[ \t]*\\$submission\\[\'material_source_url\'\\][ \t]*=[^\\r\\n]+;[ \t]*$~m';
-    if(preg_match_all($pattern,$find)!==1)throw new RuntimeException('CRM_DEMO_FIND_ASSIGNMENT');
+    if(preg_match_all($pattern,$find)!==1)throw new RuntimeException('CRM_DEMO_FIND_ASSIGNMENT',221);
     $assignment=<<<'ASSIGNMENT'
         $submission['material_source_url'] = implode("\n",array_values(array_unique(array_filter(array_map(static fn(array $row):string=>trim((string)($row['source_url']??'')),$submission['assets'])))));
 ASSIGNMENT;
     $find=preg_replace_callback($pattern,static fn()=> $assignment,$find);
     return substr($source,0,$start).$find.substr($source,$end);
 }
-
