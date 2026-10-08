@@ -96,7 +96,8 @@
       lastLoaded = '';
       var italian = isItaly(country.value);
       postcode.required = italian;
-      postcode.pattern = italian ? '[0-9]{5}' : '';
+      if (italian) postcode.pattern = '[0-9]{5}';
+      else postcode.removeAttribute('pattern');
       postcode.maxLength = italian ? 5 : 40;
       postcode.inputMode = italian ? 'numeric' : 'text';
       city.hidden = !italian;
@@ -313,7 +314,7 @@
       documentNumber.addEventListener('input', function () {
         if (type() !== 'cie') {
           documentNumber.maxLength = 200;
-          documentNumber.pattern = '';
+          documentNumber.removeAttribute('pattern');
           documentNumber.setCustomValidity(documentNumber.value.trim() ? '' : 'Inserisci il numero originale del documento.');
           return;
         }

@@ -2,6 +2,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 class Field{
  constructor(tag='input'){this.tag=tag;this._value='';this.children=[];this.dataset={};this.events={};this.validity='';this.classList={toggle(){},remove(){}};}
+ removeAttribute(name){delete this[name];}
  set value(v){this._value=v;}get value(){return this.tag==='select'&&!this._value&&this.children.length?this.children[0].value:this._value;}
  set innerHTML(v){this.children=[];this._value='';if(v.includes('<option')){const option=new Field('option');option.value='';this.children.push(option);}}
  get options(){return this.children;}get selectedIndex(){return this.children.findIndex(x=>x.value===this.value);}
@@ -36,7 +37,7 @@ const settle=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r))
  assert.equal(fields['data-trb-postcode'].value,'SW1A 1AA');assert.equal(fields['data-trb-postcode'].validity,'');
  assert.equal(fields['data-trb-country'].value,'United Kingdom');assert.equal(fields['data-trb-province'].value,'Greater London');
  assert.equal(fields['data-trb-city'].disabled,true);assert.equal(fields['data-trb-international-city'].disabled,false);
- assert.equal(fields['data-trb-postcode'].required,false);assert.equal(fields['data-trb-street-number'].required,false);
+ assert.equal(fields['data-trb-postcode'].required,false);assert.equal(fields['data-trb-postcode'].pattern,undefined,'foreign codes must remove the pattern attribute, not set an empty pattern');assert.equal(fields['data-trb-street-number'].required,false);
  input('data-trb-country','香港');input('data-trb-postcode','');assert.equal(fields['data-trb-postcode'].validity,'');
  input('data-trb-birthplace','Roma');timers.pop()();const oldBirth=municipal[municipal.length-1];
  input('data-trb-birth-country','Tunisia');input('data-trb-birthplace','Tunisi');
@@ -50,7 +51,7 @@ const settle=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r))
  for(const number of ['+012345678','+1234567890123456','1234567']){phone.value=number;phone.dispatchEvent({type:'input'});assert.notEqual(phone.validity,'');}
  input('data-trb-tax-country','France');assert.equal(input('data-trb-tax-code','01 23-456.789').value,'01 23-456.789');assert.equal(fields['data-trb-tax-code'].validity,'');
  input('data-trb-tax-country','Italia');assert.notEqual(fields['data-trb-tax-code'].validity,'');
- input('data-trb-document-type','passport','change');assert.equal(input('data-trb-document-number','AB-123456789').value,'AB-123456789');assert.equal(fields['data-trb-document-number'].validity,'');
+ input('data-trb-document-type','passport','change');assert.equal(input('data-trb-document-number','AB-123456789').value,'AB-123456789');assert.equal(fields['data-trb-document-number'].validity,'');assert.equal(fields['data-trb-document-number'].pattern,undefined);
  assert.equal(input('data-trb-document-expiry',`${year+15}-01-01`,'change').validity,'');
  input('data-trb-document-type','foreign_identity','change');fields['data-trb-no-expiry'].checked=true;fields['data-trb-no-expiry'].dispatchEvent({type:'change'});
  assert.equal(fields['data-trb-document-expiry'].disabled,true);assert.equal(fields['data-trb-document-expiry'].validity,'');
