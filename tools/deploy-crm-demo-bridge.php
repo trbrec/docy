@@ -4,7 +4,12 @@ if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 $revision=$argv[1]??'';
 if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents(dirname(__DIR__).'/.trb-deployed-sha'))!==$revision)exit(2);
 ini_set('display_errors','0');
-set_exception_handler(static function(){echo "CRM_DEMO_BRIDGE_FAILED\n";exit(1);});
+$statusFile='/home/customer/www/crm.trbrec.com/private/demo-bridge-stage-'.$revision;
+set_exception_handler(static function($error)use($statusFile){
+ $code=(int)$error->getCode();if(!in_array($code,[100,101,102,103,104,105,200,201,210,211,220,221],true))$code=900;
+ @file_put_contents($statusFile,(string)$code);@chmod($statusFile,0600);
+ echo "CRM_DEMO_BRIDGE_FAILED\n";exit(1);
+});
 require __DIR__.'/crm-demo-source-patch.php';
 $root='/home/customer/www/crm.trbrec.com';
 $target=$root.'/public_html/app/SubmissionRepository.php';

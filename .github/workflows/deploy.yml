@@ -206,7 +206,11 @@ jobs:
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/recover-acr-budget-live.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/(deploy-crm-demo-bridge|crm-demo-source-patch)\.php$' >/dev/null; then
-            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/deploy-crm-demo-bridge.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+            if ! ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/deploy-crm-demo-bridge.php' '${GITHUB_SHA}'" >/dev/null 2>&1; then
+              crm_demo_stage=$(ssh "${ssh_opts[@]}" "${remote}" "cat '/home/customer/www/crm.trbrec.com/private/demo-bridge-stage-${GITHUB_SHA}'" 2>/dev/null || true)
+              case "${crm_demo_stage}" in 100|101|102|103|104|105|200|201|210|211|220|221|900) echo "CRM Demo source guard stopped at code ${crm_demo_stage}." ;; *) echo "CRM Demo source guard stopped at an unknown stage." ;; esac
+              exit 1
+            fi
             echo "CRM Demo field mapping and retained listening links installed and syntax checked."
           fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/inspect-demo-crm-source.php' >/dev/null; then
