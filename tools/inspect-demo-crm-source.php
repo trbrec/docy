@@ -4,7 +4,7 @@ if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 $revision=$argv[1]??'';
 if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents(dirname(__DIR__).'/.trb-deployed-sha'))!==$revision)exit(2);
 ini_set('display_errors','0');ob_start();
-$allowed=['source_loaded','client_sends_material_url','client_sends_material_source_url','metadata_reads_material_url','metadata_reads_material_source_url','find_aggregates_links','find_uses_primary_only','anchor_0','anchor_1','anchor_2','anchor_3','anchor_4','anchor_5'];
+$allowed=['source_loaded','client_sends_material_url','client_sends_material_source_url','metadata_reads_material_url','metadata_reads_material_source_url','find_aggregates_links','find_uses_primary_only','anchor_0','anchor_1','anchor_2','anchor_3','anchor_4','anchor_5','reset_region_found','reset_one_prepare','reset_one_execute','reset_two_prepares','reset_is_multiline','reset_starts_source_url','reset_contains_canonical_url','reset_contains_is_primary','reset_where_guard','reset_execute_id','reset_literal_multiline','reset_only_demote_and_clear','reset_comment_present'];
 $clean=array_fill_keys($allowed,false);
 register_shutdown_function(static function()use(&$clean){while(ob_get_level())ob_end_clean();echo json_encode($clean)."\n";});
 $root='/home/customer/www/crm.trbrec.com/public_html';
@@ -42,4 +42,23 @@ SOURCE,
 SOURCE,
 ];
 foreach($anchors as $key=>$anchor)$checks[$key]=substr_count($repository,$anchor)===1;
+
+$prefix="            if (\$materialChanged) {\n";
+$suffix="                \$received = new DateTimeImmutable((string)\$before['received_at'], new \\DateTimeZone('UTC'));";
+$start=strpos($metadata,$prefix);$end=$start!==false?strpos($metadata,$suffix,$start):false;
+$region=$start!==false&&$end!==false?substr($metadata,$start+strlen($prefix),$end-$start-strlen($prefix)):'';
+$checks['reset_region_found']=$region!=='';
+$checks['reset_one_prepare']=substr_count($region,'$this->db->prepare')===1;
+$checks['reset_one_execute']=substr_count($region,'->execute')===1;
+$checks['reset_two_prepares']=substr_count($region,'$this->db->prepare')===2;
+$checks['reset_is_multiline']=substr_count(trim($region),"\n")>0;
+$checks['reset_starts_source_url']=strpos($region,'UPDATE assets SET source_url=')!==false;
+$checks['reset_contains_canonical_url']=strpos($region,'canonical_url')!==false;
+$checks['reset_contains_is_primary']=strpos($region,'is_primary')!==false;
+$checks['reset_where_guard']=strpos($region,'WHERE submission_id=?')!==false;
+$checks['reset_execute_id']=strpos($region,'->execute([$id]);')!==false;
+$checks['reset_literal_multiline']=preg_match('~^\s*\$this->db->prepare\("UPDATE assets SET source_url=[^"]*"\)->execute\(\[\$id\]\);\s*$~s',$region)===1;
+$checks['reset_only_demote_and_clear']=preg_match('~^\s*\$this->db->prepare\("UPDATE assets SET is_primary=0 WHERE submission_id=\?[^"]*"\)->execute\(\[\$id\]\);\s*\$this->db->prepare\("UPDATE assets SET source_url=[^"]*"\)->execute\(\[\$id\]\);\s*$~s',$region)===1;
+$checks['reset_comment_present']=strpos($region,'//')!==false||strpos($region,'/*')!==false;
+
 foreach($allowed as $key)$clean[$key]=($checks[$key]??false)===true;
