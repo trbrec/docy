@@ -4,13 +4,13 @@ if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 ini_set('display_errors','0');
 $revision=$argv[1]??'';$mode=$argv[2]??'scan';$theme=dirname(__DIR__);
 if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents($theme.'/.trb-deployed-sha'))!==$revision)exit(2);
-$private='/home/customer/www/new1.trbrec.com/private/trb-site-studio';
-if(!is_dir($private)||is_link($private))exit(3);
-$file=$private.'/legacy-artistic-inventory.json';
+$trbLegacyPrivate='/home/customer/www/new1.trbrec.com/private/trb-site-studio';
+if(!is_dir($trbLegacyPrivate)||is_link($trbLegacyPrivate))exit(3);
+$trbLegacyInventoryFile=$trbLegacyPrivate.'/legacy-artistic-inventory.json';
 define('WP_USE_THEMES',false);
 if($mode==='import'){
  require '/home/customer/www/new1.trbrec.com/public_html/wp-load.php';
- $d=json_decode((string)@file_get_contents($file),true);if(!is_array($d)||($d['root']??'')!=='/Upload files - TRB rec')exit(4);
+ $d=json_decode((string)@file_get_contents($trbLegacyInventoryFile),true);if(!is_array($d)||($d['root']??'')!=='/Upload files - TRB rec'){update_option('trb_studio_legacy_material_audit_status',['code'=>is_file($trbLegacyInventoryFile)?'inventory_invalid':'inventory_missing','at'=>gmdate('c')],false);exit(4);}
  unset($d['queue'],$d['seen']);update_option('trb_studio_legacy_material_audit',$d,false);exit;
 }
 require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
@@ -18,10 +18,10 @@ if(!function_exists('trb_demo_webdav_request'))exit(5);
 $root='/Upload files - TRB rec';
 $artists=[28=>['Carmine Granato'],41=>['Edmondo Romano','Simona Fasano'],46=>['Emiliano Di Meo'],70=>['diiego'],90=>['Leonardo M Facinelli','Leonardo Facinelli'],94=>['Fabio Guglielmo Anastasi','Fabio Anastasi'],103=>['Gli Irati'],128=>['Alessio de Franzoni','Alessio de Fanzoni','FaDe'],181=>['Valerio Di Paolo']];
 $key=static function($s){$s=remove_accents(mb_strtolower($s,'UTF-8'));return trim(preg_replace('/[^a-z0-9]+/',' ',$s));};
-$d=is_file($file)?json_decode((string)file_get_contents($file),true):null;
+$d=is_file($trbLegacyInventoryFile)?json_decode((string)file_get_contents($trbLegacyInventoryFile),true):null;
 if(!is_array($d)||($d['root']??'')!==$root)$d=['root'=>$root,'queue'=>[$root],'seen'=>[],'matches'=>[],'errors'=>[],'folders'=>0,'files'=>0,'complete'=>false];
-$lock=fopen($private.'/legacy-artistic-inventory.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))exit(6);
-$save=static function()use(&$d,$file){$d['at']=gmdate('c');$tmp=$file.'.tmp';$bytes=wp_json_encode($d);if(file_put_contents($tmp,$bytes)!==strlen($bytes))exit(7);chmod($tmp,0600);if(!rename($tmp,$file))exit(8);};
+$lock=fopen($trbLegacyPrivate.'/legacy-artistic-inventory.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))exit(6);
+$save=static function()use(&$d,$trbLegacyInventoryFile){$d['at']=gmdate('c');$tmp=$trbLegacyInventoryFile.'.tmp';$bytes=wp_json_encode($d);if(file_put_contents($tmp,$bytes)!==strlen($bytes))exit(7);chmod($tmp,0600);if(!rename($tmp,$trbLegacyInventoryFile))exit(8);};
 $started=time();$processed=0;
 while($d['queue']&&$processed<180&&time()-$started<100){
  $path=array_shift($d['queue']);if(isset($d['seen'][$path]))continue;
