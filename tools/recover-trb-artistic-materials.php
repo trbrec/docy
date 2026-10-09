@@ -5,7 +5,15 @@ ini_set('display_errors','0');
 $revision=$argv[1]??'';
 if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents(dirname(__DIR__).'/.trb-deployed-sha'))!==$revision)exit(2);
 define('WP_USE_THEMES',false);require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
-$items=[['id'=>94,'expected_display'=>'Fabio Guglielmo Anastasi','name'=>'Fabio Anastasi','photo_asset'=>'fabio-anastasi-studio.b64','photo_hash'=>'7726387fd408b3c36f5e7b4267fb2d4ae8bbedf020a1dbfb2ecb04382886ada3','photo'=>'/Upload files - TRB rec/Media/Biographies/1 file from Fabio Anastasi on Jun 6, 2024/Fabio Anastasi - CV 2024.pdf#fotografia-in-studio','photo_crop'=>[300,110,600,545],'bio'=>'Fabio Anastasi è un pianista, compositore e arrangiatore la cui attività si sviluppa tra canzone, concerti e musica per cinema e televisione, in Italia e in diversi paesi asiatici.
+$items=[['id'=>28,'expected_display'=>'Carmine Granato','name'=>'Carmine Granato','photo'=>'/Discografia - DDB/Carmine Granato/Quello che resta/Media Kit_Carmine Granato_Quello che resta/photo/2.jpg','photo_max_bytes'=>20*1024*1024,'bio'=>'Carmine Granato è un cantante e cantautore di Pomigliano d’Arco. Il suo percorso nasce dalla passione per la musica trasmessa dal nonno e si sviluppa attraverso lo studio della teoria musicale, del canto, del pianoforte e della recitazione.
+
+Dal 2009 lavora in produzioni musicali e teatrali. Tra queste, l’esperienza con Napoliteatro lo porta nel cast del musical C’era una volta... Scugnizzi, guidato da Claudio Mattone. Il rapporto con il palco accompagna così la formazione vocale e la scrittura delle proprie canzoni.
+
+Nel 2015 intraprende gli studi al Conservatorio San Pietro a Majella di Napoli e li prosegue al Conservatorio Giuseppe Martucci di Salerno. Qui consegue il biennio specialistico in canto jazz con il massimo dei voti, sotto la guida di Sandro Deidda. Con Deidda registra Un’illusione, brano incluso nell’EP Occhi neri, pubblicato nel 2021.
+
+Si esibisce con i SoulSix e, successivamente, con la Casanova Swing Band, partecipando a festival e rassegne. All’attività dal vivo affianca il progetto da cantautore: nel 2019 entra fra i cinquanta finalisti della XXXI edizione di Musicultura con Potessi appartenerti.
+
+La sua discografia comprende inoltre Quello che resta e altri progetti custoditi nell’archivio dell’etichetta. Canto jazz, teatro e canzone costituiscono i diversi ambiti di un percorso costruito tra studio, scrittura e concerti.','bio_source'=>'/Discografia - DDB/Carmine Granato/Quello che resta/promo/Bio Carmine Granato.pdf'],['id'=>94,'expected_display'=>'Fabio Guglielmo Anastasi','name'=>'Fabio Anastasi','photo_asset'=>'fabio-anastasi-studio.b64','photo_hash'=>'7726387fd408b3c36f5e7b4267fb2d4ae8bbedf020a1dbfb2ecb04382886ada3','photo'=>'/Upload files - TRB rec/Media/Biographies/1 file from Fabio Anastasi on Jun 6, 2024/Fabio Anastasi - CV 2024.pdf#fotografia-in-studio','photo_crop'=>[300,110,600,545],'bio'=>'Fabio Anastasi è un pianista, compositore e arrangiatore la cui attività si sviluppa tra canzone, concerti e musica per cinema e televisione, in Italia e in diversi paesi asiatici.
 
 Si forma al Conservatorio G. B. Martini di Bologna, dove consegue i diplomi di solfeggio, quinto anno di pianoforte e armonia complementare. Approfondisce poi l’armonia moderna al CPM di Milano con Mark Harris. La ricerca sull’immagine sonora lo porta a comporre e arrangiare colonne sonore e a lavorare per la RAI come arrangiatore, programmatore e autore di musiche.
 
@@ -49,7 +57,7 @@ foreach($items as $item){
    $r=trb_demo_webdav_request('GET',$item['photo']);
    if(is_wp_error($r)||wp_remote_retrieve_response_code($r)!==200)exit(5);
    $bytes=wp_remote_retrieve_body($r);
-  }if(isset($item['photo_hash'])&&!hash_equals($item['photo_hash'],hash('sha256',$bytes)))exit(13);if(strlen($bytes)>15*1024*1024)exit(6);
+  }if(isset($item['photo_hash'])&&!hash_equals($item['photo_hash'],hash('sha256',$bytes)))exit(13);if(strlen($bytes)>($item['photo_max_bytes']??15*1024*1024))exit(6);
   $tmp=wp_tempnam('trb-recovered');file_put_contents($tmp,$bytes);
   if(!in_array(wp_get_image_mime($tmp),['image/jpeg','image/png','image/webp'],true)){unlink($tmp);exit(7);}
   $ed=wp_get_image_editor($tmp);if(is_wp_error($ed)){unlink($tmp);exit(8);}
