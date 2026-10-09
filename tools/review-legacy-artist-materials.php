@@ -22,7 +22,7 @@ $trbReviewInventory['matches'][28][$trbCarmineBio]=['path'=>$trbCarmineBio,'exte
 $trbReviewData=['revision'=>$revision,'at'=>gmdate('c'),'artists'=>[]];
 foreach([28,46,70,90,94,181] as $trbReviewId){
  $u=get_userdata($trbReviewId);if(!$u||!\TRB\Studio\portal_artist_allowed($u))continue;
- $entry=['display_name'=>$u->display_name,'official_name'=>(string)get_user_meta($trbReviewId,'_trb_artist_artist_name',true),'given_name'=>$u->first_name,'family_name'=>$u->last_name,'biographies'=>[]];
+ $entry=['display_name'=>$u->display_name,'official_name'=>(string)get_user_meta($trbReviewId,'_trb_artist_artist_name',true),'given_name'=>$u->first_name,'family_name'=>$u->last_name,'owned_release_titles'=>array_map(static fn($p)=>$p->post_title,get_posts(['post_type'=>'trb_release','post_status'=>['publish','private','draft','pending','future'],'author'=>$trbReviewId,'posts_per_page'=>100,'orderby'=>'ID','order'=>'DESC'])),'biographies'=>[]];
  foreach($trbReviewInventory['matches'][$trbReviewId]??[] as $match){
   $path=$match['path'];if((!str_starts_with($path,'/Upload files - TRB rec/Media/Biographies/')&&$path!==$trbCarmineBio)||preg_match('/contract|identity|passport|contratt|identit|passaporto/i',$path))continue;
   if(!in_array($match['extension'],['docx','txt','rtf','pdf'],true)||$match['size']>2*1024*1024)continue;
