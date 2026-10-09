@@ -267,7 +267,7 @@ jobs:
             echo "Owner-only demo submission, processing and email composition verified."
           fi
 
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/complete-editorial-archive.php' >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/(complete-editorial-archive|deploy-site-studio)[.]php$' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/complete-editorial-archive.php' '${GITHUB_SHA}'" >/dev/null 2>&1
             echo "Historical news expanded with reviewed sources and native revisions."
           fi
