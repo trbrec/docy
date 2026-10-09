@@ -16,15 +16,18 @@ if($mode==='import'){
 require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
 $trbReviewInventory=json_decode((string)@file_get_contents($trbReviewRoot.'/legacy-artistic-inventory.json'),true);
 if(!is_array($trbReviewInventory))exit(4);
+// Exact artistic biography found in Carmine's official historical media kit.
+$trbCarmineBio='/Discografia - DDB/Carmine Granato/Quello che resta/promo/Bio Carmine Granato.pdf';
+$trbReviewInventory['matches'][28][$trbCarmineBio]=['path'=>$trbCarmineBio,'extension'=>'pdf','size'=>1418823];
 $trbReviewData=['revision'=>$revision,'at'=>gmdate('c'),'artists'=>[]];
 foreach([28,46,70,90,94,181] as $trbReviewId){
  $u=get_userdata($trbReviewId);if(!$u||!\TRB\Studio\portal_artist_allowed($u))continue;
  $entry=['display_name'=>$u->display_name,'official_name'=>(string)get_user_meta($trbReviewId,'_trb_artist_artist_name',true),'given_name'=>$u->first_name,'family_name'=>$u->last_name,'biographies'=>[]];
  foreach($trbReviewInventory['matches'][$trbReviewId]??[] as $match){
-  $path=$match['path'];if(!str_starts_with($path,'/Upload files - TRB rec/Media/Biographies/')||preg_match('/contract|identity|passport|contratt|identit|passaporto/i',$path))continue;
-  if(!in_array($match['extension'],['docx','txt','rtf','pdf'],true)||$match['size']>1024*1024)continue;
+  $path=$match['path'];if((!str_starts_with($path,'/Upload files - TRB rec/Media/Biographies/')&&$path!==$trbCarmineBio)||preg_match('/contract|identity|passport|contratt|identit|passaporto/i',$path))continue;
+  if(!in_array($match['extension'],['docx','txt','rtf','pdf'],true)||$match['size']>2*1024*1024)continue;
   $res=trb_demo_webdav_request('GET',$path);if(is_wp_error($res)||wp_remote_retrieve_response_code($res)!==200){$entry['biographies'][]=['source'=>$path,'code'=>'read_failed'];continue;}
-  $bytes=wp_remote_retrieve_body($res);if(strlen($bytes)>1024*1024)continue;
+  $bytes=wp_remote_retrieve_body($res);if(strlen($bytes)>2*1024*1024)continue;
   $tmp=wp_tempnam('trb-artistic-review');if(file_put_contents($tmp,$bytes)!==strlen($bytes))exit(5);
   $item=['source'=>$path,'sha256'=>hash('sha256',$bytes),'extension'=>$match['extension']];
   if($match['extension']==='pdf'){
@@ -38,3 +41,4 @@ foreach([28,46,70,90,94,181] as $trbReviewId){
  $trbReviewData['artists'][$trbReviewId]=$entry;
 }
 $json=wp_json_encode($trbReviewData);$temp=$trbReviewFile.'.tmp';if(file_put_contents($temp,$json)!==strlen($json))exit(6);chmod($temp,0600);if(!rename($temp,$trbReviewFile))exit(7);
+

@@ -5,7 +5,15 @@ ini_set('display_errors','0');
 $revision=$argv[1]??'';
 if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents(dirname(__DIR__).'/.trb-deployed-sha'))!==$revision)exit(2);
 define('WP_USE_THEMES',false);require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
-$items=[['id'=>46,'expected_display'=>'Emiliano Di Meo','name'=>'Emiliano Di Meo','photo'=>'/Upload files - TRB rec/Media/Photos/2 files from Emiliano Di Meo on Oct 12, 2023/Emiliano Di Meo 02.jpg','bio'=>'Emiliano Di Meo è un compositore, produttore, musicista e cantautore romano. Il suo percorso unisce canzone, hip hop, elettronica e musica per immagini, con un lavoro che attraversa scrittura, arrangiamento, campionamento e produzione.
+$items=[['id'=>94,'expected_display'=>'Fabio Guglielmo Anastasi','name'=>'Fabio Anastasi','photo_asset'=>'fabio-anastasi-studio.b64','photo_hash'=>'7726387fd408b3c36f5e7b4267fb2d4ae8bbedf020a1dbfb2ecb04382886ada3','photo'=>'/Upload files - TRB rec/Media/Biographies/1 file from Fabio Anastasi on Jun 6, 2024/Fabio Anastasi - CV 2024.pdf#fotografia-in-studio','photo_crop'=>[300,110,600,545],'bio'=>'Fabio Anastasi è un pianista, compositore e arrangiatore la cui attività si sviluppa tra canzone, concerti e musica per cinema e televisione, in Italia e in diversi paesi asiatici.
+
+Si forma al Conservatorio G. B. Martini di Bologna, dove consegue i diplomi di solfeggio, quinto anno di pianoforte e armonia complementare. Approfondisce poi l’armonia moderna al CPM di Milano con Mark Harris. La ricerca sull’immagine sonora lo porta a comporre e arrangiare colonne sonore e a lavorare per la RAI come arrangiatore, programmatore e autore di musiche.
+
+Nel 1994 dirige l’Orchestra RAI del Festival Italiano a Sanremo con Paola Angeli. Ha lavorato come pianista, tastierista e arrangiatore con Lucio Dalla, Luca Carboni, Ivan Cattaneo e Alan Sorrenti. Con Carboni partecipa ai tour dal 1996 al 2010 e alle produzioni discografiche, occupandosi anche della direzione degli archi.
+
+Il suo percorso cinematografico comprende Prima dammi un bacio, con musiche di Lucio Dalla e Fabio Anastasi, e progetti internazionali come Jailbreak, In Corpore, Only You Alone e Jharokh. Alla composizione affianca la realizzazione di musiche per documentari e pubblicità, il lavoro in studio e l’insegnamento di pianoforte, tastiere, armonia e arrangiamento.
+
+Nel catalogo TRB rec è presente con Tempo Sospeso, a conferma di un percorso in cui pianoforte e scrittura per immagini si incontrano.','bio_source'=>'/Upload files - TRB rec/Media/Biographies/1 file from Fabio Anastasi on Jun 6, 2024/Fabio Anastasi - CV 2024.pdf'],['id'=>46,'expected_display'=>'Emiliano Di Meo','name'=>'Emiliano Di Meo','photo'=>'/Upload files - TRB rec/Media/Photos/2 files from Emiliano Di Meo on Oct 12, 2023/Emiliano Di Meo 02.jpg','bio'=>'Emiliano Di Meo è un compositore, produttore, musicista e cantautore romano. Il suo percorso unisce canzone, hip hop, elettronica e musica per immagini, con un lavoro che attraversa scrittura, arrangiamento, campionamento e produzione.
 
 Alla fine degli anni Novanta entra nello studio Nonsense come assistente di Riccardo Sinigallia. Il passaggio dalla registrazione analogica al lavoro con i computer diventa un laboratorio di ricerca sui suoni e sui linguaggi musicali. In questo contesto collabora a produzioni legate a cantautori, gruppi e artisti della scena hip hop italiana.
 
@@ -34,12 +42,18 @@ foreach($items as $item){
  if(!$u||!\TRB\Studio\portal_artist_allowed($u)||$u->display_name!==$item['expected_display'])exit(4);
  $pending=[];
  if(!\TRB\Studio\material('artist',$id,'photo')){
-  $r=trb_demo_webdav_request('GET',$item['photo']);
-  if(is_wp_error($r)||wp_remote_retrieve_response_code($r)!==200)exit(5);
-  $bytes=wp_remote_retrieve_body($r);if(isset($item['photo_hash'])&&!hash_equals($item['photo_hash'],hash('sha256',$bytes)))exit(13);if(strlen($bytes)>15*1024*1024)exit(6);
+  if(isset($item['photo_asset'])){
+   if($item['photo_asset']!=='fabio-anastasi-studio.b64')exit(14);
+   $bytes=base64_decode((string)file_get_contents(__DIR__.'/artist-materials/'.$item['photo_asset']),true);if($bytes===false)exit(15);
+  }else{
+   $r=trb_demo_webdav_request('GET',$item['photo']);
+   if(is_wp_error($r)||wp_remote_retrieve_response_code($r)!==200)exit(5);
+   $bytes=wp_remote_retrieve_body($r);
+  }if(isset($item['photo_hash'])&&!hash_equals($item['photo_hash'],hash('sha256',$bytes)))exit(13);if(strlen($bytes)>15*1024*1024)exit(6);
   $tmp=wp_tempnam('trb-recovered');file_put_contents($tmp,$bytes);
   if(!in_array(wp_get_image_mime($tmp),['image/jpeg','image/png','image/webp'],true)){unlink($tmp);exit(7);}
   $ed=wp_get_image_editor($tmp);if(is_wp_error($ed)){unlink($tmp);exit(8);}
+  if(isset($item['photo_crop'])){$c=$item['photo_crop'];$cropped=$ed->crop($c[0],$c[1],$c[2],$c[3]);if(is_wp_error($cropped))exit(16);}
   $ed->resize(1600,1600,false);$ed->set_quality(90);
   $directory=$base.'/recovered-'.$id;if(!wp_mkdir_p($directory)){unlink($tmp);exit(9);}
   $saved=$ed->save($directory.'/photo-'.substr(hash('sha256',$bytes),0,16).'.jpg','image/jpeg');unlink($tmp);
@@ -66,3 +80,8 @@ foreach($items as $item){
  if($old===''&&!trb_portal_artist_name_owner($item['name'],$id))update_user_meta($id,'_trb_artist_artist_name',$item['name']);
  if(!\TRB\Studio\material('artist',$id,'photo')||!trb_portal_has_valid_biography_content($id))exit(12);
 }
+
+// Stage name corroborated by the artist's own named discography folder and eight catalog releases.
+$trbDiiegoUser=get_userdata(70);
+if(!$trbDiiegoUser||!\TRB\Studio\portal_artist_allowed($trbDiiegoUser)||mb_strtolower($trbDiiegoUser->display_name,'UTF-8')!=='diiego')exit(17);
+if(trim((string)get_user_meta(70,'_trb_artist_artist_name',true))===''&&!trb_portal_artist_name_owner('diiego',70))update_user_meta(70,'_trb_artist_artist_name','diiego');
