@@ -6,7 +6,8 @@ $revision = $argv[1] ?? '';
 $route = $argv[2] ?? '';
 if (!preg_match('/^[a-f0-9]{40}$/D', $revision) || trim((string) @file_get_contents(dirname(__DIR__) . '/.trb-deployed-sha')) !== $revision) exit(2);
 $routes = ['/', '/artisti/', '/demo/', '/catalogo/', '/news/', '/chi-siamo/', '/cosa-facciamo/', '/booking/', '/licenze-audio/', '/contatti/', '/privacy-policy/'];
-if (!in_array($route, $routes, true) && !preg_match('~^/artisti/[a-z0-9-]+/$~D',$route)) exit(3);
+$known_route = in_array($route, $routes, true) || (bool) preg_match('~^/artisti/[a-z0-9-]+/$~D', $route);
+if (!$known_route && !preg_match('~^/[a-z0-9-]+/$~D', $route)) exit(3);
 $root = '/home/customer/www/new1.trbrec.com/public_html';
 $_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'] = 'new1.trbrec.com';
 $_SERVER['REQUEST_URI'] = $route;
@@ -24,6 +25,8 @@ ob_start();
 require $root . '/wp-blog-header.php';
 $html = ob_get_clean();
 if (!str_contains($html, '<main') || is_user_logged_in()) exit(4);
+// Additional routes must resolve to a published public editorial post, never a private page.
+if (!$known_route && (!is_single() || get_post_type() !== 'post' || get_post_status() !== 'publish')) exit(5);
 $dom = new DOMDocument();
 libxml_use_internal_errors(true);
 $dom->loadHTML($html);
