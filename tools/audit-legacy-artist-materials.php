@@ -1,5 +1,5 @@
 <?php
-/** CLI-only, read-only pCloud inventory. Credentials stay in the existing WordPress transport. */
+/** CLI-only, read-only pCloud inventory, including the final queued artistic folders. Credentials stay in the existing WordPress transport. */
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 ini_set('display_errors','0');
 $revision=$argv[1]??'';$mode=$argv[2]??'scan';$theme=dirname(__DIR__);

@@ -135,6 +135,11 @@ jobs:
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/audit-legacy-artist-materials.php' '${GITHUB_SHA}' import" >/dev/null 2>&1
             echo "Legacy artistic archive inventory saved privately."
           fi
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/(review|audit)-legacy-artist-materials[.]php$' >/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/review-legacy-artist-materials.php' '${GITHUB_SHA}' review" >/dev/null 2>&1
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/review-legacy-artist-materials.php' '${GITHUB_SHA}' import" >/dev/null 2>&1
+            echo "Named artistic biographies prepared for authenticated editorial review."
+          fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/inspect-site-studio\.php$' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/inspect-site-studio.php' '${GITHUB_SHA}' source" >/dev/null 2>&1
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/inspect-site-studio.php' '${GITHUB_SHA}' destination" >/dev/null 2>&1
@@ -257,7 +262,7 @@ jobs:
             echo "Owner-only demo submission, processing and email composition verified."
           fi
 
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/(export-site-preview.php|site-preview.test.cjs|sync-site-studio.php)$|^\.github/workflows/deploy.yml$' >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/(export-site-preview.php|export-news-routes.php|site-preview.test.cjs|sync-site-studio.php|recover-trb-artistic-materials.php|audit-legacy-artist-materials.php)$|^\.github/workflows/deploy.yml$' >/dev/null; then
             mkdir -p /tmp/trb-public-preview
             for slug in home artisti demo catalogo news chi-siamo cosa-facciamo booking licenze-audio contatti privacy-policy; do
               route="/${slug}/"
@@ -271,6 +276,13 @@ jobs:
                 ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-site-preview.php' '${GITHUB_SHA}' '${route}'" 2>/dev/null > "/tmp/trb-public-preview/artist-${slug}.html"
               fi
             done <<< "$artist_routes"
+            news_routes=$(ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-news-routes.php' '${GITHUB_SHA}'" 2>/dev/null)
+            while IFS= read -r route; do
+              if [[ "$route" =~ ^/[a-z0-9-]+/$ ]]; then
+                slug="${route#/}"; slug="${slug%/}"
+                ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-site-preview.php' '${GITHUB_SHA}' '${route}'" 2>/dev/null > "/tmp/trb-public-preview/news-${slug}.html"
+              fi
+            done <<< "$news_routes"
             echo "Anonymous public page snapshots exported for offline responsive layout QA."
           fi
 
