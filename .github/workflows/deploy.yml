@@ -267,7 +267,69 @@ jobs:
             echo "Owner-only demo submission, processing and email composition verified."
           fi
 
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -x 'tools/complete-editorial-archive.php' >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/(complete-editorial-archive|deploy-site-studio)[.]php
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/complete-editorial-archive.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+            echo "Historical news expanded with reviewed sources and native revisions."
+          fi
+
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/(export-site-preview.php|export-news-routes.php|complete-editorial-archive.php|site-preview.test.cjs|sync-site-studio.php|recover-trb-artistic-materials.php|audit-legacy-artist-materials.php)$|^\.github/workflows/deploy.yml$' >/dev/null; then
+            mkdir -p /tmp/trb-public-preview
+            for slug in home artisti demo catalogo news chi-siamo cosa-facciamo booking licenze-audio contatti privacy-policy; do
+              route="/${slug}/"
+              if [ "${slug}" = home ]; then route="/"; fi
+              ssh -n "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-site-preview.php' '${GITHUB_SHA}' '${route}'" 2>/dev/null > "/tmp/trb-public-preview/${slug}.html"
+            done
+            artist_routes=$(ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-artist-routes.php' '${GITHUB_SHA}'" 2>/dev/null)
+            while IFS= read -r route; do
+              if [[ "$route" =~ ^/artisti/[a-z0-9-]+/$ ]]; then
+                slug="${route#/artisti/}"; slug="${slug%/}"
+                ssh -n "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-site-preview.php' '${GITHUB_SHA}' '${route}'" 2>/dev/null > "/tmp/trb-public-preview/artist-${slug}.html"
+              fi
+            done <<< "$artist_routes"
+            news_routes=$(ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-news-routes.php' '${GITHUB_SHA}'" 2>/dev/null)
+            while IFS= read -r route; do
+              if [[ "$route" =~ ^/[a-z0-9-]+/$ ]]; then
+                slug="${route#/}"; slug="${slug%/}"
+                ssh -n "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/export-site-preview.php' '${GITHUB_SHA}' '${route}'" 2>/dev/null > "/tmp/trb-public-preview/news-${slug}.html"
+              fi
+            done <<< "$news_routes"
+            echo "Anonymous public page snapshots exported for offline responsive layout QA."
+          fi
+
+      - name: Verify anonymous page snapshots on desktop, tablet and phone
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          if [ -d /tmp/trb-public-preview ]; then
+            npm install --prefix /tmp/trb-roster-browser --no-save playwright@1.62.1
+            /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
+            NODE_PATH=/tmp/trb-roster-browser/node_modules node tools/site-preview.test.cjs /tmp/trb-public-preview /tmp/trb-site-layout-qa
+          fi
+      - name: Preserve responsive layout screenshots and measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trb-site-layout-${{ github.sha }}
+          path: /tmp/trb-site-layout-qa
+          retention-days: 14
+
+
+
+  trigger-daily-site-health:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Activate the site-native daily monitor
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 45 \
+            -H "Cache-Control: no-cache" \
+            -H "User-Agent: TRB-Daily-Site-Health/1.0" \
+            "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s)" >/dev/null
+
+
+ >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/complete-editorial-archive.php' '${GITHUB_SHA}'" >/dev/null 2>&1
             echo "Historical news expanded with reviewed sources and native revisions."
           fi
