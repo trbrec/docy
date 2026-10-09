@@ -33,6 +33,13 @@ for command in commands:
             assert required in export,'Public managed artist route guard missing'
         assert 'getMessage' not in export
         continue
+    if '/tools/export-news-routes.php' in command:
+        assert '2>/dev/null' in command and 'news_routes=$(' in command
+        export=Path('tools/export-news-routes.php').read_text()
+        for required in ('ob_start();','ob_end_clean();',"~^/[a-z0-9-]+/$~D","'post_type'=>'post'","'post_status'=>'publish'",'destination_site()'):
+            assert required in export,'Public published editorial route guard missing'
+        assert 'getMessage' not in export and 'get_user_meta' not in export
+        continue
     if '/tools/inspect-demo-crm-source.php' in command:
         assert '2>/dev/null' in command and 'crm_source_checks=$(' in command
         source=Path('tools/inspect-demo-crm-source.php').read_text()
