@@ -18,14 +18,26 @@ if(!function_exists('trb_demo_webdav_request'))exit(5);
 $root='/Upload files - TRB rec';
 $artists=[28=>['Carmine Granato'],41=>['Edmondo Romano','Simona Fasano'],46=>['Emiliano Di Meo'],70=>['diiego'],90=>['Leonardo M Facinelli','Leonardo Facinelli'],94=>['Fabio Guglielmo Anastasi','Fabio Anastasi'],103=>['Gli Irati'],128=>['Alessio de Franzoni','Alessio de Fanzoni','FaDe'],181=>['Valerio Di Paolo']];
 $key=static function($s){$s=remove_accents(mb_strtolower($s,'UTF-8'));return trim(preg_replace('/[^a-z0-9]+/',' ',$s));};
+$propfind=static function($path){
+ $settings=trb_demo_settings();$endpoint=$settings['webdav_endpoint']??'';
+ if(strtolower((string)wp_parse_url($endpoint,PHP_URL_SCHEME))!=='https')return new WP_Error('endpoint_https_required');
+ // Collection URLs require a final slash. Keep the configured origin and
+ // authentication and never follow a redirect to another server.
+ return wp_remote_request(trb_demo_remote_url($endpoint,$path).'/',[
+  'method'=>'PROPFIND','headers'=>['Authorization'=>'Basic '.base64_encode(($settings['pcloud_user']??'').':'.($settings['pcloud_pass']??'')),'Depth'=>'1','Content-Type'=>'application/xml'],
+  'body'=>'<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getcontenttype/></d:prop></d:propfind>','timeout'=>45,'redirection'=>0,
+ ]);
+};
 $d=is_file($trbLegacyInventoryFile)?json_decode((string)file_get_contents($trbLegacyInventoryFile),true):null;
 if(!is_array($d)||($d['root']??'')!==$root)$d=['root'=>$root,'queue'=>[$root],'seen'=>[],'matches'=>[],'errors'=>[],'folders'=>0,'files'=>0,'complete'=>false];
+foreach($d['errors'] as $i=>$error)if(($error['code']??'')==='http_301'){if(!in_array($error['path'],$d['queue'],true))$d['queue'][]=$error['path'];unset($d['errors'][$i]);}
+$d['errors']=array_values($d['errors']);
 $lock=fopen($trbLegacyPrivate.'/legacy-artistic-inventory.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))exit(6);
 $save=static function()use(&$d,$trbLegacyInventoryFile){$d['at']=gmdate('c');$tmp=$trbLegacyInventoryFile.'.tmp';$bytes=wp_json_encode($d);if(file_put_contents($tmp,$bytes)!==strlen($bytes))exit(7);chmod($tmp,0600);if(!rename($tmp,$trbLegacyInventoryFile))exit(8);};
 $started=time();$processed=0;
 while($d['queue']&&$processed<180&&time()-$started<100){
  $path=array_shift($d['queue']);if(isset($d['seen'][$path]))continue;
- $response=trb_demo_webdav_request('PROPFIND',$path,'<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getcontenttype/></d:prop></d:propfind>',['Depth'=>'1','Content-Type'=>'application/xml']);
+ $response=$propfind($path);
  ++$processed;
  if(is_wp_error($response)||wp_remote_retrieve_response_code($response)!==207){$d['errors'][]=['path'=>$path,'code'=>is_wp_error($response)?$response->get_error_code():'http_'.wp_remote_retrieve_response_code($response)];continue;}
  $body=wp_remote_retrieve_body($response);if(strlen($body)>8*1024*1024||stripos($body,'<!DOCTYPE')!==false||stripos($body,'<!ENTITY')!==false){$d['errors'][]=['path'=>$path,'code'=>'xml_rejected'];continue;}
