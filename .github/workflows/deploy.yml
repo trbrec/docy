@@ -140,6 +140,11 @@ jobs:
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/review-legacy-artist-materials.php' '${GITHUB_SHA}' import" >/dev/null 2>&1
             echo "Named artistic biographies prepared for authenticated editorial review."
           fi
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/probe-legacy-artist-folders[.]php$' >/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/probe-legacy-artist-folders.php' '${GITHUB_SHA}' probe" >/dev/null 2>&1
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/probe-legacy-artist-folders.php' '${GITHUB_SHA}' import" >/dev/null 2>&1
+            echo "Artistic discography folders inspected privately."
+          fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/inspect-site-studio\.php$' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/inspect-site-studio.php' '${GITHUB_SHA}' source" >/dev/null 2>&1
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/inspect-site-studio.php' '${GITHUB_SHA}' destination" >/dev/null 2>&1
