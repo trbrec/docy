@@ -56,7 +56,14 @@ function sync_directory(){
    $key=class_exists('Normalizer')?\Normalizer::normalize($a['name'],\Normalizer::FORM_C):$a['name'];
    $key=preg_replace('/\s+/u',' ',trim($key));$key=function_exists('mb_strtolower')?mb_strtolower($key,'UTF-8'):strtolower($key);
    $terms=get_terms(['taxonomy'=>'trb_catalog_artist','hide_empty'=>false,'number'=>2,'meta_query'=>[['key'=>'_trb_promo_artist_key','value'=>$key]]]);
-   if(!is_wp_error($terms)&&count($terms)===1&&$terms[0]->name===$a['name'])$a['catalog_term_id']=(int)$terms[0]->term_id;
+   if(!is_wp_error($terms)&&count($terms)===1&&catalog_name_key($terms[0]->name)===$key)$a['catalog_term_id']=(int)$terms[0]->term_id;
+   $a['catalog_term_ids']=$a['catalog_term_id']?[$a['catalog_term_id']]:[];
+   // Verified legacy archive identity: "FaDe - Alessio de Fanzoni".
+   // Bind both catalog names without renaming terms or reassigning releases.
+   if($a['id']===128&&$key==='alessio de franzoni'){
+    $legacy=get_terms(['taxonomy'=>'trb_catalog_artist','hide_empty'=>false,'number'=>2,'meta_query'=>[['key'=>'_trb_promo_artist_key','value'=>'fade']]]);
+    if(!is_wp_error($legacy)&&count($legacy)===1&&catalog_name_key($legacy[0]->name)==='fade')$a['catalog_term_ids'][]=(int)$legacy[0]->term_id;
+   }
   }unset($a);
   foreach($snapshot['releases'] as &$r){
    $r['catalog_id']=0;$r['links']=[];
@@ -162,13 +169,20 @@ function release_image($r){
  if($url&&!wp_parse_url($url,PHP_URL_USER)&&!wp_parse_url($url,PHP_URL_PASS)&&!in_array(wp_parse_url($url,PHP_URL_HOST),['webdav.pcloud.com','ewebdav.pcloud.com'],true))return '<img class="trb-directory-image" src="'.$url.'" alt="'.esc_attr('Copertina '.$r['title']).'" width="600" height="600" loading="lazy" decoding="async">';
  return public_image(0,$r['title']);
 }
+function catalog_name_key($name){
+ $name=class_exists('Normalizer')?\Normalizer::normalize($name,\Normalizer::FORM_C):$name;
+ $name=preg_replace('/\s+/u',' ',trim($name));
+ return function_exists('mb_strtolower')?mb_strtolower($name,'UTF-8'):strtolower($name);
+}
 function artist_releases($artist,$d){
  $list=array_values(array_filter($d['releases'],fn($r)=>$r['artist_id']===$artist['id']));$upcs=array_column($list,'upc');
- if(empty($artist['catalog_term_id'])||!class_exists('TRB_Promo_Ecosystem'))return $list;
- $ids=get_posts(['post_type'=>'trb_release','post_status'=>'publish','posts_per_page'=>500,'fields'=>'ids','tax_query'=>[['taxonomy'=>'trb_catalog_artist','field'=>'term_id','terms'=>$artist['catalog_term_id']]]]);
+ $terms=array_values(array_unique(array_filter(array_map('intval',array_merge((array)($artist['catalog_term_ids']??[]),[(int)($artist['catalog_term_id']??0)])))));
+ if(!$terms||!class_exists('TRB_Promo_Ecosystem'))return $list;
+ $ids=get_posts(['post_type'=>'trb_release','post_status'=>'publish','posts_per_page'=>500,'fields'=>'ids','tax_query'=>[['taxonomy'=>'trb_catalog_artist','field'=>'term_id','terms'=>$terms]]]);
  foreach($ids as $id){
   $r=\TRB_Promo_Ecosystem::data($id);
-  if(empty($r['upc'])||in_array($r['upc'],$upcs,true)||($r['state']??'')!=='published'||!valid_date($r['date']??'')||!in_array($r['label']??'',\TRB_Promo_Ecosystem::LABELS,true))continue;
+  if(empty($r['upc'])||in_array($r['upc'],$upcs,true)||in_array($r['upc'],(array)get_option('trb_promo_takedowns',[]),true)||($r['state']??'')!=='published'||!valid_date($r['date']??'')||!in_array($r['label']??'',\TRB_Promo_Ecosystem::LABELS,true))continue;
+  $upcs[]=$r['upc'];
   $assets=apply_filters('trb_promo_release_assets',[],$r,$id);$manual=get_post_meta($id,'_trb_promo_assets',true);if(is_array($manual))$assets=array_merge($assets,$manual);
   $url=get_permalink($id);$slug=get_post_field('post_name',$id);
   $list[]=['id'=>$id,'card_key'=>'catalog-'.$id,'artist_id'=>$artist['id'],'title'=>$r['title'],'date'=>$r['date'],'presentation'=>wp_strip_all_tags($assets['press_text']??''),'image_id'=>(int)($assets['cover_id']??0),'cover_url'=>$assets['cover_url']??'','upc'=>$r['upc'],'links'=>[['label'=>'Scheda release','url'=>$url],['label'=>'Smartlink','url'=>home_url('/smartlink/'.$slug.'/')],['label'=>'Press kit','url'=>trailingslashit($url).'press-kit/']]];
@@ -194,3 +208,4 @@ add_filter('trb_promo_artist_profile',function($profile,$term){
  }
  return $profile;
 },20,2);
+

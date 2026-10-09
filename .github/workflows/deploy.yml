@@ -36,6 +36,7 @@ jobs:
           php tools/test-release-sheet-data.php
           php tools/test-artist-admin-name.php
           php tools/test-crm-demo-patch.php
+          php integrations/site-studio/test-artist-catalog.php
           node --check integrations/site-studio/trb-site-studio/editor.js
           php tools/test-site-studio-cron.php
           curl --fail --silent --show-error --location https://wordpress.org/latest.tar.gz -o /tmp/trb-studio-wp.tar.gz
@@ -126,6 +127,13 @@ jobs:
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/recover-trb-artistic-materials\.php$|^tools/(ensure-site-studio-cron|run-site-studio-cron|site-studio-cron-lib)\.php$' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/recover-trb-artistic-materials.php' '${GITHUB_SHA}'" >/dev/null 2>&1
             echo "Reviewed artist biographies and photos restored without overwriting new uploads."
+          fi
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/audit-legacy-artist-materials\.php$' >/dev/null; then
+            for batch in 1; do
+              ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/audit-legacy-artist-materials.php' '${GITHUB_SHA}' scan" >/dev/null 2>&1
+            done
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/audit-legacy-artist-materials.php' '${GITHUB_SHA}' import" >/dev/null 2>&1
+            echo "Legacy artistic archive inventory saved privately."
           fi
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/inspect-site-studio\.php$' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/inspect-site-studio.php' '${GITHUB_SHA}' source" >/dev/null 2>&1
@@ -297,4 +305,5 @@ jobs:
             -H "Cache-Control: no-cache" \
             -H "User-Agent: TRB-Daily-Site-Health/1.0" \
             "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s)" >/dev/null
+
 
