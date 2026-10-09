@@ -25,6 +25,7 @@ jobs:
           php -l tools/deploy-site-studio.php
           php -l tools/sync-site-studio.php
           php tools/test-site-studio-cron.php
+          php integrations/site-studio/test-artist-catalog.php
           node --check integrations/site-studio/trb-site-studio/editor.js
       - name: Test against WordPress sanitizer
         run: |

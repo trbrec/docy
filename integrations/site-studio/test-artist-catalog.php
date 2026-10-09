@@ -15,6 +15,7 @@ class TRB_Promo_Ecosystem{
  const LABELS=['TRB rec'];
  static function data($id){return ['upc'=>$id===4?'0000000000002':'000000000000'.$id,'state'=>'published','date'=>'2020-01-01','label'=>'TRB rec','title'=>'Release '.$id];}
 }
+require __DIR__.'/trb-site-studio/portal.php';
 require __DIR__.'/trb-site-studio/directory.php';
 function check($v,$label){if(!$v)throw new RuntimeException($label);echo 'PASS: '.$label."\n";}
 check(TRB\Studio\catalog_name_key('Alessio De Franzoni')===TRB\Studio\catalog_name_key('Alessio de Franzoni'),'Verified names connect across capitalization');
