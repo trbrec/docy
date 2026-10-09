@@ -7,10 +7,14 @@ if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents($
 $trbLegacyPrivate='/home/customer/www/new1.trbrec.com/private/trb-site-studio';
 if(!is_dir($trbLegacyPrivate)||is_link($trbLegacyPrivate))exit(3);
 $trbLegacyInventoryFile=$trbLegacyPrivate.'/legacy-artistic-inventory.json';
+// Never inventory administrative documents, including legacy English folder names.
+$trbLegacyExcluded=static function($path){return (bool)preg_match('/contratt|contract|anagrafic|identity|passport|identit[aà]|document[oi].*ident|codice.fiscale|privacy|fattur|invoice|passaporto|carta.ident|dati.personali|liberatori|ctr.firmat/i',$path);};
 define('WP_USE_THEMES',false);
 if($mode==='import'){
  require '/home/customer/www/new1.trbrec.com/public_html/wp-load.php';
  $d=json_decode((string)@file_get_contents($trbLegacyInventoryFile),true);if(!is_array($d)||($d['root']??'')!=='/Upload files - TRB rec'){update_option('trb_studio_legacy_material_audit_status',['code'=>is_file($trbLegacyInventoryFile)?'inventory_invalid':'inventory_missing','at'=>gmdate('c')],false);exit(4);}
+ foreach($d['matches']??[] as $id=>$matches)foreach($matches as $path=>$match)if($trbLegacyExcluded($path))unset($d['matches'][$id][$path]);
+ $d['matches']=array_filter($d['matches']??[]);
  unset($d['queue'],$d['seen']);update_option('trb_studio_legacy_material_audit',$d,false);exit;
 }
 require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
@@ -32,10 +36,13 @@ $d=is_file($trbLegacyInventoryFile)?json_decode((string)file_get_contents($trbLe
 if(!is_array($d)||($d['root']??'')!==$root)$d=['root'=>$root,'queue'=>[$root],'seen'=>[],'matches'=>[],'errors'=>[],'folders'=>0,'files'=>0,'complete'=>false];
 foreach($d['errors'] as $i=>$error)if(($error['code']??'')==='http_301'){if(!in_array($error['path'],$d['queue'],true))$d['queue'][]=$error['path'];unset($d['errors'][$i]);}
 $d['errors']=array_values($d['errors']);
+$d['queue']=array_values(array_filter($d['queue'],static fn($path)=>!$trbLegacyExcluded($path)));
+foreach($d['matches'] as $id=>$matches)foreach($matches as $path=>$match)if($trbLegacyExcluded($path))unset($d['matches'][$id][$path]);
+$d['matches']=array_filter($d['matches']);
 $lock=fopen($trbLegacyPrivate.'/legacy-artistic-inventory.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))exit(6);
 $save=static function()use(&$d,$trbLegacyInventoryFile){$d['at']=gmdate('c');$tmp=$trbLegacyInventoryFile.'.tmp';$bytes=wp_json_encode($d);if(file_put_contents($tmp,$bytes)!==strlen($bytes))exit(7);chmod($tmp,0600);if(!rename($tmp,$trbLegacyInventoryFile))exit(8);};
 $started=time();$processed=0;
-while($d['queue']&&$processed<180&&time()-$started<100){
+while($d['queue']&&$processed<1800&&time()-$started<300){
  $path=array_shift($d['queue']);if(isset($d['seen'][$path]))continue;
  $response=$propfind($path);
  ++$processed;
@@ -47,7 +54,7 @@ while($d['queue']&&$processed<180&&time()-$started<100){
  foreach($xp->query('//d:response') as $entry){
   $href=$xp->evaluate('string(d:href)',$entry);$remote=rawurldecode((string)wp_parse_url($href,PHP_URL_PATH));$remote='/'.trim($remote,'/');
   if($remote===$path||!str_starts_with($remote,$path.'/')||!str_starts_with($remote,$root.'/')||str_contains($remote,'/../')||str_contains($remote,'/./'))continue;
-  if(preg_match('/contratt|anagrafic|document[oi].*ident|codice.fiscale|privacy|fattur|passaporto|carta.ident|dati.personali/i',$remote))continue;
+  if($trbLegacyExcluded($remote))continue;
   $folder=$xp->query('d:propstat[d:status[contains(.,"200")]]/d:prop/d:resourcetype/d:collection',$entry)->length>0;
   if($folder){if(!isset($d['seen'][$remote])&&!in_array($remote,$d['queue'],true))$d['queue'][]=$remote;continue;}
   ++$d['files'];$extension=strtolower(pathinfo($remote,PATHINFO_EXTENSION));if(!in_array($extension,['jpg','jpeg','png','webp','pdf','doc','docx','txt','rtf'],true))continue;
