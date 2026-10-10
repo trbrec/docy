@@ -1,0 +1,76 @@
+name: Isolated installed-stack and integration QA
+on:
+  push:
+    branches: [fix/portal-audit-20261010]
+    paths:
+      - tools/qa-installed-stack.php
+      - tools/signature-compatibility.php
+      - tools/deploy-portal-integrations.php
+      - integrations/portal-mu-plugins/**
+      - .github/workflows/portal-live-qa.yml
+permissions:
+  contents: read
+concurrency:
+  group: portal-isolated-live-qa
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run synthetic installed-stack QA through the existing hosting connection
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "${HOME}/.ssh" /tmp/trb-live-qa
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          qa_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /tmp/trb-portal-stack.XXXXXXXX')
+          [[ "${qa_dir}" =~ ^/tmp/trb-portal-stack\.[A-Za-z0-9]{8}$ ]]
+          cleanup() {
+            if ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-installed-stack.php' cleanup '${qa_dir}'" > /tmp/trb-live-qa/cleanup.json 2>/dev/null; then
+              ssh "${ssh_opts[@]}" "${remote}" "rm -rf -- '${qa_dir}'" >/dev/null 2>&1 || true
+            fi
+            ssh-add -D >/dev/null 2>&1 || true
+            rm -f "${HOME}/.ssh/id_ed25519"
+          }
+          trap cleanup EXIT
+          rsync -az --exclude='.git/' --exclude='.github/' -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" ./ "${remote}:${qa_dir}/candidate/"
+          php_opts='-d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client'
+          ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' prepare '${qa_dir}'" > /tmp/trb-live-qa/prepared.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' install '${qa_dir}'" > /tmp/trb-live-qa/install.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' verify '${qa_dir}'" > /tmp/trb-live-qa/verify.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/deploy-portal-integrations.php' preflight '${GITHUB_SHA}'" > /tmp/trb-live-qa/preflight.txt 2>/dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for phase in ('install', 'verify'):
+              result=json.loads(Path('/tmp/trb-live-qa/'+phase+'.json').read_text())
+              assert result.get('completed') is True, 'Installed-stack '+phase+' incomplete'
+              assert not result.get('fatal'), 'Installed-stack fatal diagnostic'
+          print('Installed plugin parity, synthetic artist authentication and portal initialization verified.')
+          PY
+      - name: Preserve sanitized results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-installed-stack-qa
+          path: /tmp/trb-live-qa/
+          retention-days: 7
+          if-no-files-found: error

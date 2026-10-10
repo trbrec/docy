@@ -28,11 +28,28 @@ if ( ! $qaServing ) {
 }
 require dirname( __DIR__, 2 ) . '/inc/trb-release-integrity.php';
 require dirname( __DIR__, 2 ) . '/inc/trb-artist-portal.php';
+define( 'TRB_CRM_SYNC_SECRET', str_repeat( 's', 64 ) );
+require dirname( __DIR__, 2 ) . '/integrations/portal-mu-plugins/trb-crm-sync.php';
+require dirname( __DIR__, 2 ) . '/integrations/portal-mu-plugins/trb-z-crm-release-sync-r26.php';
+add_action( 'trb_crm_sync_storage_failure', static function( $scope, $error ) { error_log( 'Synthetic storage fault: ' . get_class( $error ) . ': ' . $error->getMessage() ); }, 10, 2 );
 add_filter( 'template_directory', static function() { return dirname( __DIR__, 2 ); } );
 if ( $qaServing ) {
     $qaUserId = ( $_SERVER['HTTP_X_TRB_QA_USER'] ?? '' ) === 'anonymous' ? 0 : (int) getenv( 'TRB_QA_USER_ID' );
     wp_set_current_user( $qaUserId );
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
+        if ( ( $_POST['action'] ?? '' ) === 'qa_mu_sync' ) {
+            $route = (string) ( $_POST['qa_route'] ?? '' );
+            if ( ! preg_match( '#^/(?:entitlement|release/[0-9]+|reconcile)$#D', $route ) ) wp_send_json_error( null, 400 );
+            $body = (string) wp_unslash( $_POST['qa_body'] ?? '' );
+            $request = new WP_REST_Request( (string) ( $_POST['qa_method'] ?? 'POST' ), '/trb-crm/v1' . $route );
+            $request->set_header( 'Content-Type', 'application/json' );
+            $timestamp = (string) time();
+            $request->set_header( 'X-TRB-Timestamp', $timestamp );
+            $request->set_header( 'X-TRB-Signature', ( $_POST['qa_signed'] ?? '' ) === '1' ? 'sha256=' . hash_hmac( 'sha256', $timestamp . '.' . $body, TRB_CRM_SYNC_SECRET ) : 'invalid' );
+            $request->set_body( $body );
+            $response = rest_do_request( $request );
+            wp_send_json( $response->get_data(), $response->get_status() );
+        }
         if ( ( $_POST['action'] ?? '' ) === 'qa_demo_worker' ) require __DIR__ . '/demo-worker-http.php';
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_stage_release_chunk' ) trb_portal_stage_release_chunk();
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_submit_demo' ) {
@@ -245,6 +262,7 @@ try {
     qa_check( (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$qaOutbox}" ) === $qaEventCount, 'Successful profile save queued the same snapshot again at shutdown.' );
     require __DIR__ . '/demo-mysql-cases.php';
     require __DIR__ . '/demo-worker-mysql-cases.php';
+    require __DIR__ . '/mu-sync-mysql-cases.php';
     qa_check( ! preg_match( '/PHP (Warning|Notice|Deprecated|Fatal error|Parse error)/', file_get_contents( $qaRoot . '/qa-http.log' ) ), 'The real HTTP fixture emitted unexpected PHP diagnostics.' );
     echo $GLOBALS['qa_checks'] . " real WordPress/MySQL/HTTP assertions passed; ordinary Tunisia artist, authentication/nonce, metadata, file rollback/retry, process lock and outbox failure.\n";
 } finally {
