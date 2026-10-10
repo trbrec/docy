@@ -2,7 +2,7 @@
 /** Execute the production outbox writer against SQLite with a failed insert. */
 namespace CrmOutboxRegression;
 const TRB_CRM_CONNECTOR_SOURCE = 'artist.trbrec.com';
-function trb_crm_connector_install() {}
+function trb_crm_connector_install() { return true; }
 function sanitize_key( $value ) { return $value; }
 function sanitize_text_field( $value ) { return $value; }
 function trb_crm_connector_table() { return 'outbox'; }

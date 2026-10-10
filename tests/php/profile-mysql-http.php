@@ -145,16 +145,37 @@ try {
     qa_check( qa_http( $qaOversizeChunk )['status'] === 422, 'Oversized first chunk replacement was accepted.' );
     qa_check( hash_file( 'sha256', $qaPart ) === $qaPartHash, 'Rejected chunk input destroyed a previously assembled file.' );
     require dirname( __DIR__, 2 ) . '/inc/trb-crm-connector.php';
-    trb_crm_connector_install();
+    // Native permissions deny DDL; installation must not record a schema that is absent.
+    $wpdb->query( "CREATE USER 'qa_schema_readonly'@'%' IDENTIFIED BY 'qa_ci'" );
+    $wpdb->query( "GRANT SELECT ON trb_wp_qa.* TO 'qa_schema_readonly'@'%'" );
+    $qaRootDb = $wpdb;
+    $qaRestrictedDb = new wpdb( 'qa_schema_readonly', 'qa_ci', 'trb_wp_qa', '127.0.0.1:3307' );
+    $qaRestrictedDb->set_prefix( $qaRootDb->prefix );
+    $qaRestrictedDb->suppress_errors( true );
+    $GLOBALS['wpdb'] = $qaRestrictedDb;
+    try {
+        qa_check( false === trb_crm_connector_install(), 'Failed native DDL was reported as installed.' );
+        qa_check( false === get_option( 'trb_crm_connector_schema', false ), 'Failed DDL persisted the schema marker.' );
+    } finally {
+        $GLOBALS['wpdb'] = $qaRootDb;
+        $qaRestrictedDb->close();
+        $wpdb->query( "DROP USER 'qa_schema_readonly'@'%'" );
+    }
+    qa_check( trb_crm_connector_install(), 'Installation could not retry after denied DDL.' );
     $qaOutbox = trb_crm_connector_table();
     qa_check( trb_crm_connector_queue( 'artist', $qaUser, array( 'name' => 'Fictional QA artist' ) ), 'Native MySQL outbox insert failed.' );
     $qaFirstEvent = $wpdb->get_row( "SELECT id,status FROM {$qaOutbox} ORDER BY id DESC LIMIT 1", ARRAY_A );
     $wpdb->query( "CREATE TRIGGER qa_reject_outbox BEFORE INSERT ON {$qaOutbox} FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Injected QA insert failure'" );
     $qaPriorErrors = $wpdb->suppress_errors( true );
     qa_check( ! trb_crm_connector_queue( 'artist', $qaUser, array( 'name' => 'Replacement QA snapshot' ) ), 'Failed native MySQL insert was reported as successful.' );
+    $qaBootstrapBefore = array( 'phase' => 'artists', 'artist_page' => 1, 'demo_page' => 1, 'complete' => false );
+    update_option( 'trb_crm_bootstrap_state', $qaBootstrapBefore, false );
+    qa_check( trb_crm_connector_bootstrap( 100 ) === $qaBootstrapBefore, 'Failed bootstrap skipped an unqueued profile.' );
+    qa_check( get_option( 'trb_crm_bootstrap_state' ) === $qaBootstrapBefore, 'Failed bootstrap persisted progress.' );
     $wpdb->suppress_errors( $qaPriorErrors );
     qa_check( $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$qaOutbox} WHERE id=%d", $qaFirstEvent['id'] ) ) === 'queued', 'Failed native insert discarded the previous deliverable event.' );
     $wpdb->query( 'DROP TRIGGER qa_reject_outbox' );
+    qa_check( trb_crm_connector_bootstrap( 100 )['phase'] === 'demos', 'Recovered bootstrap could not resume its page.' );
     qa_check( trb_crm_connector_queue( 'artist', $qaUser, array( 'name' => 'Replacement QA snapshot' ) ), 'Native replacement insert failed.' );
     qa_check( $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$qaOutbox} WHERE id=%d", $qaFirstEvent['id'] ) ) === 'superseded', 'Native replacement did not supersede the old event.' );
     // Independent native WordPress processes exercise the same MySQL counter.

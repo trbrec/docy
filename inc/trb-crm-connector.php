@@ -36,7 +36,7 @@ function trb_crm_connector_table() {
 
 function trb_crm_connector_install() {
 	global $wpdb;
-	if ( TRB_CRM_CONNECTOR_SCHEMA === get_option( 'trb_crm_connector_schema' ) ) return;
+	if ( TRB_CRM_CONNECTOR_SCHEMA === get_option( 'trb_crm_connector_schema' ) ) return true;
 	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 	$table = trb_crm_connector_table();
 	$charset = $wpdb->get_charset_collate();
@@ -61,10 +61,15 @@ function trb_crm_connector_install() {
 		KEY delivery_queue (status,next_attempt_at,id),
 		KEY entity_lookup (entity_type,external_id,id)
 	) {$charset};" );
+	// dbDelta returns descriptions even when a DDL statement failed: inspect the result.
+	$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+	$required = array( 'id', 'event_id', 'entity_type', 'external_id', 'operation', 'entity_version', 'payload', 'payload_hash', 'status', 'attempts', 'next_attempt_at', 'last_http_code', 'last_error', 'created_at', 'acknowledged_at' );
+	if ( ! is_array( $columns ) || array_diff( $required, $columns ) ) return false;
 	update_option( 'trb_crm_connector_schema', TRB_CRM_CONNECTOR_SCHEMA, false );
 	if ( false === get_option( 'trb_crm_bootstrap_state', false ) ) {
 		update_option( 'trb_crm_bootstrap_state', array( 'phase' => 'artists', 'artist_page' => 1, 'demo_page' => 1, 'complete' => false ), false );
 	}
+	return true;
 }
 add_action( 'init', 'trb_crm_connector_install', 2 );
 
@@ -162,7 +167,7 @@ function trb_crm_connector_demo_payload( $request_id ) {
 
 function trb_crm_connector_queue( $entity_type, $external_id, $payload = null, $operation = 'upsert' ) {
 	global $wpdb;
-	trb_crm_connector_install();
+	if ( ! trb_crm_connector_install() ) return false;
 	$entity_type = sanitize_key( $entity_type );
 	$external_id = sanitize_text_field( (string) $external_id );
 	if ( ! in_array( $entity_type, array( 'artist', 'demo' ), true ) || '' === $external_id || strlen( $external_id ) > 120 || ! in_array( $operation, array( 'upsert', 'delete' ), true ) ) return false;
@@ -243,12 +248,16 @@ function trb_crm_connector_bootstrap( $limit = 50 ) {
 	if ( 'artists' === $phase ) {
 		$page = max( 1, absint( isset( $state['artist_page'] ) ? $state['artist_page'] : 1 ) );
 		$users = get_users( array( 'number' => $limit, 'paged' => $page, 'fields' => 'ids', 'orderby' => 'ID', 'order' => 'ASC' ) );
-		foreach ( $users as $user_id ) trb_crm_connector_queue( 'artist', $user_id );
+		foreach ( $users as $user_id ) {
+			if ( ! trb_crm_connector_queue( 'artist', $user_id ) ) return $state;
+		}
 		if ( count( $users ) < $limit ) { $state['phase'] = 'demos'; $state['demo_page'] = 1; } else $state['artist_page'] = $page + 1;
 	} else {
 		$page = max( 1, absint( isset( $state['demo_page'] ) ? $state['demo_page'] : 1 ) );
 		$ids = get_posts( array( 'post_type' => 'trb_request', 'post_status' => 'any', 'posts_per_page' => $limit, 'paged' => $page, 'fields' => 'ids', 'meta_key' => '_trb_demo_payload', 'orderby' => 'ID', 'order' => 'ASC' ) );
-		foreach ( $ids as $id ) trb_crm_connector_queue( 'demo', $id );
+		foreach ( $ids as $id ) {
+			if ( ! trb_crm_connector_queue( 'demo', $id ) ) return $state;
+		}
 		if ( count( $ids ) < $limit ) { $state['complete'] = true; $state['phase'] = 'complete'; $state['completed_at'] = current_time( 'mysql', true ); } else $state['demo_page'] = $page + 1;
 	}
 	update_option( 'trb_crm_bootstrap_state', $state, false );
