@@ -2,6 +2,7 @@
 /** CLI deployment of reviewed MU receivers and a narrow vendor compatibility fix. */
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
 require __DIR__ . '/signature-compatibility.php';
+require __DIR__ . '/integration-syntax-preflight.php';
 $mode = $argv[1] ?? ''; $revision = $argv[2] ?? ''; $bundle = dirname( __DIR__ );
 if ( ! in_array( $mode, array( 'preflight', 'apply', 'rollback' ), true ) || ! preg_match( '/^[a-f0-9]{40}$/D', $revision ) ) exit( 2 );
 $content = '/home/customer/www/artist.trbrec.com/public_html/wp-content';
@@ -22,6 +23,8 @@ foreach ( trb_signature_compatibility_manifest() as $name => $spec ) {
     $current = file_get_contents( $target ); $next = trb_signature_verified_property_patch( $current, $spec );
     $changes[$target] = $next;
 }
+trb_integration_syntax_preflight( $changes );
+if ( 'preflight' === $mode ) { echo "Portal integrations preflight passed without persistent rollback copies.\n"; exit; }
 if ( ! is_dir( $private ) && ! mkdir( $private, 0700, true ) ) throw new RuntimeException( 'Private rollback storage unavailable.' );
 if ( is_link( $private ) ) throw new RuntimeException( 'Unsafe rollback storage.' );
 $lock = fopen( dirname( $private ) . '/portal-integrations.lock', 'c' );
@@ -37,7 +40,6 @@ foreach ( $changes as $target => $next ) {
 }
 $manifest_path = $private . '/manifest.json';
 if ( ! is_file( $manifest_path ) && false === file_put_contents( $manifest_path, json_encode( $manifest, JSON_THROW_ON_ERROR ), LOCK_EX ) ) throw new RuntimeException( 'Rollback manifest failed.' );
-if ( 'preflight' === $mode ) { echo "Portal integrations preflight passed.\n"; exit; }
 if ( trim( (string) @file_get_contents( $bundle . '/.trb-deployed-sha' ) ) !== $revision ) throw new RuntimeException( 'Deployment revision mismatch.' );
 $original = json_decode( file_get_contents( $manifest_path ), true, 32, JSON_THROW_ON_ERROR );
 $restore = static function() use ( $original, $private ) {
