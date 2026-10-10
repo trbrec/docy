@@ -19,7 +19,7 @@ function trb_private_upload_receive( $metadata_ciphertext, $signature, $upload, 
             return array( 'completed' => true, 'duplicate' => true, 'installed' => false );
         }
         if ( file_exists( $target . '.part' ) || ! move_uploaded_file( $temporary, $target . '.part' ) || ! chmod( $target . '.part', 0600 ) || ! hash_equals( $metadata['sha256'], hash_file( 'sha256', $target . '.part' ) ) || ! rename( $target . '.part', $target ) ) throw new RuntimeException( 'Private archive staging unconfirmed.' );
-        $json = json_encode( $metadata + array( 'received_at' => gmdate( 'c' ), 'verified' => true, 'installed' => false ), JSON_THROW_ON_ERROR );
+        $json = json_encode( $metadata + array( 'received_at' => gmdate( 'c' ), 'verified' => true, 'installed' => false, 'release_ready' => false ), JSON_THROW_ON_ERROR );
         trb_release_file_replace( $receipt, $json, 0600 );
         return array( 'completed' => true, 'duplicate' => false, 'installed' => false );
     } finally { flock( $lock, LOCK_UN ); fclose( $lock ); }
@@ -54,8 +54,8 @@ set_exception_handler( static function() { fwrite( STDERR, "Private transfer ope
 require __DIR__ . '/release-file-transaction.php';
 $phase = $argv[1] ?? ''; $tag = $argv[2] ?? '';
 if ( ! in_array( $phase, array( 'prepare', 'wait', 'cleanup' ), true ) || ! preg_match( '/^[a-f0-9]{16}$/D', $tag ) || isset( $argv[3] ) ) exit( 2 );
-$site = '/home/customer/www/artist.trbrec.com'; $public = $site . '/public_html'; $private = $site . '/private';
-$crm_private = '/home/customer/www/crm.trbrec.com/private';
+$site = '/home/customer/www/crm.trbrec.com'; $public = $site . '/public_html'; $private = $site . '/private';
+$crm_private = $private;
 foreach ( array( $public, $private, $crm_private ) as $path ) if ( is_link( $path ) || realpath( $path ) !== $path ) throw new RuntimeException( 'Unsafe hosting destination.' );
 $work = $private . '/qa-private-upload-' . $tag; $incoming = $crm_private . '/incoming-audit-' . $tag;
 $endpoint = $public . '/trb-audit-transfer-' . $tag . '.php'; $bootstrap = $public . '/trb-audit-transfer-' . $tag . '.json';
@@ -71,7 +71,7 @@ if ( 'prepare' === $phase ) {
     trb_release_file_replace( $work . '/filesystem.php', file_get_contents( __DIR__ . '/release-file-transaction.php' ), 0600 );
     trb_release_file_replace( $work . '/library.php', '<?php define("TRB_PRIVATE_UPLOAD_LIBRARY_ONLY",true); require __DIR__."/filesystem.php"; ?>' . file_get_contents( __FILE__ ), 0600 );
     $code = trb_private_upload_controller_source( $work, $incoming, $token, $tag, time() + 900 );
-    $url = 'https://artist.trbrec.com/' . basename( $endpoint ) . '?token=' . $token;
+    $url = 'https://crm.trbrec.com/' . basename( $endpoint ) . '?token=' . $token;
     if ( ! openssl_public_encrypt( $url, $sealed, $signer, OPENSSL_PKCS1_OAEP_PADDING ) ) throw new RuntimeException( 'Transfer bootstrap encryption failed.' );
     $bootstrap_bytes = json_encode( array( 'recipient' => $recipient, 'sealed_url' => base64_encode( $sealed ) ), JSON_THROW_ON_ERROR );
     $manifest = array( 'endpoint_sha256' => hash( 'sha256', $code ), 'bootstrap_sha256' => hash( 'sha256', $bootstrap_bytes ) );

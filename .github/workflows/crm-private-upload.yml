@@ -22,8 +22,17 @@ jobs:
           SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
           SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
           SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          validation=pending
+          for attempt in $(seq 1 30); do
+            validation=$(curl --fail --silent --show-error -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${GITHUB_SHA}&per_page=30" | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["workflow_runs"] if x["name"]=="Portal pre-merge checks"]; print(r[0].get("conclusion") or "pending" if r else "pending")')
+            if [ "${validation}" = success ]; then break; fi
+            if [ "${validation}" != pending ]; then exit 1; fi
+            sleep 15
+          done
+          test "${validation}" = success
           tag=$(python3 -c 'import json; print(json.load(open("tools/private-upload-request.json"))["tag"])')
           [[ "${tag}" =~ ^[a-f0-9]{16}$ ]]
           install -d -m 700 "${HOME}/.ssh" /tmp/trb-private-transfer
@@ -53,6 +62,9 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-private-upload.php' prepare '${tag}'" > /tmp/trb-private-transfer/prepared.json 2>/dev/null
           ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-private-upload.php' wait '${tag}'" > /tmp/trb-private-transfer/result.json 2>/dev/null
           python3 -c 'import json; d=json.load(open("/tmp/trb-private-transfer/result.json")); assert d.get("completed") is True and d.get("private_archive_verified") is True and d.get("installed") is False'
+      - name: Verify public receiver and temporary keys were removed
+        if: always()
+        run: python3 -c 'import json; d=json.load(open("/tmp/trb-private-transfer/cleanup.json")); assert d.get("public_endpoint_removed") is True and d.get("ephemeral_keys_removed") is True'
       - name: Preserve only generic transfer status
         if: always()
         uses: actions/upload-artifact@v4
