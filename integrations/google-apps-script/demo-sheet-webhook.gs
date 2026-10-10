@@ -11,6 +11,25 @@ const TRB_SHEET_NAME = '2026 NEW';
 
 function doGet() { return json_({ protocol: 'trb-demo-sheet-v2', isolated_qa: true }); }
 
+/** Editor-only receipt check: uses the existing secret, changes no rows. */
+function testReadOnlyDemoSheetHealth() {
+  const secret = PropertiesService.getScriptProperties().getProperty('TRB_WEBHOOK_SECRET');
+  if (!secret) throw new Error('Configurazione firma assente.');
+  const sheet = SpreadsheetApp.openById(TRB_SPREADSHEET_ID).getSheetByName(TRB_SHEET_NAME);
+  if (!sheet) throw new Error('Scheda dei provini non disponibile.');
+  const before = sheet.getLastRow();
+  const body = JSON.stringify({ action: 'health' });
+  const invoke = function (signature) {
+    return JSON.parse(doPost({ postData: { contents: JSON.stringify({ payload_base64: Utilities.base64Encode(body, Utilities.Charset.UTF_8), signature: signature }) } }).getContent());
+  };
+  const valid = invoke(hmacHex_(body, secret));
+  const invalid = invoke('0'.repeat(64));
+  const result = { authenticated_read_only: valid.success === true && valid.protocol === 'trb-demo-sheet-health-v1' && valid.sheet_available === true && valid.read_only === true, invalid_signature_rejected: invalid.error === 'unauthorized', original_rows_preserved: sheet.getLastRow() === before };
+  console.log(JSON.stringify(result));
+  if (Object.keys(result).some(function (key) { return result[key] !== true; })) throw new Error('Verifica di sola lettura non completata.');
+  return result;
+}
+
 /** Editor-only test: the existing secret stays inside Apps Script. No mail is sent. */
 function testIsolatedDemoSheet() {
   const run = Utilities.getUuid().replace(/-/g, '').slice(0, 16);

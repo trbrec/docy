@@ -31,12 +31,12 @@ class Sheet {
 const sheets = new Map([['2026 NEW', new Sheet('2026 NEW')]]);
 const book = {getSheetByName: name => sheets.get(name) ?? null, insertSheet(name) { const s = new Sheet(name); sheets.set(name,s); return s; }, deleteSheet(sheet) { sheets.delete(sheet.name); }};
 const context = vm.createContext({
-  console: {error() {}},
+  console: {error() {},log() {}},
   PropertiesService: {getScriptProperties: () => ({getProperty: () => secret})},
-  Utilities: {base64Decode: text => Buffer.from(text,'base64'), newBlob: bytes => ({getDataAsString: () => bytes.toString('utf8')}), computeHmacSha256Signature: (text,key) => [...crypto.createHmac('sha256',key).update(text).digest()]},
+  Utilities: {Charset:{UTF_8:'UTF-8'},base64Encode:text=>Buffer.from(text).toString('base64'),base64Decode: text => Buffer.from(text,'base64'), newBlob: bytes => ({getDataAsString: () => bytes.toString('utf8')}), computeHmacSha256Signature: (text,key) => [...crypto.createHmac('sha256',key).update(text).digest()]},
   LockService: {getScriptLock: () => ({waitLock() {},releaseLock() {}})},
   SpreadsheetApp: {openById: () => book, flush() {}},
-  ContentService: {MimeType: {JSON:'json'}, createTextOutput: text => ({text,setMimeType() { return this; }})}
+  ContentService: {MimeType: {JSON:'json'}, createTextOutput: text => ({text,getContent(){return text;},setMimeType() { return this; }})}
 });
 vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../integrations/google-apps-script/demo-sheet-webhook.gs'),'utf8'),context);
 function post(data, valid = true) {
@@ -47,6 +47,7 @@ function post(data, valid = true) {
 }
 const run = '1234567890abcdef';
 const beforeHealth = JSON.stringify([...sheets].map(([name,s])=>[name,s.cells]));
+assert.equal(context.testReadOnlyDemoSheetHealth().authenticated_read_only,true);
 assert.equal(post({action:'health'},false).error,'unauthorized');
 assert.deepEqual(post({action:'health'}),{success:true,protocol:'trb-demo-sheet-health-v1',sheet_available:true,read_only:true});
 assert.equal(JSON.stringify([...sheets].map(([name,s])=>[name,s.cells])),beforeHealth,'Health never creates a row or changes headers');

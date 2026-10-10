@@ -4,6 +4,10 @@ on:
   push:
     branches: [fix/portal-audit-20261010]
     paths:
+      - inc/trb-*.php
+      - template-artist*.php
+      - assets/js/trb-*.js
+      - assets/css/trb-*.css
       - tools/qa-installed-stack.php
       - tools/qa-installed-http.php
       - tools/qa-http-local-browser.php

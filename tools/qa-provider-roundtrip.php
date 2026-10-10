@@ -25,6 +25,8 @@ try {
     require __DIR__ . '/qa-provider-cleanup.php';
     $result['pcloud_stale_folders_removed'] = trb_qa_provider_cleanup_stale( $body );
     $response = trb_webdav_request( trb_demo_settings(), 'MKCOL', $folder );
+    $result['pcloud_create_http_status'] = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+    if ( is_wp_error( $response ) ) $result['pcloud_create_error_code'] = sanitize_key( $response->get_error_code() );
     $made = ! is_wp_error( $response ) && in_array( (int) wp_remote_retrieve_response_code( $response ), array( 200, 201, 204 ), true );
     if ( ! $made ) throw new RuntimeException( 'Archive test folder unavailable.' );
     $put = trb_webdav_request( trb_demo_settings(), 'PUT', $remote, $body, array( 'Content-Type' => 'text/plain; charset=utf-8', 'If-None-Match' => '*' ) );
