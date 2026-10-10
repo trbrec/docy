@@ -8,6 +8,7 @@ $content = '/home/customer/www/artist.trbrec.com/public_html/wp-content';
 $private = dirname( $content, 2 ) . '/private/portal-audit-' . $revision;
 $baselines = array( 'trb-crm-sync.php' => 'cf824a04f552f058260f63aa34c3df4c75d5cf964b0dcfa727f334819ca254fe', 'trb-login-cache-guard.php' => '7359820b2cf6c93f262f67b81d1018869b01d0df63c71257658380541708b202', 'trb-z-crm-release-sync-r26.php' => '449a7bc2db0835e3faa392399c76e9129ffe6f233ec7eb27a0ab4bfd7c5d381c', 'trb-crm-sync-storage.php' => null );
 $changes = array();
+$baselines['trb-release-deploy-guard.php'] = null;
 foreach ( $baselines as $name => $baseline ) {
     $target = $content . '/mu-plugins/' . $name; $candidate = $bundle . '/integrations/portal-mu-plugins/' . $name;
     if ( is_link( $target ) || ! is_file( $candidate ) || is_link( $candidate ) ) throw new RuntimeException( 'Unsafe integration target.' );
@@ -42,7 +43,9 @@ if ( trim( (string) @file_get_contents( $bundle . '/.trb-deployed-sha' ) ) !== $
 $original = json_decode( file_get_contents( $manifest_path ), true, 32, JSON_THROW_ON_ERROR );
 $restore = static function() use ( $original, $private ) {
     foreach ( $original as $key => $entry ) {
-        if ( ! $entry['exists'] ) { if ( is_file( $entry['target'] ) ) unlink( $entry['target'] ); continue; }
+        // Keep this independent guard if reverting to an older theme: its former
+        // updater must not immediately reapply a revision that just failed QA.
+        if ( ! $entry['exists'] ) { if ( basename( $entry['target'] ) !== 'trb-release-deploy-guard.php' && is_file( $entry['target'] ) ) unlink( $entry['target'] ); continue; }
         $temp = $entry['target'] . '.audit-restore';
         if ( ! copy( $private . '/' . $key . '.previous', $temp ) || ! rename( $temp, $entry['target'] ) ) throw new RuntimeException( 'Integration restore failed.' );
     }

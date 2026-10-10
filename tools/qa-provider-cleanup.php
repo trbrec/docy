@@ -8,7 +8,8 @@ function trb_qa_provider_listing( $folder ) {
     $previous = libxml_use_internal_errors( true );
     try { $xml = simplexml_load_string( $body, 'SimpleXMLElement', LIBXML_NONET ); }
     finally { libxml_clear_errors(); libxml_use_internal_errors( $previous ); }
-    if ( ! $xml ) throw new RuntimeException( 'QA listing invalid.' );
+    // A valid DAV document with only namespaced children casts to false in PHP.
+    if ( false === $xml ) throw new RuntimeException( 'QA listing invalid.' );
     $rows = array();
     foreach ( $xml->xpath( '//*[local-name()="response"]' ) as $entry ) {
         $href = $entry->xpath( './*[local-name()="href"]' );

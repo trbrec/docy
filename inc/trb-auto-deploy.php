@@ -1,9 +1,9 @@
 <?php
 /**
- * Automatic deployment bridge for the public trbrec/docy repository.
+ * Verified deployment monitor for the public trbrec/docy repository.
  *
- * It keeps the Deployer for Git secret inside WordPress and asks the installed
- * plugin to update the active theme whenever GitHub main changes.
+ * The hosting workflow installs the complete bundle after validation. WordPress
+ * records completion only after the private server receipt and source hashes match.
  * Production revision: spotify4-release-gate.
  *
  * @package docy
@@ -159,72 +159,24 @@ function trb_docy_verify_deployed_commit( $sha ) {
 	return array( 'verified' => true, 'checked' => $checked );
 }
 
-/** Deploy one already verified commit through Deployer for Git. */
+/** The hosting workflow alone installs the coherent theme and integration bundle. */
+function trb_docy_deployment_is_ssh_only() { return true; }
+
+/** Verify a completed SSH release; a notification can never install an archive. */
 function trb_docy_deploy_verified_sha( $sha ) {
-	if ( get_transient( 'trb_docy_auto_deploy_lock' ) ) {
-		return new WP_Error( 'trb_deploy_locked', 'Un altro deploy è già in corso.', array( 'status' => 409 ) );
-	}
-	set_transient( 'trb_docy_auto_deploy_lock', 1, 4 * MINUTE_IN_SECONDS );
-
-	if ( hash_equals( (string) get_option( TRB_DOCY_DEPLOYED_SHA_OPTION, '' ), $sha ) ) {
-		trb_docy_store_deploy_status( 'current', 'Il tema è già aggiornato.', $sha );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return array( 'success' => true, 'state' => 'current', 'sha' => $sha );
-	}
-
-	if ( ! class_exists( '\\DeployerForGit\\ApiRequests\\PackageUpdate' ) ) {
-		trb_docy_store_deploy_status( 'error', 'Deployer for Git non è attivo.', $sha );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return new WP_Error( 'trb_deployer_missing', 'Deployer for Git non è attivo.', array( 'status' => 503 ) );
-	}
-
-	$request = new WP_REST_Request( 'POST', '/dfg/v1/package_update/' );
-	$request->set_param( 'secret', \DeployerForGit\Helper::get_api_secret() );
-	$request->set_param( 'type', 'theme' );
-	$request->set_param( 'package', 'docy' );
-	$updater = new \DeployerForGit\ApiRequests\PackageUpdate();
-	$payload = $updater->update_package_callback( $request );
-
-	if ( empty( $payload['success'] ) ) {
-		$message = isset( $payload['message'] ) ? $payload['message'] : 'Deploy non riuscito.';
-		trb_docy_store_deploy_status( 'error', $message, $sha );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return new WP_Error( 'trb_deploy_failed', $message, array( 'status' => 500 ) );
-	}
-
-	// Deployer for Git can report success before its GitHub archive cache has
-	// caught up with main. Verify only the blobs changed by the requested
-	// commit: static marker files can legitimately differ after an emergency
-	// production hotfix and used to produce false deployment failures.
-	$verification = trb_docy_verify_deployed_commit( $sha );
-	if ( is_wp_error( $verification ) ) {
-		$message = $verification->get_error_message();
-		trb_docy_store_deploy_status( 'error', $message, $sha );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return new WP_Error( 'trb_deploy_stale', $message, array( 'status' => 503 ) );
-	}
-
-	// Keep the same verified revision marker used by the SSH installer.
-	$marker = trailingslashit( get_template_directory() ) . '.trb-deployed-sha';
-	$temp_marker = $marker . '.tmp';
-	if ( false === file_put_contents( $temp_marker, $sha . "\n", LOCK_EX ) || ! rename( $temp_marker, $marker ) ) {
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return new WP_Error( 'trb_revision_marker_failed', 'Impossibile registrare la revisione verificata.', array( 'status' => 503 ) );
-	}
-	update_option( TRB_DOCY_DEPLOYED_SHA_OPTION, $sha, false );
-	wp_cache_flush();
-	// Some SiteGround PHP workers keep executing the previous opcode after an
-	// overwrite-style theme deploy. Reset it only after source verification, so
-	// the next request cannot serve stale PHP while GitHub already reports green.
-	if ( function_exists( 'opcache_reset' ) ) {
-		@opcache_reset(); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-	}
-	if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
-		sg_cachepress_purge_cache();
-	}
-	trb_docy_store_deploy_status( 'success', 'Tema aggiornato automaticamente.', $sha );
-	delete_transient( 'trb_docy_auto_deploy_lock' );
-	return array( 'success' => true, 'state' => 'deployed', 'sha' => $sha );
+    if ( ! is_string( $sha ) || ! preg_match( '/^[a-f0-9]{40}$/D', $sha ) ) return new WP_Error( 'trb_invalid_sha', 'Revisione non valida.', array( 'status' => 400 ) );
+    $theme = trailingslashit( get_template_directory() );
+    $receipt_path = dirname( untrailingslashit( ABSPATH ) ) . '/private/portal-release-' . $sha . '/complete.json';
+    $receipt = is_file( $receipt_path ) && ! is_link( $receipt_path ) ? json_decode( file_get_contents( $receipt_path ), true ) : null;
+    if ( trim( (string) @file_get_contents( $theme . '.trb-deployed-sha' ) ) !== $sha || ! is_array( $receipt ) || ( $receipt['revision'] ?? '' ) !== $sha || ( $receipt['verified'] ?? false ) !== true ) {
+        trb_docy_store_deploy_status( 'pending', 'Pubblicazione in attesa delle verifiche del server.', $sha );
+        return new WP_Error( 'trb_ssh_release_pending', 'La pubblicazione deve completare le verifiche del server.', array( 'status' => 409 ) );
+    }
+    $verification = trb_docy_verify_deployed_commit( $sha );
+    if ( is_wp_error( $verification ) ) return $verification;
+    update_option( TRB_DOCY_DEPLOYED_SHA_OPTION, $sha, false );
+    trb_docy_store_deploy_status( 'success', 'Pubblicazione verificata dal server.', $sha );
+    return array( 'success' => true, 'state' => 'verified', 'sha' => $sha );
 }
 
 /** Read and validate the current GitHub main SHA. */

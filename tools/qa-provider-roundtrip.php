@@ -13,6 +13,8 @@ require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
 add_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
 if ( ! function_exists( 'trb_webdav_request' ) ) require dirname( __DIR__ ) . '/inc/trb-webdav.php';
 $settings = trb_demo_settings();
+preg_match( '~^https://script\.google\.com/macros/s/([a-zA-Z0-9_-]+)/exec$~D', (string) ( $settings['sheet_webhook_url'] ?? '' ), $deployment );
+$result['sheets_deployment_id'] = $deployment[1] ?? null;
 $folder = '/Upload files - TRB rec/Audio/Demo files/QA-AUDIT-' . $run;
 $remote = $folder . '/testo-sintetico.txt';
 $result['pcloud_fixture'] = 'QA-AUDIT-' . $run;
