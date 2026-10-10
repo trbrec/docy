@@ -1578,7 +1578,6 @@ function trb_portal_handle_private_profile_uploads( $user_id, $defer_cleanup = f
 			return new WP_Error( 'bio_required' );
 		}
 	}
-	$remaining = array_values( $remaining );
 	if ( $remaining !== array_values( $existing ) ) {
 		// Compare the old value as well as holding the per-user process lock.
 		update_user_meta( $user_id, '_trb_artist_private_files', $remaining, $original );
@@ -2645,7 +2644,7 @@ function trb_portal_replace_release_file() {
 			$documents[ $document_index ] = $rights_meta;
 			break;
 		}
-		update_post_meta( $release_id, '_trb_release_rights_documents', array_values( $documents ) );
+		update_post_meta( $release_id, '_trb_release_rights_documents', $documents );
 	}
 	if ( $security_blocked ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
 	elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id, true );
@@ -2819,7 +2818,7 @@ function trb_portal_normalize_release_draft_pairs( $pairs, &$report = null ) {
 		);
 	}
 	$report['changed'] = wp_json_encode( array_values( $pairs ) ) !== wp_json_encode( $clean );
-	return array_values( $clean );
+	return $clean;
 }
 
 /** One-time reversible migration of every stored release draft. */
