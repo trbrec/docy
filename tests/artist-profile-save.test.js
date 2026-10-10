@@ -27,7 +27,7 @@ function fixture() {
   state.events.submit({ preventDefault() {} });
   return { state, button, status };
 }
-for (const result of ['file_upload_failed', 'profile_busy', 'storage_waiting', 'bio_invalid', 'bio_required', 'invalid_address', 'invalid_birth_date', 'invalid_phone', 'invalid_tax_code', 'invalid_document_number', 'invalid_document_expiry', 'artist_name_taken']) {
+for (const result of ['file_upload_failed', 'profile_busy', 'profile_save_failed', 'storage_waiting', 'bio_invalid', 'bio_required', 'invalid_address', 'invalid_birth_date', 'invalid_phone', 'invalid_tax_code', 'invalid_document_number', 'invalid_document_expiry', 'artist_name_taken']) {
   const { state, button, status } = fixture();
   state.xhr.status = 200;
   state.xhr.responseURL = 'https://portal.example.invalid/area-artisti/?trb_profile=' + result;

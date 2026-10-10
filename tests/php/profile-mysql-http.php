@@ -95,6 +95,20 @@ try {
     qa_check( $qaComplete['complete'] && $qaComplete['completion']['remaining'] === 0 && count( $qaComplete['files'] ) === 4, 'Ordinary foreign profile did not become complete through real WordPress metadata and file storage.' );
     qa_check( str_contains( qa_http( $qaIdentity )['location'], 'trb_profile=saved' ), 'Identical multipart retry failed.' );
     qa_check( qa_http()['data']['files'] === $qaComplete['files'], 'Identical multipart retry duplicated stored files.' );
+    global $wpdb;
+    $wpdb->query( "CREATE TRIGGER qa_reject_profile BEFORE UPDATE ON {$wpdb->usermeta} FOR EACH ROW BEGIN IF NEW.meta_key='_trb_artist_tax_code' AND NEW.meta_value='QA-TN-FAIL123456' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Injected QA profile write failure'; END IF; END" );
+    file_put_contents( $qaBiography, 'Biography pending a deliberately failed database save.' );
+    $qaDatabaseFailure = $qaContract;
+    $qaDatabaseFailure['trb_artist_phone'] = '+216 20 123 457';
+    $qaDatabaseFailure['trb_artist_tax_code'] = 'QA-TN-FAIL123456';
+    $qaDatabaseFailure['trb_artist_bio_file'] = new CURLFile( $qaBiography, 'text/plain', 'pending-biography.txt' );
+    try {
+        qa_check( str_contains( qa_http( $qaDatabaseFailure )['location'], 'profile_save_failed' ), 'A real mid-profile MySQL failure was reported as success.' );
+        qa_check( qa_http()['data']['fields'] === $qaComplete['fields'], 'Failed MySQL write left a partially updated profile.' );
+        $qaUploads = wp_upload_dir();
+        qa_check( count( glob( $qaUploads['basedir'] . '/trb-artist-private/*' ) ) === 4, 'Database rollback left new orphan files or removed previous files.' );
+        foreach ( $qaComplete['files'] as $qaStoredFile ) qa_check( is_file( $qaUploads['basedir'] . '/' . $qaStoredFile['path'] ) && hash_file( 'sha256', $qaUploads['basedir'] . '/' . $qaStoredFile['path'] ) === $qaStoredFile['sha256'], 'Database failure destroyed previously stored bytes.' );
+    } finally { $wpdb->query( 'DROP TRIGGER qa_reject_profile' ); }
     file_put_contents( $qaBiography, 'Replacement fictional biography.' );
     $qaFailedUpload = array( 'trb_portal_profile_nonce' => $qaInitial['nonce'], 'trb_artist_identity_section' => '1', 'trb_artist_bio_file' => new CURLFile( $qaBiography, 'text/plain', 'new-biography.txt' ), 'trb_artist_id_front' => new CURLFile( $qaForged, 'image/png', 'forged-identity.png' ) );
     qa_check( str_contains( qa_http( $qaFailedUpload )['location'], 'file_upload_failed' ), 'Forged PNG replacement reported success.' );
@@ -109,7 +123,6 @@ try {
     trb_crm_connector_install();
     $qaOutbox = trb_crm_connector_table();
     qa_check( trb_crm_connector_queue( 'artist', $qaUser, array( 'name' => 'Fictional QA artist' ) ), 'Native MySQL outbox insert failed.' );
-    global $wpdb;
     $qaFirstEvent = $wpdb->get_row( "SELECT id,status FROM {$qaOutbox} ORDER BY id DESC LIMIT 1", ARRAY_A );
     $wpdb->query( "CREATE TRIGGER qa_reject_outbox BEFORE INSERT ON {$qaOutbox} FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Injected QA insert failure'" );
     $qaPriorErrors = $wpdb->suppress_errors( true );

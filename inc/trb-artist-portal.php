@@ -1170,6 +1170,38 @@ function trb_portal_validate_biography_upload( $upload, $has_biography ) {
 	return '';
 }
 
+/** Treat unchanged metadata as success, but never ignore a failed write. */
+function trb_portal_write_profile_meta( $user_id, $key, $value = null, $delete = false ) {
+	if ( $delete ) {
+		delete_user_meta( $user_id, $key );
+		if ( metadata_exists( 'user', $user_id, $key ) ) throw new RuntimeException( 'Profile metadata deletion was not confirmed.' );
+		return;
+	}
+	update_user_meta( $user_id, $key, $value );
+	$stored = get_user_meta( $user_id, $key, true );
+	$matches = is_array( $value ) ? $stored === $value : (string) $stored === (string) $value;
+	if ( ! $matches ) throw new RuntimeException( 'Profile metadata write was not confirmed.' );
+}
+
+/** Roll back before releasing the profile lock, including early exit/fatal cleanup. */
+function trb_portal_abort_profile_save( $user_id, &$context ) {
+	global $wpdb;
+	if ( empty( $context['transaction_open'] ) ) return;
+	$rolled_back = false !== $wpdb->query( 'ROLLBACK' );
+	$context['transaction_open'] = false;
+	clean_user_cache( $user_id );
+	wp_cache_delete( 'cron', 'options' );
+	wp_cache_delete( 'alloptions', 'options' );
+	if ( empty( $context['dirty_before'] ) ) unset( $GLOBALS['trb_crm_connector_dirty_profiles'][ $user_id ] );
+	else $GLOBALS['trb_crm_connector_dirty_profiles'][ $user_id ] = true;
+	// A failed COMMIT can have an uncertain outcome. Read back durable metadata
+	// before removing new files, and preserve every path still referenced there.
+	if ( $rolled_back && ! empty( $context['files']['created'] ) ) {
+		$recorded = get_user_meta( $user_id, '_trb_artist_private_files', true );
+		if ( '' === $wpdb->last_error ) trb_portal_delete_retired_profile_files( $context['files']['created'], is_array( $recorded ) ? $recorded : array() );
+	}
+}
+
 function trb_portal_handle_artist_profile() {
 	if ( ! is_user_logged_in() ) {
 		auth_redirect();
@@ -1181,7 +1213,11 @@ function trb_portal_handle_artist_profile() {
 		wp_safe_redirect( add_query_arg( 'trb_profile', 'profile_busy', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 		exit;
 	}
-	register_shutdown_function( 'trb_release_process_unlock', $profile_lock );
+	$profile_save_context = array( 'transaction_open' => false, 'files' => array(), 'dirty_before' => ! empty( $GLOBALS['trb_crm_connector_dirty_profiles'][ $user_id ] ) );
+	register_shutdown_function( static function() use ( $profile_lock, $user_id, &$profile_save_context ) {
+		trb_portal_abort_profile_save( $user_id, $profile_save_context );
+		trb_release_process_unlock( $profile_lock );
+	} );
 	// Contract data must always pass the company form's validation, including
 	// forged requests that omit its section marker.
 	foreach ( array( 'first_name', 'last_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'birth_country', 'tax_code', 'tax_country', 'document_number', 'document_type', 'document_expiry', 'document_no_expiry', 'street', 'street_number', 'city', 'postal_code', 'province', 'country', 'company_name', 'company_vat', 'company_sdi', 'company_address', 'invoice_requested' ) as $contract_field ) {
@@ -1278,51 +1314,67 @@ function trb_portal_handle_artist_profile() {
 		}
 	}
 	$profile_upload_started_at = time();
-	$file_result = trb_portal_handle_private_profile_uploads( $user_id );
-	if ( is_wp_error( $file_result ) ) {
-		wp_safe_redirect( add_query_arg( 'trb_profile', $file_result->get_error_code(), get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+	global $wpdb;
+	$profile_save_error = 'profile_save_failed';
+	try {
+		$engine = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $wpdb->usermeta ) );
+		if ( 'INNODB' !== strtoupper( (string) $engine ) || false === $wpdb->query( 'START TRANSACTION' ) ) throw new RuntimeException( 'Transactional profile storage is unavailable.' );
+		$profile_save_context['transaction_open'] = true;
+		$file_result = trb_portal_handle_private_profile_uploads( $user_id, true );
+		if ( is_wp_error( $file_result ) ) {
+			$profile_save_error = $file_result->get_error_code();
+			throw new RuntimeException( 'Profile file batch did not complete.' );
+		}
+		$profile_save_context['files'] = $file_result;
+		if ( isset( $_POST['trb_artist_company_section'] ) ) {
+			$stored_expiry = trb_portal_artist_profile_value( 'document_expiry', $user_id );
+			if ( $stored_expiry && $stored_expiry < wp_date( 'Y-m-d' ) && ! get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) ) trb_portal_write_profile_meta( $user_id, '_trb_identity_documents_refresh_after', $profile_upload_started_at );
+			if ( $stored_expiry !== $document_expiry ) trb_portal_write_profile_meta( $user_id, '_trb_identity_expiry_notified_for', null, true );
+		}
+		foreach ( $account_updates as $account_field => $submitted_value ) trb_portal_write_profile_meta( $user_id, $account_field, $submitted_value );
+		foreach ( trb_portal_artist_profile_fields() as $key => $label ) {
+			if ( ! isset( $_POST[ 'trb_artist_' . $key ] ) ) {
+				continue;
+			}
+			if ( 'artist_name' === $key && '' !== trb_portal_artist_profile_value( 'artist_name', $user_id ) ) {
+				continue;
+			}
+			if ( 'trb' === $profile && in_array( $key, $company_fields, true ) ) continue;
+			$value = in_array( $key, $url_fields, true ) ? esc_url_raw( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) ) : sanitize_text_field( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) );
+			trb_portal_write_profile_meta( $user_id, '_trb_artist_' . $key, $value );
+		}
+		if ( 'trb' === $profile ) {
+			trb_portal_write_profile_meta( $user_id, '_trb_artist_invoice_requested', null, true );
+			foreach ( $company_fields as $company_field ) trb_portal_write_profile_meta( $user_id, '_trb_artist_' . $company_field, null, true );
+		} elseif ( isset( $_POST['trb_artist_invoice_requested'] ) || isset( $_POST['trb_artist_company_section'] ) ) {
+			trb_portal_write_profile_meta( $user_id, '_trb_artist_invoice_requested', isset( $_POST['trb_artist_invoice_requested'] ) ? '1' : '' );
+		}
+		if ( isset( $_POST['trb_artist_identity_section'] ) ) {
+			foreach ( array( 'spotify_new', 'apple_music_new', 'youtube_none', 'soundcloud_none' ) as $choice ) {
+				trb_portal_write_profile_meta( $user_id, '_trb_artist_' . $choice, isset( $_POST[ 'trb_artist_' . $choice ] ) ? '1' : '' );
+			}
+		}
+		$refresh_after = absint( get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) );
+		if ( $refresh_after ) {
+			$fresh_sides = array();
+			foreach ( trb_portal_private_profile_files( $user_id ) as $file ) if ( isset( $file['group'], $file['label'], $file['time'] ) && 'identity' === $file['group'] && absint( $file['time'] ) >= $refresh_after ) $fresh_sides[] = $file['label'];
+			if ( in_array( 'Carta d’identità — fronte', $fresh_sides, true ) ) trb_portal_write_profile_meta( $user_id, '_trb_identity_documents_refresh_after', null, true );
+		}
+		$bio_file = trb_portal_valid_biography_file( $user_id );
+		if ( isset( $_POST['trb_artist_identity_section'] ) && empty( $bio_file ) ) {
+			$profile_save_error = 'bio_invalid';
+			throw new RuntimeException( 'Stored biography was not confirmed.' );
+		}
+		if ( ! empty( $bio_file['name'] ) ) trb_portal_write_profile_meta( $user_id, '_trb_artist_bio', 'Biografia allegata: ' . sanitize_text_field( $bio_file['name'] ) );
+		if ( false === $wpdb->query( 'COMMIT' ) ) throw new RuntimeException( 'Profile commit was not confirmed.' );
+		$profile_save_context['transaction_open'] = false;
+	} catch ( Throwable $profile_save_exception ) {
+		trb_portal_abort_profile_save( $user_id, $profile_save_context );
+		error_log( 'TRB profile save aborted: ' . get_class( $profile_save_exception ) );
+		wp_safe_redirect( add_query_arg( 'trb_profile', $profile_save_error, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 		exit;
 	}
-	if ( isset( $_POST['trb_artist_company_section'] ) ) {
-		$stored_expiry = trb_portal_artist_profile_value( 'document_expiry', $user_id );
-		if ( $stored_expiry && $stored_expiry < wp_date( 'Y-m-d' ) && ! get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) ) update_user_meta( $user_id, '_trb_identity_documents_refresh_after', $profile_upload_started_at );
-		if ( $stored_expiry !== $document_expiry ) delete_user_meta( $user_id, '_trb_identity_expiry_notified_for' );
-	}
-	foreach ( $account_updates as $account_field => $submitted_value ) update_user_meta( $user_id, $account_field, $submitted_value );
-	foreach ( trb_portal_artist_profile_fields() as $key => $label ) {
-		if ( ! isset( $_POST[ 'trb_artist_' . $key ] ) ) {
-			continue;
-		}
-		if ( 'artist_name' === $key && '' !== trb_portal_artist_profile_value( 'artist_name', $user_id ) ) {
-			continue;
-		}
-		if ( 'trb' === $profile && in_array( $key, $company_fields, true ) ) continue;
-		$value = in_array( $key, $url_fields, true ) ? esc_url_raw( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) ) : sanitize_text_field( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) );
-		update_user_meta( $user_id, '_trb_artist_' . $key, $value );
-	}
-	if ( 'trb' === $profile ) {
-		delete_user_meta( $user_id, '_trb_artist_invoice_requested' );
-		foreach ( $company_fields as $company_field ) delete_user_meta( $user_id, '_trb_artist_' . $company_field );
-	} elseif ( isset( $_POST['trb_artist_invoice_requested'] ) || isset( $_POST['trb_artist_company_section'] ) ) {
-		update_user_meta( $user_id, '_trb_artist_invoice_requested', isset( $_POST['trb_artist_invoice_requested'] ) ? '1' : '' );
-	}
-	if ( isset( $_POST['trb_artist_identity_section'] ) ) {
-		foreach ( array( 'spotify_new', 'apple_music_new', 'youtube_none', 'soundcloud_none' ) as $choice ) {
-			update_user_meta( $user_id, '_trb_artist_' . $choice, isset( $_POST[ 'trb_artist_' . $choice ] ) ? '1' : '' );
-		}
-	}
-	$refresh_after = absint( get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) );
-	if ( $refresh_after ) {
-		$fresh_sides = array();
-		foreach ( trb_portal_private_profile_files( $user_id ) as $file ) if ( isset( $file['group'], $file['label'], $file['time'] ) && 'identity' === $file['group'] && absint( $file['time'] ) >= $refresh_after ) $fresh_sides[] = $file['label'];
-		if ( in_array( 'Carta d’identità — fronte', $fresh_sides, true ) ) delete_user_meta( $user_id, '_trb_identity_documents_refresh_after' );
-	}
-	$bio_file = trb_portal_valid_biography_file( $user_id );
-	if ( isset( $_POST['trb_artist_identity_section'] ) && empty( $bio_file ) ) {
-		wp_safe_redirect( add_query_arg( 'trb_profile', 'bio_invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
-		exit;
-	}
-	if ( ! empty( $bio_file['name'] ) ) update_user_meta( $user_id, '_trb_artist_bio', 'Biografia allegata: ' . sanitize_text_field( $bio_file['name'] ) );
+	trb_portal_delete_retired_profile_files( $profile_save_context['files']['retired'], $profile_save_context['files']['remaining'] );
 	do_action( 'trb_portal_artist_profile_saved', $user_id );
 	wp_safe_redirect( add_query_arg( 'trb_profile', 'saved', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 	exit;
@@ -1424,7 +1476,7 @@ function trb_portal_delete_retired_profile_files( $retired, $remaining ) {
 }
 
 /** Acquire the complete batch before changing metadata or deleting old files. */
-function trb_portal_handle_private_profile_uploads( $user_id ) {
+function trb_portal_handle_private_profile_uploads( $user_id, $defer_cleanup = false ) {
 	$original = get_user_meta( $user_id, '_trb_artist_private_files', true );
 	$existing = trb_portal_private_profile_files( $user_id );
 	$remove_ids = $_POST['trb_artist_remove_files'] ?? array();
@@ -1525,9 +1577,9 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 			trb_portal_delete_retired_profile_files( $created, array() );
 			return new WP_Error( 'file_upload_failed' );
 		}
-		trb_portal_delete_retired_profile_files( $retired, $remaining );
+		if ( ! $defer_cleanup ) trb_portal_delete_retired_profile_files( $retired, $remaining );
 	}
-	return true;
+	return $defer_cleanup ? array( 'created' => $created, 'retired' => $retired, 'remaining' => $remaining ) : true;
 }
 
 function trb_portal_user_releases() {
@@ -4210,6 +4262,7 @@ function trb_portal_render_artist_profile_section() {
 		<?php if ( 'bio_required' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Allega la biografia artistica in formato TXT, DOCX, ODT o RTF prima di salvare l’identità artistica.</div><?php endif; ?>
 		<?php if ( 'file_upload_failed' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Caricamento non completato. Nessun dato del profilo è stato salvato e i file precedenti sono conservati. Controlla formato, dimensioni e limite di sei foto, quindi riprova.</div><?php endif; ?>
 		<?php if ( 'profile_busy' === $profile_error ) : ?><div class="trb-portal__message">Un salvataggio del profilo è già in corso. Attendi il completamento e riprova.</div><?php endif; ?>
+		<?php if ( 'profile_save_failed' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Il server non ha confermato il salvataggio. Controlla il profilo prima di riprovare.</div><?php endif; ?>
 		<?php if ( 'bio_invalid' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Biografia non acquisita: usa un file TXT, DOCX, ODT o RTF non superiore a 5 MB.</div><?php endif; ?>
 		<?php if ( 'storage_waiting' === $profile_error ) : ?><div class="trb-portal__message"><strong>Caricamento temporaneamente in attesa.</strong><p>I dati già salvati restano invariati. Non ripetere l’invio: riprova quando lo spazio sarà nuovamente disponibile.</p></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Se nome o cognome sono vuoti puoi inserirli ora; per correggere dati già registrati o l’e-mail dell’account, apri una segnalazione.</div><?php endif; ?>

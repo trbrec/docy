@@ -51,6 +51,7 @@ jobs:
           scp -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/audit-installed-source.php "${remote}:${qa_dir}/inventory.php"
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php'" > /tmp/trb-source-audit/installed-source.json
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php' --sources" > /tmp/trb-source-audit/review-sources.json
+          ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${qa_dir}/inventory.php' --database-shape" > /tmp/trb-source-audit/database-shape.json
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -60,6 +61,8 @@ jobs:
           assert report['roots']['crm_app']['available'] is True
           sources = json.loads(Path('/tmp/trb-source-audit/review-sources.json').read_text())
           assert sources['read_only'] is True and len(sources['sources']) >= 39
+          shape = json.loads(Path('/tmp/trb-source-audit/database-shape.json').read_text())
+          assert shape['read_only'] is True
           print('Installed source inventory recorded; no application loaded, no database accessed, no mail or external integration called.')
           PY
       - uses: actions/upload-artifact@v4

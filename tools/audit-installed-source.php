@@ -1,6 +1,18 @@
 <?php
 /** Read-only source inventory. Never bootstraps WordPress or the CRM. */
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
+if ( in_array( '--database-shape', $argv, true ) ) {
+    define( 'SHORTINIT', true );
+    define( 'DISABLE_WP_CRON', true );
+    require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
+    global $wpdb;
+    $shape = array( 'read_only' => true, 'table_engines' => array() );
+    foreach ( array( 'usermeta' => $wpdb->usermeta, 'options' => $wpdb->options, 'posts' => $wpdb->posts, 'postmeta' => $wpdb->postmeta ) as $label => $table ) $shape['table_engines'][ $label ] = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $table ) );
+    $shape['fixture_198_exists'] = 1 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->users} WHERE ID=198 AND user_login=%s AND user_email=%s", 'trb_audit_20261010', 'portal-audit-20261010@example.invalid' ) );
+    $shape['fixture_12351_exists'] = 1 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE ID=12351 AND post_author=198 AND post_type='trb_release' AND post_title=%s", 'AUDIT TEST 20261010 — synthetic release, no distribution' ) );
+    echo json_encode( $shape, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR ) . "\n";
+    exit;
+}
 $source_names = array( 'ActivationFlow.php', 'CandidateContractReview.php', 'CandidateFollowupPolicy.php', 'Controller.php', 'Core.php', 'MailRecovery.php', 'MaterialArchivePolicy.php', 'OnboardingAdmin.php', 'OnboardingContractCatalog.php', 'OnboardingContractWorkflow.php', 'OnboardingDrive.php', 'OnboardingEntry.php', 'OnboardingIdentity.php', 'OnboardingIntake.php', 'OnboardingLedger.php', 'OnboardingMail.php', 'OnboardingPcloud.php', 'OnboardingPolicy.php', 'OnboardingRuntime.php', 'OnboardingService.php', 'OnboardingTransport.php', 'OnboardingWorkflowInstaller.php', 'PcloudDemoStorage.php', 'ProposalMailCatalog.php', 'ProposalMailCopy.php', 'SubmissionRepository.php', 'SymphonicSheet.php', 'View.php', 'bootstrap.php', 'routes.php' );
 if ( in_array( '--sources', $argv, true ) ) {
     $source_paths = array();

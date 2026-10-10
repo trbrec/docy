@@ -419,6 +419,7 @@
           var errors = {
             file_upload_failed: 'Caricamento non completato. I dati e i file precedenti sono conservati. Controlla formato, dimensioni e limite di sei foto, quindi riprova.',
             profile_busy: 'Un salvataggio è già in corso. Attendi il completamento e riprova.',
+            profile_save_failed: 'Il server non ha confermato il salvataggio. Controlla il profilo prima di riprovare.',
             storage_waiting: 'Spazio temporaneamente insufficiente. I dati e i file precedenti sono conservati: riprova più tardi.',
             bio_invalid: 'Biografia non acquisita: usa TXT, DOCX, ODT o RTF, massimo 5 MB.',
             bio_required: 'Allega una biografia artistica prima di salvare.',
