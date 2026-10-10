@@ -4,7 +4,10 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 function trb_portal_maintain_error_log() {
     $root = '/home/customer/www/artist.trbrec.com/public_html';
     if ( rtrim( str_replace( '\\', '/', ABSPATH ), '/' ) !== $root ) return array( 'skipped' => 'isolated_environment' );
-    return trb_portal_rotate_error_log( $root );
+    try { $result = array( 'completed' => true ) + trb_portal_rotate_error_log( $root ); }
+    catch ( Throwable $error ) { $result = array( 'completed' => false, 'error' => 'maintenance_failed' ); }
+    if ( function_exists( 'update_option' ) ) update_option( 'trb_portal_log_maintenance_state', array( 'checked_at' => time() ) + $result, false );
+    return $result;
 }
 function trb_portal_rotate_error_log( $root, $threshold = 20971520 ) {
     $root = str_replace( '\\', '/', $root );

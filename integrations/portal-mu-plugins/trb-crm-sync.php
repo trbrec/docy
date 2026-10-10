@@ -147,6 +147,7 @@ function trb_crm_sync_register_routes() {
 add_action( 'rest_api_init', 'trb_crm_sync_register_routes' );
 
 function trb_crm_sync_activate_registered_user( $user_id ) {
+    if ( ! empty( $GLOBALS['trb_onboarding_register_context'] ) ) return;
 	$user = get_userdata( absint( $user_id ) );
 	if ( ! $user || ! is_email( $user->user_email ) ) return;
 	$key = trb_crm_sync_pending_key( $user->user_email );

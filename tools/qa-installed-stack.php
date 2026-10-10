@@ -9,23 +9,51 @@ set_exception_handler( static function( $error ) use ( $phase ) {
     else echo json_encode( array( 'phase' => $phase, 'completed' => false, 'fatal' => $detail ) ) . "\n";
     exit( 1 );
 } );
-if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'cleanup' ), true ) || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
+if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'cleanup', 'cleanup-stale' ), true ) || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
 $root = $work . '/wordpress'; $settings_file = $work . '/qa-settings.json';
-if ( 'prepare' === $phase || 'cleanup' === $phase ) {
+if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase ) {
     define( 'SHORTINIT', true );
     require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
     global $wpdb;
-    if ( 'cleanup' === $phase ) {
-        if ( ! is_file( $settings_file ) ) exit;
+    $cleanup_fixture = static function( $settings_file ) use ( $wpdb ) {
+        if ( ! is_file( $settings_file ) || is_link( $settings_file ) ) return 0;
         $settings = json_decode( file_get_contents( $settings_file ), true, 16, JSON_THROW_ON_ERROR );
         $prefix = $settings['prefix'];
         if ( ! preg_match( '/^trbqa_[a-f0-9]{16}_$/D', $prefix ) || $prefix === $wpdb->prefix ) throw new RuntimeException( 'Unsafe QA cleanup prefix.' );
         $tables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $prefix ) . '%' ) );
-        foreach ( $tables as $table ) {
+        if ( in_array( $prefix . 'users', $tables, true ) ) {
+            $foreign_users = $wpdb->get_var( "SELECT COUNT(*) FROM `{$prefix}users` WHERE user_email NOT LIKE '%@example.invalid'" );
+            if ( null === $foreign_users || (int) $foreign_users > 0 ) throw new RuntimeException( 'Unexpected users in QA tables.' );
+        }
+        $outside_reference = $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME LIKE %s AND TABLE_NAME NOT LIKE %s', $wpdb->esc_like( $prefix ) . '%', $wpdb->esc_like( $prefix ) . '%' ) );
+        if ( (int) $outside_reference > 0 ) throw new RuntimeException( 'QA tables referenced outside the fixture.' );
+        $wpdb->query( 'SET SESSION FOREIGN_KEY_CHECKS=0' );
+        try { foreach ( $tables as $table ) {
             if ( ! str_starts_with( $table, $prefix ) || ! preg_match( '/^[a-zA-Z0-9_]+$/D', $table ) ) throw new RuntimeException( 'Unsafe QA table.' );
             if ( false === $wpdb->query( 'DROP TABLE `' . $table . '`' ) ) throw new RuntimeException( 'QA cleanup failed.' );
+        } } finally { $wpdb->query( 'SET SESSION FOREIGN_KEY_CHECKS=1' ); }
+        return count( $tables );
+    };
+    if ( 'cleanup' === $phase ) {
+        echo json_encode( array( 'synthetic_tables_removed' => $cleanup_fixture( $settings_file ) ) ) . "\n";
+        exit;
+    }
+    if ( 'cleanup-stale' === $phase ) {
+        $removed = 0; $table_count = 0;
+        foreach ( glob( '/tmp/trb-portal-stack.*', GLOB_ONLYDIR ) as $stale ) {
+            if ( $stale === $work || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $stale ) || realpath( $stale ) !== $stale || is_link( $stale ) || filemtime( $stale ) > time() - 600 ) continue;
+            if ( function_exists( 'posix_geteuid' ) && fileowner( $stale ) !== posix_geteuid() ) continue;
+            if ( ! is_file( $stale . '/qa-settings.json' ) || ! is_file( $stale . '/candidate/tools/qa-installed-stack.php' ) ) continue;
+            $table_count += $cleanup_fixture( $stale . '/qa-settings.json' );
+            $entries = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $stale, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
+            foreach ( $entries as $entry ) {
+                $ok = $entry->isDir() && ! $entry->isLink() ? rmdir( $entry->getPathname() ) : unlink( $entry->getPathname() );
+                if ( ! $ok ) throw new RuntimeException( 'Stale QA workspace cleanup failed.' );
+            }
+            if ( ! rmdir( $stale ) ) throw new RuntimeException( 'Stale QA workspace cleanup incomplete.' );
+            $removed++;
         }
-        echo json_encode( array( 'synthetic_tables_removed' => count( $tables ) ) ) . "\n";
+        echo json_encode( array( 'synthetic_workspaces_removed' => $removed, 'synthetic_tables_removed' => $table_count ) ) . "\n";
         exit;
     }
     if ( file_exists( $root ) || file_exists( $settings_file ) ) throw new RuntimeException( 'QA workspace already initialized.' );
@@ -104,10 +132,14 @@ if ( 'install' === $phase ) {
     foreach ( $settings['plugins'] as $plugin ) {
         // Activation callbacks may redirect and exit; isolate each lifecycle.
         $command = array( PHP_BINARY, '-d', 'display_errors=0', '-d', 'allow_url_fopen=0', '-d', 'disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client', __FILE__, 'activate', $work, $plugin );
-        $process = proc_open( $command, array( 0 => array( 'pipe', 'r' ), 1 => array( 'pipe', 'w' ), 2 => array( 'file', $work . '/activation-private.log', 'a' ) ), $pipes );
-        if ( ! is_resource( $process ) ) throw new RuntimeException( 'Plugin activation process unavailable.' );
-        fclose( $pipes[0] ); $reply = stream_get_contents( $pipes[1] ); fclose( $pipes[1] ); $status = proc_close( $process );
-        $activated = json_decode( $reply, true );
+        for ( $attempt = 1; $attempt <= 3; $attempt++ ) {
+            $process = proc_open( $command, array( 0 => array( 'pipe', 'r' ), 1 => array( 'pipe', 'w' ), 2 => array( 'file', $work . '/activation-private.log', 'a' ) ), $pipes );
+            if ( ! is_resource( $process ) ) throw new RuntimeException( 'Plugin activation process unavailable.' );
+            fclose( $pipes[0] ); $reply = stream_get_contents( $pipes[1] ); fclose( $pipes[1] ); $status = proc_close( $process );
+            $activated = json_decode( $reply, true );
+            if ( ! is_array( $activated ) || isset( $activated['fatal'] ) || isset( $activated['activating_plugin'] ) || true === ( $activated['completed'] ?? false ) ) break;
+        }
+        $result['activation_bootstrap_attempts'][$plugin] = min( $attempt, 3 );
         $result['plugins_activated'][$plugin] = 0 === $status && true === ( $activated['completed'] ?? false );
         if ( ! $result['plugins_activated'][$plugin] ) $result['activation_details'][$plugin] = is_array( $activated ) ? $activated : array( 'response_unconfirmed' => true );
     }

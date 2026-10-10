@@ -31,6 +31,7 @@ require dirname( __DIR__, 2 ) . '/inc/trb-artist-portal.php';
 define( 'TRB_CRM_SYNC_SECRET', str_repeat( 's', 64 ) );
 require dirname( __DIR__, 2 ) . '/integrations/portal-mu-plugins/trb-crm-sync.php';
 require dirname( __DIR__, 2 ) . '/integrations/portal-mu-plugins/trb-z-crm-release-sync-r26.php';
+require dirname( __DIR__, 2 ) . '/inc/trb-candidate-onboarding.php';
 add_action( 'trb_crm_sync_storage_failure', static function( $scope, $error ) { error_log( 'Synthetic storage fault: ' . get_class( $error ) . ': ' . $error->getMessage() ); }, 10, 2 );
 add_filter( 'template_directory', static function() { return dirname( __DIR__, 2 ); } );
 if ( $qaServing ) {
@@ -39,14 +40,32 @@ if ( $qaServing ) {
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
         if ( ( $_POST['action'] ?? '' ) === 'qa_mu_sync' ) {
             $route = (string) ( $_POST['qa_route'] ?? '' );
-            if ( ! preg_match( '#^/(?:entitlement|release/[0-9]+|reconcile)$#D', $route ) ) wp_send_json_error( null, 400 );
+            if ( ! preg_match( '#^/(?:entitlement|release/[0-9]+|reconcile|onboarding/private|onboarding/public)$#D', $route ) ) wp_send_json_error( null, 400 );
             $body = (string) wp_unslash( $_POST['qa_body'] ?? '' );
-            $request = new WP_REST_Request( (string) ( $_POST['qa_method'] ?? 'POST' ), '/trb-crm/v1' . $route );
+            $onboarding = str_starts_with( $route, '/onboarding/' );
+            $request = new WP_REST_Request( (string) ( $_POST['qa_method'] ?? 'POST' ), ( $onboarding ? '/trb/v1' : '/trb-crm/v1' ) . $route );
             $request->set_header( 'Content-Type', 'application/json' );
             $timestamp = (string) time();
             $request->set_header( 'X-TRB-Timestamp', $timestamp );
             $request->set_header( 'X-TRB-Signature', ( $_POST['qa_signed'] ?? '' ) === '1' ? 'sha256=' . hash_hmac( 'sha256', $timestamp . '.' . $body, TRB_CRM_SYNC_SECRET ) : 'invalid' );
             $request->set_body( $body );
+            if ( $onboarding ) {
+                require_once dirname( __DIR__, 2 ) . '/inc/trb-crm-connector.php';
+                require_once dirname( __DIR__, 2 ) . '/inc/trb-release-spreadsheet-bridge.php';
+                $nonce = bin2hex( random_bytes( 16 ) ); $request->set_header( 'X-TRB-Nonce', $nonce );
+                $request->set_header( 'X-TRB-Signature', 'sha256=' . hash_hmac( 'sha256', 'onboarding-portal-v1|' . $timestamp . '|' . $nonce . '|' . $body, trb_crm_connector_settings()['secret'] ) );
+                if ( $route === '/onboarding/public' ) {
+                    $_COOKIE['__Host-trb_onboarding'] = str_repeat( 'b', 64 );
+                    $request->set_header( 'X-TRB-Onboarding-Csrf', trb_onboarding_csrf( $_COOKIE['__Host-trb_onboarding'] ) );
+                    set_transient( trb_onboarding_browser_key(), array( 'session' => 'synthetic-onboarding-session' ), HOUR_IN_SECONDS );
+                    add_filter( 'pre_http_request', static function( $pre, $args, $url ) {
+                        if ( $url !== 'https://crm.trbrec.com/webhooks/artist-portal/onboarding' ) return $pre;
+                        $payload = json_decode( $args['body'], true );
+                        $reply = ( $payload['action'] ?? '' ) === 'registration_authorization' ? array( 'id' => str_repeat( 'c', 32 ), 'email' => 'qa-onboarding@example.invalid', 'first_name' => 'Artista', 'last_name' => 'Fittizio', 'artist_name' => 'Artista Fittizio Tunisia' ) : array( 'registered' => false );
+                        return array( 'response' => array( 'code' => 200 ), 'body' => wp_json_encode( $reply ), 'headers' => array() );
+                    }, PHP_INT_MAX, 3 );
+                }
+            }
             $response = rest_do_request( $request );
             wp_send_json( $response->get_data(), $response->get_status() );
         }
@@ -263,6 +282,7 @@ try {
     require __DIR__ . '/demo-mysql-cases.php';
     require __DIR__ . '/demo-worker-mysql-cases.php';
     require __DIR__ . '/mu-sync-mysql-cases.php';
+    require __DIR__ . '/onboarding-storage-mysql-cases.php';
     qa_check( ! preg_match( '/PHP (Warning|Notice|Deprecated|Fatal error|Parse error)/', file_get_contents( $qaRoot . '/qa-http.log' ) ), 'The real HTTP fixture emitted unexpected PHP diagnostics.' );
     echo $GLOBALS['qa_checks'] . " real WordPress/MySQL/HTTP assertions passed; ordinary Tunisia artist, authentication/nonce, metadata, file rollback/retry, process lock and outbox failure.\n";
 } finally {

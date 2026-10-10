@@ -14,6 +14,7 @@ add_filter( 'pre_wp_mail', '__return_false', PHP_INT_MAX );
 $settings = trb_demo_settings();
 $folder = '/Upload files - TRB rec/Audio/Demo files/QA-AUDIT-' . $run;
 $remote = $folder . '/testo-sintetico.txt';
+$result['pcloud_fixture'] = 'QA-AUDIT-' . $run;
 $body = "TEST TECNICO FITTIZIO, nessun artista reale.\nUna luce sul mare, un passo nella sera.\nCerco una strada nuova, ritorno alla mia terra.\nIl vento porta voci, la notte le raccoglie.\nDomani cambio passo e apro altre soglie.\n";
 $made = false; $local = '';
 try {
@@ -46,7 +47,8 @@ try {
     if ( $made ) {
         $file_deleted = trb_demo_webdav_request( 'DELETE', $remote );
         $folder_deleted = trb_demo_webdav_request( 'DELETE', $folder );
-        $absent = trb_demo_webdav_request( 'HEAD', $remote );
-        $result['pcloud_cleanup'] = ! is_wp_error( $file_deleted ) && ! is_wp_error( $folder_deleted ) && ! is_wp_error( $absent ) && 404 === (int) wp_remote_retrieve_response_code( $absent );
+        $absent = trb_demo_webdav_request( 'GET', $remote, null, array( 'Cache-Control' => 'no-cache' ) );
+        $result['pcloud_cleanup_http'] = array( is_wp_error( $file_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $file_deleted ), is_wp_error( $folder_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $folder_deleted ), is_wp_error( $absent ) ? 0 : (int) wp_remote_retrieve_response_code( $absent ) );
+        $result['pcloud_cleanup'] = in_array( $result['pcloud_cleanup_http'][0], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][1], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][2], array( 404, 410 ), true );
     }
 }

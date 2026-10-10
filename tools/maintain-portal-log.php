@@ -18,4 +18,6 @@ if ( ! str_contains( $current, $marker ) ) {
 define( 'ABSPATH', $root . '/' ); define( 'DAY_IN_SECONDS', 86400 );
 function add_action() {}
 require dirname( __DIR__ ) . '/inc/trb-log-maintenance.php';
-echo json_encode( trb_portal_maintain_error_log(), JSON_THROW_ON_ERROR ) . "\n";
+$result = trb_portal_maintain_error_log();
+echo json_encode( $result, JSON_THROW_ON_ERROR ) . "\n";
+if ( true !== ( $result['completed'] ?? false ) ) exit( 1 );

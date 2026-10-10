@@ -5,7 +5,6 @@ function qa_mu_request( $payload, $route = '/entitlement', $signed = true, $meth
 }
 $qaEntitlement = array( 'artist' => array( 'email' => 'qa-tunisia@example.invalid' ), 'practice' => array( 'public_id' => 'QA-TN-ONLY', 'submission_id' => 1, 'contract_id' => 1, 'contract_number' => 'QA-NONVALIDO' ), 'entitlement' => array( 'eligible' => true, 'portal_status' => 'pronto', 'contract_status' => 'accettato', 'group_code' => 'TRB', 'activation_date' => '2026-10-10' ) );
 qa_check( qa_mu_request( $qaEntitlement, '/entitlement', false )['status'] >= 400, 'An unsigned entitlement was accepted.' );
-$qaEntitlementKeys = array( '_trb_crm_public_id', '_trb_crm_submission_id', '_trb_crm_contract_id', '_trb_crm_contract_number', '_trb_crm_group_code', '_trb_crm_activation_date', '_trb_crm_historical_releases', '_trb_crm_synced_at' );
 clean_user_cache( $qaUser ); wp_cache_delete( $qaUser, 'user_meta' );
 $qaOldEntitlement = get_user_meta( $qaUser );
 $wpdb->query( "CREATE TRIGGER qa_reject_entitlement BEFORE INSERT ON {$wpdb->usermeta} FOR EACH ROW BEGIN IF NEW.meta_key='_trb_crm_contract_number' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic entitlement persistence failure'; END IF; END" );

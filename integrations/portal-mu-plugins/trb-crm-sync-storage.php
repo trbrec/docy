@@ -4,13 +4,19 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 function trb_crm_sync_atomic( $scope, array $cache_ids, callable $operation ) {
     global $wpdb;
+    static $active = false;
+    if ( $active ) return new WP_Error( 'trb_crm_nested_transaction', 'Operazione già in corso. Riprova tra poco.', array( 'status' => 409 ) );
     $lock = 'trb-sync:' . substr( hash( 'sha256', $wpdb->prefix . ':' . $scope ), 0, 48 );
     if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s,0)', $lock ) ) ) {
         return new WP_Error( 'trb_crm_busy', 'Aggiornamento già in corso. Riprova tra poco.', array( 'status' => 409 ) );
     }
     $started = false;
+    $active = true;
+    $previous_touched = $GLOBALS['trb_crm_sync_storage_touched'] ?? null;
+    $GLOBALS['trb_crm_sync_storage_touched'] = array();
     $prior_errors = $wpdb->suppress_errors( true );
     $purge = static function() use ( $cache_ids ) {
+        foreach ( $GLOBALS['trb_crm_sync_storage_touched'] ?? array() as $type => $ids ) $cache_ids[$type] = array_unique( array_merge( $cache_ids[$type] ?? array(), array_keys( $ids ) ) );
         foreach ( $cache_ids as $type => $ids ) foreach ( $ids as $id ) {
             wp_cache_delete( $id, $type . '_meta' );
             if ( 'user' === $type ) clean_user_cache( $id ); else clean_post_cache( $id );
@@ -39,12 +45,15 @@ function trb_crm_sync_atomic( $scope, array $cache_ids, callable $operation ) {
         $purge();
         $wpdb->suppress_errors( $prior_errors );
         $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+        $active = false;
+        if ( null === $previous_touched ) unset( $GLOBALS['trb_crm_sync_storage_touched'] ); else $GLOBALS['trb_crm_sync_storage_touched'] = $previous_touched;
     }
 }
 
 function trb_crm_sync_write_meta( $type, $id, $key, $value, $delete = false ) {
     global $wpdb;
     if ( ! in_array( $type, array( 'post', 'user' ), true ) ) throw new InvalidArgumentException( 'Invalid metadata type.' );
+    $GLOBALS['trb_crm_sync_storage_touched'][$type][$id] = true;
     $table = 'post' === $type ? $wpdb->postmeta : $wpdb->usermeta;
     $column = 'post' === $type ? 'post_id' : 'user_id';
     if ( $delete ) delete_metadata( $type, $id, $key );
