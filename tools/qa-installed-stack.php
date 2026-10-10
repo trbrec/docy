@@ -219,6 +219,17 @@ if ( 'install' === $phase ) {
     $result['completed'] = ! is_wp_error( $activated );
 } else {
     $result['active_plugin_count'] = count( get_option( 'active_plugins', array() ) );
+    // Compare with retained official public sources; export booleans only.
+    $public_vendor_sources = array(
+        'wordfence_bootstrap' => array( 'wordfence/waf/bootstrap.php', '2e06eeb9f953bf454e433acffd75abaa080d9d5032f0f07a1b4a83893458e3d1' ),
+        'wordfence_storage' => array( 'wordfence/vendor/wordfence/wf-waf/src/lib/storage/file.php', '10e260ee55e7d9b658131d3f7e8f9494f0ad0f2439d9949bc4fdfba60404db24' ),
+        'wordfence_rules' => array( 'wordfence/vendor/wordfence/wf-waf/src/lib/waf.php', '286608c8f916783a4905778ff75c0c7b008a91ba26d4f5e3b5bde8a37a182b71' ),
+        'yotuwp_translation' => array( 'yotuwp-easy-youtube-embed/yotuwp.php', 'ac943e5a4e63bfbdd5fd10f2a6787b7c6b2eec95263d7a2d8a836196a9850fdd' ),
+    );
+    foreach ( $public_vendor_sources as $name => [ $relative, $expected ] ) {
+        $vendor_file = WP_PLUGIN_DIR . '/' . $relative;
+        $result['public_vendor_source_matches'][ $name ] = is_readable( $vendor_file ) && hash_equals( $expected, hash_file( 'sha256', $vendor_file ) );
+    }
     $profiles = trb_portal_profiles(); $role = $profiles['trb']['role'];
     if ( ! get_role( $role ) ) add_role( $role, 'Artista di prova', array( 'read' => true, 'trb_portal_trb' => true ) );
     $password = wp_generate_password( 32 ); $id = wp_insert_user( array( 'user_login' => 'artista_fittizio_tunisia', 'user_email' => 'qa-tunisia@example.invalid', 'user_pass' => $password, 'display_name' => 'Artista Fittizio Tunisia', 'role' => $role ) );
