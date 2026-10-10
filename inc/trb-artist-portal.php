@@ -6322,6 +6322,22 @@ function trb_portal_maybe_create_login_page() {
 add_action( 'init', 'trb_portal_maybe_create_login_page', 32 );
 
 /** Authenticate on the canonical portal host, bypassing legacy redirect rules. */
+/** Keep existing authentication failures out of Download Manager's email check. */
+function trb_portal_download_manager_login_compat( $user, $login, $password ) {
+	if ( is_wp_error( $user ) ) return $user;
+	return \WPDM\User\Login::getInstance()->verifyLoginEmail( $user, $login, $password );
+}
+
+function trb_portal_register_download_manager_login_compat() {
+	if ( ! class_exists( '\\WPDM\\User\\Login' ) ) return;
+	$callback = array( \WPDM\User\Login::getInstance(), 'verifyLoginEmail' );
+	$priority = has_filter( 'authenticate', $callback );
+	if ( false === $priority ) return;
+	remove_filter( 'authenticate', $callback, $priority );
+	add_filter( 'authenticate', 'trb_portal_download_manager_login_compat', $priority, 3 );
+}
+add_action( 'init', 'trb_portal_register_download_manager_login_compat', PHP_INT_MAX );
+
 function trb_portal_handle_login() {
 	if ( 'POST' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) ) {
 		return;
