@@ -890,6 +890,14 @@ function trb_portal_validate_international_identifier( $value ) {
 	return '' !== $value && strlen( $value ) <= 200 ? $value : false;
 }
 
+/** Preserve an actual calendar date of birth, never a future or impossible date. */
+function trb_portal_validate_birth_date( $value ) {
+	if ( ! is_string( $value ) ) return false;
+	$value = trim( (string) $value );
+	if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts ) || ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) return false;
+	return $value <= wp_date( 'Y-m-d' ) ? $value : false;
+}
+
 /** Resolve Italian locations locally or preserve free-text international locations. */
 function trb_portal_validate_profile_geography( $country, $city, $province = '', $postcode = '', $birth = false ) {
 	$country = trim( sanitize_text_field( (string) $country ) );
@@ -1075,6 +1083,7 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 		if ( 'country' === $field && '' === trim( $value ) ) $value = 'Italia';
 		$type = trb_portal_artist_profile_value( 'document_type', $user_id ) ?: 'cie';
 		$complete = 'document_number' === $field ? (bool) trb_portal_validate_identity_document_number( $value, $type ) : ( 'document_expiry' === $field ? (bool) trb_portal_validate_identity_document_expiry( $value, $type ) : '' !== trim( $value ) );
+		if ( 'birth_date' === $field ) $complete = (bool) trb_portal_validate_birth_date( $value );
 		if ( 'document_expiry' === $field && 'foreign_identity' === $type && '1' === trb_portal_artist_profile_value( 'document_no_expiry', $user_id ) ) $complete = true;
 		if ( in_array( $field, array( 'province', 'postal_code', 'street_number' ), true ) && ! trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country', $user_id ) ) ) $complete = true;
 		if ( 'birth_province' === $field && ! trb_portal_country_is_italy( trb_portal_artist_profile_value( 'birth_country', $user_id ) ) ) $complete = true;
@@ -1173,6 +1182,7 @@ function trb_portal_handle_artist_profile() {
 		}
 		$_POST['trb_artist_artist_name'] = $submitted_artist_name;
 	}
+	$account_updates = array();
 	if ( isset( $_POST['trb_artist_company_section'] ) ) {
 		$user = get_userdata( $user_id );
 		foreach ( array( 'first_name', 'last_name' ) as $account_field ) {
@@ -1184,14 +1194,16 @@ function trb_portal_handle_artist_profile() {
 				wp_safe_redirect( add_query_arg( 'trb_profile', 'invalid_account_name', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 				exit;
 			}
-			update_user_meta( $user_id, $account_field, $submitted_value );
+			$account_updates[ $account_field ] = $submitted_value;
 		}
 		$country = isset( $_POST['trb_artist_country'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_country'] ) ) ) : 'Italia';
 		$postcode = isset( $_POST['trb_artist_postal_code'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_postal_code'] ) ) : '';
 		$city = isset( $_POST['trb_artist_city'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_city'] ) ) ) : '';
 		$province = isset( $_POST['trb_artist_province'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_province'] ) ) : '';
+		$street = isset( $_POST['trb_artist_street'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_street'] ) ) ) : '';
+		$street_number = isset( $_POST['trb_artist_street_number'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_street_number'] ) ) ) : '';
 		$matched = trb_portal_validate_profile_geography( $country, $city, $province, $postcode );
-		if ( ! $matched ) {
+		if ( ! $matched || '' === $street || ( trb_portal_country_is_italy( $country ) && '' === $street_number ) ) {
 			wp_safe_redirect( add_query_arg( 'trb_profile', 'invalid_address', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 			exit;
 		}
@@ -1200,6 +1212,7 @@ function trb_portal_handle_artist_profile() {
 		$_POST['trb_artist_country'] = trb_portal_country_is_italy( $country ) ? 'Italia' : $country;
 	}
 	if ( isset( $_POST['trb_artist_company_section'] ) ) {
+		$birth_date = isset( $_POST['trb_artist_birth_date'] ) ? trb_portal_validate_birth_date( wp_unslash( $_POST['trb_artist_birth_date'] ) ) : false;
 		$birth_place = isset( $_POST['trb_artist_birth_place'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_place'] ) ) : '';
 		$birth_province = isset( $_POST['trb_artist_birth_province'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_province'] ) ) : '';
 		$birth_country = isset( $_POST['trb_artist_birth_country'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_country'] ) ) ) : 'Italia';
@@ -1215,11 +1228,12 @@ function trb_portal_handle_artist_profile() {
 		$tax_code = isset( $_POST['trb_artist_tax_code'] ) && '' !== $tax_country ? ( trb_portal_country_is_italy( $tax_country ) ? trb_portal_validate_tax_code( wp_unslash( $_POST['trb_artist_tax_code'] ) ) : trb_portal_validate_international_identifier( wp_unslash( $_POST['trb_artist_tax_code'] ) ) ) : false;
 		$document_number = isset( $_POST['trb_artist_document_number'] ) ? trb_portal_validate_identity_document_number( wp_unslash( $_POST['trb_artist_document_number'] ), $document_type ) : false;
 		$document_expiry = $no_expiry ? '' : ( isset( $_POST['trb_artist_document_expiry'] ) ? trb_portal_validate_identity_document_expiry( wp_unslash( $_POST['trb_artist_document_expiry'] ), $document_type ) : false );
-		$error = ! $birth_match ? 'invalid_birthplace' : ( ! $phone ? 'invalid_phone' : ( ! $tax_code ? 'invalid_tax_code' : ( ! $document_number ? 'invalid_document_number' : ( ! $no_expiry && ! $document_expiry ? 'invalid_document_expiry' : '' ) ) ) );
+		$error = ! $birth_date ? 'invalid_birth_date' : ( ! $birth_match ? 'invalid_birthplace' : ( ! $phone ? 'invalid_phone' : ( ! $tax_code ? 'invalid_tax_code' : ( ! $document_number ? 'invalid_document_number' : ( ! $no_expiry && ! $document_expiry ? 'invalid_document_expiry' : '' ) ) ) ) );
 		if ( $error ) {
 			wp_safe_redirect( add_query_arg( 'trb_profile', $error, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 			exit;
 		}
+		$_POST['trb_artist_birth_date'] = $birth_date;
 		$_POST['trb_artist_birth_place'] = $birth_match['city'];
 		$_POST['trb_artist_birth_province'] = $birth_match['province'];
 		$_POST['trb_artist_phone'] = $phone;
@@ -1230,6 +1244,7 @@ function trb_portal_handle_artist_profile() {
 		if ( $stored_expiry && $stored_expiry < wp_date( 'Y-m-d' ) && ! get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) ) update_user_meta( $user_id, '_trb_identity_documents_refresh_after', time() );
 		if ( $stored_expiry !== $document_expiry ) delete_user_meta( $user_id, '_trb_identity_expiry_notified_for' );
 	}
+	foreach ( $account_updates as $account_field => $submitted_value ) update_user_meta( $user_id, $account_field, $submitted_value );
 	foreach ( trb_portal_artist_profile_fields() as $key => $label ) {
 		if ( ! isset( $_POST[ 'trb_artist_' . $key ] ) ) {
 			continue;
@@ -4157,7 +4172,8 @@ function trb_portal_render_artist_profile_section() {
 	<section id="profilo" class="trb-portal__section trb-portal__profile-section">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Prima della prima release servono dati completi e verificabili. Li riuseremo per preparare le pratiche e, in seguito, i contratti.</p></div>
 		<?php if ( $saved ) : ?><div class="trb-portal__message trb-portal__message--success">Profilo artista aggiornato.</div><?php endif; ?>
-		<?php if ( $invalid_address ) : ?><div class="trb-portal__message trb-portal__message--error">Indirizzo non salvato: indica nazione e città; per l’Italia seleziona il Comune corrispondente al CAP.</div><?php endif; ?>
+		<?php if ( $invalid_address ) : ?><div class="trb-portal__message trb-portal__message--error">Indirizzo non salvato: indica nazione, indirizzo di residenza e città; per l’Italia servono anche il numero civico e il Comune corrispondente al CAP.</div><?php endif; ?>
+		<?php if ( 'invalid_birth_date' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci una data di nascita valida e non futura.</div><?php endif; ?>
 		<?php if ( 'invalid_birthplace' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: indica nazione e località di nascita; per l’Italia seleziona il Comune proposto.</div><?php endif; ?>
 		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero SMS con prefisso internazionale e da 7 a 15 cifre complessive.</div><?php endif; ?>
 		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: verifica la nazione fiscale e l’identificativo. Per l’Italia sono richiesti i 16 caratteri con lettera finale valida.</div><?php endif; ?>
@@ -4186,7 +4202,7 @@ function trb_portal_render_artist_profile_section() {
 						<label>Cognome anagrafico <span>*</span><input type="text" <?php echo '' === trim( (string) $user->last_name ) ? 'name="trb_artist_last_name" required' : 'readonly'; ?> value="<?php echo esc_attr( $user->last_name ); ?>" autocomplete="family-name" aria-describedby="trb-account-data-note" /></label>
 						<label>E-mail di riferimento <span>*</span><input type="email" value="<?php echo esc_attr( $user->user_email ); ?>" autocomplete="email" readonly aria-describedby="trb-account-data-note" /></label>
 						<label>Cellulare abilitato a ricezione SMS <span>*</span><input type="tel" name="trb_artist_phone" autocomplete="tel" inputmode="tel" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" placeholder="Es. +39 333 1234567" required /><small>Inserisci il prefisso internazionale, ad esempio +39 o +216. Usa un numero abilitato agli SMS.</small></label>
-						<label>Data di nascita <span>*</span><input type="date" name="trb_artist_birth_date" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_date' ) ); ?>" required /></label>
+						<label>Data di nascita <span>*</span><input type="date" name="trb_artist_birth_date" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_date' ) ); ?>" max="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>" required /></label>
 						<label>Nazione di nascita <span>*</span><input type="text" name="trb_artist_birth_country" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_country' ) ?: 'Italia' ); ?>" data-trb-birth-country required /><small>Indica la nazione. Per nascite all’estero puoi scrivere qualsiasi località.</small></label>
 						<label>Comune / località di nascita <span>*</span><input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" autocomplete="off" list="trb-birthplace-options" data-trb-birthplace required /><datalist id="trb-birthplace-options"></datalist><small data-trb-birthplace-status>Per l’Italia seleziona il Comune proposto; per l’estero scrivi la località.</small></label>
 						<label>Provincia / regione di nascita <input type="text" name="trb_artist_birth_province" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_province' ) ); ?>" data-trb-birth-province <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'birth_country' ) ) ? 'readonly required' : ''; ?> /><small>Per l’estero è facoltativa se non prevista.</small></label>
@@ -4198,7 +4214,7 @@ function trb_portal_render_artist_profile_section() {
 						<label data-trb-no-expiry-label><input type="checkbox" name="trb_artist_document_no_expiry" value="1" data-trb-no-expiry <?php checked( trb_portal_artist_profile_value( 'document_no_expiry' ), '1' ); ?> /> Il documento estero non ha una scadenza</label>
 						<label>Nazione di residenza <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ?: 'Italia' ); ?>" data-trb-country required /></label>
 						<label>Indirizzo di residenza <span>*</span><input type="text" name="trb_artist_street" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street' ) ); ?>" required /></label>
-						<label>Numero civico <input type="text" name="trb_artist_street_number" data-trb-street-number value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
+						<label>Numero civico <input type="text" name="trb_artist_street_number" data-trb-street-number value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'required' : ''; ?> /></label>
 						<label>CAP / codice postale <input type="text" name="trb_artist_postal_code" autocomplete="postal-code" maxlength="40" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" data-trb-postcode <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'required' : ''; ?> /><small data-trb-postcode-status>Per l’Italia inserisci il CAP; per l’estero indica il codice postale se previsto.</small></label>
 						<label>Città <span>*</span><select name="trb_artist_city" autocomplete="address-level2" data-trb-city <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'required' : 'disabled hidden'; ?>><option value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>"><?php echo esc_html( trb_portal_artist_profile_value( 'city' ) ? trb_portal_artist_profile_value( 'city' ) : 'Inserisci prima il CAP' ); ?></option></select><input type="text" name="trb_artist_city" aria-label="Città" autocomplete="address-level2" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>" data-trb-international-city <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'disabled hidden' : 'required'; ?> /></label>
 						<label>Provincia / regione <input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" data-trb-province <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'readonly required' : ''; ?> /><small>Per l’estero è facoltativa se non prevista.</small></label>
@@ -5385,6 +5401,25 @@ function trb_portal_redirect_artist_after_login( $redirect_to, $requested_redire
 	return $redirect_to;
 }
 add_filter( 'login_redirect', 'trb_portal_redirect_artist_after_login', 9999, 3 );
+
+/** Legacy plugins must not send an authenticated or logged-out artist to an old host. */
+function trb_portal_canonical_account_redirect( $location ) {
+	$parts = wp_parse_url( $location );
+	$host = strtolower( isset( $parts['host'] ) ? $parts['host'] : '' );
+	if ( ! in_array( $host, array( 'faq.trbrec.com', 'artisti.trbrec.com' ), true ) ) return $location;
+	$path = isset( $parts['path'] ) ? $parts['path'] : '/';
+	if ( in_array( untrailingslashit( $path ), array( '/login', '/logout' ), true ) ) $path = '/accedi/';
+	if ( '/wp-login.php' === $path ) {
+		parse_str( isset( $parts['query'] ) ? $parts['query'] : '', $args );
+		$action = isset( $args['action'] ) && is_string( $args['action'] ) ? $args['action'] : '';
+		$path = in_array( $action, array( 'rp', 'resetpass', 'lostpassword' ), true ) ? '/recupera-password/' : ( 'register' === $action ? '/registrati/' : '/accedi/' );
+	}
+	if ( '/register' === untrailingslashit( $path ) ) $path = '/registrati/';
+	$query = isset( $parts['query'] ) ? '?' . $parts['query'] : '';
+	$fragment = isset( $parts['fragment'] ) ? '#' . $parts['fragment'] : '';
+	return home_url( $path . $query . $fragment );
+}
+add_filter( 'wp_redirect', 'trb_portal_canonical_account_redirect', PHP_INT_MAX );
 
 /**
  * LoginWP can replace the WordPress login_redirect value with an old
