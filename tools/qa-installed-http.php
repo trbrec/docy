@@ -19,7 +19,7 @@ function trb_qa_installed_http( $work ) {
     if ( file_put_contents( $root . '/wp-config.php', $config, LOCK_EX ) !== strlen( $config ) ) throw new RuntimeException( 'HTTP configuration unavailable.' );
     $code = '<?php ini_set("display_errors","0"); ini_set("error_log",' . var_export( $work . '/http-private.log', true ) . '); header("Cache-Control: no-store"); if(time()>' . ( time() + 900 ) . '){http_response_code(404);exit;} ';
     if ( getenv( 'TRB_QA_HTTP_BROWSER' ) === '1' ) $code .= trb_qa_browser_controller_source( $work, $token, $base );
-    $code .= 'if(!hash_equals(' . var_export( $token, true ) . ',(string)($_SERVER["HTTP_X_TRB_QA_TOKEN"]??""))){http_response_code(404);exit;} if(defined("ABSPATH")&&ABSPATH!==' . var_export( $root . '/', true ) . '){http_response_code(409);exit;} if(!defined("ABSPATH"))define("ABSPATH",' . var_export( $root . '/', true ) . '); $path=$_SERVER["HTTP_X_TRB_QA_ROUTE"]??""; $_SERVER["REQUEST_URI"]=$path;';
+    $code .= 'if(!hash_equals(' . var_export( $token, true ) . ',(string)($_SERVER["HTTP_X_TRB_QA_TOKEN"]??""))){http_response_code(404);exit;} if(defined("ABSPATH")&&ABSPATH!==' . var_export( $root . '/', true ) . '){http_response_code(409);exit;} if(!defined("ABSPATH"))define("ABSPATH",' . var_export( $root . '/', true ) . '); $path=$_SERVER["HTTP_X_TRB_QA_ROUTE"]??""; $_SERVER["REQUEST_URI"]=$path; $_SERVER["SCRIPT_NAME"]=$path; $_SERVER["PHP_SELF"]=$path;';
     // Fixed includes only: a request can never supply an executable path.
     $code .= 'switch($path){case "/wp-login.php":require ' . var_export( $root . '/wp-login.php', true ) . ';break;case "/wp-admin/admin-post.php":require ' . var_export( $root . '/wp-admin/admin-post.php', true ) . ';break;case "/":require ' . var_export( $root . '/index.php', true ) . ';break;default:http_response_code(404);exit;}';
     $code = str_replace( 'header("Cache-Control: no-store");', 'header("Cache-Control: no-store");header("X-TRB-QA-Entry: 1");', $code );
@@ -71,6 +71,9 @@ function trb_qa_installed_http( $work ) {
         foreach ( array( 'wordfence', 'cloudflare', 'siteground', 'mod_security', 'forbidden', 'access denied', 'captcha' ) as $marker ) $summary[str_replace( ' ', '_', $marker )] = stripos( $response, $marker ) !== false;
         $GLOBALS['trb_qa_http_responses'][] = $summary;
         preg_match( '/^Location:\s*(.+)$/mi', substr( $response, 0, $header_size ), $location );
+        $location_parts = parse_url( trim( $location[1] ?? '' ) );
+        $GLOBALS['trb_qa_http_responses'][count( $GLOBALS['trb_qa_http_responses'] ) - 1]['redirect_host'] = $location_parts['host'] ?? null;
+        $GLOBALS['trb_qa_http_responses'][count( $GLOBALS['trb_qa_http_responses'] ) - 1]['redirect_path'] = $location_parts['path'] ?? null;
         return array( 'status' => $status, 'body' => substr( $response, $header_size ), 'location' => trim( $location[1] ?? '' ) );
     };
     $check = static function( $condition, $label ) use ( &$checks ) { $GLOBALS['trb_qa_http_stage'] = $label; if ( ! $condition ) throw new RuntimeException( $label ); $checks[] = $label; };
