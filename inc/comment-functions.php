@@ -326,7 +326,7 @@ function docy_ajax_edit_comment(): void {
 		wp_send_json_error( [ 'message' => esc_html__( 'You are not allowed to edit this comment.', 'docy' ) ], 403 );
 	}
 
-	$raw_content = isset( $_POST['comment_content'] ) ? trim( wp_unslash( $_POST['comment_content'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- sanitized below via wp_kses.
+	$raw_content = isset( $_POST['comment_content'] ) && is_string( $_POST['comment_content'] ) ? trim( wp_unslash( $_POST['comment_content'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- sanitized below via wp_kses.
 
 	if ( '' === $raw_content ) {
 		wp_send_json_error( [ 'message' => esc_html__( 'Comment cannot be empty.', 'docy' ) ], 400 );

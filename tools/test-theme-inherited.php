@@ -29,7 +29,12 @@ class ThemeJsonResponse extends RuntimeException {
     public function __construct( public bool $success, public array $data ) { parent::__construct( 'Fixture response' ); }
 }
 function wp_send_json_error( $data ) { throw new ThemeJsonResponse( false, $data ); }
-function wp_send_json_success( $data ) { throw new ThemeJsonResponse( true, $data ); }
+function wp_send_json_success( $data = [] ) { throw new ThemeJsonResponse( true, $data ); }
+function wp_kses_post_deep( $value ) { ++$GLOBALS['fixture_decode_calls']; return $value; }
+function current_user_can( ...$args ) { return $GLOBALS['fixture_capability']; }
+function update_option( $key, $value ) { $GLOBALS['fixture_writes'][ $key ] = $value; }
+function absint( $value ) { return abs( (int) $value ); }
+function get_comment( $value ) { return $value instanceof WP_Comment ? $value : $GLOBALS['fixture_comment']; }
 class CSF_Abstract {}
 class CSF_Fields {
     public function __construct( public $field, public $value = '', public $unique = '', public $where = '', public $parent = '' ) {}
@@ -39,11 +44,14 @@ class CSF {
 }
 class Docy_register_theme { public function messages() {} public function form() {} }
 class WC_Order { public function get_order_number() { return 'fixture-<script>unsafe</script>'; } }
+class WP_Comment { public $comment_ID = 123; }
 require dirname( __DIR__ ) . '/inc/reg_process.php';
 require dirname( __DIR__ ) . '/inc/template-functions.php';
 require dirname( __DIR__ ) . '/inc/csf/classes/shortcode-options.class.php';
 require dirname( __DIR__ ) . '/inc/csf/fields/group/group.php';
 require dirname( __DIR__ ) . '/inc/csf/fields/repeater/repeater.php';
+require dirname( __DIR__ ) . '/inc/csf/functions/actions.php';
+require dirname( __DIR__ ) . '/inc/comment-functions.php';
 require dirname( __DIR__ ) . '/inc/classes/Docy_base.php';
 require dirname( __DIR__ ) . '/inc/classes/Docy_admin_page.php';
 class FixtureAdminPage extends Docy_admin_page { public $id = 'fixture-admin'; public function save() {} }
@@ -118,5 +126,20 @@ foreach ( [ null, 'another-page', [ 'fixture-admin' ], 'fixture-admin' ] as $pag
     $save_hooks = array_filter( $GLOBALS['fixture_actions'], static fn( $hook ) => 'admin_init' === $hook[0] );
     inherited_check( ( 'fixture-admin' === $page ) === ( 1 === count( $save_hooks ) ), 'Admin save handlers must only register on their own exact page.' );
 }
+foreach ( [ [ 'nonce' => 'invalid', 'allowed' => true, 'data' => [] ], [ 'nonce' => 'valid-fixture-nonce', 'allowed' => false, 'data' => [] ], [ 'nonce' => 'valid-fixture-nonce', 'allowed' => true, 'data' => [] ], [ 'nonce' => 'valid-fixture-nonce', 'allowed' => true, 'data' => 'not-json' ], [ 'nonce' => 'valid-fixture-nonce', 'allowed' => true, 'data' => '{"fixture":"value"}' ] ] as $case ) {
+    $GLOBALS['fixture_capability'] = $case['allowed'];
+    $GLOBALS['fixture_writes'] = [];
+    $GLOBALS['fixture_decode_calls'] = 0;
+    $_POST = [ 'nonce' => $case['nonce'], 'unique' => 'fixture-only', 'data' => $case['data'] ];
+    $response = inherited_response( 'csf_import_ajax' );
+    $valid = 'valid-fixture-nonce' === $case['nonce'] && $case['allowed'] && '{"fixture":"value"}' === $case['data'];
+    inherited_check( $valid === $response->success && $valid === isset( $GLOBALS['fixture_writes']['fixture-only'] ), 'Only authorized, valid JSON may update theme options.' );
+    if ( 'invalid' === $case['nonce'] || ! $case['allowed'] ) inherited_check( 0 === $GLOBALS['fixture_decode_calls'], 'Authorization must precede parsing imported settings.' );
+}
+$GLOBALS['fixture_capability'] = true;
+$GLOBALS['fixture_comment'] = new WP_Comment();
+$_POST = [ 'nonce' => 'valid-fixture-nonce', 'comment_id' => 123, 'comment_content' => [ 'invalid' ] ];
+$response = inherited_response( 'docy_ajax_edit_comment' );
+inherited_check( ! $response->success, 'Malformed comment text must return a controlled error without calling trim on an array.' );
 restore_error_handler();
-echo "Inherited theme: {$checks} registration, empty-page, license, shortcode, nested-field, order and admin-page assertions passed.\n";
+echo "Inherited theme: {$checks} registration, empty-page, license, shortcode, nested-field, order, admin-page, settings and comment assertions passed.\n";
