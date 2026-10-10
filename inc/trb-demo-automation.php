@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/trb-webdav.php';
 require_once __DIR__ . '/trb-demo-context.php';
 /**
  * Automated demo evaluation pipeline.
@@ -47,21 +48,11 @@ function trb_demo_extract_text( $file ) {
 }
 
 function trb_demo_remote_url( $endpoint, $relative_path ) {
-	$segments = array_filter( explode( '/', str_replace( '\\', '/', $relative_path ) ), 'strlen' );
-	return untrailingslashit( $endpoint ) . '/' . implode( '/', array_map( 'rawurlencode', $segments ) );
+	return trb_webdav_url( $endpoint, $relative_path );
 }
 
 function trb_demo_webdav_request( $method, $relative_path, $body = null, $headers = array() ) {
-	$settings = trb_demo_settings();
-	if ( empty( $settings['webdav_endpoint'] ) || empty( $settings['pcloud_user'] ) || empty( $settings['pcloud_pass'] ) ) return new WP_Error( 'missing_webdav_settings' );
-	if ( 'PUT' === strtoupper( $method ) && function_exists( 'trb_resource_pcloud_guard' ) ) {
-		$guard = trb_resource_pcloud_guard( is_string( $body ) ? strlen( $body ) : 0 );
-		if ( is_wp_error( $guard ) ) return $guard;
-	}
-	$headers['Authorization'] = 'Basic ' . base64_encode( $settings['pcloud_user'] . ':' . $settings['pcloud_pass'] ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-	$args = array( 'method' => $method, 'headers' => $headers, 'timeout' => 90, 'redirection' => 0 );
-	if ( null !== $body ) $args['body'] = $body;
-	return wp_remote_request( trb_demo_remote_url( $settings['webdav_endpoint'], $relative_path ), $args );
+	return trb_webdav_request( trb_demo_settings(), $method, $relative_path, $body, $headers );
 }
 
 function trb_demo_ensure_remote_folder( $relative_path ) {
@@ -676,7 +667,7 @@ function trb_demo_cleanup_request( $request_id ) {
 		$remote = get_post_meta( $request_id, '_trb_demo_remote', true );
 		$failed = false;
 		if ( ! empty( $remote['folder'] ) ) {
-			$response = trb_demo_webdav_request( 'DELETE', $remote['folder'] );
+			$response = trb_demo_webdav_request( 'DELETE', rtrim( $remote['folder'], '/' ) . '/' );
 			$failed = is_wp_error( $response ) || ! in_array( wp_remote_retrieve_response_code( $response ), array( 200, 204, 404, 410 ), true );
 			if ( ! $failed ) delete_post_meta( $request_id, '_trb_demo_remote' );
 		}
