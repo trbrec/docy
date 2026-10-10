@@ -70,4 +70,19 @@ load_function('trb-release-spreadsheet-bridge.php','trb_release_bridge_apply_cal
 verify(trb_release_bridge_apply_callback(['release_id'=>2,'status'=>'completed','dossier_id'=>'x'])->code==='release_cancelled','Callback revived cancelled practice');
 verify(trb_release_bridge_apply_callback(['release_id'=>1,'status'=>'unknown','dossier_id'=>'wrong'])->code==='status_invalid','Invalid callback accepted');
 verify(empty($meta[1]['_trb_otp_dossier_id']),'Invalid callback claimed a dossier');
+function delete_post_meta($id,$key){unset($GLOBALS['meta'][$id][$key]);}
+function is_wp_error($value){return $value instanceof WP_Error;}
+function trb_release_bridge_notify_spreadsheet_signed($id){$GLOBALS['signed_sheet_calls']=($GLOBALS['signed_sheet_calls']??0)+1;return true;}
+$meta[1]['_trb_contract_state']='waiting_analysis';
+$sent=trb_release_bridge_apply_callback(['release_id'=>1,'status'=>'contract_sent','dossier_id'=>'synthetic-dossier']);
+verify($sent['state']==='contract_sent'&&$meta[1]['_trb_otp_dossier_id']==='synthetic-dossier','Valid sent callback did not preserve its dossier');
+$before=$meta[1];
+verify(trb_release_bridge_apply_callback(['release_id'=>1,'status'=>'completed','dossier_id'=>'different-dossier'])->code==='dossier_mismatch'&&$before===$meta[1],'Mismatched dossier changed contract state');
+$signedAt='2026-10-10T00:00:00+00:00';
+$signed=trb_release_bridge_apply_callback(['release_id'=>1,'status'=>'completed','dossier_id'=>'synthetic-dossier','signed_at'=>$signedAt]);
+verify($signed['state']==='signed'&&$signed['idempotent']===false&&$meta[1]['_trb_contract_signed_at']===$signedAt,'Valid signed callback did not record its first signature');
+$repeated=trb_release_bridge_apply_callback(['release_id'=>1,'status'=>'completed','dossier_id'=>'synthetic-dossier','signed_at'=>'2030-01-01T00:00:00+00:00']);
+verify($repeated['idempotent']===true&&$meta[1]['_trb_contract_signed_at']===$signedAt&&$signed_sheet_calls===2,'Repeated signature changed its original timestamp or lost spreadsheet retry');
+$late=trb_release_bridge_apply_callback(['release_id'=>1,'status'=>'contract_sent','dossier_id'=>'synthetic-dossier']);
+verify($late['state']==='signed','Late sent callback downgraded a signed contract');
 echo "PASS real decision, obsolete/busy polling, cancelled dispatch, signed retry and callback integrity\n";
