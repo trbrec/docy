@@ -978,6 +978,7 @@ function trb_portal_validate_mobile( $value ) {
 	$value = preg_replace( '/[\s\.\-\(\)]+/', '', (string) $value );
 	if ( 0 === strpos( $value, '00' ) ) $value = '+' . substr( $value, 2 );
 	if ( preg_match( '/^3\d{9}$/', $value ) ) $value = '+39' . $value;
+	if ( str_starts_with( $value, '+39' ) && ! preg_match( '/^\+393\d{9}$/D', $value ) ) return false;
 	return preg_match( '/^\+[1-9]\d{6,14}$/', $value ) ? $value : false;
 }
 

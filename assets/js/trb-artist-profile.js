@@ -268,16 +268,20 @@
     var noExpiryLabel = document.querySelector('[data-trb-no-expiry-label]');
     function type() { return documentType ? documentType.value : 'cie'; }
     function indefinite() { return type() === 'foreign_identity' && noExpiry && noExpiry.checked; }
+    function smsPhone(value) {
+      var normalized = value.replace(/[\s.\-()]/g, '').replace(/^00/, '+');
+      if (/^3\d{9}$/.test(normalized)) normalized = '+39' + normalized;
+      if (normalized.indexOf('+39') === 0 && ! /^\+393\d{9}$/.test(normalized)) return '';
+      return /^\+[1-9]\d{6,14}$/.test(normalized) ? normalized : '';
+    }
 
     if (phone) {
       phone.addEventListener('input', function () {
-        var normalized = phone.value.replace(/[\s.\-()]/g, '').replace(/^00/, '+');
-        phone.setCustomValidity(/^(?:3\d{9}|\+[1-9]\d{6,14})$/.test(normalized) ? '' : 'Inserisci un numero SMS con prefisso internazionale e da 7 a 15 cifre complessive.');
+        phone.setCustomValidity(smsPhone(phone.value) ? '' : 'Inserisci un cellulare SMS con prefisso internazionale e da 7 a 15 cifre complessive; per l’Italia usa +39 seguito dalle 10 cifre del cellulare.');
       });
       phone.addEventListener('blur', function () {
-        var normalized = phone.value.replace(/[\s.\-()]/g, '').replace(/^00/, '+');
-        if (/^3\d{9}$/.test(normalized)) normalized = '+39' + normalized;
-        if (/^\+[1-9]\d{6,14}$/.test(normalized)) phone.value = normalized;
+        var normalized = smsPhone(phone.value);
+        if (normalized) phone.value = normalized;
       });
       phone.dispatchEvent(new Event('input'));
     }
@@ -470,4 +474,3 @@
     window.trbArtistProfileFields.refresh();
   });
 }());
-

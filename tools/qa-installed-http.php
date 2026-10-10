@@ -114,6 +114,10 @@ function trb_qa_installed_http( $work ) {
         $check( str_contains( $saved['location'], 'trb_profile=saved' ), 'foreign_address_http_save' );
         clean_user_cache( $user->ID );
         $check( get_user_meta( $user->ID, '_trb_artist_country', true ) === 'Tunisia' && get_user_meta( $user->ID, '_trb_artist_city', true ) === 'Tunisi' && get_user_meta( $user->ID, '_trb_artist_phone', true ) === '+21620123456', 'foreign_metadata_readback' );
+        $invalid_phone = $fields; $invalid_phone['trb_artist_phone'] = '+391234567';
+        $check( ! str_contains( $request( '/wp-admin/admin-post.php', $invalid_phone )['location'], 'trb_profile=saved' ), 'invalid_italian_mobile_rejected' );
+        clean_user_cache( $user->ID );
+        $check( get_user_meta( $user->ID, '_trb_artist_phone', true ) === '+21620123456' && get_user_meta( $user->ID, '_trb_artist_country', true ) === 'Tunisia', 'valid_foreign_profile_preserved_after_invalid_phone' );
         $image = $work . '/synthetic.png'; $biography = $work . '/synthetic.txt'; $forged = $work . '/forged.png';
         file_put_contents( $image, base64_decode( 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=' ) );
         file_put_contents( $biography, 'Biografia di artista fittizio. Nessun dato o documento personale reale.' ); file_put_contents( $forged, 'File di testo senza immagine.' );

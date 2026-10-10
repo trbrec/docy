@@ -39,7 +39,7 @@ check( false === trb_portal_validate_profile_geography( 'Italia', 'London', '', 
 check( 'Rovato' === trb_portal_validate_profile_geography( 'IT', 'rovato', '', '25038' )['city'], 'Italian normalization retained' );
 check( 'BS' === trb_portal_validate_profile_geography( 'Italy', 'Rovato', 'BS', '', true )['province'], 'Italian birthplace retained' );
 foreach ( array( '+216 20 123 456' => '+21620123456', '00216 20 123 456' => '+21620123456', '333 0000000' => '+393330000000', '+44 (20) 1234-5678' => '+442012345678' ) as $input => $expected ) check( $expected === trb_portal_validate_mobile( $input ), 'Phone normalization: ' . $input );
-foreach ( array( '+012345678', '+1234567890123456', '1234567', '<script>' ) as $input ) check( false === trb_portal_validate_mobile( $input ), 'Malformed international phone rejected' );
+foreach ( array( '+012345678', '+1234567890123456', '1234567', '<script>', '+391234567', '+390200000000', '+3933300000009' ) as $input ) check( false === trb_portal_validate_mobile( $input ), 'Malformed international phone or Italian non-mobile rejected' );
 check( 'RSSMRA90A01H501W' === trb_portal_validate_tax_code( 'RSSMRA90A01H501W' ), 'Italian tax checksum retained' );
 check( false === trb_portal_validate_tax_code( 'RSSMRA90A01H501A' ), 'Invalid Italian checksum rejected' );
 check( '01 23-456.789' === trb_portal_validate_international_identifier( '01 23-456.789' ), 'Foreign tax punctuation retained' );

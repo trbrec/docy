@@ -8,9 +8,9 @@ const input={practice_id:'a'.repeat(32),request_key:'b'.repeat(64),owner_approve
 for(const [value,prefix,number] of [
  ['+216 20 000 000','216','20000000'],['00216 (20) 000-000','216','20000000'],
  ['+39 333 0000000','39','3330000000'],['0039 333 0000000','39','3330000000'],['3330000000','39','3330000000'],
- ['+39 02 00000000','39','0200000000'],['+1 202 555 0100','1','2025550100'],['+44 7700 900000','44','7700900000']
+ ['+1 202 555 0100','1','2025550100'],['+44 7700 900000','44','7700900000']
 ])assert.deepEqual(JSON.parse(JSON.stringify(ctx.TRBONB_signaturePhone_(value))),{prefix,number},'Prefix and national digits preserved: '+value);
-for(const value of ['',null,[],{phone:'+21620000000'},'+99920000000','+216abc20000000','+21620000000 ext 2','++21620000000','21620000000','+391234','+2161234567890123']){
+for(const value of ['',null,[],{phone:'+21620000000'},'+99920000000','+216abc20000000','+21620000000 ext 2','++21620000000','21620000000','+391234','+39 02 00000000','+3933300000009','+2161234567890123']){
  assert.throws(()=>ctx.TRBONB_signature_({...input,details:{billing:{phone:value}}}));assert.equal(posts,0,'Malformed phones cannot create a provider dossier');
 }
 assert.throws(()=>ctx.TRBONB_signature_({...input,owner_approved:false}));assert.equal(posts,0);

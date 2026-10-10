@@ -51,7 +51,7 @@ final class OnboardingService
         $billing['country']=strtoupper($billing['country']);if(!preg_match('/^[A-Z]{2}$/D',$billing['country']))throw new \RuntimeException('Paese non valido');
         $phone=preg_replace('/[\s.()\-]+/','',$billing['phone']);if(str_starts_with($phone,'00'))$phone='+'.substr($phone,2);
         if(preg_match('/^3\d{9}$/D',$phone))$phone='+39'.$phone;
-        if(!preg_match('/^\+[1-9]\d{6,14}$/D',$phone))throw new \RuntimeException('Inserisci un numero SMS valido con prefisso internazionale');$billing['phone']=$phone;
+        if(!preg_match('/^\+[1-9]\d{6,14}$/D',$phone)||(str_starts_with($phone,'+39')&&!preg_match('/^\+393\d{9}$/D',$phone)))throw new \RuntimeException('Inserisci un cellulare SMS valido con prefisso internazionale');$billing['phone']=$phone;
         $billing['first_name']=$p['snapshot']['first_name'];$billing['last_name']=$p['snapshot']['last_name'];
         $tax=mb_strtoupper(trim((string)($input['tax_code']??'')));if(!preg_match('/^[A-Z0-9 -]{3,32}$/D',$tax))throw new \RuntimeException('Identificativo fiscale non valido');
         $invoice=[];foreach(['company_name','company_address','vat_number','sdi_code','pec'] as $field)$invoice[$field]=trim((string)($input['invoice'][$field]??''));
