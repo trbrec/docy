@@ -1,0 +1,63 @@
+name: Direct private CRM candidate staging
+on:
+  push:
+    branches: [fix/portal-audit-20261010]
+    paths: [tools/private-upload-request.json]
+permissions:
+  contents: read
+concurrency:
+  group: crm-direct-private-upload
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare a short-lived direct upload to private hosting
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          tag=$(python3 -c 'import json; print(json.load(open("tools/private-upload-request.json"))["tag"])')
+          [[ "${tag}" =~ ^[a-f0-9]{16}$ ]]
+          install -d -m 700 "${HOME}/.ssh" /tmp/trb-private-transfer
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -T 10 -p "${SSH_PORT}" "${SSH_HOST}" > "${HOME}/.ssh/known_hosts"
+          test -s "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          source_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /home/customer/www/artist.trbrec.com/private/qa-transfer-source.XXXXXXXX')
+          [[ "${source_dir}" =~ ^/home/customer/www/artist\.trbrec\.com/private/qa-transfer-source\.[A-Za-z0-9]{8}$ ]]
+          cleanup() {
+            ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-private-upload.php' cleanup '${tag}'" > /tmp/trb-private-transfer/cleanup.json 2>/dev/null || true
+            ssh "${ssh_opts[@]}" "${remote}" "rm -rf -- '${source_dir}'" >/dev/null 2>&1 || true
+            ssh-add -D >/dev/null 2>&1 || true
+            rm -f "${HOME}/.ssh/id_ed25519"
+          }
+          trap cleanup EXIT
+          ssh "${ssh_opts[@]}" "${remote}" "mkdir '${source_dir}/tools'"
+          rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" tools/qa-private-upload.php tools/release-file-transaction.php tools/qa-browser-recipient.pem "${remote}:${source_dir}/tools/"
+          ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-private-upload.php' prepare '${tag}'" > /tmp/trb-private-transfer/prepared.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-private-upload.php' wait '${tag}'" > /tmp/trb-private-transfer/result.json 2>/dev/null
+          python3 -c 'import json; d=json.load(open("/tmp/trb-private-transfer/result.json")); assert d.get("completed") is True and d.get("private_archive_verified") is True and d.get("installed") is False'
+      - name: Preserve only generic transfer status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: private-transfer-status
+          path: /tmp/trb-private-transfer/
+          retention-days: 7
+          if-no-files-found: error
