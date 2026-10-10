@@ -43,12 +43,12 @@ if(!str_contains($index,"require_once __DIR__.'/app/OnboardingRuntime.php';")){
 }
 $stage($indexPath,$index);
 onboarding_stage('crm-navigation');
+require_once $theme.'/integrations/onboarding/crm/OnboardingWorkflowInstaller.php';
 $viewPath=$crm.'/app/View.php';$view=(string)file_get_contents($viewPath);
 $view=preg_replace('~<a href="/onboarding">[^<]*</a>~','',$view);
-$view=preg_replace('~(/assets/app-[A-Za-z0-9_.-]+\.js)([^\"]*)~', '$1$2&onboardingWorkflow=20261001r3',$view);
+$view=\TrbCrm\OnboardingWorkflowInstaller::view($view);
 $stage($viewPath,$view);
 onboarding_stage('crm-workflow');
-require_once $theme.'/integrations/onboarding/crm/OnboardingWorkflowInstaller.php';
 onboarding_stage('crm-workflow-repository');
 $repositoryPath=$crm.'/app/SubmissionRepository.php';
 $stage($repositoryPath,\TrbCrm\OnboardingWorkflowInstaller::repository((string)file_get_contents($repositoryPath)));

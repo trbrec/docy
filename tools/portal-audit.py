@@ -300,7 +300,8 @@ check("audit produzione verifica contatori contratti firmati", "Contatore releas
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 check("audit produzione include anomalie risorsa ancora aperte", "open_resource_events" in RESOURCE and "severity IN ('warning','critical')" in RESOURCE and "'resource_events' => $open_resource_events" in RESOURCE)
 check("monitor distingue il filesystem condiviso dallo staging", "Filesystem condiviso (dato informativo)" in RESOURCE and "Margine staging hosting" in RESOURCE)
-check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-draft-normalizer.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-staging-cleanup.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
+validation_workflow = (ROOT / ".github/workflows/submission-checks.yml").read_text(encoding="utf-8")
+check("deploy subordinato alla suite condivisa PHP, browser e MySQL", "needs: validate" in DEPLOY_WORKFLOW and "uses: ./.github/workflows/submission-checks.yml" in DEPLOY_WORKFLOW and "workflow_call:" in validation_workflow and "mysql-profile:" in validation_workflow and "tests/php/profile-mysql-http.php" in validation_workflow and "for test in tools/test-*.php integrations/site-studio/test-*.php" in validation_workflow and "for test in tests/*.test.js" in validation_workflow)
 deploy_workflow = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
 check(
     "deploy SiteGround non dichiara successo prima della verifica",

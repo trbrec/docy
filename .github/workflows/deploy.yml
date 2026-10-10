@@ -20,7 +20,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/submission-checks.yml
+
   deploy:
+    needs: validate
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -29,65 +34,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
-
-      - name: Validate PHP and portal regressions
-        shell: bash
-        run: |
-          php tools/test-international-profile.php
-          php tools/test-profile-file-transaction.php
-          php tools/test-crm-outbox.php
-          php tools/test-legacy-inventory-bootstrap.php
-          php tools/test-release-sheet-data.php
-          php tools/test-artist-admin-name.php
-          php tools/test-crm-demo-patch.php
-          php integrations/site-studio/test-artist-catalog.php
-          node --check integrations/site-studio/trb-site-studio/editor.js
-          php tools/test-site-studio-cron.php
-          curl --fail --silent --show-error --location https://wordpress.org/latest.tar.gz -o /tmp/trb-studio-wp.tar.gz
-          mkdir -p /tmp/trb-studio-wp
-          tar -xzf /tmp/trb-studio-wp.tar.gz -C /tmp/trb-studio-wp
-          TRB_WP_TEST_ROOT=/tmp/trb-studio-wp/wordpress php integrations/site-studio/test-studio.php
-          TRB_WP_TEST_ROOT=/tmp/trb-studio-wp/wordpress php tools/test-profile-multipart.php
-          node tests/release-draft-restore.test.js
-          node tests/release-completed-receipt.test.js
-          node tests/release-draft-clear.test.js
-          php tools/test-release-draft-clear.php
-          php tools/test-acr-dual-recovery.php
-          node tests/release-master-retry.test.js
-          node tests/release-file-retry.test.js
-          php tools/test-release-file-retry.php
-          node tests/release-audio-validation-race.test.js
-          find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
-          php tools/test-release-draft-normalizer.php
-          php tools/test-release-staging-cleanup.php
-          php tools/test-demo-delivery-window.php
-          php tools/test-demo-context.php
-          php tools/test-demo-staged-upload.php
-          node tests/demo-chunk-upload.test.js
-          php tools/test-demo-email.php
-          php tools/test-onboarding-pcloud.php
-          php tools/test-onboarding-drive.php
-          php tools/test-onboarding-entry.php
-          php tools/test-onboarding-workflow.php
-          php tools/test-crm-contract-mail-queue.php
-          php tools/test-onboarding.php
-          php tools/test-onboarding-service.php
-          php tools/test-onboarding-adapters.php
-          php tools/test-onboarding-mail.php
-          php tools/test-onboarding-profile.php
-          php tools/test-onboarding-intake.php
-          node tests/onboarding-signature.test.js
-          node tests/onboarding-document.test.js
-          node tests/onboarding-drive.test.js
-          node tests/onboarding-form.test.js
-          node tests/artist-profile-validation.test.js
-          node tests/artist-profile-save.test.js
-          php tools/test-store-benefits.php
-          php tools/test-demo-services.php
-          php tools/test-rights-owner-review.php
-          php tools/test-crm-inline-review.php
-          php tools/test-crm-performance.php
-          python3 tools/portal-audit.py
 
       - name: Deploy and verify exact main revision over SSH
         shell: bash

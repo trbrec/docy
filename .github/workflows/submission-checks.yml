@@ -1,5 +1,6 @@
 name: Portal pre-merge checks
 on:
+  workflow_call:
   pull_request:
     branches: [main]
 permissions:
@@ -34,89 +35,42 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3']
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mysqli, pdo_mysql, pdo_sqlite, curl, fileinfo, mbstring, dom
+          coverage: none
       - name: Install validation dependencies
         run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg python3-yaml
       - name: Validate workflow YAML and duplicate keys
         run: /usr/bin/python3 tools/check-workflow-yaml.py
-      - name: PHP syntax and submission diagnostics
-        run: |
-          find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
-          php tools/test-legacy-inventory-bootstrap.php
-          php tools/test-submission-diagnostics.php
-          php tools/test-onboarding-entry.php
-          php tools/test-onboarding-workflow.php
-          php tools/test-release-credit-roles.php
-          php tools/test-symphonic-credits.php
-          php tools/test-release-sheet-data.php
-          php tools/test-artist-admin-name.php
-          php tools/test-release-intake.php
-          php tools/test-release-integrity.php
-          php tools/test-profile-file-transaction.php
-          php tools/test-crm-outbox.php
-          php tools/test-release-recovery.php
-          php tools/test-release-file-retry.php
-          php tools/test-cover-diagnostics.php
-          node tests/release-file-retry.test.js
-          php tools/test-crm-transfer-health.php
-          php tools/test-acr-budget-notices.php
-          php tools/test-pcm-full-scale.php
-          php tools/test-true-peak.php
-          php tools/test-master-acceptance.php
-          php tools/test-demo-delivery-window.php
-          php tools/test-demo-runtime-recovery.php
-          php tools/test-demo-staged-upload.php
-          node tests/demo-chunk-upload.test.js
-          php tools/test-demo-context.php
-          php tools/test-demo-email.php
-          php tools/test-onboarding-pcloud.php
-          php tools/test-onboarding-drive.php
-          php tools/test-onboarding.php
-          php tools/test-onboarding-service.php
-          php tools/test-onboarding-plan-change.php
-          php tools/test-onboarding-identity-recovery.php
-          php tools/test-onboarding-reader.php
-          php tools/test-onboarding-wp-proxy.php
-          php tools/test-onboarding-automatic-signature.php
-          php tools/test-onboarding-adapters.php
-          php tools/test-onboarding-mail.php
-          php tools/test-onboarding-profile.php
-          php tools/test-onboarding-intake.php
-          node tests/onboarding-signature.test.js
-          node tests/onboarding-document.test.js
-          node tests/onboarding-drive.test.js
-          node tests/onboarding-form.test.js
-          node tests/artist-profile-validation.test.js
-          node tests/artist-profile-save.test.js
-          node --check assets/js/trb-demo-evaluation.js
-          php tools/test-audio-inventory.php
-          php tools/test-rights-owner-review.php
-          php tools/test-crm-inline-review.php
-          node tests/release-credit-options.test.js
-          node tests/symphonic-credit-validation.test.js
-          node tests/release-single-title.test.js
-          php tools/test-release-draft-normalizer.php
-          php tools/test-release-staging-cleanup.php
-          php tools/test-release-chunk-transfer.php
-          node tests/release-draft-restore.test.js
-          node tests/release-receipt-resume.test.js
-          node tests/release-completed-receipt.test.js
-          node tests/release-draft-clear.test.js
-          php tools/test-release-draft-clear.php
-          php tools/test-acr-dual-recovery.php
-          node tests/release-master-retry.test.js
-          node tests/release-audio-validation-race.test.js
-          python3 tools/portal-audit.py
-          python3 tools/test-private-deploy-output.py
-          php tools/test-crm-demo-patch.php
-
-      - name: Test real PHP multipart with the WordPress file handler
+      - name: Install an isolated official WordPress core for file and Studio tests
         run: |
           curl --fail --silent --show-error --location https://wordpress.org/wordpress-7.1.3.tar.gz -o /tmp/trb-profile-wp.tar.gz
           mkdir -p /tmp/trb-profile-wp
           tar -xzf /tmp/trb-profile-wp.tar.gz -C /tmp/trb-profile-wp
-          TRB_WP_TEST_ROOT=/tmp/trb-profile-wp/wordpress php tools/test-profile-multipart.php
+      - name: Validate PHP and portal regressions
+        env:
+          TRB_WP_TEST_ROOT: /tmp/trb-profile-wp/wordpress
+        run: |
+          set -euo pipefail
+          find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+          for test in tools/test-*.php integrations/site-studio/test-*.php; do
+            php "$test"
+          done
+          for test in tests/*.test.js; do
+            node "$test"
+          done
+          node --check assets/js/trb-demo-evaluation.js
+          node --check integrations/site-studio/trb-site-studio/editor.js
+          python3 tools/portal-audit.py
+          python3 tools/test-private-deploy-output.py
 
       - name: Render synthetic service email preview
         run: php tools/test-onboarding-mail.php --preview
@@ -130,7 +84,7 @@ jobs:
         run: NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/onboarding-responsive.test.cjs
       - uses: actions/upload-artifact@v4
         with:
-          name: onboarding-mail-preview
+          name: onboarding-mail-preview-php-${{ matrix.php }}
           path: |
             mail-preview.html
             welcome-preview.html
