@@ -160,6 +160,15 @@ register_shutdown_function( static function() use ( &$result, $buffer, $phase ) 
 set_error_handler( static function( $severity, $message, $file, $line ) use ( &$result ) {
     $key = $severity . ':' . basename( $file ) . ':' . $line;
     $result['diagnostics'][$key] = ( $result['diagnostics'][$key] ?? 0 ) + 1;
+    // Record identifiers only; never export arguments, paths, configuration or messages.
+    if ( preg_match( '/Undefined array key "([A-Z_]{1,40})"/', $message, $missing ) && in_array( $missing[1], array( 'HTTP_HOST', 'SERVER_NAME', 'SERVER_PORT', 'SERVER_PROTOCOL', 'REQUEST_URI', 'REQUEST_METHOD', 'SCRIPT_FILENAME', 'SCRIPT_NAME', 'PHP_SELF', 'HTTPS', 'REMOTE_ADDR', 'REQUEST_SCHEME' ), true ) ) $result['missing_server_fields'][$missing[1]] = true;
+    if ( str_contains( $message, '_load_textdomain_just_in_time' ) && preg_match_all( '/<code>([a-z0-9_-]{1,64})<\/code>/', $message, $domains ) ) foreach ( $domains[1] as $domain ) if ( $domain !== 'init' ) $result['early_translation_domains'][$domain] = true;
+    $trace = array();
+    foreach ( debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, 12 ) as $frame ) {
+        $function = $frame['function'] ?? '';
+        if ( preg_match( '/^[a-zA-Z_][a-zA-Z0-9_]{0,100}$/D', $function ) ) $trace[] = array( 'function' => $function, 'file' => basename( $frame['file'] ?? '' ), 'line' => $frame['line'] ?? 0 );
+    }
+    $result['diagnostic_frames'][$key] = $trace;
     return true;
 } );
 define( 'ABSPATH', $root . '/' );
