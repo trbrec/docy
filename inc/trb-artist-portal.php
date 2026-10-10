@@ -4619,6 +4619,7 @@ function trb_portal_render_demo_section() {
 			<?php if ( 'processing' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Il provino è già in caricamento. Attendi il completamento senza inviarlo nuovamente.</div><?php endif; ?>
 			<?php if ( 'duplicate' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Questo stesso provino è già stato ricevuto. Non è stato creato un invio duplicato.</div><?php endif; ?>
 			<?php if ( 'invalid' === $status || 'upload_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Invio non completato. Controlla titolo, dichiarazioni e formati degli allegati, quindi riprova.</div><?php endif; ?>
+			<?php if ( 'storage_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Il salvataggio del provino non è stato confermato. Controlla lo stato delle valutazioni prima di riprovare.</div><?php endif; ?>
 			<details class="trb-portal__demo-module">
 				<summary class="trb-button trb-button--secondary">Richiedi una valutazione demo</summary>
 				<form class="trb-portal__request-form trb-portal__demo-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-demo-form>
@@ -4712,16 +4713,16 @@ function trb_portal_demo_next_delivery_time( $timestamp ) {
 
 /**
  * Add working hours without delivering automated reviews outside the agreed
- * window: Monday-Saturday, 08:30-18:30, in the WordPress timezone.
+ * window: Monday-Saturday, 08:30-18:30, in the Europe/Rome timezone.
  */
 function trb_portal_add_demo_working_hours( $submitted_at, $hours = null ) {
 	$window   = trb_portal_demo_delivery_window();
 	$timezone = trb_portal_demo_delivery_timezone();
 	$current  = ( new DateTimeImmutable( '@' . (int) $submitted_at ) )->setTimezone( $timezone );
 	$hours = null === $hours ? $window['hours'] : $hours;
-	$remaining_minutes = max( 1, (int) $hours ) * 60;
+	$remaining_seconds = max( 1, (int) $hours ) * 3600;
 
-	while ( $remaining_minutes > 0 ) {
+	while ( $remaining_seconds > 0 ) {
 		$weekday = (int) $current->format( 'N' );
 		if ( $weekday > $window['last_weekday'] ) {
 			$current = $current->modify( 'next monday' )->setTime( $window['opening_hour'], $window['opening_minute'] );
@@ -4734,10 +4735,12 @@ function trb_portal_add_demo_working_hours( $submitted_at, $hours = null ) {
 			$current = $current->modify( '+1 day' )->setTime( $window['opening_hour'], $window['opening_minute'] );
 			continue;
 		}
-		$available = (int) floor( ( $closing->getTimestamp() - $current->getTimestamp() ) / 60 );
-		$step = min( $remaining_minutes, $available );
-		$current = $current->modify( '+' . $step . ' minutes' );
-		$remaining_minutes -= $step;
+		// Rounding to minutes leaves a zero-length step in the last 59 seconds
+		// before closing. Keep seconds so every iteration makes progress.
+		$available = $closing->getTimestamp() - $current->getTimestamp();
+		$step = min( $remaining_seconds, $available );
+		$current = $current->modify( '+' . $step . ' seconds' );
+		$remaining_seconds -= $step;
 	}
 
 	return $current->getTimestamp();
@@ -4807,8 +4810,49 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes, $file = null ) 
 	return array( 'name' => basename( $handled['file'] ), 'path' => str_replace( trailingslashit( $uploads['basedir'] ), '', $handled['file'] ), 'type' => $handled['type'], 'size' => (int) $file['size'] );
 }
 
+/** Hash verified incoming bytes, rather than treating equal names/sizes as retries. */
+function trb_portal_demo_upload_hash( $file, $max_bytes ) {
+	if ( ! is_array( $file ) || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_string( $file['tmp_name'] ?? null ) || ! is_numeric( $file['size'] ?? null ) || $file['size'] < 1 || $file['size'] > $max_bytes ) return new WP_Error( 'invalid_upload' );
+	$path = $file['tmp_name'];
+	$is_staged = ! empty( $file['_trb_staged'] ) && trb_portal_release_is_staged_path( $path );
+	if ( ( ! $is_staged && ! is_uploaded_file( $path ) ) || ! is_file( $path ) || filesize( $path ) !== (int) $file['size'] ) return new WP_Error( 'invalid_upload' );
+	$hash = hash_file( 'sha256', $path );
+	return is_string( $hash ) ? $hash : new WP_Error( 'invalid_upload' );
+}
+
+/** Undo an incomplete acquisition; preserve files if an uncertain commit kept them. */
+function trb_portal_abort_demo_save( $user_id, &$context ) {
+	global $wpdb;
+	if ( ! empty( $context['complete'] ) || ! empty( $context['cleaned'] ) ) return;
+	$rolled_back = empty( $context['transaction_open'] ) || false !== $wpdb->query( 'ROLLBACK' );
+	$context['transaction_open'] = false;
+	$context['cleaned'] = true;
+	wp_cache_delete( $user_id, 'user_meta' );
+	foreach ( array( 'cron', 'alloptions', 'notoptions', 'trb_crm_last_entity_version' ) as $key ) wp_cache_delete( $key, 'options' );
+	$request_id = (int) ( $context['request_id'] ?? 0 );
+	$recorded = array();
+	if ( $request_id ) {
+		clean_post_cache( $request_id );
+		$recorded = get_post_meta( $request_id, '_trb_demo_payload', true );
+		if ( '' !== $wpdb->last_error ) return; // Database outcome is unknown: retain the bytes.
+	}
+	if ( ! $rolled_back ) return;
+	$keep = array();
+	foreach ( array( 'text_file', 'audio_file' ) as $key ) if ( ! empty( $recorded[ $key ]['path'] ) ) $keep[] = $recorded[ $key ]['path'];
+	$uploads = wp_upload_dir();
+	$private_root = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-demo-private' );
+	if ( ! $private_root ) return;
+	$private_root = str_replace( '\\', '/', $private_root ) . '/';
+	foreach ( $context['files'] as $file ) {
+		if ( empty( $file['path'] ) || in_array( $file['path'], $keep, true ) ) continue;
+		$path = realpath( trailingslashit( $uploads['basedir'] ) . $file['path'] );
+		if ( $path && 0 === strpos( str_replace( '\\', '/', $path ), $private_root ) && is_file( $path ) ) wp_delete_file( $path );
+	}
+}
+
 function trb_portal_demo_finish( $status, $dashboard, $success = false ) {
-	if ( 'processing' !== $status && is_user_logged_in() && ! empty( $_POST['trb_staged_uploads_json'] ) ) {
+	// A recoverable error must leave the staged originals available for retry.
+	if ( $success && is_user_logged_in() && ! empty( $_POST['trb_staged_uploads_json'] ) ) {
 		$session = sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ?? '' ) );
 		if ( preg_match( '/^[a-f0-9-]{36}$/i', $session ) ) trb_portal_cleanup_release_staging_session( $session );
 	}
@@ -4838,7 +4882,6 @@ function trb_portal_submit_demo() {
 	}
 	$owner_qa = current_user_can( 'manage_options' ) && isset( $_POST['trb_demo_owner_qa'] );
 	$is_test_account = $owner_qa || trb_portal_is_demo_test_account( $user );
-	$last = (int) get_user_meta( $user_id, '_trb_demo_last_submission', true );
 	$title = isset( $_POST['trb_demo_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_title'] ) ) : '';
 	$genre = isset( $_POST['trb_demo_genre'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_genre'] ) ) : '';
 	$kind = isset($_POST['trb_demo_submission_kind']) && is_string($_POST['trb_demo_submission_kind']) ? sanitize_key(wp_unslash($_POST['trb_demo_submission_kind'])) : 'new';
@@ -4870,65 +4913,88 @@ function trb_portal_submit_demo() {
 		trb_portal_demo_finish( 'invalid', $dashboard );
 	}
 
-	// Atomic server-side lock: browser retries or repeated clicks cannot create
-	// simultaneous practices while the first upload is still being processed.
-	$lock_key = '_trb_demo_submission_lock';
-	$lock_time = (int) get_user_meta( $user_id, $lock_key, true );
-	if ( $lock_time && time() - $lock_time < 15 * MINUTE_IN_SECONDS ) {
+	// WordPress's unique user-meta flag is a SELECT followed by INSERT, not an
+	// atomic lock. Use a process lock that PHP releases even after a fatal error.
+	$demo_lock = trb_release_process_lock( 'demo-user:' . $user_id );
+	if ( ! $demo_lock ) {
 		trb_portal_demo_finish( 'processing', $dashboard );
 	}
-	if ( $lock_time ) delete_user_meta( $user_id, $lock_key );
-	if ( ! add_user_meta( $user_id, $lock_key, time(), true ) ) {
-		trb_portal_demo_finish( 'processing', $dashboard );
-	}
+	$save_context = array( 'transaction_open' => false, 'complete' => false, 'cleaned' => false, 'request_id' => 0, 'files' => array() );
+	register_shutdown_function( static function() use ( $demo_lock, $user_id, &$save_context ) {
+		trb_portal_abort_demo_save( $user_id, $save_context );
+		trb_release_process_unlock( $demo_lock );
+	} );
+	wp_cache_delete( $user_id, 'user_meta' );
+	delete_user_meta( $user_id, '_trb_demo_submission_lock' ); // Retire obsolete timed markers.
+	$last = (int) get_user_meta( $user_id, '_trb_demo_last_submission', true );
+	$text_hash = $has_text ? trb_portal_demo_upload_hash( $text_upload, 2 * MB_IN_BYTES ) : '-';
+	$audio_hash = $has_audio ? trb_portal_demo_upload_hash( $audio_upload, 25 * MB_IN_BYTES ) : '-';
+	if ( is_wp_error( $text_hash ) || is_wp_error( $audio_hash ) ) trb_portal_demo_finish( 'upload_error', $dashboard );
 
-	$fingerprint = hash( 'sha256', wp_json_encode( $revision ) . '|' . wp_json_encode( $review_context ) . '|' . strtolower( $title ) . '|' . strtolower( $genre ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( $text_upload['name'] ) . ':' . (int) $text_upload['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( $audio_upload['name'] ) . ':' . (int) $audio_upload['size'] : '-' ) );
+	$fingerprint = hash( 'sha256', wp_json_encode( $revision ) . '|' . wp_json_encode( $review_context ) . '|' . strtolower( $title ) . '|' . strtolower( $genre ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . $text_hash . '|' . $audio_hash );
 	$previous = get_user_meta( $user_id, '_trb_demo_last_fingerprint', true );
 	if ( is_array( $previous ) && ! empty( $previous['hash'] ) && hash_equals( (string) $previous['hash'], $fingerprint ) && time() - (int) $previous['time'] < 10 * MINUTE_IN_SECONDS ) {
-		delete_user_meta( $user_id, $lock_key );
 		trb_portal_demo_finish( 'duplicate', $dashboard, true );
 	}
 	if ( ! $is_test_account && $last && time() - $last < WEEK_IN_SECONDS ) {
-		delete_user_meta( $user_id, $lock_key );
 		trb_portal_demo_finish( 'weekly_limit', $dashboard );
 	}
 
-	$text = $has_text ? trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ), 2 * MB_IN_BYTES, $text_upload ) : null;
-	$audio = $has_audio ? trb_portal_store_demo_file( 'trb_demo_audio', array( 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES, $audio_upload ) : null;
-	if ( ( $has_text && ! is_array( $text ) ) || ( $has_audio && ! is_array( $audio ) ) ) {
-		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
-		delete_user_meta( $user_id, $lock_key );
-		trb_portal_demo_finish( 'upload_error', $dashboard );
+	global $wpdb;
+	$save_error = 'storage_error';
+	try {
+		$tables = array( $wpdb->posts, $wpdb->postmeta, $wpdb->usermeta, $wpdb->options );
+		if ( function_exists( 'trb_crm_connector_table' ) ) $tables[] = trb_crm_connector_table();
+		foreach ( $tables as $table ) {
+			$engine = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $table ) );
+			if ( 'INNODB' !== strtoupper( (string) $engine ) ) throw new RuntimeException( 'Transactional demo storage is unavailable.' );
+		}
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) throw new RuntimeException( 'Demo transaction did not start.' );
+		$save_context['transaction_open'] = true;
+		$text = $has_text ? trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ), 2 * MB_IN_BYTES, $text_upload ) : null;
+		if ( is_array( $text ) ) $save_context['files'][] = $text;
+		$audio = $has_audio ? trb_portal_store_demo_file( 'trb_demo_audio', array( 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES, $audio_upload ) : null;
+		if ( is_array( $audio ) ) $save_context['files'][] = $audio;
+		if ( ( $has_text && ! is_array( $text ) ) || ( $has_audio && ! is_array( $audio ) ) ) {
+			$save_error = 'upload_error';
+			throw new RuntimeException( 'Demo file batch did not complete.' );
+		}
+		$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Demo] ' . $title, 'post_author' => $user_id ), true );
+		if ( ! $request_id || is_wp_error( $request_id ) ) throw new RuntimeException( 'Demo request was not stored.' );
+		$save_context['request_id'] = $request_id;
+		$submitted_timestamp = time();
+		$earliest_delivery   = $is_test_account ? $submitted_timestamp + MINUTE_IN_SECONDS : trb_portal_add_demo_working_hours( $submitted_timestamp );
+		$payload = array(
+			'uuid' => wp_generate_uuid4(), 'submitted_at' => gmdate( 'c', $submitted_timestamp ), 'status' => 'queued',
+			'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
+			'first_name' => $user->first_name, 'last_name' => $user->last_name,
+			'artist_name' => trb_portal_artist_profile_value( 'artist_name', $user_id ), 'email' => $user->user_email,
+			'owner_qa' => $owner_qa, 'revision' => $revision,
+			'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'genre' => $genre, 'no_lyrics' => $no_lyrics, 'review_context' => $review_context,
+			'text_only' => $text_only, 'text_file' => $text, 'audio_file' => $audio,
+		);
+		if ( $owner_qa ) {
+			$payload['email'] = 'andrea.tognassi@trbrec.com';
+			$payload['first_name'] = 'Andrea';
+			$payload['title'] = '[QA] ' . $title;
+		}
+		foreach ( array( '_trb_demo_payload' => $payload, '_trb_demo_earliest_delivery' => $earliest_delivery, '_trb_demo_delete_after' => $submitted_timestamp + 60 * DAY_IN_SECONDS ) as $key => $value ) {
+			update_post_meta( $request_id, $key, wp_slash( $value ) );
+			$stored = get_post_meta( $request_id, $key, true );
+			if ( is_array( $value ) ? $stored !== $value : (string) $stored !== (string) $value ) throw new RuntimeException( 'Demo metadata write was not confirmed.' );
+		}
+		if ( ! $is_test_account ) trb_portal_write_profile_meta( $user_id, '_trb_demo_last_submission', $submitted_timestamp );
+		trb_portal_write_profile_meta( $user_id, '_trb_demo_last_fingerprint', array( 'hash' => $fingerprint, 'time' => $submitted_timestamp, 'request_id' => $request_id ) );
+		$scheduled = wp_schedule_single_event( time() + 10, 'trb_portal_process_demo', array( $request_id ), true );
+		if ( ! $scheduled || is_wp_error( $scheduled ) ) throw new RuntimeException( 'Demo processing was not scheduled.' );
+		if ( false === $wpdb->query( 'COMMIT' ) ) throw new RuntimeException( 'Demo commit was not confirmed.' );
+		$save_context['transaction_open'] = false;
+		$save_context['complete'] = true;
+	} catch ( Throwable $exception ) {
+		trb_portal_abort_demo_save( $user_id, $save_context );
+		error_log( 'TRB demo save aborted: ' . get_class( $exception ) );
+		trb_portal_demo_finish( $save_error, $dashboard );
 	}
-	$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Demo] ' . $title, 'post_author' => $user_id ) );
-	if ( ! $request_id || is_wp_error( $request_id ) ) {
-		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
-		delete_user_meta( $user_id, $lock_key );
-		trb_portal_demo_finish( 'upload_error', $dashboard );
-	}
-	$submitted_timestamp = time();
-	$earliest_delivery   = $is_test_account ? $submitted_timestamp + MINUTE_IN_SECONDS : trb_portal_add_demo_working_hours( $submitted_timestamp );
-	$payload = array(
-		'uuid' => wp_generate_uuid4(), 'submitted_at' => gmdate( 'c', $submitted_timestamp ), 'status' => 'queued',
-		'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
-		'first_name' => $user->first_name, 'last_name' => $user->last_name,
-		'artist_name' => trb_portal_artist_profile_value( 'artist_name', $user_id ), 'email' => $user->user_email,
-		'owner_qa' => $owner_qa, 'revision' => $revision,
-		'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'genre' => $genre, 'no_lyrics' => $no_lyrics, 'review_context' => $review_context,
-		'text_only' => $text_only, 'text_file' => $text, 'audio_file' => $audio,
-	);
-	if ( $owner_qa ) {
-		$payload['email'] = 'andrea.tognassi@trbrec.com';
-		$payload['first_name'] = 'Andrea';
-		$payload['title'] = '[QA] ' . $title;
-	}
-	update_post_meta( $request_id, '_trb_demo_payload', $payload );
-	update_post_meta( $request_id, '_trb_demo_earliest_delivery', $earliest_delivery );
-	update_post_meta( $request_id, '_trb_demo_delete_after', $submitted_timestamp + 60 * DAY_IN_SECONDS );
-	if ( ! $is_test_account ) update_user_meta( $user_id, '_trb_demo_last_submission', $submitted_timestamp );
-	update_user_meta( $user_id, '_trb_demo_last_fingerprint', array( 'hash' => $fingerprint, 'time' => $submitted_timestamp, 'request_id' => $request_id ) );
-	delete_user_meta( $user_id, $lock_key );
-	wp_schedule_single_event( time() + 10, 'trb_portal_process_demo', array( $request_id ) );
 	trb_portal_demo_finish( 'sent', $dashboard, true );
 }
 add_action( 'admin_post_trb_portal_submit_demo', 'trb_portal_submit_demo' );
@@ -6679,5 +6745,3 @@ function trb_portal_document_title( $title ) {
 	return $title;
 }
 add_filter( 'pre_get_document_title', 'trb_portal_document_title', 99 );
-
-

@@ -2,12 +2,16 @@
 /** Real WordPress/MySQL and HTTP multipart integration; disposable CI database only. */
 if ( ! in_array( PHP_SAPI, array( 'cli', 'cli-server' ), true ) ) { http_response_code( 404 ); exit; }
 $qaRoot = getenv( 'TRB_WP_MYSQL_ROOT' );
-if ( ! is_string( $qaRoot ) || ! preg_match( '~^/tmp/trb-wp-mysql-qa-[0-9]+/wordpress$~D', $qaRoot ) || ! is_file( $qaRoot . '/wp-load.php' ) || is_link( $qaRoot ) ) throw new RuntimeException( 'An isolated official WordPress CI installation is required.' );
+$qaRoot = is_string( $qaRoot ) ? str_replace( '\\', '/', $qaRoot ) : '';
+$qaTemporaryRoot = str_replace( '\\', '/', realpath( sys_get_temp_dir() ) ?: '' );
+if ( ! $qaTemporaryRoot || dirname( dirname( $qaRoot ) ) !== $qaTemporaryRoot || ! preg_match( '~^trb-wp-mysql-qa-[0-9]+$~D', basename( dirname( $qaRoot ) ) ) || 'wordpress' !== basename( $qaRoot ) || ! is_file( $qaRoot . '/wp-load.php' ) || is_link( $qaRoot ) || is_link( dirname( $qaRoot ) ) ) throw new RuntimeException( 'An isolated official WordPress CI installation is required.' );
 $qaServing = PHP_SAPI === 'cli-server';
+$qaDatabase = getenv( 'TRB_QA_MYSQL_DATABASE' ) ?: 'trb_wp_qa';
+if ( ! preg_match( '/^trb_wp_qa(?:_[0-9]+)?$/D', $qaDatabase ) ) throw new RuntimeException( 'A disposable QA database is required.' );
 if ( $qaServing && ( ( $_SERVER['REMOTE_ADDR'] ?? '' ) !== '127.0.0.1' || ! hash_equals( (string) getenv( 'TRB_QA_HTTP_TOKEN' ), (string) ( $_SERVER['HTTP_X_TRB_QA_TOKEN'] ?? '' ) ) ) ) { http_response_code( 404 ); exit; }
 if ( ! $qaServing ) {
     if ( is_file( $qaRoot . '/wp-config.php' ) ) throw new RuntimeException( 'Refusing to reuse an existing WordPress configuration.' );
-    $qaConfig = "<?php\ndefine('DB_NAME','trb_wp_qa');\ndefine('DB_USER','root');\ndefine('DB_PASSWORD','qa_ci');\ndefine('DB_HOST','127.0.0.1:3307');\ndefine('DB_CHARSET','utf8mb4');\ndefine('DB_COLLATE','');\ndefine('DISABLE_WP_CRON',true);\ndefine('DISALLOW_FILE_MODS',true);\ndefine('AUTOMATIC_UPDATER_DISABLED',true);\ndefine('WP_DEBUG',true);\ndefine('WP_DEBUG_DISPLAY',false);\ndefine('WP_ENVIRONMENT_TYPE','local');\n\$table_prefix='qa_';\n";
+    $qaConfig = "<?php\ndefine('DB_NAME','" . $qaDatabase . "');\ndefine('DB_USER','root');\ndefine('DB_PASSWORD','qa_ci');\ndefine('DB_HOST','127.0.0.1:3307');\ndefine('DB_CHARSET','utf8mb4');\ndefine('DB_COLLATE','');\ndefine('DISABLE_WP_CRON',true);\ndefine('DISALLOW_FILE_MODS',true);\ndefine('AUTOMATIC_UPDATER_DISABLED',true);\ndefine('WP_DEBUG',true);\ndefine('WP_DEBUG_DISPLAY',false);\ndefine('WP_ENVIRONMENT_TYPE','local');\n\$table_prefix='qa_';\n";
     foreach ( array( 'AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT', 'LOGGED_IN_SALT', 'NONCE_SALT' ) as $qaKey ) $qaConfig .= "define('" . $qaKey . "','" . bin2hex( random_bytes( 32 ) ) . "');\n";
     $qaConfig .= "if(!defined('ABSPATH'))define('ABSPATH',__DIR__.'/');\nrequire_once ABSPATH.'wp-settings.php';\n";
     file_put_contents( $qaRoot . '/wp-config.php', $qaConfig );
@@ -24,15 +28,21 @@ if ( ! $qaServing ) {
 }
 require dirname( __DIR__, 2 ) . '/inc/trb-release-integrity.php';
 require dirname( __DIR__, 2 ) . '/inc/trb-artist-portal.php';
+add_filter( 'template_directory', static function() { return dirname( __DIR__, 2 ); } );
 if ( $qaServing ) {
     $qaUserId = ( $_SERVER['HTTP_X_TRB_QA_USER'] ?? '' ) === 'anonymous' ? 0 : (int) getenv( 'TRB_QA_USER_ID' );
     wp_set_current_user( $qaUserId );
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_stage_release_chunk' ) trb_portal_stage_release_chunk();
+        if ( ( $_POST['action'] ?? '' ) === 'trb_portal_submit_demo' ) {
+            require dirname( __DIR__, 2 ) . '/inc/trb-crm-connector.php';
+            if ( ! empty( $_POST['qa_reject_demo_schedule'] ) ) add_filter( 'pre_schedule_event', static function( $pre, $event ) { return $event->hook === 'trb_portal_process_demo' ? new WP_Error( 'qa_rejected', 'Synthetic schedule failure' ) : $pre; }, 10, 2 );
+            trb_portal_submit_demo();
+        }
         trb_portal_handle_artist_profile();
     }
     header( 'Content-Type: application/json' );
-    echo wp_json_encode( array( 'nonce' => wp_create_nonce( 'trb_portal_save_artist_profile' ), 'stage_nonce' => wp_create_nonce( 'trb_portal_stage_release' ), 'user_id' => $qaUserId, 'outbound_disabled' => ! function_exists( 'mail' ) && ! function_exists( 'curl_exec' ) && ! ini_get( 'allow_url_fopen' ), 'complete' => trb_portal_artist_profile_is_complete(), 'completion' => trb_portal_artist_profile_completion(), 'fields' => get_user_meta( $qaUserId ), 'files' => trb_portal_private_profile_files() ) );
+    echo wp_json_encode( array( 'nonce' => wp_create_nonce( 'trb_portal_save_artist_profile' ), 'demo_nonce' => wp_create_nonce( 'trb_portal_submit_demo' ), 'stage_nonce' => wp_create_nonce( 'trb_portal_stage_release' ), 'user_id' => $qaUserId, 'outbound_disabled' => ! function_exists( 'mail' ) && ! function_exists( 'curl_exec' ) && ! ini_get( 'allow_url_fopen' ), 'complete' => trb_portal_artist_profile_is_complete(), 'completion' => trb_portal_artist_profile_completion(), 'fields' => get_user_meta( $qaUserId ), 'files' => trb_portal_private_profile_files() ) );
     exit;
 }
 function qa_check( $condition, $message ) { if ( ! $condition ) throw new RuntimeException( $message ); $GLOBALS['qa_checks']++; }
@@ -147,9 +157,9 @@ try {
     require dirname( __DIR__, 2 ) . '/inc/trb-crm-connector.php';
     // Native permissions deny DDL; installation must not record a schema that is absent.
     $wpdb->query( "CREATE USER 'qa_schema_readonly'@'%' IDENTIFIED BY 'qa_ci'" );
-    $wpdb->query( "GRANT SELECT ON trb_wp_qa.* TO 'qa_schema_readonly'@'%'" );
+    $wpdb->query( "GRANT SELECT ON {$qaDatabase}.* TO 'qa_schema_readonly'@'%'" );
     $qaRootDb = $wpdb;
-    $qaRestrictedDb = new wpdb( 'qa_schema_readonly', 'qa_ci', 'trb_wp_qa', '127.0.0.1:3307' );
+    $qaRestrictedDb = new wpdb( 'qa_schema_readonly', 'qa_ci', $qaDatabase, '127.0.0.1:3307' );
     $qaRestrictedDb->set_prefix( $qaRootDb->prefix );
     $qaRestrictedDb->suppress_errors( true );
     $GLOBALS['wpdb'] = $qaRestrictedDb;
@@ -232,6 +242,7 @@ try {
     $qaEventCount = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$qaOutbox}" );
     trb_crm_connector_flush_profiles();
     qa_check( (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$qaOutbox}" ) === $qaEventCount, 'Successful profile save queued the same snapshot again at shutdown.' );
+    require __DIR__ . '/demo-mysql-cases.php';
     qa_check( ! preg_match( '/PHP (Warning|Notice|Deprecated|Fatal error|Parse error)/', file_get_contents( $qaRoot . '/qa-http.log' ) ), 'The real HTTP fixture emitted unexpected PHP diagnostics.' );
     echo $GLOBALS['qa_checks'] . " real WordPress/MySQL/HTTP assertions passed; ordinary Tunisia artist, authentication/nonce, metadata, file rollback/retry, process lock and outbox failure.\n";
 } finally {
