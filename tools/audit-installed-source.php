@@ -128,6 +128,15 @@ if ( in_array( '--sources', $argv, true ) ) {
     foreach ( array_unique( $assets[1] ) as $asset ) $source_paths[ 'crm' . $asset ] = '/home/customer/www/crm.trbrec.com/public_html' . $asset;
     foreach ( array( 'trb-crm-sync.php', 'trb-login-cache-guard.php', 'trb-z-crm-release-sync-r26.php' ) as $name ) $source_paths[ 'portal/mu-plugins/' . $name ] = '/home/customer/www/artist.trbrec.com/public_html/wp-content/mu-plugins/' . $name;
     foreach ( array( 'Model.php', 'Esigrole.php', 'User.php', 'Signature.php' ) as $name ) $source_paths[ 'portal/signature-models/' . $name ] = '/home/customer/www/artist.trbrec.com/public_html/wp-content/plugins/e-signature/models/' . $name;
+    $compatibility_names = array( 'General.php', 'Esign_core_load.php', 'e-signature.php', 'Document.php', 'Common.php', 'Addon.php', 'esig-dan-admin.php', 'esig-pdf-admin.php', 'esig-at-admin.php', 'esig-active-campaign-admin.php', 'esig-ds-admin.php', 'esig-aams-admin.php', 'esig-reminders-admin.php', 'esig-logo-branding-admin.php', 'esig-add-custom-message.php', 'esig-usr-admin.php', 'esig-url-admin.php', 'esig-assign-signer-order-admin.php', 'esig-assign-approval-signer-admin.php', 'esig-pdf-to-email-admin.php', 'esig-sad.php', 'esig-auto-user-register-admin.php', 'Site_Tools_Client.php' );
+    $plugin_root = '/home/customer/www/artist.trbrec.com/public_html/wp-content/plugins/';
+    foreach ( array( 'e-signature', 'e-signature-business-add-ons', 'sg-cachepress' ) as $plugin ) {
+        $entries = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $plugin_root . $plugin, FilesystemIterator::SKIP_DOTS ) );
+        foreach ( $entries as $entry ) if ( $entry->isFile() && ! $entry->isLink() && in_array( $entry->getBasename(), $compatibility_names, true ) ) {
+            $relative = str_replace( '\\', '/', substr( $entry->getPathname(), strlen( $plugin_root ) ) );
+            $source_paths['portal/plugin-compatibility/' . $relative] = $entry->getPathname();
+        }
+    }
     $sources = array();
     foreach ( $source_paths as $name => $path ) {
         if ( ! is_file( $path ) || is_link( $path ) ) throw new RuntimeException( 'An explicitly selected source file is unavailable.' );
