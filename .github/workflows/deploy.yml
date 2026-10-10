@@ -33,6 +33,7 @@ jobs:
       - name: Validate PHP and portal regressions
         shell: bash
         run: |
+          php tools/test-international-profile.php
           php tools/test-release-sheet-data.php
           php tools/test-artist-admin-name.php
           php tools/test-crm-demo-patch.php
