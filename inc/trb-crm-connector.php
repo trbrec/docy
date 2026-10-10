@@ -83,8 +83,11 @@ function trb_crm_connector_version() {
 	global $wpdb;
 	$micros = (int) floor( microtime( true ) * 1000000 );
 	// MySQL serializes this unique option row across independent PHP processes.
-	$written = $wpdb->query( $wpdb->prepare( "INSERT INTO {$wpdb->options} (option_name,option_value,autoload) VALUES (%s,LAST_INSERT_ID(%d),'off') ON DUPLICATE KEY UPDATE option_value=LAST_INSERT_ID(GREATEST(CAST(option_value AS UNSIGNED)+1,VALUES(option_value))),autoload='off'", 'trb_crm_last_entity_version', $micros ) );
-	if ( false === $written ) return false;
+	$initialized = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name,option_value,autoload) VALUES (%s,'0','off')", 'trb_crm_last_entity_version' ) );
+	if ( false === $initialized ) return false;
+	// Allocate in UPDATE: the first INSERT has an unrelated AUTO_INCREMENT option_id.
+	$written = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value=LAST_INSERT_ID(GREATEST(CAST(option_value AS UNSIGNED)+1,%d)),autoload='off' WHERE option_name=%s", $micros, 'trb_crm_last_entity_version' ) );
+	if ( false === $written || $written < 1 ) return false;
 	$version = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
 	wp_cache_delete( 'trb_crm_last_entity_version', 'options' );
 	wp_cache_delete( 'alloptions', 'options' );
