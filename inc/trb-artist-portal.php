@@ -1372,13 +1372,13 @@ function trb_portal_private_profile_file_by_group( $group, $user_id = 0 ) {
 
 /** Return only a biography stored in one of the low-cost text formats. */
 function trb_portal_valid_biography_file( $user_id = 0 ) {
-	$file = trb_portal_private_profile_file_by_group( 'biography', $user_id );
-	$extension = ! empty( $file['name'] ) ? strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) ) : '';
-	if ( ! in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) || empty( $file['path'] ) ) return array();
-	$uploads = wp_upload_dir();
-	$root = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' );
-	$path = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) );
-	return $root && $path && 0 === strpos( $path, $root . DIRECTORY_SEPARATOR ) && is_file( $path ) && filesize( $path ) > 0 && filesize( $path ) <= 5 * MB_IN_BYTES ? $file : array();
+	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
+		if ( 'biography' !== ( $file['group'] ?? '' ) ) continue;
+		$extension = ! empty( $file['name'] ) ? strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) ) : '';
+		$path = trb_portal_private_profile_file_path( $file );
+		if ( in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) && $path && filesize( $path ) <= 5 * MB_IN_BYTES ) return $file;
+	}
+	return array();
 }
 
 function trb_portal_has_valid_biography_content( $user_id = 0 ) {
@@ -1501,7 +1501,7 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 			if ( 'photo' !== $file['group'] ) {
 				$kept = array();
 				foreach ( $remaining as $stored ) {
-					if ( $file['group'] === ( $stored['group'] ?? '' ) && $file['label'] === ( $stored['label'] ?? '' ) ) $retired[] = $stored;
+					if ( $file['group'] === ( $stored['group'] ?? '' ) && ( 'biography' === $file['group'] || $file['label'] === ( $stored['label'] ?? '' ) ) ) $retired[] = $stored;
 					else $kept[] = $stored;
 				}
 				$remaining = $kept;
@@ -4327,15 +4327,42 @@ function trb_portal_render_private_files( $group = '' ) {
 		$files = array_filter( $files, function( $file ) use ( $group ) { return isset( $file['group'] ) && $group === $file['group']; } );
 	}
 	if ( empty( $files ) ) return;
-	$uploads = null;
-	$base = null;
-	?><fieldset class="trb-portal__uploaded-files <?php echo 'photo' === $group ? 'trb-portal__uploaded-photos' : ''; ?>"><legend><?php echo 'photo' === $group ? 'Fotografie caricate correttamente' : 'File caricati correttamente'; ?></legend><p>Questi sono i file attualmente conservati nel tuo profilo. Puoi scaricare l’originale o sostituirlo caricando una nuova versione.</p><div class="<?php echo 'photo' === $group ? 'trb-portal__photo-grid' : 'trb-portal__file-list'; ?>"><?php foreach ( $files as $file ) :
-		$size = absint( $file['size'] ?? 0 );
-		if ( ! $size && ! empty( $file['path'] ) ) { if ( null === $uploads ) { $uploads = wp_upload_dir(); $base = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' ); } $target = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) ); if ( $base && $target && 0 === strpos( $target, $base . DIRECTORY_SEPARATOR ) && is_file( $target ) ) $size = filesize( $target ); }
+	?>
+	<fieldset class="trb-portal__uploaded-files <?php echo 'photo' === $group ? 'trb-portal__uploaded-photos' : ''; ?>">
+		<legend><?php echo 'photo' === $group ? 'Fotografie nel profilo' : 'File nel profilo'; ?></legend>
+		<p>Puoi scaricare i file disponibili o sostituirli caricando una nuova versione.</p>
+		<div class="<?php echo 'photo' === $group ? 'trb-portal__photo-grid' : 'trb-portal__file-list'; ?>">
+		<?php foreach ( $files as $file ) :
+		$path = trb_portal_private_profile_file_path( $file );
+		$size = $path ? filesize( $path ) : 0;
 		$meta = strtoupper( pathinfo( $file['name'] ?? '', PATHINFO_EXTENSION ) );
 		if ( $size ) $meta .= ' · ' . size_format( $size, 1 );
 		if ( ! empty( $file['time'] ) ) $meta .= ' · caricato il ' . wp_date( 'd/m/Y', absint( $file['time'] ) );
-		?><?php if ( 'photo' === $group ) : ?><article class="trb-portal__photo-card"><img src="<?php echo esc_url( trb_portal_private_file_url( $file['id'], true ) ); ?>" alt="Anteprima foto artista" loading="lazy" /><small><?php echo esc_html( $meta ); ?></small><div class="trb-portal__stored-file-actions"><a href="<?php echo esc_url( trb_portal_private_file_url( $file['id'] ) ); ?>">Scarica originale</a><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label></div></article><?php else : ?><div class="trb-portal__stored-file"><span><b>✓ Caricato correttamente</b><br><?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ); ?><small><?php echo esc_html( $meta ); ?></small></span><div class="trb-portal__stored-file-actions"><a href="<?php echo esc_url( trb_portal_private_file_url( $file['id'] ) ); ?>">Scarica originale</a><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label></div></div><?php endif; ?><?php endforeach; ?></div></fieldset><?php
+		?>
+		<?php if ( 'photo' === $group ) : ?>
+			<article class="trb-portal__photo-card">
+				<?php if ( $path ) : ?><img src="<?php echo esc_url( trb_portal_private_file_url( $file['id'], true ) ); ?>" alt="Anteprima foto artista" loading="lazy" />
+				<?php else : ?><p>File non disponibile: carica una nuova copia.</p><?php endif; ?>
+				<small><?php echo esc_html( $meta ); ?></small>
+				<div class="trb-portal__stored-file-actions">
+					<?php if ( $path ) : ?><a href="<?php echo esc_url( trb_portal_private_file_url( $file['id'] ) ); ?>">Scarica originale</a><?php endif; ?>
+					<label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label>
+				</div>
+			</article>
+		<?php else : ?>
+			<div class="trb-portal__stored-file">
+				<span><b><?php echo $path ? '✓ File disponibile' : 'File non disponibile: carica una nuova copia.'; ?></b><br>
+					<?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ?? '' ); ?><small><?php echo esc_html( $meta ); ?></small></span>
+				<div class="trb-portal__stored-file-actions">
+					<?php if ( $path ) : ?><a href="<?php echo esc_url( trb_portal_private_file_url( $file['id'] ) ); ?>">Scarica originale</a><?php endif; ?>
+					<label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label>
+				</div>
+			</div>
+		<?php endif; ?>
+		<?php endforeach; ?>
+		</div>
+	</fieldset>
+	<?php
 }
 
 function trb_portal_is_demo_test_account( $user = null ) {

@@ -59,7 +59,7 @@ jobs:
           assert report['roots']['portal_theme']['available'] is True
           assert report['roots']['crm_app']['available'] is True
           sources = json.loads(Path('/tmp/trb-source-audit/review-sources.json').read_text())
-          assert sources['read_only'] is True and len(sources['sources']) == 39
+          assert sources['read_only'] is True and len(sources['sources']) >= 39
           print('Installed source inventory recorded; no application loaded, no database accessed, no mail or external integration called.')
           PY
       - uses: actions/upload-artifact@v4

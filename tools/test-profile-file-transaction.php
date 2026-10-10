@@ -25,6 +25,13 @@ function wp_generate_uuid4() { return bin2hex( random_bytes( 16 ) ); }
 function wp_delete_file( $path ) { if ( file_exists( $path ) ) unlink( $path ); }
 function add_filter( ...$args ) { $GLOBALS['filter_active'] = true; }
 function remove_filter( ...$args ) { $GLOBALS['filter_active'] = false; }
+function esc_html( $value ) { return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' ); }
+function esc_attr( $value ) { return esc_html( $value ); }
+function esc_url( $value ) { return esc_html( $value ); }
+function absint( $value ) { return abs( (int) $value ); }
+function size_format( $value, $decimals = 0 ) { return $value . ' B'; }
+function wp_date( $format, $timestamp ) { return gmdate( $format, $timestamp ); }
+function trb_portal_private_file_url( $id, $preview = false ) { return '/private-file?id=' . rawurlencode( $id ); }
 function wp_handle_upload( $file, $options ) {
     if ( ++$GLOBALS['upload_count'] === $GLOBALS['fail_upload'] ) return array( 'error' => 'Injected disk failure' );
     $target = $GLOBALS['root'] . '/uploads/trb-artist-private/new-' . $GLOBALS['upload_count'] . '-' . $file['name'];
@@ -32,7 +39,7 @@ function wp_handle_upload( $file, $options ) {
     return array( 'file' => $target, 'type' => $file['type'] );
 }
 $source = file_get_contents( __DIR__ . '/../inc/trb-artist-portal.php' );
-$wanted = array( 'trb_portal_private_profile_files', 'trb_portal_private_profile_file_path', 'trb_portal_private_upload_items', 'trb_portal_delete_retired_profile_files', 'trb_portal_handle_private_profile_uploads' );
+$wanted = array( 'trb_portal_private_profile_files', 'trb_portal_private_profile_file_path', 'trb_portal_private_upload_items', 'trb_portal_delete_retired_profile_files', 'trb_portal_handle_private_profile_uploads', 'trb_portal_render_private_files' );
 $tokens = token_get_all( $source );
 foreach ( $tokens as $i => $token ) {
     if ( ! is_array( $token ) || T_FUNCTION !== $token[0] ) continue;
@@ -101,6 +108,11 @@ try {
     fixture( 'trb_artist_bio_file', 'Replacement biography' ); $count = $GLOBALS['upload_count'];
     check( true === trb_portal_handle_private_profile_uploads( 198 ) && $count === $GLOBALS['upload_count'], 'Identical retry created another physical file' );
 
+    reset_fixture(); $GLOBALS['metadata'][0]['label'] = 'Old biography label';
+    fixture( 'trb_artist_bio_file', 'Replacement biography' );
+    check( true === trb_portal_handle_private_profile_uploads( 198 ), 'Legacy biography replacement rejected' );
+    check( count( $GLOBALS['metadata'] ) === 1 && ! file_exists( $root . '/uploads/trb-artist-private/old.txt' ), 'Legacy label retained an obsolete biography' );
+
     reset_fixture(); $duplicate = $GLOBALS['metadata'][0]; $duplicate['id'] = 'duplicate'; $GLOBALS['metadata'][] = $duplicate;
     $_POST['trb_artist_remove_files'] = array( 'duplicate' );
     check( true === trb_portal_handle_private_profile_uploads( 198 ), 'Duplicate reference removal failed' );
@@ -110,6 +122,17 @@ try {
     check( ! empty( trb_portal_private_profile_files( 198 )[0]['id'] ), 'Legacy file ID not normalized' );
     check( $before === $GLOBALS['metadata'], 'Reading file list wrote user metadata' );
     check( false === trb_portal_private_profile_file_path( array( 'path' => '../wp-admin/includes/file.php' ) ), 'Path escaped private directory' );
+
+    reset_fixture(); $missing = $GLOBALS['metadata'][0];
+    $missing['id'] = 'missing'; $missing['path'] = 'trb-artist-private/missing.txt'; $missing['size'] = 500;
+    $GLOBALS['metadata'][] = $missing;
+    ob_start(); trb_portal_render_private_files( 'biography' ); $html = ob_get_clean();
+    $document = new DOMDocument(); $document->loadHTML( '<?xml encoding="utf-8" ?>' . $html );
+    check( $document->getElementsByTagName( 'a' )->length === 1, 'Missing file advertised a download despite stale size metadata' );
+    check( str_contains( $document->textContent, 'File non disponibile: carica una nuova copia.' ), 'Missing file displayed a successful upload status' );
+    $missing['group'] = 'photo'; $GLOBALS['metadata'] = array( $missing );
+    ob_start(); trb_portal_render_private_files( 'photo' ); $html = ob_get_clean();
+    check( ! str_contains( $html, '<img' ) && ! str_contains( $html, '<a ' ), 'Missing photo displayed a broken preview or download' );
     echo $GLOBALS['checks'] . " profile file transaction assertions passed.\n";
 } finally {
     $iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $root, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
