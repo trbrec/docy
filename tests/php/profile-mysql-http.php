@@ -39,6 +39,14 @@ if ( $qaServing ) {
     $qaUserId = 'anonymous' === $qaIdentity ? 0 : ( 'admin' === $qaIdentity ? get_user_by( 'login', 'qa_admin' )->ID : (int) getenv( 'TRB_QA_USER_ID' ) );
     wp_set_current_user( $qaUserId );
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
+        if ( ( $_POST['action'] ?? '' ) === 'qa_public_search' ) {
+            define( 'DOING_AJAX', true );
+            register_post_type( 'qa_internal', array( 'public' => false, 'publicly_queryable' => false ) );
+            register_post_type( 'qa_public', array( 'public' => true, 'label' => 'Contenuti di prova' ) );
+            require dirname( __DIR__, 2 ) . '/inc/template-functions.php';
+            require dirname( __DIR__, 2 ) . '/inc/ajax_actions.php';
+            ajax_search_handler();
+        }
         if ( ( $_POST['action'] ?? '' ) === 'docy_edit_comment' ) {
             require dirname( __DIR__, 2 ) . '/inc/comment-functions.php';
             if ( ( $_POST['qa_delete_after_update'] ?? '' ) === '1' ) {
@@ -125,7 +133,7 @@ function qa_http( $fields = null, $anonymous = false, $administrator = false, $c
     curl_close( $qaCurl );
     $qaHeader = substr( $qaResponse, 0, $qaHeaderSize );
     preg_match( '/^Location:\s*(.+)$/mi', $qaHeader, $qaLocation );
-    return array( 'status' => $qaStatus, 'location' => trim( $qaLocation[1] ?? '' ), 'data' => json_decode( substr( $qaResponse, $qaHeaderSize ), true ) );
+    return array( 'status' => $qaStatus, 'location' => trim( $qaLocation[1] ?? '' ), 'data' => json_decode( substr( $qaResponse, $qaHeaderSize ), true ), 'body' => substr( $qaResponse, $qaHeaderSize ) );
 }
 $GLOBALS['qa_checks'] = 0;
 add_role( 'artista_d', 'Ordinary TRB artist', array( 'read' => true, 'trb_portal_trb' => true ) );
@@ -326,6 +334,7 @@ try {
     require __DIR__ . '/theme-settings-mysql-cases.php';
     require __DIR__ . '/theme-rating-mysql-cases.php';
     require __DIR__ . '/theme-comments-mysql-cases.php';
+    require __DIR__ . '/theme-search-mysql-cases.php';
     $qaCartOldUser = get_current_user_id();
     wp_set_current_user( $qaUser );
     $qaCartNonce = wp_create_nonce( 'docy-buy-now-nonce' );

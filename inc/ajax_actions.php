@@ -8,6 +8,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Docy search result item markup
  */
 function docy_search_result_html($post_type, $id){
+    if ( ! docy_forum_result_is_readable( $post_type, $id ) ) {
+        return;
+    }
     if ( 'product' === $post_type ) :
         ?>
         <a class="search-result-item shop-search-result-item" href="<?php echo esc_url( get_the_permalink($id) ); ?>">
@@ -83,8 +86,23 @@ function ajax_search_handler() {
 
     check_ajax_referer('ajax_search_nonce', 'security');
 
-    // Initialize post_type safely
-    $post_type 		= isset( $_POST['post_type'] ) ? wp_unslash( $_POST['post_type'] ) : '';
+    $requested_types = isset( $_POST['post_type'] ) ? wp_unslash( $_POST['post_type'] ) : '';
+    $multiple_types  = is_array( $requested_types );
+    $public_types    = array();
+    foreach ( array_slice( $multiple_types ? $requested_types : array( $requested_types ), 0, 5 ) as $requested_type ) {
+        if ( ! is_string( $requested_type ) ) {
+            continue;
+        }
+        $type = sanitize_key( $requested_type );
+        if ( is_post_type_viewable( $type ) ) {
+            $public_types[] = $type;
+        }
+    }
+    $public_types = array_values( array_unique( $public_types ) );
+    if ( ! $public_types ) {
+        wp_die();
+    }
+    $post_type = $multiple_types ? $public_types : $public_types[0];
     if ( isset( $_POST['keyword'] ) && is_scalar( $_POST['keyword'] ) ) {
     	$search_term = sanitize_text_field( wp_unslash( $_POST['keyword'] ) );
     } else {
@@ -99,33 +117,10 @@ function ajax_search_handler() {
 	$posts_per_page = $posts_per_page < -1 ? 10 : $posts_per_page;
 	$posts_per_page = 0 === $posts_per_page ? 10 : $posts_per_page;
 
-    // Bolt: Cache search results for 1 hour to prevent N+1 queries on repeated searches.
-    // Only cache for guests to prevent exposing private content visible to logged-in users.
-    $is_cachable = ! is_user_logged_in();
-    $cache_key = 'docy_search_' . md5( serialize( [ $post_type, $search_term ] ) );
-
-    if ( $is_cachable ) {
-        $cached_output = get_transient( $cache_key );
-        if ( false !== $cached_output ) {
-            echo $cached_output;
-            wp_die();
-        }
-    }
-
-    ob_start();
-
     $keyword_recorded = false; // Flag to ensure we record keyword only once
 
 	if ( is_array( $post_type ) ) {
-        // Limit to max 5 post types to prevent DoS
-		$post_type = array_slice( array_map( 'sanitize_key', $post_type ), 0, 5 );
-
 		foreach ( $post_type as $type ) {
-
-            // Security: Check if post type exists
-            if ( ! post_type_exists( $type ) ) {
-                continue;
-            }
 
              $args = [
                 's'                 => $search_term,
@@ -195,21 +190,31 @@ function ajax_search_handler() {
                 ], home_url( '/' ) );
                 ?>
                 <a href="<?php echo esc_url( $search_url ); ?>" class="view-more-btn">
-                    <?php esc_html_e( 'Show More Results', 'docy' ); ?>
+                    <?php esc_html_e( 'Mostra altri risultati', 'docy' ); ?>
                 </a>
                 <?php
             endif;
         }
     }
 
-    $output = ob_get_clean();
-
-    if ( $is_cachable ) {
-        set_transient( $cache_key, $output, HOUR_IN_SECONDS );
-    }
-    echo $output;
-
     wp_die();
+}
+
+/** Delegate forum visibility to bbPress, including its ancestor and membership rules. */
+function docy_forum_result_is_readable( $post_type, $id ) {
+    if ( ! function_exists( 'bbp_user_can_view_forum' ) ) {
+        return ! in_array( $post_type, array( 'forum', 'topic', 'reply' ), true );
+    }
+    if ( $post_type === bbp_get_forum_post_type() ) {
+        $forum_id = $id;
+    } elseif ( $post_type === bbp_get_topic_post_type() ) {
+        $forum_id = bbp_get_topic_forum_id( $id );
+    } elseif ( $post_type === bbp_get_reply_post_type() ) {
+        $forum_id = bbp_get_reply_forum_id( $id );
+    } else {
+        return true;
+    }
+    return $forum_id > 0 && bbp_user_can_view_forum( array( 'forum_id' => $forum_id, 'check_ancestors' => true ) );
 }
 
 /**
@@ -281,6 +286,9 @@ function docy_render_forum_topic_card( int $parent_post_id = 0 ) {
 	global $post;
 
 	if ( ! $post instanceof WP_Post ) {
+		return;
+	}
+	if ( ! docy_forum_result_is_readable( $post->post_type, $post->ID ) ) {
 		return;
 	}
 
