@@ -127,6 +127,7 @@ if ( in_array( '--sources', $argv, true ) ) {
     preg_match_all( '~(/assets/[a-zA-Z0-9_-]+\.(?:js|css|cmd))~', file_get_contents( '/home/customer/www/crm.trbrec.com/public_html/app/View.php' ), $assets );
     foreach ( array_unique( $assets[1] ) as $asset ) $source_paths[ 'crm' . $asset ] = '/home/customer/www/crm.trbrec.com/public_html' . $asset;
     foreach ( array( 'trb-crm-sync.php', 'trb-login-cache-guard.php', 'trb-z-crm-release-sync-r26.php' ) as $name ) $source_paths[ 'portal/mu-plugins/' . $name ] = '/home/customer/www/artist.trbrec.com/public_html/wp-content/mu-plugins/' . $name;
+    foreach ( array( 'Model.php', 'Esigrole.php', 'User.php', 'Signature.php' ) as $name ) $source_paths[ 'portal/signature-models/' . $name ] = '/home/customer/www/artist.trbrec.com/public_html/wp-content/plugins/e-signature/models/' . $name;
     $sources = array();
     foreach ( $source_paths as $name => $path ) {
         if ( ! is_file( $path ) || is_link( $path ) ) throw new RuntimeException( 'An explicitly selected source file is unavailable.' );
