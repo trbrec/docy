@@ -99,17 +99,21 @@ function docy_scripts() {
 		if ( '1' === $is_rating_enabled ) {
 			$thank_you_text = isset( $opt['article_rating_thank_you'] ) && ! empty( $opt['article_rating_thank_you'] )
 				? $opt['article_rating_thank_you']
-				: esc_html__( 'Thank you for rating this article!', 'docy' );
+				: esc_html__( 'Grazie per aver votato questo articolo!', 'docy' );
 
-			wp_enqueue_script( 'docy-article-rating', DOCY_DIR_JS . '/article-rating.js', [ 'jquery' ], DOCY_VERSION, true );
+			$rating_path = get_template_directory() . '/assets/js/article-rating.js';
+			$rating_hash = is_readable( $rating_path ) ? md5_file( $rating_path ) : false;
+			$rating_version = $rating_hash ? DOCY_VERSION . '.' . substr( $rating_hash, 0, 12 ) : DOCY_VERSION;
+			wp_enqueue_script( 'docy-article-rating', DOCY_DIR_JS . '/article-rating.js', [ 'jquery' ], $rating_version, true );
 			wp_localize_script(
 				'docy-article-rating',
 				'docy_rating_params',
 				[
 					'ajax_url'        => admin_url( 'admin-ajax.php' ),
 					'nonce'           => wp_create_nonce( 'docy_article_rating_nonce' ),
-					'thank_you_text'  => esc_html( $thank_you_text ),
-					'submitting_text' => esc_html__( 'Submitting your rating...', 'docy' ),
+					'thank_you_text'  => wp_strip_all_tags( $thank_you_text ),
+					'submitting_text' => esc_html__( 'Invio del voto…', 'docy' ),
+					'error_text'      => esc_html__( 'Impossibile salvare il voto. Riprova.', 'docy' ),
 				]
 			);
 		}

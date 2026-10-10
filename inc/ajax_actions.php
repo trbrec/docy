@@ -665,40 +665,32 @@ add_action( 'wp_ajax_nopriv_docy_submit_article_rating', 'docy_submit_article_ra
  */
 function docy_submit_article_rating() {
 	// Verify nonce for security.
-	if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'docy_article_rating_nonce' ) ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Security verification failed.', 'docy' ) ] );
+	if ( ! isset( $_POST['nonce'] ) || ! is_string( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'docy_article_rating_nonce' ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Controllo di sicurezza fallito. Ricarica la pagina e riprova.', 'docy' ) ], 403 );
 	}
 
-	// Validate and sanitize post ID.
-	$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
-	if ( ! $post_id || ! get_post( $post_id ) ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Invalid post ID.', 'docy' ) ] );
+	$post_id = isset( $_POST['post_id'] ) && is_string( $_POST['post_id'] ) && ctype_digit( $_POST['post_id'] ) ? (int) $_POST['post_id'] : 0;
+	$post = $post_id ? get_post( $post_id ) : null;
+	if ( ! $post instanceof WP_Post || 'post' !== $post->post_type || 'publish' !== $post->post_status ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Articolo non disponibile.', 'docy' ) ], 400 );
 	}
 
-	// Validate and sanitize rating value (1-5).
-	$rating = isset( $_POST['rating'] ) ? absint( $_POST['rating'] ) : 0;
-	if ( $rating < 1 || $rating > 5 ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Invalid rating value.', 'docy' ) ] );
+	$rating = isset( $_POST['rating'] ) && is_string( $_POST['rating'] ) && preg_match( '/^[1-5]$/D', $_POST['rating'] ) ? (int) $_POST['rating'] : 0;
+	if ( ! $rating ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Seleziona un voto da 1 a 5.', 'docy' ) ], 400 );
 	}
 
-	// Get existing rating data.
-	$rating_data = get_post_meta( $post_id, '_docy_article_rating', true );
-	if ( empty( $rating_data ) || ! is_array( $rating_data ) ) {
-		$rating_data = [
-			'votes' => 0,
-			'total' => 0,
-		];
+	$cookie_name = 'docy_article_rated_' . $post_id;
+	if ( isset( $_COOKIE[ $cookie_name ] ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Hai già votato questo articolo.', 'docy' ) ], 409 );
 	}
 
-	// Update rating data.
-	$rating_data['votes'] = intval( $rating_data['votes'] ) + 1;
-	$rating_data['total'] = floatval( $rating_data['total'] ) + $rating;
-
-	// Save updated rating data.
-	update_post_meta( $post_id, '_docy_article_rating', $rating_data );
+	$rating_data = docy_store_article_rating( $post_id, $rating );
+	if ( is_wp_error( $rating_data ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Impossibile salvare il voto. Riprova.', 'docy' ) ], 503 );
+	}
 
 	// Set cookie to prevent duplicate ratings (expires in 30 days).
-	$cookie_name   = 'docy_article_rated_' . $post_id;
 	$cookie_expiry = time() + ( 30 * DAY_IN_SECONDS );
 	setcookie( $cookie_name, '1', $cookie_expiry, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true );
 
@@ -707,9 +699,39 @@ function docy_submit_article_rating() {
 
 	wp_send_json_success(
 		[
-			'message'    => esc_html__( 'Thank you for rating this article!', 'docy' ),
+			'message'    => esc_html__( 'Grazie per aver votato questo articolo!', 'docy' ),
 			'avg_rating' => $avg_rating,
 			'votes'      => $rating_data['votes'],
 		]
 	);
+}
+
+/** Store one vote under a per-site, per-article database lock; release it before JSON exits. */
+function docy_store_article_rating( $post_id, $rating ) {
+	global $wpdb;
+	$lock = 'docy-rating-' . substr( hash( 'sha256', DB_NAME . '|' . $wpdb->postmeta . '|' . $post_id ), 0, 48 );
+	if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 2)', $lock ) ) ) {
+		return new WP_Error( 'rating_busy' );
+	}
+	try {
+		// A previous request may have populated a persistent cache before waiting for this lock.
+		wp_cache_delete( $post_id, 'post_meta' );
+		$previous = get_post_meta( $post_id, '_docy_article_rating', true );
+		if ( '' === $previous ) $previous = array( 'votes' => 0, 'total' => 0 );
+		if ( ! is_array( $previous ) || ! isset( $previous['votes'], $previous['total'] ) || ! is_numeric( $previous['votes'] ) || ! is_numeric( $previous['total'] ) ) {
+			return new WP_Error( 'rating_invalid_storage' );
+		}
+		$votes = (int) $previous['votes'];
+		$total = (float) $previous['total'];
+		if ( $votes < 0 || $votes >= PHP_INT_MAX || (float) $votes !== (float) $previous['votes'] || ! is_finite( $total ) || $total < $votes || $total > 5 * $votes ) {
+			return new WP_Error( 'rating_invalid_storage' );
+		}
+		$next = array( 'votes' => $votes + 1, 'total' => $total + $rating );
+		if ( false === update_post_meta( $post_id, '_docy_article_rating', $next ) || get_post_meta( $post_id, '_docy_article_rating', true ) !== $next ) {
+			return new WP_Error( 'rating_write_failed' );
+		}
+		return $next;
+	} finally {
+		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
+	}
 }

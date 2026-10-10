@@ -32,8 +32,8 @@ $cookie_name = 'docy_article_rated_' . $post_id;
 $has_rated   = isset( $_COOKIE[ $cookie_name ] );
 
 // Get settings for customizable text.
-$rating_title      = docy_opt( 'article_rating_title', esc_html__( 'Rate the article', 'docy' ) );
-$thank_you_message = docy_opt( 'article_rating_thank_you', esc_html__( 'Thank you for rating this article!', 'docy' ) );
+$rating_title      = docy_opt( 'article_rating_title', esc_html__( 'Valuta l’articolo', 'docy' ) );
+$thank_you_message = docy_opt( 'article_rating_thank_you', esc_html__( 'Grazie per aver votato questo articolo!', 'docy' ) );
 $show_average      = docy_opt( 'is_article_rating_average', '1' );
 $enable_schema     = docy_opt( 'is_article_rating_schema', '1' );
 
@@ -135,7 +135,7 @@ if ( $total_votes > 0 && '1' === $enable_schema ) :
 						role="radio"
 						aria-checked="false"
 						data-rating="<?php echo esc_attr( $i ); ?>"
-						aria-label="<?php printf( esc_attr__( 'Rate %d out of 5 stars', 'docy' ), $i ); ?>">
+						aria-label="<?php printf( esc_attr__( 'Vota %d su 5', 'docy' ), $i ); ?>">
 						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" aria-hidden="true">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
 						</svg>
@@ -156,7 +156,7 @@ if ( $total_votes > 0 && '1' === $enable_schema ) :
 		<?php
 		printf(
 			/* translators: 1: Average rating, 2: Total votes */
-			esc_html__( 'Average rating: %1$s out of 5, based on %2$s votes.', 'docy' ),
+			esc_html__( 'Voto medio: %1$s su 5, basato su %2$s voti.', 'docy' ),
 			esc_html( number_format( $avg_rating, 1 ) ),
 			esc_html( number_format_i18n( $total_votes ) )
 		);

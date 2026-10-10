@@ -39,6 +39,10 @@ if ( $qaServing ) {
     $qaUserId = 'anonymous' === $qaIdentity ? 0 : ( 'admin' === $qaIdentity ? get_user_by( 'login', 'qa_admin' )->ID : (int) getenv( 'TRB_QA_USER_ID' ) );
     wp_set_current_user( $qaUserId );
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
+        if ( ( $_POST['action'] ?? '' ) === 'docy_submit_article_rating' ) {
+            require dirname( __DIR__, 2 ) . '/inc/ajax_actions.php';
+            docy_submit_article_rating();
+        }
         if ( ( $_POST['action'] ?? '' ) === 'qa_csf_save' ) {
             require dirname( __DIR__, 2 ) . '/inc/csf/classes/abstract.class.php';
             require dirname( __DIR__, 2 ) . '/inc/csf/classes/admin-options.class.php';
@@ -98,9 +102,10 @@ if ( $qaServing ) {
     exit;
 }
 function qa_check( $condition, $message ) { if ( ! $condition ) throw new RuntimeException( $message ); $GLOBALS['qa_checks']++; }
-function qa_http( $fields = null, $anonymous = false, $administrator = false ) {
+function qa_http( $fields = null, $anonymous = false, $administrator = false, $cookie = '' ) {
     $qaCurl = curl_init( 'http://' . $GLOBALS['qa_address'] . '/' );
     curl_setopt_array( $qaCurl, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 20, CURLOPT_HTTPHEADER => array( 'X-TRB-QA-Token: ' . $GLOBALS['qa_http_token'], 'X-TRB-QA-User: ' . ( $anonymous ? 'anonymous' : ( $administrator ? 'admin' : 'artist' ) ) ) ) );
+    if ( '' !== $cookie ) curl_setopt( $qaCurl, CURLOPT_COOKIE, $cookie );
     if ( null !== $fields ) curl_setopt_array( $qaCurl, array( CURLOPT_POST => true, CURLOPT_POSTFIELDS => $fields ) );
     $qaResponse = curl_exec( $qaCurl );
     if ( false === $qaResponse ) throw new RuntimeException( 'QA HTTP request failed: ' . curl_error( $qaCurl ) );
@@ -308,6 +313,7 @@ try {
     require __DIR__ . '/mu-sync-mysql-cases.php';
     require __DIR__ . '/onboarding-storage-mysql-cases.php';
     require __DIR__ . '/theme-settings-mysql-cases.php';
+    require __DIR__ . '/theme-rating-mysql-cases.php';
     qa_check( ! preg_match( '/PHP (Warning|Notice|Deprecated|Fatal error|Parse error)/', file_get_contents( $qaRoot . '/qa-http.log' ) ), 'The real HTTP fixture emitted unexpected PHP diagnostics.' );
     echo $GLOBALS['qa_checks'] . " real WordPress/MySQL/HTTP assertions passed; ordinary Tunisia artist, authentication/nonce, metadata, file rollback/retry, process lock and outbox failure.\n";
 } finally {
