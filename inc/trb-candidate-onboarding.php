@@ -200,7 +200,7 @@ function trb_onboarding_public($request){
     if($action==='details'){
         if(strtoupper($p['billing']['country']??'')!=='IT')return new WP_Error('onboarding_country','Controlla il paese e il CAP della residenza.',array('status'=>422));
         $tax=trb_portal_validate_tax_code($p['tax_code']??'');if(!$tax)return new WP_Error('onboarding_tax','Codice fiscale non valido. Controlla i dati prima di proseguire.',array('status'=>422));$p['tax_code']=$tax;
-        $phone=trb_portal_validate_mobile($p['billing']['phone']??'');if(!$phone)return new WP_Error('onboarding_phone','Inserisci un cellulare italiano valido per ricevere il codice di firma.',array('status'=>422));$p['billing']['phone']=$phone;
+        $phone=trb_portal_validate_mobile($p['billing']['phone']??'');if(!$phone)return new WP_Error('onboarding_phone','Inserisci un numero SMS valido con prefisso internazionale per ricevere il codice di firma.',array('status'=>422));$p['billing']['phone']=$phone;
         $postcode=(string)($p['billing']['postcode']??'');$places=preg_match('/^[0-9]{5}$/D',$postcode)?trb_portal_lookup_postcode($postcode):array();$matched=false;
         if(!is_wp_error($places))foreach($places as $place)if(strtolower(remove_accents((string)($p['billing']['city']??'')))===strtolower(remove_accents($place['city']))){$matched=$place;break;}
         if(!$matched)return new WP_Error('onboarding_address','Controlla il CAP e seleziona il Comune corretto.',array('status'=>422));

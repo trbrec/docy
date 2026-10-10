@@ -49,8 +49,9 @@ final class OnboardingService
         $billing=[];foreach(['address_1','address_2','street','street_number','city','postcode','country','state','phone'] as $field){$value=trim((string)($input['billing'][$field]??''));if(mb_strlen($value)>200||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dati amministrativi non validi');$billing[$field]=$value;}
         foreach(['address_1','city','postcode','country','phone'] as $required)if($billing[$required]==='')throw new \RuntimeException('Completa domicilio, paese e telefono');
         $billing['country']=strtoupper($billing['country']);if(!preg_match('/^[A-Z]{2}$/D',$billing['country']))throw new \RuntimeException('Paese non valido');
-        $phone=preg_replace('/[\s.()\-]+/','',$billing['phone']);if(str_starts_with($phone,'0039'))$phone='+39'.substr($phone,4);
-        if(!preg_match('/^(?:\+39)?3\d{9}$/D',$phone))throw new \RuntimeException('Inserisci un cellulare italiano valido per ricevere gli SMS di firma');$billing['phone']=$phone;
+        $phone=preg_replace('/[\s.()\-]+/','',$billing['phone']);if(str_starts_with($phone,'00'))$phone='+'.substr($phone,2);
+        if(preg_match('/^3\d{9}$/D',$phone))$phone='+39'.$phone;
+        if(!preg_match('/^\+[1-9]\d{6,14}$/D',$phone))throw new \RuntimeException('Inserisci un numero SMS valido con prefisso internazionale');$billing['phone']=$phone;
         $billing['first_name']=$p['snapshot']['first_name'];$billing['last_name']=$p['snapshot']['last_name'];
         $tax=mb_strtoupper(trim((string)($input['tax_code']??'')));if(!preg_match('/^[A-Z0-9 -]{3,32}$/D',$tax))throw new \RuntimeException('Identificativo fiscale non valido');
         $invoice=[];foreach(['company_name','company_address','vat_number','sdi_code','pec'] as $field)$invoice[$field]=trim((string)($input['invoice'][$field]??''));
