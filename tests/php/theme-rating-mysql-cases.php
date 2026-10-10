@@ -70,6 +70,17 @@ try {
     $qaRatingMarkup = ob_get_clean();
     qa_check( str_contains( $qaRatingMarkup, 'Grazie per aver votato questo articolo!' ) && ! str_contains( $qaRatingMarkup, 'Thank you for rating' ), 'Legacy English confirmation was rendered on the Italian site.' );
     unset( $_COOKIE[ 'docy_article_rated_' . $qaRatingPost ] );
+    wp_update_post( array( 'ID' => $qaRatingPost, 'post_title' => 'L\'artista "Tunisia" <script>testo</script>' ) );
+    update_post_meta( $qaRatingPost, $qaRatingMeta, array( 'votes' => 2, 'total' => 6 ) );
+    $GLOBALS['post'] = get_post( $qaRatingPost );
+    ob_start();
+    require dirname( __DIR__, 2 ) . '/template-parts/single-post/article-rating.php';
+    $qaRatingMarkup = ob_get_clean();
+    preg_match( '~<script type="application/ld\\+json">(.*?)</script>~s', $qaRatingMarkup, $qaRatingSchemaMatch );
+    $qaRatingSchema = json_decode( $qaRatingSchemaMatch[1] ?? '', true );
+    qa_check( is_array( $qaRatingSchema ) && JSON_ERROR_NONE === json_last_error(), 'Article structured data is not valid JSON for quoted Italian titles.' );
+    qa_check( wp_strip_all_tags( get_the_title( $qaRatingPost ) ) === $qaRatingSchema['headline'], 'JSON article titles changed their text during escaping.' );
+    qa_check( 2 === $qaRatingSchema['aggregateRating']['ratingCount'] && 3 === $qaRatingSchema['aggregateRating']['ratingValue'], 'JSON structured data lost the actual vote totals.' );
     $GLOBALS['wp_query'] = $qaRatingOldQuery;
     wp_reset_postdata();
 } finally {

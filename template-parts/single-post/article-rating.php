@@ -66,43 +66,24 @@ $site_url  = home_url();
  * This helps search engines display rich snippets with star ratings.
  * Only output if there are votes (Google requires at least 1 rating) and schema is enabled.
  */
-if ( $total_votes > 0 && '1' === $enable_schema ) :
-?>
-<script type="application/ld+json">
-{
-	"@context": "https://schema.org",
-	"@type": "Article",
-	"mainEntityOfPage": {
-		"@type": "WebPage",
-		"@id": "<?php echo esc_url( $post_url ); ?>"
-	},
-	"headline": "<?php echo esc_js( $post_title ); ?>",
-	"description": "<?php echo esc_js( wp_strip_all_tags( $post_description ) ); ?>",
-	<?php if ( $featured_image ) : ?>
-	"image": "<?php echo esc_url( $featured_image ); ?>",
-	<?php endif; ?>
-	"datePublished": "<?php echo esc_attr( $post_date ); ?>",
-	"dateModified": "<?php echo esc_attr( $post_modified ); ?>",
-	"author": {
-		"@type": "Person",
-		"name": "<?php echo esc_js( $author_name ); ?>",
-		"url": "<?php echo esc_url( $author_url ); ?>"
-	},
-	"publisher": {
-		"@type": "Organization",
-		"name": "<?php echo esc_js( $site_name ); ?>",
-		"url": "<?php echo esc_url( $site_url ); ?>"
-	},
-	"aggregateRating": {
-		"@type": "AggregateRating",
-		"ratingValue": "<?php echo esc_attr( $avg_rating ); ?>",
-		"bestRating": "5",
-		"worstRating": "1",
-		"ratingCount": "<?php echo esc_attr( $total_votes ); ?>"
-	}
+if ( $total_votes > 0 && '1' === $enable_schema ) {
+	$schema = array(
+		'@context' => 'https://schema.org',
+		'@type' => 'Article',
+		'mainEntityOfPage' => array( '@type' => 'WebPage', '@id' => esc_url_raw( $post_url ) ),
+		'headline' => wp_strip_all_tags( $post_title ),
+		'description' => wp_strip_all_tags( $post_description ),
+		'datePublished' => $post_date,
+		'dateModified' => $post_modified,
+		'author' => array( '@type' => 'Person', 'name' => wp_strip_all_tags( $author_name ), 'url' => esc_url_raw( $author_url ) ),
+		'publisher' => array( '@type' => 'Organization', 'name' => wp_strip_all_tags( $site_name ), 'url' => esc_url_raw( $site_url ) ),
+		'aggregateRating' => array( '@type' => 'AggregateRating', 'ratingValue' => $avg_rating, 'bestRating' => 5, 'worstRating' => 1, 'ratingCount' => $total_votes ),
+	);
+	if ( $featured_image ) $schema['image'] = esc_url_raw( $featured_image );
+	// JSON escaping also prevents a title from ending the surrounding script element.
+	echo '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) . '</script>';
 }
-</script>
-<?php endif; ?>
+?>
 
 <div class="docy-article-rating" id="docy-article-rating" data-post-id="<?php echo esc_attr( $post_id ); ?>" itemscope itemtype="https://schema.org/Article">
 	<?php if ( $has_rated ) : ?>

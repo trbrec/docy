@@ -66,7 +66,10 @@ function docy_scripts() {
 	if ( class_exists( 'WooCommerce' ) ) {
 		// Enqueue WooCommerce JavaScript for all WooCommerce pages
 		if ( is_shop() || is_singular('product') || is_cart() || is_checkout() || is_account_page() || is_product_taxonomy() ) {
-			wp_enqueue_script( 'docy-woocommerce', DOCY_DIR_JS . '/woocommerce.js', [ 'jquery' ], DOCY_VERSION, true );
+			$woocommerce_path = get_template_directory() . '/assets/js/woocommerce.js';
+			$woocommerce_hash = is_readable( $woocommerce_path ) ? md5_file( $woocommerce_path ) : false;
+			$woocommerce_version = $woocommerce_hash ? DOCY_VERSION . '.' . substr( $woocommerce_hash, 0, 12 ) : DOCY_VERSION;
+			wp_enqueue_script( 'docy-woocommerce', DOCY_DIR_JS . '/woocommerce.js', [ 'jquery' ], $woocommerce_version, true );
 			wp_localize_script( 'docy-woocommerce', 'docy_buy_now_params', [
 				'ajax_url'     => admin_url( 'admin-ajax.php' ),
 				'checkout_url' => wc_get_checkout_url(),

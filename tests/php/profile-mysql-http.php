@@ -39,6 +39,10 @@ if ( $qaServing ) {
     $qaUserId = 'anonymous' === $qaIdentity ? 0 : ( 'admin' === $qaIdentity ? get_user_by( 'login', 'qa_admin' )->ID : (int) getenv( 'TRB_QA_USER_ID' ) );
     wp_set_current_user( $qaUserId );
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
+        if ( ( $_POST['action'] ?? '' ) === 'docy_buy_now_add_to_cart' ) {
+            require dirname( __DIR__, 2 ) . '/inc/woo_config.php';
+            docy_buy_now_add_to_cart();
+        }
         if ( ( $_POST['action'] ?? '' ) === 'docy_submit_article_rating' ) {
             require dirname( __DIR__, 2 ) . '/inc/ajax_actions.php';
             docy_submit_article_rating();
@@ -314,6 +318,14 @@ try {
     require __DIR__ . '/onboarding-storage-mysql-cases.php';
     require __DIR__ . '/theme-settings-mysql-cases.php';
     require __DIR__ . '/theme-rating-mysql-cases.php';
+    $qaCartOldUser = get_current_user_id();
+    wp_set_current_user( $qaUser );
+    $qaCartNonce = wp_create_nonce( 'docy-buy-now-nonce' );
+    wp_set_current_user( $qaCartOldUser );
+    foreach ( array( array( array(), 503 ), array( array( 'variation' => 'malformed' ), 400 ), array( array( 'nonce' => '', 'nonce[0]' => 'malformed' ), 403 ) ) as [ $qaCartOverrides, $qaCartStatus ] ) {
+        $qaCartResponse = qa_http( array_replace( array( 'action' => 'docy_buy_now_add_to_cart', 'product_id' => '123', 'nonce' => $qaCartNonce ), $qaCartOverrides ) );
+        qa_check( $qaCartStatus === $qaCartResponse['status'] && false === $qaCartResponse['data']['success'], 'The real HTTP cart boundary accepted malformed input or failed without a controlled response when WooCommerce is absent.' );
+    }
     qa_check( ! preg_match( '/PHP (Warning|Notice|Deprecated|Fatal error|Parse error)/', file_get_contents( $qaRoot . '/qa-http.log' ) ), 'The real HTTP fixture emitted unexpected PHP diagnostics.' );
     echo $GLOBALS['qa_checks'] . " real WordPress/MySQL/HTTP assertions passed; ordinary Tunisia artist, authentication/nonce, metadata, file rollback/retry, process lock and outbox failure.\n";
 } finally {

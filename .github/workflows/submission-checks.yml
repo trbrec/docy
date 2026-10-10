@@ -96,6 +96,8 @@ jobs:
         run: TRB_WP_TEST_ROOT=/tmp/trb-profile-wp/wordpress NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/theme-settings-ui.test.cjs
       - name: Validate article voting failure, retry and browser storage restrictions
         run: TRB_WP_TEST_ROOT=/tmp/trb-profile-wp/wordpress NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/article-rating-ui.test.cjs
+      - name: Validate cart failures, duplicate clicks and confirmed navigation
+        run: TRB_WP_TEST_ROOT=/tmp/trb-profile-wp/wordpress NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/cart-request-ui.test.cjs
       - name: Validate mobile form and service email layouts
         run: NODE_PATH=/tmp/trb-browser-qa/node_modules node tests/onboarding-responsive.test.cjs
       - uses: actions/upload-artifact@v4
