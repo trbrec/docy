@@ -35,10 +35,9 @@ $changes=[];
 $stage=static function(string $path,string $next)use(&$changes,$backup){
     $original=is_file($path)?file_get_contents($path):null;
     if($original===$next)return;
-    $temp=$backup.'/'.hash('sha256',$path).'.new';
-    if(file_put_contents($temp,$next)!==strlen($next))throw new RuntimeException('Stage failed');
-    exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($temp).' 2>&1',$out,$status);if($status!==0)throw new RuntimeException('Syntax check failed');
-    $changes[]=compact('path','next','original','temp');
+    require_once __DIR__.'/integration-syntax-preflight.php';
+    trb_integration_syntax_preflight([$path=>$next]);
+    $changes[]=compact('path','next','original');
 };
 // These sources are checked above and maintained by the separate CRM release.
 // Never stage bundled CRM modules over an installed canonical runtime.
@@ -51,8 +50,6 @@ $functionsPath=$store['directory'].'/functions.php';$functions=(string)file_get_
 if(!str_contains($functions,"'/inc/trb-onboarding-payments.php'"))$functions.="\n/** New contract installment checkout. */\nrequire_once get_stylesheet_directory() . '/inc/trb-onboarding-payments.php';\n";
 $stage($functionsPath,$functions);
 foreach($changes as $c){$current=is_file($c['path'])?file_get_contents($c['path']):null;if($current!==$c['original'])throw new RuntimeException('Concurrent edit');}
-$installed=[];
-try{
  require_once $crm.'/app/Core.php';\TrbCrm\Env::load($crm.'/.env');
  require_once $crm.'/app/OnboardingLedger.php';require_once $crm.'/app/OnboardingDrive.php';require_once $crm.'/app/OnboardingTransport.php';require_once $crm.'/app/OnboardingContractCatalog.php';
  onboarding_stage('archive-config');
@@ -72,7 +69,6 @@ try{
  $portal=\TrbCrm\OnboardingTransport::signed('https://artist.trbrec.com/wp-json/trb/v1/onboarding/private',(string)\TrbCrm\Env::get('ARTIST_PORTAL_SYNC_SECRET',''),['action'=>'health'],'onboarding-portal-v1');
  if(($portal['version']??'')!=='2026.2'||empty($portal['crm_configured'])||empty($portal['store_configured'])||empty($portal['approval_plugin']))throw new RuntimeException('Portal adapter not ready');
  onboarding_stage('file-install');
- foreach($changes as $c){if($c['original']!==null){file_put_contents($backup.'/'.hash('sha256',$c['path']).'.before',$c['original']);chmod($backup.'/'.hash('sha256',$c['path']).'.before',0600);}chmod($c['temp'],0644);if(!rename($c['temp'],$c['path']))throw new RuntimeException('Install failed');$installed[]=$c;if(!hash_equals(hash('sha256',$c['next']),hash_file('sha256',$c['path'])))throw new RuntimeException('Install readback failed');if(function_exists('opcache_invalidate'))opcache_invalidate($c['path'],true);}
-}catch(Throwable $e){
-foreach(array_reverse($installed) as $c){if($c['original']===null)@unlink($c['path']);else file_put_contents($c['path'],$c['original'],LOCK_EX);if(function_exists('opcache_invalidate'))opcache_invalidate($c['path'],true);}throw $e;}
+ require_once __DIR__.'/release-file-transaction.php';
+ trb_release_file_install($changes,$backup.'/store-files',$storeRoot.'/wp-content/themes');
 echo "Onboarding modules installed; authenticated adapters and all contract sources verified.\n";

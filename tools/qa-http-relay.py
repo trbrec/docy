@@ -22,7 +22,7 @@ def exchange(packet, jar):
     if not re.fullmatch(r'https://artist\.trbrec\.com/(?:trb-audit-http-[a-f0-9]{24}/index\.php|wp-login\.php)', url):
         raise ValueError('Unexpected isolated HTTP destination')
     headers = {'User-Agent': 'Mozilla/5.0 (compatible; TRB-Audit/1.0)'}
-    for name, value in packet.get('headers', {}).items():
+    for name, value in (packet.get('headers') or {}).items():
         if name not in ('X-TRB-QA-Token', 'X-TRB-QA-Route') or '\r' in value or '\n' in value:
             raise ValueError('Unexpected fixture header')
         headers[name] = value
@@ -73,25 +73,31 @@ def main():
     process = subprocess.Popen(sys.argv[2:], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     jar = http.cookiejar.CookieJar()
     final = None
+    stage = 'waiting_for_fixture'
+    count = 0
     try:
         for line in process.stdout:
             packet = json.loads(line)
             if packet.get('relay') == 'isolated-http-v1':
+                stage = 'external_request'
                 answer = exchange(packet, jar)
+                count += 1
+                stage = 'returning_response'
                 process.stdin.write(json.dumps(answer) + '\n')
                 process.stdin.flush()
             else:
                 final = packet
+        stage = 'fixture_result'
         status = process.wait(timeout=45)
         if not isinstance(final, dict) or 'completed' not in final:
             raise RuntimeError('Isolated HTTP result unavailable')
         print(json.dumps(final))
         return status
-    except Exception:
+    except Exception as error:
         process.kill()
         process.wait()
         # Never include request payloads, cookies or response bodies in diagnostics.
-        print(json.dumps({'completed': False, 'fatal': {'stage': 'external_http_relay'}}))
+        print(json.dumps({'completed': False, 'fatal': {'stage': 'external_http_relay', 'operation': stage, 'class': type(error).__name__, 'completed_requests': count}}))
         return 1
 
 

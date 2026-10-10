@@ -1,6 +1,7 @@
 <?php
 /** File-only rollback: no live database or uploaded artist material is restored. */
 function trb_portal_release_files( $root ) {
+    if ( is_link( $root ) ) throw new RuntimeException( 'Release directory link refused.' );
     $root = realpath( $root );
     if ( false === $root || is_link( $root ) ) throw new RuntimeException( 'Release directory unavailable.' );
     $files = array();
@@ -49,10 +50,10 @@ function trb_portal_release_restore( $theme, $backup, $revision ) {
         }
     }
     foreach ( $previous as $path => $spec ) {
-        $target = $theme . '/' . $path; $temporary = $target . '.audit-restore';
+        $target = $theme . '/' . $path;
         if ( ! is_dir( dirname( $target ) ) && ! mkdir( dirname( $target ), 0755, true ) ) throw new RuntimeException( 'Rollback directory failed.' );
-        if ( ! copy( $backup . '/files/' . $path, $temporary ) || ! chmod( $temporary, $spec['mode'] ) || ! rename( $temporary, $target ) || ! hash_equals( $spec['sha256'], hash_file( 'sha256', $target ) ) ) throw new RuntimeException( 'Theme rollback failed.' );
-        if ( function_exists( 'opcache_invalidate' ) ) opcache_invalidate( $target, true );
+        require_once __DIR__ . '/release-file-transaction.php';
+        trb_release_file_replace( $target, file_get_contents( $backup . '/files/' . $path ), $spec['mode'] );
     }
     foreach ( array_diff_key( $next, $previous ) as $path => $spec ) if ( is_file( $theme . '/' . $path ) && ! unlink( $theme . '/' . $path ) ) throw new RuntimeException( 'Added release file cleanup failed.' );
     return count( $previous );

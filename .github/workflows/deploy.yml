@@ -69,11 +69,15 @@ jobs:
           candidate="${release}/candidate"
           snapshot_ready=0
           integrations_started=0
+          onboarding_started=0
           rollback_release() {
             result=$?
             trap - EXIT
             if [ "${result}" -ne 0 ]; then
               ssh "${ssh_opts[@]}" "${remote}" "rm -f -- '${release}/complete.json'" >/dev/null 2>&1 || true
+              if [ "${onboarding_started}" -eq 1 ]; then
+                ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/rollback-onboarding-store.php' '${GITHUB_SHA}'" >/dev/null 2>&1 || echo "Store integration rollback requires investigation."
+              fi
               if [ "${snapshot_ready}" -eq 1 ]; then
                 ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/prepare-portal-release.php' rollback '${GITHUB_SHA}'" >/dev/null 2>&1 || echo "Theme rollback requires investigation."
               fi
@@ -167,6 +171,7 @@ jobs:
                 echo "Onboarding installer failed its server syntax check."
                 exit 1
               fi
+              onboarding_started=1
               if onboarding_result=$(ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/onboarding-deploy-status.php' '${GITHUB_SHA}'" 2>/dev/null) && printf '%s' "${onboarding_result}" | python3 -c 'import sys,json;sys.exit(0 if json.load(sys.stdin).get("success") is True else 1)' 2>/dev/null; then
                 echo "Onboarding installer completed."
               else
