@@ -8,19 +8,25 @@ function trb_qa_installed_http( $work ) {
     $token = bin2hex( random_bytes( 32 ) ); $name = 'trb-audit-http-' . bin2hex( random_bytes( 12 ) );
     $bridge_directory = $site . '/' . $name;
     $bridge = $bridge_directory . '/index.php';
-    if ( file_exists( $bridge_directory ) || is_link( $site ) || ! mkdir( $bridge_directory, 0755 ) ) throw new RuntimeException( 'HTTP fixture path collision.' );
+    if ( file_exists( $bridge_directory ) || is_link( $site ) ) throw new RuntimeException( 'HTTP fixture path collision.' );
     $base = 'https://artist.trbrec.com/' . $name;
     $config = file_get_contents( $root . '/wp-config.php' );
     $config = str_replace( "'http://127.0.0.1'", var_export( $base, true ), $config );
     $config = str_replace( "<?php", "<?php\ndefine('COOKIEPATH','/');define('SITECOOKIEPATH','/');define('ADMIN_COOKIE_PATH','/');", $config );
-    file_put_contents( $root . '/wp-config.php', $config, LOCK_EX );
+    if ( file_put_contents( $root . '/wp-config.php', $config, LOCK_EX ) !== strlen( $config ) ) throw new RuntimeException( 'HTTP configuration unavailable.' );
     $code = '<?php ini_set("display_errors","0"); header("Cache-Control: no-store"); if(time()>' . ( time() + 900 ) . '||!hash_equals(' . var_export( $token, true ) . ',(string)($_SERVER["HTTP_X_TRB_QA_TOKEN"]??""))){http_response_code(404);exit;} define("ABSPATH",' . var_export( $root . '/', true ) . '); $path=$_SERVER["HTTP_X_TRB_QA_ROUTE"]??""; if(!in_array($path,["/wp-login.php","/wp-admin/admin-post.php","/"],true)){http_response_code(404);exit;} $_SERVER["REQUEST_URI"]=$path; require ABSPATH.ltrim($path==="/"?"/index.php":$path,"/");';
-    // Match ordinary public PHP entry points; the token gates execution before WordPress boots.
-    if ( file_put_contents( $bridge, $code, LOCK_EX ) !== strlen( $code ) || ! chmod( $bridge, 0644 ) ) throw new RuntimeException( 'HTTP fixture unavailable.' );
     $bridge_hash = hash( 'sha256', $code );
+    $staged_bridge = $work . '/http-bridge.next';
+    if ( file_put_contents( $staged_bridge, $code, LOCK_EX ) !== strlen( $code ) || ! chmod( $staged_bridge, 0644 ) || ! hash_equals( $bridge_hash, hash_file( 'sha256', $staged_bridge ) ) ) throw new RuntimeException( 'HTTP fixture staging failed.' );
     $settings['http_bridge'] = array( 'name' => $name . '/index.php', 'sha256' => $bridge_hash );
-    file_put_contents( $settings_path, json_encode( $settings, JSON_THROW_ON_ERROR ), LOCK_EX );
-    register_shutdown_function( static function() use ( $bridge, $bridge_hash, $bridge_directory ) { if ( is_file( $bridge ) && ! is_link( $bridge ) && hash_equals( $bridge_hash, hash_file( 'sha256', $bridge ) ) && unlink( $bridge ) ) rmdir( $bridge_directory ); } );
+    $settings_json = json_encode( $settings, JSON_THROW_ON_ERROR );
+    if ( file_put_contents( $settings_path, $settings_json, LOCK_EX ) !== strlen( $settings_json ) ) throw new RuntimeException( 'HTTP cleanup manifest unavailable.' );
+    $remove_bridge = static function() use ( $bridge, $bridge_hash, $bridge_directory ) {
+        if ( is_link( $bridge ) || is_link( $bridge_directory ) ) return false;
+        if ( is_file( $bridge ) && ( ! hash_equals( $bridge_hash, hash_file( 'sha256', $bridge ) ) || ! unlink( $bridge ) ) ) return false;
+        return ! is_dir( $bridge_directory ) || rmdir( $bridge_directory );
+    };
+    register_shutdown_function( $remove_bridge );
     $cookie = $work . '/http-cookies.txt'; $checks = array();
     $request = static function( $path, $fields = null, $authenticated = true, $authorized = true ) use ( $name, $cookie, $token ) {
         $curl = curl_init( 'https://artist.trbrec.com/' . $name . '/index.php' );
@@ -39,6 +45,7 @@ function trb_qa_installed_http( $work ) {
     };
     $check = static function( $condition, $label ) use ( &$checks ) { $GLOBALS['trb_qa_http_stage'] = $label; if ( ! $condition ) throw new RuntimeException( $label ); $checks[] = $label; };
     try {
+        if ( ! mkdir( $bridge_directory, 0755 ) || ! rename( $staged_bridge, $bridge ) ) throw new RuntimeException( 'HTTP fixture unavailable.' );
         $check( in_array( $request( '/wp-login.php', null, false, false )['status'], array( 403, 404 ), true ), 'temporary_endpoint_requires_private_key' );
         for ( $attempt = 0; $attempt < 30; $attempt++ ) { $login = $request( '/wp-login.php' ); if ( $login['status'] ) break; usleep( 100000 ); }
         $check( 200 === $login['status'], 'native_login_page' );
@@ -76,6 +83,6 @@ function trb_qa_installed_http( $work ) {
         $check( ! str_contains( $request( '/wp-admin/admin-post.php', $failure )['location'], 'trb_profile=saved' ), 'forged_png_rejected' );
         clean_user_cache( $user->ID );
         $check( trb_portal_private_profile_files( $user->ID ) === $before && trb_portal_artist_profile_is_complete( $user->ID ), 'previous_profile_preserved_after_failure' );
-        return array( 'completed' => true, 'checks' => $checks, 'active_plugins' => count( get_option( 'active_plugins', array() ) ), 'artist_messages' => 0 );
-    } finally { if ( is_link( $bridge ) || ! is_file( $bridge ) || ! hash_equals( $bridge_hash, hash_file( 'sha256', $bridge ) ) || ! unlink( $bridge ) || file_exists( $bridge ) || ! rmdir( $bridge_directory ) ) throw new RuntimeException( 'HTTP fixture cleanup unconfirmed.' ); }
+        return array( 'completed' => true, 'checks' => $checks, 'active_plugins' => count( get_option( 'active_plugins', array() ) ), 'temporary_endpoint_removed' => true, 'artist_messages' => 0 );
+    } finally { if ( ! $remove_bridge() ) throw new RuntimeException( 'HTTP fixture cleanup unconfirmed.' ); }
 }
