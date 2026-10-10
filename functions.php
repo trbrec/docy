@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Automatic GitHub main deployment through the installed Deployer plugin. */
+/** Monitor GitHub releases installed and verified by the hosting workflow. */
 require_once get_template_directory() . '/inc/trb-auto-deploy.php';
 
 /**

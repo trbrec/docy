@@ -4,7 +4,6 @@
  *
  * The hosting workflow installs the complete bundle after validation. WordPress
  * records completion only after the private server receipt and source hashes match.
- * Production revision: spotify4-release-gate.
  *
  * @package docy
  */
@@ -162,13 +161,23 @@ function trb_docy_verify_deployed_commit( $sha ) {
 /** The hosting workflow alone installs the coherent theme and integration bundle. */
 function trb_docy_deployment_is_ssh_only() { return true; }
 
+/** Read the hosting verifier's receipt without network requests or state changes. */
+function trb_docy_has_completed_release( $expected_sha = null ) {
+    $marker = trailingslashit( get_template_directory() ) . '.trb-deployed-sha';
+    if ( is_link( $marker ) || ! is_file( $marker ) || filesize( $marker ) > 128 ) return false;
+    $sha = trim( (string) @file_get_contents( $marker ) );
+    if ( ! preg_match( '/^[a-f0-9]{40}$/D', $sha ) || ( null !== $expected_sha && ( ! is_string( $expected_sha ) || ! hash_equals( $sha, $expected_sha ) ) ) ) return false;
+    $directory = dirname( untrailingslashit( ABSPATH ) ) . '/private/portal-release-' . $sha;
+    $path = $directory . '/complete.json';
+    if ( is_link( $directory ) || is_link( $path ) || ! is_file( $path ) || filesize( $path ) > 16384 ) return false;
+    $receipt = json_decode( (string) @file_get_contents( $path ), true );
+    return is_array( $receipt ) && ( $receipt['revision'] ?? '' ) === $sha && ( $receipt['verified'] ?? false ) === true;
+}
+
 /** Verify a completed SSH release; a notification can never install an archive. */
 function trb_docy_deploy_verified_sha( $sha ) {
     if ( ! is_string( $sha ) || ! preg_match( '/^[a-f0-9]{40}$/D', $sha ) ) return new WP_Error( 'trb_invalid_sha', 'Revisione non valida.', array( 'status' => 400 ) );
-    $theme = trailingslashit( get_template_directory() );
-    $receipt_path = dirname( untrailingslashit( ABSPATH ) ) . '/private/portal-release-' . $sha . '/complete.json';
-    $receipt = is_file( $receipt_path ) && ! is_link( $receipt_path ) ? json_decode( file_get_contents( $receipt_path ), true ) : null;
-    if ( trim( (string) @file_get_contents( $theme . '.trb-deployed-sha' ) ) !== $sha || ! is_array( $receipt ) || ( $receipt['revision'] ?? '' ) !== $sha || ( $receipt['verified'] ?? false ) !== true ) {
+    if ( ! trb_docy_has_completed_release( $sha ) ) {
         trb_docy_store_deploy_status( 'pending', 'Pubblicazione in attesa delle verifiche del server.', $sha );
         return new WP_Error( 'trb_ssh_release_pending', 'La pubblicazione deve completare le verifiche del server.', array( 'status' => 409 ) );
     }
