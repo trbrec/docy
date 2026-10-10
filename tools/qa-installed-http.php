@@ -1,6 +1,7 @@
 <?php
 /** Actual WordPress login and multipart forms with all installed plugins. */
 function trb_qa_installed_http( $work ) {
+    require_once __DIR__ . '/qa-http-relay.php';
     $root = $work . '/wordpress'; $settings_path = $work . '/qa-settings.json';
     $settings = json_decode( file_get_contents( $settings_path ), true, 16, JSON_THROW_ON_ERROR );
     if ( empty( $settings['artist_password'] ) || empty( $settings['artist_id'] ) ) throw new RuntimeException( 'Artist fixture unavailable.' );
@@ -31,7 +32,12 @@ function trb_qa_installed_http( $work ) {
     };
     register_shutdown_function( $remove_bridge );
     $cookie = $work . '/http-cookies.txt'; $checks = array();
-    $request = static function( $path, $fields = null, $authenticated = true, $authorized = true ) use ( $name, $cookie, $token ) {
+    $request = static function( $path, $fields = null, $authenticated = true, $authorized = true ) use ( $name, $cookie, $token, $work ) {
+        if ( getenv( 'TRB_QA_HTTP_RELAY' ) === '1' ) {
+            $headers = $authorized ? array( 'X-TRB-QA-Token' => $token, 'X-TRB-QA-Route' => $path ) : array();
+            list( $status, $response_headers, $body ) = trb_qa_http_relay_request( 'https://artist.trbrec.com/' . $name . '/index.php', $headers, $fields, $authenticated, $cookie, $work );
+            $response = $response_headers . $body; $header_size = strlen( $response_headers );
+        } else {
         $curl = curl_init( 'https://artist.trbrec.com/' . $name . '/index.php' );
         curl_setopt_array( $curl, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_FOLLOWLOCATION => false, CURLOPT_HTTPHEADER => $authorized ? array( 'X-TRB-QA-Token: ' . $token, 'X-TRB-QA-Route: ' . $path ) : array() ) );
         curl_setopt( $curl, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; TRB-Audit/1.0)' );
@@ -40,6 +46,8 @@ function trb_qa_installed_http( $work ) {
         $response = curl_exec( $curl ); $status = curl_getinfo( $curl, CURLINFO_RESPONSE_CODE ); $header_size = curl_getinfo( $curl, CURLINFO_HEADER_SIZE ); curl_close( $curl );
         $GLOBALS['trb_qa_http_statuses'][] = (int) $status;
         if ( ! is_string( $response ) ) return array( 'status' => 0, 'body' => '', 'location' => '' );
+        }
+        if ( getenv( 'TRB_QA_HTTP_RELAY' ) === '1' ) $GLOBALS['trb_qa_http_statuses'][] = (int) $status;
         $summary = array( 'status' => (int) $status );
         $summary['fixture_php_executed'] = preg_match( '/^X-TRB-QA-Entry:\s*1\s*$/mi', substr( $response, 0, $header_size ) ) === 1;
         foreach ( array( 'wordfence', 'cloudflare', 'siteground', 'mod_security', 'forbidden', 'access denied', 'captcha' ) as $marker ) $summary[str_replace( ' ', '_', $marker )] = stripos( $response, $marker ) !== false;
@@ -53,9 +61,13 @@ function trb_qa_installed_http( $work ) {
         $check( in_array( $request( '/wp-login.php', null, false, false )['status'], array( 403, 404 ), true ), 'temporary_endpoint_requires_private_key' );
         for ( $attempt = 0; $attempt < 30; $attempt++ ) { $login = $request( '/wp-login.php' ); if ( $login['status'] ) break; usleep( 100000 ); }
         if ( 200 !== $login['status'] ) {
+            if ( getenv( 'TRB_QA_HTTP_RELAY' ) === '1' ) {
+                list( $native_status ) = trb_qa_http_relay_request( 'https://artist.trbrec.com/wp-login.php', array(), null, false, $cookie, $work );
+            } else {
             $probe = curl_init( 'https://artist.trbrec.com/wp-login.php' );
             curl_setopt_array( $probe, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; TRB-Audit/1.0)' ) );
             curl_exec( $probe ); $native_status = (int) curl_getinfo( $probe, CURLINFO_RESPONSE_CODE ); curl_close( $probe );
+            }
             $GLOBALS['trb_qa_http_responses'][] = array( 'native_wp_login_status' => $native_status, 'fixture_owner_matches_core' => fileowner( $bridge ) === fileowner( $site . '/wp-login.php' ), 'fixture_group_matches_core' => filegroup( $bridge ) === filegroup( $site . '/wp-login.php' ) );
         }
         $check( 200 === $login['status'], 'native_login_page' );
