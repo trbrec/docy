@@ -18,6 +18,8 @@ $result['pcloud_fixture'] = 'QA-AUDIT-' . $run;
 $body = "TEST TECNICO FITTIZIO, nessun artista reale.\nUna luce sul mare, un passo nella sera.\nCerco una strada nuova, ritorno alla mia terra.\nIl vento porta voci, la notte le raccoglie.\nDomani cambio passo e apro altre soglie.\n";
 $made = false; $local = '';
 try {
+    require __DIR__ . '/qa-provider-cleanup.php';
+    $result['pcloud_stale_folders_removed'] = trb_qa_provider_cleanup_stale( $body );
     $response = trb_demo_webdav_request( 'MKCOL', $folder );
     $made = ! is_wp_error( $response ) && in_array( (int) wp_remote_retrieve_response_code( $response ), array( 200, 201, 204 ), true );
     if ( ! $made ) throw new RuntimeException( 'Archive test folder unavailable.' );
@@ -39,6 +41,8 @@ try {
     // No undocumented POST action: it could append a row to the live sheet.
     $sheet = wp_remote_get( (string) ( $settings['sheet_webhook_url'] ?? '' ), array( 'timeout' => 30, 'redirection' => 3 ) );
     $result['sheets_http_status'] = is_wp_error( $sheet ) ? 0 : (int) wp_remote_retrieve_response_code( $sheet );
+    preg_match( '~^https://script\.google\.com/macros/s/([a-zA-Z0-9_-]+)/exec$~D', (string) ( $settings['sheet_webhook_url'] ?? '' ), $deployment );
+    $result['sheets_deployment_id'] = $deployment[1] ?? null;
     $result['sheets_roundtrip_scope'] = 'read_only_endpoint_probe; test_tab_not_yet_verified';
 } catch ( Throwable $error ) {
     $result['failure'] = array( 'class' => get_class( $error ), 'line' => $error->getLine() );
@@ -46,9 +50,11 @@ try {
     if ( $local && is_file( $local ) ) unlink( $local );
     if ( $made ) {
         $file_deleted = trb_demo_webdav_request( 'DELETE', $remote );
-        $folder_deleted = trb_demo_webdav_request( 'DELETE', $folder );
+        $folder_deleted = trb_demo_webdav_request( 'DELETE', $folder . '/' );
         $absent = trb_demo_webdav_request( 'GET', $remote, null, array( 'Cache-Control' => 'no-cache' ) );
+        $folder_absent = trb_demo_webdav_request( 'GET', $folder . '/', null, array( 'Cache-Control' => 'no-cache' ) );
         $result['pcloud_cleanup_http'] = array( is_wp_error( $file_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $file_deleted ), is_wp_error( $folder_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $folder_deleted ), is_wp_error( $absent ) ? 0 : (int) wp_remote_retrieve_response_code( $absent ) );
-        $result['pcloud_cleanup'] = in_array( $result['pcloud_cleanup_http'][0], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][1], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][2], array( 404, 410 ), true );
+        $result['pcloud_folder_absence_http'] = is_wp_error( $folder_absent ) ? 0 : (int) wp_remote_retrieve_response_code( $folder_absent );
+        $result['pcloud_cleanup'] = in_array( $result['pcloud_cleanup_http'][0], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][1], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][2], array( 404, 410 ), true ) && in_array( $result['pcloud_folder_absence_http'], array( 404, 410 ), true );
     }
 }

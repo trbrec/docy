@@ -67,7 +67,6 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
     // The licensed plugin stays on this host; patch a private QA copy only.
     $signature_source = ABSPATH . 'wp-content/plugins/e-signature';
     $signature_target = $root . '/wp-content/plugins/e-signature';
-    if ( ! is_link( $signature_target ) || ! unlink( $signature_target ) ) throw new RuntimeException( 'Signature QA shadow unavailable.' );
     $copy_tree = static function( $source, $target ) use ( &$copy_tree ) {
         if ( is_link( $source ) ) throw new RuntimeException( 'Unexpected plugin source link.' );
         if ( is_dir( $source ) ) {
@@ -75,10 +74,14 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
             foreach ( new DirectoryIterator( $source ) as $entry ) if ( ! $entry->isDot() ) $copy_tree( $entry->getPathname(), $target . '/' . $entry->getFilename() );
         } elseif ( ! copy( $source, $target ) ) throw new RuntimeException( 'Plugin QA copy failed.' );
     };
-    $copy_tree( $signature_source, $signature_target );
+    foreach ( array( 'e-signature', 'e-signature-business-add-ons' ) as $signature_plugin ) {
+        $shadow = $root . '/wp-content/plugins/' . $signature_plugin;
+        if ( ! is_link( $shadow ) || ! unlink( $shadow ) ) throw new RuntimeException( 'Signature QA shadow unavailable.' );
+        $copy_tree( ABSPATH . 'wp-content/plugins/' . $signature_plugin, $shadow );
+    }
     require __DIR__ . '/signature-compatibility.php';
     foreach ( trb_signature_compatibility_manifest() as $name => $spec ) {
-        $path = $signature_target . '/models/' . $name;
+        $path = $root . '/wp-content/plugins/' . $name;
         $source = file_get_contents( $path );
         if ( ! hash_equals( $spec['baseline'], hash( 'sha256', $source ) ) ) throw new RuntimeException( 'Signature QA baseline changed.' );
         file_put_contents( $path, trb_signature_property_patch( $source, $spec['class'], $spec['properties'] ) );
@@ -87,10 +90,17 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
     foreach ( glob( dirname( __DIR__ ) . '/integrations/portal-mu-plugins/*.php' ) as $path ) if ( ! copy( $path, $root . '/wp-content/mu-plugins/' . basename( $path ) ) ) throw new RuntimeException( 'Candidate MU copy failed.' );
     $isolation = <<<'PHP'
 <?php
+namespace {
 add_filter('pre_wp_mail',static function(){return true;},PHP_INT_MAX);
 add_filter('pre_http_request',static function(){return new WP_Error('qa_network_blocked','External HTTP disabled.');},PHP_INT_MAX);
 add_filter('auto_update_plugin','__return_false');add_filter('auto_update_theme','__return_false');
 add_filter('automatic_updater_disabled','__return_true');
+}
+namespace SiteGround_Optimizer\Site_Tools_Client {
+// A temporary WordPress is not a registered Site Tools website. Exercise the
+// plugin's supported disconnected-provider branch without changing live cache.
+function stream_socket_client($address,&$errno=null,&$errstr=null,$timeout=5){return false;}
+}
 PHP;
     file_put_contents( $root . '/wp-content/mu-plugins/00-qa-isolation.php', $isolation );
     $config = "<?php\n";
@@ -103,7 +113,7 @@ PHP;
     echo json_encode( array( 'prepared' => true, 'plugin_count' => count( $plugins ), 'contains_live_rows' => false ) ) . "\n";
     exit;
 }
-$result = array( 'phase' => $phase, 'completed' => false, 'diagnostics' => array() ); $buffer = ob_get_level(); ob_start();
+$result = array( 'phase' => $phase, 'completed' => false, 'cache_provider_scope' => 'isolated_disconnected_branch', 'diagnostics' => array() ); $buffer = ob_get_level(); ob_start();
 $GLOBALS['qa_stack_result'] =& $result;
 register_shutdown_function( static function() use ( &$result, $buffer, $phase ) {
     $error = error_get_last();
