@@ -24,6 +24,8 @@ check(true,'Every observed role accepted only in its group');
 
 $genres=trb_symphonic_genres();
 check(count($genres)===48 && array_sum(array_map('count',$genres))===498,'Complete observed genre/subgenre pairs');
+check(trb_symphonic_genre_label('Electronic')==='Musica elettronica'&&trb_symphonic_genre_label('Other')==='Altro'&&trb_symphonic_genre_label('Audiobooks')==='Audiolibri','Genre display labels are Italian without changing canonical values');
+check(trb_symphonic_genre_label('Deep House')==='Deep House','International style names remain intact');
 $genreTrack=$t;$genreTrack['primary_genre']='Alternative';$genreTrack['secondary_genre']='Indie Rock';
 check(!trb_symphonic_genre_errors([$genreTrack]) && count(trb_portal_sanitize_release_tracks([$genreTrack],true,true))===1,'Valid Symphonic genre pair accepted');
 $genreTrack['secondary_genre']='Alternative Pop';

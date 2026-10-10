@@ -269,7 +269,7 @@ check("matrice release applica i sei limiti definitivi", all(token in RELEASE_TY
     "'album'        => array( 'label' => 'Album', 'range' => 'da 9 a 18 brani', 'min' => 9, 'max' => 18 )",
     "'double_album' => array( 'label' => 'Doppio album', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
     "'compilation'  => array( 'label' => 'Compilation', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
-    "'collection'   => array( 'label' => 'Collection', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
+    "'collection'   => array( 'label' => 'Raccolta', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
 )))
 check("catalogo repertorio edito rimosso dalle tipologie", "'catalogue'" not in RELEASE_TYPES and "data-catalogue" not in PORTAL)
 check("limite frontend fermo a 24 tracce", "selected.dataset.max||24" in PORTAL and "selected.dataset.max||60" not in PORTAL)
