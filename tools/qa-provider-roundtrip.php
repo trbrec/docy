@@ -20,7 +20,7 @@ $folder = '/Upload files - TRB rec/Audio/Demo files/QA-AUDIT-' . $run;
 $remote = $folder . '/testo-sintetico.txt';
 $result['pcloud_fixture'] = 'QA-AUDIT-' . $run;
 $body = "TEST TECNICO FITTIZIO, nessun artista reale.\nUna luce sul mare, un passo nella sera.\nCerco una strada nuova, ritorno alla mia terra.\nIl vento porta voci, la notte le raccoglie.\nDomani cambio passo e apro altre soglie.\n";
-$made = false; $local = '';
+$made = false; $local = ''; $local_fixture = null;
 try {
     require __DIR__ . '/qa-provider-cleanup.php';
     $result['pcloud_stale_folders_removed'] = trb_qa_provider_cleanup_stale( $body );
@@ -36,8 +36,7 @@ try {
     $uploads = wp_upload_dir(); $directory = $uploads['basedir'] . '/trb-demo-private';
     if ( ! is_dir( $directory ) || is_link( $directory ) ) throw new RuntimeException( 'Private synthetic storage unavailable.' );
     $local = $directory . '/qa-audit-' . $run . '.txt';
-    if ( file_exists( $local ) || file_put_contents( $local, $body, LOCK_EX ) !== strlen( $body ) ) throw new RuntimeException( 'Synthetic fixture collision.' );
-    chmod( $local, 0600 );
+    trb_qa_provider_local_fixture( $local, $body, $local_fixture );
     $payload = array( 'uuid' => $run, 'title' => 'QA AUDIT FITTIZIO ' . $run, 'first_name' => 'Artista', 'last_name' => 'Fittizio', 'artist_name' => 'Artista Fittizio Tunisia', 'email' => 'qa-audit@example.invalid', 'profile' => 'trb', 'submitted_at' => gmdate( 'c' ), 'genre' => 'Pop', 'text_file' => array( 'path' => 'trb-demo-private/' . basename( $local ), 'name' => basename( $local ), 'original_name' => basename( $local ), 'size' => strlen( $body ), 'sha256' => hash( 'sha256', $body ) ), 'review_context' => array( 'focus' => 'lyrics' ) );
     if ( 'full' === $mode ) {
         $evaluation = trb_demo_openai_review( $payload );
@@ -79,7 +78,7 @@ try {
 } catch ( Throwable $error ) {
     $result['failure'] = array( 'class' => get_class( $error ), 'line' => $error->getLine(), 'code' => (int) $error->getCode() );
 } finally {
-    if ( $local && is_file( $local ) ) unlink( $local );
+    $result['local_fixture_cleanup'] = null === $local_fixture || trb_qa_provider_remove_local_fixture( $local_fixture );
     if ( $made ) {
         $file_deleted = trb_webdav_request( trb_demo_settings(), 'DELETE', $remote );
         $folder_deleted = trb_webdav_request( trb_demo_settings(), 'DELETE', $folder . '/' );

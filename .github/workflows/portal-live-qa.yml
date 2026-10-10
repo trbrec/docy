@@ -12,6 +12,7 @@ on:
       - tools/signature-compatibility.php
       - tools/deploy-portal-integrations.php
       - tools/qa-provider-roundtrip.php
+      - tools/qa-provider-cleanup.php
       - tools/onboarding-readiness.php
       - tools/rename-known-audit-account.php
       - tools/install-log-maintenance.php
@@ -104,6 +105,7 @@ jobs:
           providers=json.loads(Path('/tmp/trb-live-qa/providers.json').read_text())
           assert providers.get('pcloud') is True, 'Archive round trip incomplete'
           assert providers.get('pcloud_cleanup') is True, 'Synthetic archive cleanup unconfirmed'
+          assert providers.get('local_fixture_cleanup') is True, 'Synthetic local fixture cleanup unconfirmed'
           print('Installed plugin parity, synthetic artist authentication and portal initialization verified.')
           PY
           validation=unknown

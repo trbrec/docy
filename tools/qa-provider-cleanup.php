@@ -1,4 +1,25 @@
 <?php
+/** Own a new synthetic fixture; existing files and symlinks must never be reused. */
+function trb_qa_provider_local_fixture( $path, $bytes, &$ownership = null ) {
+    $handle = @fopen( $path, 'xb' );
+    if ( ! $handle ) throw new RuntimeException( 'Synthetic fixture collision.' );
+    try {
+        $identity = fstat( $handle );
+        $ownership = array( 'path' => $path, 'device' => $identity['dev'] ?? null, 'inode' => $identity['ino'] ?? null, 'sha256' => hash( 'sha256', $bytes ) );
+        if ( ! chmod( $path, 0600 ) || fwrite( $handle, $bytes ) !== strlen( $bytes ) || ! fflush( $handle ) ) throw new RuntimeException( 'Synthetic fixture write unconfirmed.' );
+        if ( false === $identity || ! hash_equals( hash( 'sha256', $bytes ), hash_file( 'sha256', $path ) ) ) throw new RuntimeException( 'Synthetic fixture readback mismatch.' );
+        return $ownership;
+    } finally { fclose( $handle ); }
+}
+
+function trb_qa_provider_remove_local_fixture( $fixture ) {
+    $path = $fixture['path']; clearstatcache( true, $path );
+    if ( ! file_exists( $path ) && ! is_link( $path ) ) return true;
+    $identity = lstat( $path );
+    if ( is_link( $path ) || ! is_file( $path ) || false === $identity || $identity['dev'] !== $fixture['device'] || $identity['ino'] !== $fixture['inode'] || ! hash_equals( $fixture['sha256'], hash_file( 'sha256', $path ) ) ) return false;
+    return unlink( $path );
+}
+
 /** Remove only identifiable, old QA folders containing our exact synthetic bytes. */
 function trb_qa_provider_listing( $folder ) {
     $response = trb_webdav_request( trb_demo_settings(), 'PROPFIND', $folder . '/', '', array( 'Depth' => '1' ) );
