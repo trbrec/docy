@@ -53,6 +53,8 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php' --sources" > /tmp/trb-source-audit/review-sources.json
           ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${qa_dir}/inventory.php' --database-shape" > /tmp/trb-source-audit/database-shape.json
           ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${qa_dir}/inventory.php' --crm-shape" > /tmp/trb-source-audit/crm-shape.json
+          ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${qa_dir}/inventory.php' --crm-schema" > /tmp/trb-source-audit/crm-schema.json
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php' --log-summary" > /tmp/trb-source-audit/log-summary.json
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -66,6 +68,11 @@ jobs:
           assert shape['read_only'] is True
           crm = json.loads(Path('/tmp/trb-source-audit/crm-shape.json').read_text())
           assert crm['read_only'] is True
+          schema = json.loads(Path('/tmp/trb-source-audit/crm-schema.json').read_text())
+          assert schema['read_only'] is True and schema['contains_rows'] is False
+          assert all(t in schema['tables'] for t in ('contacts', 'submissions', 'users'))
+          logs = json.loads(Path('/tmp/trb-source-audit/log-summary.json').read_text())
+          assert logs['read_only'] is True and logs['contains_messages'] is False
           print('Installed code and read-only database metadata recorded; no application worker, data writes, mail or external integration calls.')
           PY
       - uses: actions/upload-artifact@v4

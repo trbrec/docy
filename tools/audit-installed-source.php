@@ -1,6 +1,61 @@
 <?php
 /** Read-only source and database metadata inventory; never starts application workers. */
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
+if ( in_array( '--crm-schema', $argv, true ) ) {
+    ini_set( 'display_errors', '0' );
+    try {
+        require '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';
+        \TrbCrm\Env::load( '/home/customer/www/crm.trbrec.com/public_html/.env' );
+        $db = \TrbCrm\Database::connection();
+        $db->exec( 'SET SESSION TRANSACTION READ ONLY' );
+        $db->beginTransaction();
+        $schema = array( 'read_only' => true, 'contains_rows' => false, 'tables' => array() );
+        $tables = $db->query( "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE' ORDER BY TABLE_NAME" )->fetchAll( PDO::FETCH_COLUMN );
+        foreach ( $tables as $table ) {
+            if ( ! preg_match( '/^[a-zA-Z0-9_]+$/D', $table ) ) throw new RuntimeException( 'Unexpected table identifier.' );
+            $definition = $db->query( 'SHOW CREATE TABLE `' . $table . '`' )->fetch( PDO::FETCH_NUM );
+            // Table structure only: omit sequence positions, triggers, routines and all records.
+            $schema['tables'][ $table ] = preg_replace( '/\sAUTO_INCREMENT=\d+\b/', '', $definition[1] );
+        }
+        $db->rollBack();
+        echo json_encode( $schema, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR ) . "\n";
+    } catch ( Throwable $error ) {
+        if ( isset( $db ) && $db->inTransaction() ) $db->rollBack();
+        fwrite( STDERR, "Read-only CRM structure inventory could not complete.\n" );
+        exit( 1 );
+    }
+    exit;
+}
+if ( in_array( '--log-summary', $argv, true ) ) {
+    $summary = array( 'read_only' => true, 'contains_messages' => false, 'logs' => array() );
+    foreach ( array( 'portal' => '/home/customer/www/artist.trbrec.com/public_html/php_errorlog', 'crm' => '/home/customer/www/crm.trbrec.com/public_html/php_errorlog' ) as $label => $path ) {
+        $entry = array( 'available' => is_file( $path ), 'bytes' => is_file( $path ) ? filesize( $path ) : 0, 'scanned_bytes' => 0, 'groups' => array() );
+        if ( $entry['available'] ) {
+            $handle = fopen( $path, 'rb' );
+            if ( false === $handle ) throw new RuntimeException( 'Log summary unavailable.' );
+            $start = max( 0, $entry['bytes'] - 8 * 1024 * 1024 );
+            fseek( $handle, $start );
+            if ( $start ) fgets( $handle );
+            $offset = ftell( $handle );
+            while ( false !== ( $line = fgets( $handle ) ) ) {
+                if ( ! preg_match( '~PHP (Warning|Notice|Deprecated|Fatal error|Parse error|Recoverable fatal error):~', $line, $severity ) ) continue;
+                $component = 'unclassified';
+                if ( preg_match( '~ in [^\r\n]*(/(?:wp-content|app)/[a-zA-Z0-9_./-]+\.php) on line (\d+)~', $line, $location ) ) $component = $location[1] . ':' . $location[2];
+                $category = 'other';
+                foreach ( array( 'Undefined array key', 'Undefined variable', 'Permission denied', 'Failed to open stream', 'Allowed memory size', 'Uncaught', 'SQLSTATE', 'Deprecated', 'Maximum execution time' ) as $candidate ) if ( stripos( $line, $candidate ) !== false ) { $category = $candidate; break; }
+                // Never return log text: it may contain artist data, tokens or provider responses.
+                $key = $severity[1] . '|' . $component . '|' . $category;
+                if ( isset( $entry['groups'][ $key ] ) || count( $entry['groups'] ) < 200 ) $entry['groups'][ $key ] = ( $entry['groups'][ $key ] ?? 0 ) + 1;
+            }
+            $entry['scanned_bytes'] = ftell( $handle ) - $offset;
+            fclose( $handle );
+            arsort( $entry['groups'] );
+        }
+        $summary['logs'][ $label ] = $entry;
+    }
+    echo json_encode( $summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR ) . "\n";
+    exit;
+}
 if ( in_array( '--crm-shape', $argv, true ) ) {
     ini_set( 'display_errors', '0' );
     try {
