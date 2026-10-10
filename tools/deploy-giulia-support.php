@@ -26,7 +26,7 @@ $stage='activate';try {foreach($changes as $path=>$next){$temp=$path.'.giulia-ne
 catch(Throwable $e){foreach($original as $path=>$content){if($content===null){if(is_file($path))unlink($path);}else file_put_contents($path,$content);}throw $e;}
 try {
 $stage='live-read-check';
-$db=\TrbCrm\Database::connection();$fixture=$db->query("SELECT s.contract_number,COALESCE(si.first_name,c.first_name) first_name,COALESCE(si.last_name,c.last_name) last_name FROM submissions s JOIN contacts c ON c.id=s.contact_id LEFT JOIN submission_identity_snapshots si ON si.submission_id=s.id WHERE s.source_tab='CRM_TEST_PERMANENT' AND s.contract_number='TEST-0001' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+$db=\TrbCrm\Database::connection();$fixture=$db->query("SELECT s.contract_number,COALESCE(si.first_name,c.first_name) first_name,COALESCE(si.last_name,c.last_name) last_name FROM submissions s JOIN contacts c ON c.id=s.contact_id LEFT JOIN submission_identity_snapshots si ON si.submission_id=s.id WHERE TRIM(COALESCE(si.first_name,c.first_name,''))<>'' AND TRIM(COALESCE(si.last_name,c.last_name,''))<>'' AND TRIM(COALESCE(s.contract_number,''))<>'' AND (SELECT COUNT(*) FROM submissions sx WHERE UPPER(REPLACE(TRIM(sx.contract_number),' ',''))=UPPER(REPLACE(TRIM(s.contract_number),' ','')))=1 ORDER BY (s.source_tab='CRM_TEST_PERMANENT') DESC,(c.email_normalized='andrea.tognassi@trbrec.com') DESC,s.id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 if(!$fixture){$stage='fixture-missing';throw new RuntimeException();}
 $key=json_decode((string)file_get_contents($config),true,16,JSON_THROW_ON_ERROR)['key'];
 $context=['caller_id'=>'giulia_deploy_'.$revision,'conversation_id'=>'conv_deploy_'.$revision,'agent_id'=>\TrbCrm\GiuliaSupport::AGENT,'text_only'=>true];
