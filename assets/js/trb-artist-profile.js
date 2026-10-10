@@ -387,6 +387,7 @@
         var submitUrl = window.trbArtistProfile && window.trbArtistProfile.ajaxUrl ? window.trbArtistProfile.ajaxUrl : form.action;
         xhr.open('POST', submitUrl, true);
         xhr.withCredentials = true;
+        xhr.timeout = 300000;
         if (!hasFiles) {
           status.textContent = 'Salvataggio dei dati del profilo…';
         }
@@ -406,7 +407,7 @@
           try {
             profileResult = new URL(responseUrl, window.location.href).searchParams.get('trb_profile') || '';
           } catch (ignored) {}
-          if (xhr.status >= 200 && xhr.status < 400 && profileResult) {
+          if (xhr.status >= 200 && xhr.status < 400 && profileResult === 'saved') {
             percent.textContent = '100%';
             bar.style.width = '100%';
             status.textContent = 'Salvataggio completato. Aggiornamento del profilo…';
@@ -415,17 +416,35 @@
           }
           submitting = false;
           panel.classList.add('is-error');
-          status.textContent = xhr.status >= 200 && xhr.status < 400
+          var errors = {
+            file_upload_failed: 'Caricamento non completato. I dati e i file precedenti sono conservati. Controlla formato, dimensioni e limite di sei foto, quindi riprova.',
+            profile_busy: 'Un salvataggio è già in corso. Attendi il completamento e riprova.',
+            storage_waiting: 'Spazio temporaneamente insufficiente. I dati e i file precedenti sono conservati: riprova più tardi.',
+            bio_invalid: 'Biografia non acquisita: usa TXT, DOCX, ODT o RTF, massimo 5 MB.',
+            bio_required: 'Allega una biografia artistica prima di salvare.',
+            invalid_address: 'Controlla residenza, nazione e indirizzo. Per l’Italia sono richiesti CAP, Comune e numero civico.',
+            invalid_birth_date: 'Controlla la data di nascita: deve essere una data valida e non futura.',
+            invalid_birthplace: 'Controlla luogo e nazione di nascita.',
+            invalid_phone: 'Controlla il cellulare e il prefisso internazionale.',
+            invalid_tax_code: 'Controlla identificativo fiscale e nazione fiscale.',
+            invalid_document_number: 'Controlla tipo e numero del documento.',
+            invalid_document_expiry: 'Controlla la scadenza del documento.',
+            invalid_account_name: 'Compila nome e cognome anagrafici.',
+            artist_name_taken: 'Questo nome d’arte è già associato a un altro account.'
+          };
+          status.textContent = errors[profileResult] || (xhr.status >= 200 && xhr.status < 400
             ? 'La pratica non è stata registrata. I dati compilati sono ancora presenti nel modulo: riprova senza ricaricare la pagina.'
-            : 'Il server non ha completato il salvataggio. Riprova una sola volta.';
+            : 'Il server non ha confermato il salvataggio. Controlla il profilo prima di riprovare.');
           if (button) { button.disabled = false; button.textContent = originalLabel; }
         });
-        xhr.addEventListener('error', function () {
+        function uncertainResult() {
           submitting = false;
           panel.classList.add('is-error');
-          status.textContent = 'Connessione interrotta. Nessun nuovo invio è stato avviato: controlla la rete e riprova.';
+          status.textContent = 'Connessione interrotta: non è possibile confermare il salvataggio. Controlla il profilo prima di riprovare.';
           if (button) { button.disabled = false; button.textContent = originalLabel; }
-        });
+        }
+        xhr.addEventListener('error', uncertainResult);
+        xhr.addEventListener('timeout', uncertainResult);
         xhr.send(formData);
       });
     });

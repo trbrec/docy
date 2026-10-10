@@ -886,6 +886,7 @@ function trb_portal_country_is_italy( $country ) {
 
 /** Foreign identifiers retain punctuation and Unicode; this is presence validation, not identity verification. */
 function trb_portal_validate_international_identifier( $value ) {
+	if ( ! is_string( $value ) ) return false;
 	$value = trim( sanitize_text_field( (string) $value ) );
 	return '' !== $value && strlen( $value ) <= 200 ? $value : false;
 }
@@ -900,6 +901,7 @@ function trb_portal_validate_birth_date( $value ) {
 
 /** Resolve Italian locations locally or preserve free-text international locations. */
 function trb_portal_validate_profile_geography( $country, $city, $province = '', $postcode = '', $birth = false ) {
+	foreach ( array( $country, $city, $province, $postcode ) as $value ) if ( ! is_string( $value ) ) return false;
 	$country = trim( sanitize_text_field( (string) $country ) );
 	$city = trim( sanitize_text_field( (string) $city ) );
 	$province = trim( sanitize_text_field( (string) $province ) );
@@ -972,6 +974,7 @@ function trb_portal_find_municipality_exact( $city, $province = '' ) {
 }
 
 function trb_portal_validate_mobile( $value ) {
+	if ( ! is_string( $value ) ) return false;
 	$value = preg_replace( '/[\s\.\-\(\)]+/', '', (string) $value );
 	if ( 0 === strpos( $value, '00' ) ) $value = '+' . substr( $value, 2 );
 	if ( preg_match( '/^3\d{9}$/', $value ) ) $value = '+39' . $value;
@@ -979,6 +982,7 @@ function trb_portal_validate_mobile( $value ) {
 }
 
 function trb_portal_validate_tax_code( $value ) {
+	if ( ! is_string( $value ) ) return false;
 	$value = strtoupper( preg_replace( '/\s+/', '', (string) $value ) );
 	if ( ! preg_match( '/^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/', $value ) ) return false;
 	$odd = array( '0'=>1,'1'=>0,'2'=>5,'3'=>7,'4'=>9,'5'=>13,'6'=>15,'7'=>17,'8'=>19,'9'=>21,'A'=>1,'B'=>0,'C'=>5,'D'=>7,'E'=>9,'F'=>13,'G'=>15,'H'=>17,'I'=>19,'J'=>21,'K'=>2,'L'=>4,'M'=>18,'N'=>20,'O'=>11,'P'=>3,'Q'=>6,'R'=>8,'S'=>12,'T'=>14,'U'=>16,'V'=>10,'W'=>22,'X'=>25,'Y'=>24,'Z'=>23 );
@@ -995,6 +999,7 @@ function trb_portal_validate_tax_code( $value ) {
  * The official CIE format is two letters, five digits and two letters.
  */
 function trb_portal_validate_identity_document_number( $value, $type = 'cie' ) {
+	if ( ! is_string( $value ) || ! is_string( $type ) ) return false;
 	if ( in_array( $type, array( 'passport', 'foreign_identity' ), true ) ) return trb_portal_validate_international_identifier( $value );
 	if ( 'cie' !== $type ) return false;
 	$value = strtoupper( preg_replace( '/[\s\-]+/', '', (string) $value ) );
@@ -1003,6 +1008,7 @@ function trb_portal_validate_identity_document_number( $value, $type = 'cie' ) {
 
 /** Return a normalized, non-expired CIE expiry date (valid through that day). */
 function trb_portal_validate_identity_document_expiry( $value, $type = 'cie' ) {
+	if ( ! is_string( $value ) || ! in_array( $type, array( 'cie', 'passport', 'foreign_identity' ), true ) ) return false;
 	$value = trim( (string) $value );
 	if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts ) || ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) return false;
 	$maximum = ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+10 years' )->format( 'Y-m-d' );
@@ -1093,6 +1099,7 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 	$document_times  = array();
 	$has_photo = false;
 	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
+		if ( ! trb_portal_private_profile_file_path( $file ) ) continue;
 		if ( isset( $file['group'] ) && 'photo' === $file['group'] ) $has_photo = true;
 		if ( ! empty( $file['label'] ) ) {
 			$document_labels[] = $file['label'];
@@ -1138,21 +1145,18 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 /** Return a transparent completion score and the exact missing requirements. */
 function trb_portal_artist_profile_completion( $user_id = 0 ) {
 	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
-	static $request_cache = array();
-	if ( isset( $request_cache[ $user_id ] ) ) return $request_cache[ $user_id ];
 	$requirements = trb_portal_artist_profile_requirements( $user_id );
 	$missing = array_values( array_filter( $requirements, static function( $requirement ) { return empty( $requirement['complete'] ); } ) );
 	$total = count( $requirements );
 	$completed = $total - count( $missing );
 
-	$request_cache[ $user_id ] = array(
+	return array(
 		'completed' => $completed,
 		'total' => $total,
 		'remaining' => count( $missing ),
 		'percentage' => $total ? (int) round( ( $completed / $total ) * 100 ) : 0,
 		'missing' => $missing,
 	);
-	return $request_cache[ $user_id ];
 }
 
 /** Validate biography input before any account or profile metadata is written. */
@@ -1172,6 +1176,17 @@ function trb_portal_handle_artist_profile() {
 	}
 	check_admin_referer( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' );
 	$user_id = get_current_user_id();
+	$profile_lock = trb_release_process_lock( 'profile:' . $user_id );
+	if ( ! $profile_lock ) {
+		wp_safe_redirect( add_query_arg( 'trb_profile', 'profile_busy', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+		exit;
+	}
+	register_shutdown_function( 'trb_release_process_unlock', $profile_lock );
+	// Contract data must always pass the company form's validation, including
+	// forged requests that omit its section marker.
+	foreach ( array( 'first_name', 'last_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'birth_country', 'tax_code', 'tax_country', 'document_number', 'document_type', 'document_expiry', 'document_no_expiry', 'street', 'street_number', 'city', 'postal_code', 'province', 'country', 'company_name', 'company_vat', 'company_sdi', 'company_address', 'invoice_requested' ) as $contract_field ) {
+		if ( isset( $_POST[ 'trb_artist_' . $contract_field ] ) ) $_POST['trb_artist_company_section'] = '1';
+	}
 	$incoming_bytes = 0;
 	foreach ( $_FILES as $incoming ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		if ( isset( $incoming['size'] ) ) {
@@ -1262,9 +1277,15 @@ function trb_portal_handle_artist_profile() {
 			exit;
 		}
 	}
+	$profile_upload_started_at = time();
+	$file_result = trb_portal_handle_private_profile_uploads( $user_id );
+	if ( is_wp_error( $file_result ) ) {
+		wp_safe_redirect( add_query_arg( 'trb_profile', $file_result->get_error_code(), get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+		exit;
+	}
 	if ( isset( $_POST['trb_artist_company_section'] ) ) {
 		$stored_expiry = trb_portal_artist_profile_value( 'document_expiry', $user_id );
-		if ( $stored_expiry && $stored_expiry < wp_date( 'Y-m-d' ) && ! get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) ) update_user_meta( $user_id, '_trb_identity_documents_refresh_after', time() );
+		if ( $stored_expiry && $stored_expiry < wp_date( 'Y-m-d' ) && ! get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) ) update_user_meta( $user_id, '_trb_identity_documents_refresh_after', $profile_upload_started_at );
 		if ( $stored_expiry !== $document_expiry ) delete_user_meta( $user_id, '_trb_identity_expiry_notified_for' );
 	}
 	foreach ( $account_updates as $account_field => $submitted_value ) update_user_meta( $user_id, $account_field, $submitted_value );
@@ -1289,10 +1310,6 @@ function trb_portal_handle_artist_profile() {
 		foreach ( array( 'spotify_new', 'apple_music_new', 'youtube_none', 'soundcloud_none' ) as $choice ) {
 			update_user_meta( $user_id, '_trb_artist_' . $choice, isset( $_POST[ 'trb_artist_' . $choice ] ) ? '1' : '' );
 		}
-	}
-	trb_portal_remove_private_profile_files( $user_id );
-	if ( trb_portal_has_private_profile_uploads() ) {
-		trb_portal_handle_private_profile_uploads( $user_id );
 	}
 	$refresh_after = absint( get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) );
 	if ( $refresh_after ) {
@@ -1328,17 +1345,22 @@ function trb_portal_private_upload_dir( $dirs ) {
 function trb_portal_private_profile_files( $user_id = 0 ) {
 	$files = get_user_meta( $user_id ? $user_id : get_current_user_id(), '_trb_artist_private_files', true );
 	$files = is_array( $files ) ? $files : array();
-	$changed = false;
 	foreach ( $files as $index => $file ) {
+		if ( ! is_array( $file ) ) { unset( $files[ $index ] ); continue; }
 		if ( empty( $file['id'] ) ) {
 			$files[ $index ]['id'] = sha1( ( isset( $file['path'] ) ? $file['path'] : '' ) . '|' . $index );
-			$changed = true;
 		}
 	}
-	if ( $changed ) {
-		update_user_meta( $user_id ? $user_id : get_current_user_id(), '_trb_artist_private_files', $files );
-	}
 	return $files;
+}
+
+/** Resolve only existing, nonempty files inside the private upload directory. */
+function trb_portal_private_profile_file_path( $file, $require_content = true ) {
+	if ( ! is_array( $file ) || empty( $file['path'] ) || ! is_string( $file['path'] ) ) return false;
+	$uploads = wp_upload_dir();
+	$root = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' );
+	$path = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) );
+	return $root && $path && 0 === strpos( $path, $root . DIRECTORY_SEPARATOR ) && is_file( $path ) && ( ! $require_content || filesize( $path ) > 0 ) ? $path : false;
 }
 
 function trb_portal_private_profile_file_by_group( $group, $user_id = 0 ) {
@@ -1364,99 +1386,58 @@ function trb_portal_has_valid_biography_content( $user_id = 0 ) {
 		( empty( trb_portal_private_profile_file_by_group( 'biography', $user_id ) ) && '' !== trim( (string) get_user_meta( $user_id ? $user_id : get_current_user_id(), '_trb_artist_bio', true ) ) );
 }
 
-function trb_portal_remove_private_profile_files( $user_id ) {
-	$remove_ids = isset( $_POST['trb_artist_remove_files'] ) ? array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['trb_artist_remove_files'] ) ) : array();
-	if ( empty( $remove_ids ) ) {
-		return;
-	}
-	$upload_dir = wp_upload_dir();
-	$private_dir = realpath( trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private' );
-	$remaining = array();
-	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
-		if ( ! in_array( $file['id'], $remove_ids, true ) ) {
-			$remaining[] = $file;
-			continue;
-		}
-		$target = ! empty( $file['path'] ) ? realpath( trailingslashit( $upload_dir['basedir'] ) . ltrim( $file['path'], '/' ) ) : false;
-		if ( $private_dir && $target && 0 === strpos( $target, $private_dir . DIRECTORY_SEPARATOR ) && is_file( $target ) ) {
-			wp_delete_file( $target );
-		}
-	}
-	update_user_meta( $user_id, '_trb_artist_private_files', $remaining );
-}
-
+/** Normalize PHP's multipart structure; malformed fields must fail, never vanish. */
 function trb_portal_private_upload_items( $input_name ) {
-	if ( empty( $_FILES[ $input_name ]['name'] ) ) {
-		return array();
+	if ( ! isset( $_FILES[ $input_name ] ) ) return array();
+	$input = $_FILES[ $input_name ];
+	if ( ! is_array( $input ) ) return new WP_Error( 'file_upload_failed' );
+	$multiple = isset( $input['name'] ) && is_array( $input['name'] );
+	foreach ( array( 'type', 'tmp_name', 'error', 'size' ) as $key ) {
+		if ( ! isset( $input[ $key ] ) || is_array( $input[ $key ] ) !== $multiple ) return new WP_Error( 'file_upload_failed' );
 	}
-	if ( ! is_array( $_FILES[ $input_name ]['name'] ) ) {
-		return array( array( 'name' => $_FILES[ $input_name ]['name'], 'type' => $_FILES[ $input_name ]['type'], 'tmp_name' => $_FILES[ $input_name ]['tmp_name'], 'error' => $_FILES[ $input_name ]['error'], 'size' => $_FILES[ $input_name ]['size'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-	}
+	$names = $multiple ? $input['name'] : array( $input['name'] ?? null );
 	$items = array();
-	foreach ( $_FILES[ $input_name ]['name'] as $index => $name ) {
-		$items[] = array( 'name' => $name, 'type' => $_FILES[ $input_name ]['type'][ $index ], 'tmp_name' => $_FILES[ $input_name ]['tmp_name'][ $index ], 'error' => $_FILES[ $input_name ]['error'][ $index ], 'size' => $_FILES[ $input_name ]['size'][ $index ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+	foreach ( $names as $index => $name ) {
+		$item = array();
+		foreach ( array( 'name', 'type', 'tmp_name', 'error', 'size' ) as $key ) {
+			$value = $multiple ? ( $input[ $key ][ $index ] ?? null ) : ( $input[ $key ] ?? null );
+			if ( ! is_scalar( $value ) ) return new WP_Error( 'file_upload_failed' );
+			$item[ $key ] = $value;
+		}
+		if ( UPLOAD_ERR_NO_FILE === (int) $item['error'] && '' === $item['name'] ) continue;
+		$items[] = $item;
 	}
 	return $items;
 }
 
-/** Return whether the request contains at least one file that PHP received successfully. */
-function trb_portal_has_private_profile_uploads() {
-	foreach ( array_keys( $_FILES ) as $input_name ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		foreach ( trb_portal_private_upload_items( $input_name ) as $upload ) {
-			if ( ! empty( $upload['name'] ) && ! empty( $upload['tmp_name'] ) && UPLOAD_ERR_OK === (int) $upload['error'] ) {
-				return true;
-			}
-		}
+/** Delete only retired files, preserving paths referenced by surviving metadata. */
+function trb_portal_delete_retired_profile_files( $retired, $remaining ) {
+	$protected = array();
+	foreach ( $remaining as $file ) {
+		$path = trb_portal_private_profile_file_path( $file );
+		if ( $path ) $protected[ $path ] = true;
 	}
-	return false;
+	foreach ( $retired as $file ) {
+		$path = trb_portal_private_profile_file_path( $file, false );
+		if ( $path && ! isset( $protected[ $path ] ) ) wp_delete_file( $path );
+	}
 }
 
-/** Remove byte-identical private files while preserving the first valid copy. */
-function trb_portal_deduplicate_private_profile_files( $user_id ) {
-	$upload_dir = wp_upload_dir();
-	$private_dir = realpath( trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private' );
-	$unique = array();
-	$seen = array();
-	$removed = 0;
-	$changed = false;
-	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
-		$target = ! empty( $file['path'] ) ? realpath( trailingslashit( $upload_dir['basedir'] ) . ltrim( $file['path'], '/' ) ) : false;
-		if ( ! $private_dir || ! $target || 0 !== strpos( $target, $private_dir . DIRECTORY_SEPARATOR ) || ! is_file( $target ) ) {
-			$unique[] = $file;
-			continue;
-		}
-		$hash = ! empty( $file['sha256'] ) && preg_match( '/^[a-f0-9]{64}$/i', $file['sha256'] ) ? strtolower( $file['sha256'] ) : hash_file( 'sha256', $target );
-		$key = ( isset( $file['group'] ) ? $file['group'] : '' ) . '|' . ( isset( $file['label'] ) ? $file['label'] : '' ) . '|' . $hash;
-		if ( isset( $seen[ $key ] ) ) {
-			wp_delete_file( $target );
-			$removed++;
-			$changed = true;
-			continue;
-		}
-		$seen[ $key ] = true;
-		if ( empty( $file['sha256'] ) || $hash !== $file['sha256'] ) $changed = true;
-		$file['sha256'] = $hash;
-		$unique[] = $file;
-	}
-	if ( $changed ) update_user_meta( $user_id, '_trb_artist_private_files', $unique );
-	return $removed;
-}
-
+/** Acquire the complete batch before changing metadata or deleting old files. */
 function trb_portal_handle_private_profile_uploads( $user_id ) {
-	if ( empty( $_FILES ) ) return;
-
-	require_once ABSPATH . 'wp-admin/includes/file.php';
-	trb_portal_deduplicate_private_profile_files( $user_id );
-	$existing       = trb_portal_private_profile_files( $user_id );
-	$files_changed  = false;
-	$known_hashes   = array();
-	foreach ( $existing as $stored_file ) {
-		if ( ! empty( $stored_file['sha256'] ) ) {
-			$known_hashes[ ( isset( $stored_file['group'] ) ? $stored_file['group'] : '' ) . '|' . ( isset( $stored_file['label'] ) ? $stored_file['label'] : '' ) . '|' . $stored_file['sha256'] ] = true;
-		}
+	$original = get_user_meta( $user_id, '_trb_artist_private_files', true );
+	$existing = trb_portal_private_profile_files( $user_id );
+	$remove_ids = $_POST['trb_artist_remove_files'] ?? array();
+	if ( ! is_array( $remove_ids ) ) return new WP_Error( 'file_upload_failed' );
+	foreach ( $remove_ids as $id ) if ( ! is_string( $id ) ) return new WP_Error( 'file_upload_failed' );
+	$remaining = array();
+	$retired = array();
+	foreach ( $existing as $file ) {
+		if ( in_array( $file['id'], $remove_ids, true ) ) $retired[] = $file;
+		else $remaining[] = $file;
 	}
-	$photos_count   = count( array_filter( $existing, function( $file ) { return isset( $file['group'] ) && 'photo' === $file['group']; } ) );
-	$uploads        = array(
+	$photos_count = count( array_filter( $remaining, static function( $file ) { return 'photo' === ( $file['group'] ?? '' ); } ) );
+	$uploads = array(
 		'trb_artist_bio_file'     => array( 'group' => 'biography', 'label' => 'Biografia artistica', 'mimes' => array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'odt' => 'application/vnd.oasis.opendocument.text', 'rtf' => 'application/rtf' ) ),
 		'trb_artist_photos'       => array( 'group' => 'photo', 'label' => 'Foto artista', 'mimes' => array( 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp' ) ),
 		'trb_artist_id_front'     => array( 'group' => 'identity', 'label' => 'Carta d’identità — fronte', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
@@ -1464,84 +1445,89 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 		'trb_artist_tax_front'    => array( 'group' => 'tax_card', 'label' => 'Codice fiscale o tessera sanitaria — fronte', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
 		'trb_artist_tax_back'     => array( 'group' => 'tax_card', 'label' => 'Codice fiscale o tessera sanitaria — retro', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
 	);
-
+	$pending = array();
 	foreach ( $uploads as $input_name => $settings ) {
-		foreach ( trb_portal_private_upload_items( $input_name ) as $upload ) {
-			if ( empty( $upload['name'] ) || empty( $upload['tmp_name'] ) ) {
-				continue;
+		$items = trb_portal_private_upload_items( $input_name );
+		if ( is_wp_error( $items ) ) return $items;
+		if ( 'photo' !== $settings['group'] && count( $items ) > 1 ) return new WP_Error( 'file_upload_failed' );
+		foreach ( $items as $file ) {
+			if ( UPLOAD_ERR_OK !== (int) $file['error'] || '' === $file['name'] || ! is_file( $file['tmp_name'] ) ) return new WP_Error( 'file_upload_failed' );
+			$size = filesize( $file['tmp_name'] );
+			if ( ! $size || $size !== (int) $file['size'] || $size > wp_max_upload_size() || ( 'biography' === $settings['group'] && $size > 5 * MB_IN_BYTES ) ) return new WP_Error( 'file_upload_failed' );
+			$hash = hash_file( 'sha256', $file['tmp_name'] );
+			if ( ! $hash ) return new WP_Error( 'file_upload_failed' );
+			$duplicate = false;
+			foreach ( $remaining as $stored ) {
+				$path = trb_portal_private_profile_file_path( $stored );
+				if ( $path && $settings['group'] === ( $stored['group'] ?? '' ) && $settings['label'] === ( $stored['label'] ?? '' ) && hash_equals( $hash, hash_file( 'sha256', $path ) ) ) $duplicate = true;
 			}
-			if ( 'photo' === $settings['group'] && $photos_count >= 6 ) {
-				break;
-			}
-
-			$file = array(
-				'name'     => sanitize_file_name( $upload['name'] ),
-				'type'     => isset( $upload['type'] ) ? sanitize_mime_type( $upload['type'] ) : '',
-				'tmp_name' => $upload['tmp_name'], // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-				'error'    => isset( $upload['error'] ) ? absint( $upload['error'] ) : UPLOAD_ERR_NO_FILE,
-				'size'     => isset( $upload['size'] ) ? absint( $upload['size'] ) : 0,
-			);
-			if ( UPLOAD_ERR_OK !== $file['error'] ) {
-				continue;
-			}
-			$incoming_hash = hash_file( 'sha256', $file['tmp_name'] );
-			$hash_key = $settings['group'] . '|' . $settings['label'] . '|' . $incoming_hash;
-			if ( isset( $known_hashes[ $hash_key ] ) ) {
-				continue;
-			}
-			add_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
-			$handled = wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $settings['mimes'] ) );
-			remove_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
-			if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) {
-				continue;
-			}
-			if ( 'biography' === $settings['group'] || 'identity' === $settings['group'] ) {
-				$upload_dir = wp_upload_dir();
-				$private_dir = realpath( trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private' );
-				$kept = array();
-				foreach ( $existing as $stored_file ) {
-					$replace_biography = isset( $stored_file['group'] ) && 'biography' === $settings['group'] && 'biography' === $stored_file['group'];
-					$replace_identity  = isset( $stored_file['group'], $stored_file['label'] ) && 'identity' === $settings['group'] && 'identity' === $stored_file['group'] && $settings['label'] === $stored_file['label'];
-					if ( $replace_biography || $replace_identity ) {
-						$target = ! empty( $stored_file['path'] ) ? realpath( trailingslashit( $upload_dir['basedir'] ) . ltrim( $stored_file['path'], '/' ) ) : false;
-						if ( $private_dir && $target && 0 === strpos( $target, $private_dir . DIRECTORY_SEPARATOR ) && is_file( $target ) ) wp_delete_file( $target );
-						continue;
-					}
-					$kept[] = $stored_file;
-				}
-				$existing = $kept;
-				$files_changed = true;
-			}
-
-			$upload_dir = wp_upload_dir();
-			$private_dir = trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private';
-			if ( wp_mkdir_p( $private_dir ) ) {
-				$rules_file = trailingslashit( $private_dir ) . '.htaccess';
-				if ( ! file_exists( $rules_file ) ) {
-					file_put_contents( $rules_file, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-				}
-			}
-
-			$existing[] = array(
-				'id'    => wp_generate_uuid4(),
-				'group' => $settings['group'],
-				'label' => $settings['label'],
-				'name'  => basename( $handled['file'] ),
-				'path'  => str_replace( trailingslashit( $upload_dir['basedir'] ), '', $handled['file'] ),
-				'type'  => $handled['type'],
-				'size'  => filesize( $handled['file'] ),
-				'time'  => time(),
-				'sha256' => $incoming_hash,
-			);
-			$files_changed = true;
-			$known_hashes[ $hash_key ] = true;
-			if ( 'photo' === $settings['group'] ) {
-				$photos_count++;
-			}
+			foreach ( $pending as $item ) if ( $settings['group'] === $item['settings']['group'] && $settings['label'] === $item['settings']['label'] && $hash === $item['hash'] ) $duplicate = true;
+			if ( $duplicate ) continue;
+			if ( 'photo' === $settings['group'] && ++$photos_count > 6 ) return new WP_Error( 'file_upload_failed' );
+			$file['name'] = sanitize_file_name( $file['name'] );
+			$pending[] = array( 'file' => $file, 'settings' => $settings, 'hash' => $hash );
 		}
 	}
-
-	if ( $files_changed ) update_user_meta( $user_id, '_trb_artist_private_files', $existing );
+	$created = array();
+	if ( $pending ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		$uploads_dir = wp_upload_dir();
+		$private_dir = trailingslashit( $uploads_dir['basedir'] ) . 'trb-artist-private';
+		$rules = "Require all denied\nDeny from all\nOptions -Indexes\n";
+		$rules_file = trailingslashit( $private_dir ) . '.htaccess';
+		if ( ! empty( $uploads_dir['error'] ) || ! wp_mkdir_p( $private_dir ) || ( ! is_file( $rules_file ) && false === file_put_contents( $rules_file, $rules, LOCK_EX ) ) || ! is_readable( $rules_file ) || false === strpos( file_get_contents( $rules_file ), 'Require all denied' ) ) return new WP_Error( 'file_upload_failed' );
+		foreach ( $pending as $item ) {
+			add_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
+			try {
+				$handled = wp_handle_upload( $item['file'], array( 'test_form' => false, 'mimes' => $item['settings']['mimes'] ) );
+			} catch ( Throwable $error ) {
+				error_log( 'TRB profile upload exception: ' . get_class( $error ) . ': ' . $error->getMessage() );
+				trb_portal_delete_retired_profile_files( $created, array() );
+				return new WP_Error( 'file_upload_failed' );
+			} finally {
+				remove_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
+			}
+			if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) {
+				trb_portal_delete_retired_profile_files( $created, array() );
+				return new WP_Error( 'file_upload_failed' );
+			}
+			$file = array( 'id' => wp_generate_uuid4(), 'group' => $item['settings']['group'], 'label' => $item['settings']['label'], 'name' => basename( $handled['file'] ), 'path' => str_replace( trailingslashit( $uploads_dir['basedir'] ), '', $handled['file'] ), 'type' => $handled['type'], 'size' => filesize( $handled['file'] ), 'time' => time(), 'sha256' => $item['hash'] );
+			$created[] = $file;
+			$path = trb_portal_private_profile_file_path( $file );
+			if ( ! $path || ! hash_equals( $item['hash'], hash_file( 'sha256', $path ) ) ) {
+				trb_portal_delete_retired_profile_files( $created, array() );
+				return new WP_Error( 'file_upload_failed' );
+			}
+			if ( 'photo' !== $file['group'] ) {
+				$kept = array();
+				foreach ( $remaining as $stored ) {
+					if ( $file['group'] === ( $stored['group'] ?? '' ) && $file['label'] === ( $stored['label'] ?? '' ) ) $retired[] = $stored;
+					else $kept[] = $stored;
+				}
+				$remaining = $kept;
+			}
+			$remaining[] = $file;
+		}
+	}
+	if ( isset( $_POST['trb_artist_identity_section'] ) ) {
+		$has_biography = false;
+		foreach ( $remaining as $file ) if ( 'biography' === ( $file['group'] ?? '' ) && trb_portal_private_profile_file_path( $file ) ) $has_biography = true;
+		if ( ! $has_biography ) {
+			trb_portal_delete_retired_profile_files( $created, array() );
+			return new WP_Error( 'bio_required' );
+		}
+	}
+	$remaining = array_values( $remaining );
+	if ( $remaining !== array_values( $existing ) ) {
+		// Compare the old value as well as holding the per-user process lock.
+		update_user_meta( $user_id, '_trb_artist_private_files', $remaining, $original );
+		if ( get_user_meta( $user_id, '_trb_artist_private_files', true ) !== $remaining ) {
+			trb_portal_delete_retired_profile_files( $created, array() );
+			return new WP_Error( 'file_upload_failed' );
+		}
+		trb_portal_delete_retired_profile_files( $retired, $remaining );
+	}
+	return true;
 }
 
 function trb_portal_user_releases() {
@@ -1883,14 +1869,29 @@ function trb_portal_release_is_staged_path( $path ) {
 	return $root && $path && is_file( $path ) && 0 === strpos( $path, $root . DIRECTORY_SEPARATOR );
 }
 
-function trb_portal_cleanup_release_staging_session( $session, $user_id = 0 ) {
+function trb_portal_cleanup_release_staging_session( $session, $user_id = 0, $cutoff = 0 ) {
 	$user_id   = $user_id ? absint( $user_id ) : get_current_user_id();
+	$lock = trb_release_process_lock( 'staging:' . $user_id . ':' . $session );
+	if ( ! $lock ) return;
+	try {
 	$directory = trb_portal_release_staging_session_dir( $session, false, $user_id );
 	$root = realpath( trb_portal_release_staging_root( $user_id ) );
 	$directory = $directory ? realpath( $directory ) : false;
 	if ( ! $root || ! $directory || 0 !== strpos( $directory, $root . DIRECTORY_SEPARATOR ) ) return;
+	// Directory mtime does not advance when an existing chunk is appended.
+	// Recheck activity under the same lock held by the upload handler.
+	if ( $cutoff ) {
+		clearstatcache();
+		if ( filemtime( $directory ) > $cutoff ) return;
+		foreach ( glob( trailingslashit( $directory ) . '*' ) ?: array() as $path ) {
+			if ( is_file( $path ) && filemtime( $path ) > $cutoff ) return;
+		}
+	}
 	foreach ( glob( trailingslashit( $directory ) . '*' ) ?: array() as $path ) if ( is_file( $path ) ) wp_delete_file( $path );
 	@rmdir( $directory ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+	} finally {
+		trb_release_process_unlock( $lock );
+	}
 }
 
 /**
@@ -1926,7 +1927,7 @@ function trb_portal_cleanup_expired_release_staging_all() {
 				$session_files++;
 				$session_bytes += max( 0, (int) filesize( $path ) );
 			}
-			trb_portal_cleanup_release_staging_session( $session, (int) $user_id );
+			trb_portal_cleanup_release_staging_session( $session, (int) $user_id, $cutoff );
 			clearstatcache( true, $resolved_directory );
 			if ( ! is_dir( $resolved_directory ) ) {
 				$summary['sessions']++;
@@ -1975,7 +1976,6 @@ function trb_portal_release_staging_declared_bytes( $directory, $exclude_file_ke
 
 function trb_portal_stage_release_chunk() {
 	if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Sessione non valida: aggiorna la pagina e accedi nuovamente.' ), 401 );
-	trb_portal_cleanup_expired_release_staging();
 	if ( empty( $_POST['trb_release_stage_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['trb_release_stage_nonce'] ) ), 'trb_portal_stage_release' ) ) wp_send_json_error( array( 'message' => 'La pagina è scaduta: aggiornala prima di riprovare.' ), 403 );
 	$session = isset( $_POST['session'] ) ? sanitize_text_field( wp_unslash( $_POST['session'] ) ) : '';
 	$file_key = isset( $_POST['file_key'] ) ? sanitize_key( wp_unslash( $_POST['file_key'] ) ) : '';
@@ -1989,6 +1989,9 @@ function trb_portal_stage_release_chunk() {
 	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $session ) || ! preg_match( '/^f[0-9]{1,4}$/', $file_key ) || '' === $file_name || $file_size < 1 || $chunk_total < 1 || $chunk_total > 512 || $chunk_index >= $chunk_total ) wp_send_json_error( array( 'message' => 'I dati del caricamento sono incompleti o non validi. Riapri la pratica da completare e seleziona nuovamente il file.' ), 422 );
 	$chunk = ! empty( $_FILES['trb_release_chunk'] ) ? $_FILES['trb_release_chunk'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 	if ( empty( $chunk['tmp_name'] ) || UPLOAD_ERR_OK !== (int) ( $chunk['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_uploaded_file( $chunk['tmp_name'] ) || (int) $chunk['size'] < 1 || (int) $chunk['size'] > 6 * MB_IN_BYTES ) wp_send_json_error( array( 'message' => 'Un blocco del file non è arrivato correttamente al server.' ), 422 );
+	$session_lock = trb_release_process_lock( 'staging:' . get_current_user_id() . ':' . $session );
+	if ( ! $session_lock ) wp_send_json_error( array( 'message' => 'Un caricamento della stessa pratica è già in corso. Attendi e riprova.' ), 409 );
+	try {
 	$directory = trb_portal_release_staging_session_dir( $session, true );
 	if ( ! $directory ) wp_send_json_error( array( 'message' => 'Il server non riesce a preparare l’area temporanea del file.' ), 500 );
 	$part_path = trailingslashit( $directory ) . $file_key . '.part';
@@ -2023,6 +2026,11 @@ function trb_portal_stage_release_chunk() {
 	}
 	if ( $chunk_index < $next_chunk ) wp_send_json_success( array( 'next_chunk' => $next_chunk, 'complete' => ! empty( $meta['complete'] ) ) );
 	if ( $chunk_index > $next_chunk ) wp_send_json_error( array( 'message' => 'È arrivato un blocco fuori sequenza. Riprova senza ricaricare la pagina.' ), 409 );
+	$received_bytes = is_file( $part_path ) ? (int) filesize( $part_path ) : 0;
+	$chunk_bytes = (int) filesize( $chunk['tmp_name'] );
+	if ( $chunk_bytes !== (int) $chunk['size'] || $received_bytes + $chunk_bytes > $file_size ) {
+		wp_send_json_error( array( 'message' => 'Il blocco ricevuto supera i byte previsti per il file. Riprova selezionando nuovamente il file.' ), 422 );
+	}
 	$source = fopen( $chunk['tmp_name'], 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 	$target = fopen( $part_path, 0 === $chunk_index ? 'wb' : 'ab' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 	if ( ! $source || ! $target ) {
@@ -2061,6 +2069,9 @@ function trb_portal_stage_release_chunk() {
 	} finally {
 		flock( $upload_lock, LOCK_UN );
 		fclose( $upload_lock );
+	}
+	} finally {
+		trb_release_process_unlock( $session_lock );
 	}
 }
 add_action( 'admin_post_trb_portal_stage_release_chunk', 'trb_portal_stage_release_chunk' );
@@ -4197,6 +4208,8 @@ function trb_portal_render_artist_profile_section() {
 		<?php if ( 'invalid_account_name' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci nome e cognome anagrafici completi.</div><?php endif; ?>
 		<?php if ( 'artist_name_taken' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Questo nome d’arte risulta già assegnato a un altro account. Apri una segnalazione se ritieni che si tratti di un errore.</div><?php endif; ?>
 		<?php if ( 'bio_required' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Allega la biografia artistica in formato TXT, DOCX, ODT o RTF prima di salvare l’identità artistica.</div><?php endif; ?>
+		<?php if ( 'file_upload_failed' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Caricamento non completato. Nessun dato del profilo è stato salvato e i file precedenti sono conservati. Controlla formato, dimensioni e limite di sei foto, quindi riprova.</div><?php endif; ?>
+		<?php if ( 'profile_busy' === $profile_error ) : ?><div class="trb-portal__message">Un salvataggio del profilo è già in corso. Attendi il completamento e riprova.</div><?php endif; ?>
 		<?php if ( 'bio_invalid' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Biografia non acquisita: usa un file TXT, DOCX, ODT o RTF non superiore a 5 MB.</div><?php endif; ?>
 		<?php if ( 'storage_waiting' === $profile_error ) : ?><div class="trb-portal__message"><strong>Caricamento temporaneamente in attesa.</strong><p>I dati già salvati restano invariati. Non ripetere l’invio: riprova quando lo spazio sarà nuovamente disponibile.</p></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Se nome o cognome sono vuoti puoi inserirli ora; per correggere dati già registrati o l’e-mail dell’account, apri una segnalazione.</div><?php endif; ?>

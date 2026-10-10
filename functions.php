@@ -19,7 +19,7 @@ require_once get_template_directory() . '/inc/trb-auto-deploy.php';
 /**
  * Error handling configuration
  */
-error_reporting( E_ALL & ~E_WARNING );
+// Keep WordPress's error reporting policy, including warnings in its error log.
 if ( ! headers_sent() ) {
 	@ini_set( 'display_errors', 0 );
 }

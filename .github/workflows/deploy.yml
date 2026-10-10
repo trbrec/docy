@@ -34,6 +34,8 @@ jobs:
         shell: bash
         run: |
           php tools/test-international-profile.php
+          php tools/test-profile-file-transaction.php
+          php tools/test-crm-outbox.php
           php tools/test-legacy-inventory-bootstrap.php
           php tools/test-release-sheet-data.php
           php tools/test-artist-admin-name.php
@@ -45,6 +47,7 @@ jobs:
           mkdir -p /tmp/trb-studio-wp
           tar -xzf /tmp/trb-studio-wp.tar.gz -C /tmp/trb-studio-wp
           TRB_WP_TEST_ROOT=/tmp/trb-studio-wp/wordpress php integrations/site-studio/test-studio.php
+          TRB_WP_TEST_ROOT=/tmp/trb-studio-wp/wordpress php tools/test-profile-multipart.php
           node tests/release-draft-restore.test.js
           node tests/release-completed-receipt.test.js
           node tests/release-draft-clear.test.js
@@ -78,6 +81,7 @@ jobs:
           node tests/onboarding-drive.test.js
           node tests/onboarding-form.test.js
           node tests/artist-profile-validation.test.js
+          node tests/artist-profile-save.test.js
           php tools/test-store-benefits.php
           php tools/test-demo-services.php
           php tools/test-rights-owner-review.php

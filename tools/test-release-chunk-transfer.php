@@ -4,6 +4,9 @@ namespace ChunkRegression;
 const MB_IN_BYTES = 1048576;
 class Reply extends \Exception { public function __construct(public $ok, public $data) {} }
 function is_user_logged_in(){return true;}
+function get_current_user_id(){return 198;}
+function trb_release_process_lock($scope){$h=fopen($GLOBALS['chunk_dir'].'/session.lock','c');if(!flock($h,LOCK_EX|LOCK_NB)){fclose($h);return false;}return $h;}
+function trb_release_process_unlock($h){flock($h,LOCK_UN);fclose($h);}
 function trb_portal_cleanup_expired_release_staging(){}
 function wp_verify_nonce(...$a){return true;}
 function sanitize_text_field($s){return $s;}
@@ -46,6 +49,11 @@ try{
  check(send(1,2,$size,$b)->ok,'Completed retry rejected');
  check(send(0,1,3,'XYZ','replacement')->ok,'Replacement failed');
  check(file_get_contents($GLOBALS['chunk_dir'].'/f0.part')==='XYZ','Replacement reused old bytes');
+ check(!send(0,2,4,'12345','oversized-first')->ok,'Oversized first chunk accepted');
+ check(send(0,2,4,'12','oversized-next')->ok,'Valid initial chunk rejected');
+ check(!send(1,2,4,'345','oversized-next')->ok,'Oversized append accepted');
+ check(file_get_contents($GLOBALS['chunk_dir'].'/f0.part')==='12','Rejected append changed accepted bytes');
+ check(send(1,2,4,'34','oversized-next')->ok,'Correct retry after oversized append failed');
  check(!send(0,1,4,'XYZ','truncated')->ok,'Real truncation accepted');
  $bad=send(2,1,3,'XYZ','invalid');
  check(!$bad->ok&&!str_contains($bad->data['message'],'250 MB'),'Invalid sequence mislabeled as oversized');

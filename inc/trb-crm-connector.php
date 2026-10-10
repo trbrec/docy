@@ -166,15 +166,16 @@ function trb_crm_connector_queue( $entity_type, $external_id, $payload = null, $
 	$payload_json = wp_json_encode( trb_crm_connector_clean( $payload ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
 	$hash = hash( 'sha256', (string) $payload_json );
 	$event_id = hash( 'sha256', implode( '|', array( TRB_CRM_CONNECTOR_SOURCE, $entity_type, $external_id, $operation, $version, $hash ) ) );
-	// Keep the audit trail but deliver only the newest unsent snapshot for an
-	// entity. A demo processing step can update many post-meta rows in one request.
-	$wpdb->query( $wpdb->prepare( "UPDATE " . trb_crm_connector_table() . " SET status='superseded' WHERE entity_type=%s AND external_id=%s AND status IN ('queued','retry')", $entity_type, $external_id ) );
 	$inserted = $wpdb->insert( trb_crm_connector_table(), array(
 		'event_id' => $event_id, 'entity_type' => $entity_type, 'external_id' => $external_id,
 		'operation' => $operation, 'entity_version' => $version, 'payload' => $payload_json,
 		'payload_hash' => $hash, 'status' => 'queued', 'attempts' => 0,
 		'next_attempt_at' => current_time( 'mysql', true ), 'created_at' => current_time( 'mysql', true ),
 	), array( '%s','%s','%s','%s','%d','%s','%s','%s','%d','%s','%s' ) );
+	if ( false === $inserted ) return false;
+	// Never retire a deliverable event before its replacement is durable.
+	// The version condition also preserves a newer concurrent snapshot.
+	$wpdb->query( $wpdb->prepare( "UPDATE " . trb_crm_connector_table() . " SET status='superseded' WHERE entity_type=%s AND external_id=%s AND entity_version<%d AND status IN ('queued','retry')", $entity_type, $external_id, $version ) );
 	return false !== $inserted;
 }
 
@@ -278,10 +279,10 @@ function trb_crm_connector_deliver( $limit = 50 ) {
 }
 
 function trb_crm_connector_tick() {
-	if ( get_transient( 'trb_crm_connector_lock' ) ) return;
-	set_transient( 'trb_crm_connector_lock', 1, 4 * MINUTE_IN_SECONDS );
+	$lock = trb_release_process_lock( 'crm-connector-tick' );
+	if ( ! $lock ) return;
 	try { trb_crm_connector_bootstrap( 50 ); trb_crm_connector_deliver( 50 ); }
-	finally { delete_transient( 'trb_crm_connector_lock' ); }
+	finally { trb_release_process_unlock( $lock ); }
 }
 add_action( 'trb_crm_connector_tick', 'trb_crm_connector_tick' );
 

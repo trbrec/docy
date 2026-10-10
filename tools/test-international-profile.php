@@ -47,6 +47,11 @@ check( 'AB-123456789' === trb_portal_validate_identity_document_number( 'AB-1234
 check( '文書123456' === trb_portal_validate_identity_document_number( '文書123456', 'foreign_identity' ), 'Foreign identity Unicode retained' );
 check( false === trb_portal_validate_identity_document_number( '123456789' ), 'CIE format remains enforced' );
 check( false === trb_portal_validate_identity_document_number( 'AB123', 'unknown' ), 'Unknown document type rejected' );
+foreach ( array( array( '123456789' ), null, true, new stdClass() ) as $input ) {
+	foreach ( array( 'trb_portal_validate_mobile', 'trb_portal_validate_tax_code', 'trb_portal_validate_international_identifier', 'trb_portal_validate_identity_document_number', 'trb_portal_validate_identity_document_expiry' ) as $validator ) check( false === $validator( $input ), 'Non-string profile input rejected by ' . $validator );
+	check( false === trb_portal_validate_profile_geography( $input, 'Tunisi' ), 'Non-string country rejected' );
+	check( false === trb_portal_validate_profile_geography( 'Tunisia', $input ), 'Non-string city rejected' );
+}
 $future = ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+15 years' )->format( 'Y-m-d' );
 check( false === trb_portal_validate_identity_document_expiry( $future ), 'CIE maximum retained' );
 check( $future === trb_portal_validate_identity_document_expiry( $future, 'foreign_identity' ), 'Foreign expiry may exceed 10 years' );
