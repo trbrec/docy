@@ -42,7 +42,12 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
             if ( ! preg_match( '~^trb-audit-http-[a-f0-9]{24}(?:\.php|/index\.php)$~D', $bridge['name'] ?? '' ) || ! preg_match( '/^[a-f0-9]{64}$/D', $bridge['sha256'] ?? '' ) ) throw new RuntimeException( 'Unexpected HTTP QA manifest.' );
             $path = '/home/customer/www/artist.trbrec.com/public_html/' . $bridge['name'];
             if ( is_link( $path ) || is_file( $path ) && ( ! hash_equals( $bridge['sha256'], hash_file( 'sha256', $path ) ) || ! unlink( $path ) ) ) throw new RuntimeException( 'HTTP QA cleanup unconfirmed.' );
-            if ( str_ends_with( $bridge['name'], '/index.php' ) && is_dir( dirname( $path ) ) && ( is_link( dirname( $path ) ) || ! rmdir( dirname( $path ) ) ) ) throw new RuntimeException( 'HTTP QA directory cleanup unconfirmed.' );
+            if ( str_ends_with( $bridge['name'], '/index.php' ) && is_dir( dirname( $path ) ) ) {
+                if ( is_link( dirname( $path ) ) ) throw new RuntimeException( 'HTTP QA directory changed to a link.' );
+                if ( ! @rmdir( dirname( $path ) ) ) {
+                    $GLOBALS['trb_qa_retained_http_directories'][] = array( 'directory' => dirname( $bridge['name'] ), 'entries' => array_values( array_diff( scandir( dirname( $path ) ), array( '.', '..' ) ) ) );
+                }
+            }
         }
         $prefix = $settings['prefix'];
         if ( ! preg_match( '/^trbqa_[a-f0-9]{16}_$/D', $prefix ) || $prefix === $wpdb->prefix ) throw new RuntimeException( 'Unsafe QA cleanup prefix.' );
@@ -61,8 +66,9 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
         return count( $tables );
     };
     if ( 'cleanup' === $phase ) {
-        echo json_encode( array( 'synthetic_tables_removed' => $cleanup_fixture( $settings_file ) ) ) . "\n";
-        exit;
+        $count = $cleanup_fixture( $settings_file );
+        echo json_encode( array( 'synthetic_tables_removed' => $count, 'retained_http_directories' => $GLOBALS['trb_qa_retained_http_directories'] ?? array() ) ) . "\n";
+        exit( empty( $GLOBALS['trb_qa_retained_http_directories'] ) ? 0 : 1 );
     }
     if ( 'cleanup-stale' === $phase ) {
         $removed = 0; $table_count = 0;
@@ -70,7 +76,9 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
             if ( $stale === $work || ! preg_match( '#^(?:/tmp/trb-portal-stack|/home/customer/www/artist\.trbrec\.com/private/portal-stack-qa)\.[a-zA-Z0-9]{8}$#D', $stale ) || realpath( $stale ) !== $stale || is_link( $stale ) || filemtime( $stale ) > time() - 600 ) continue;
             if ( function_exists( 'posix_geteuid' ) && fileowner( $stale ) !== posix_geteuid() ) continue;
             if ( ! is_file( $stale . '/qa-settings.json' ) || ! is_file( $stale . '/candidate/tools/qa-installed-stack.php' ) ) continue;
+            $retained_before = count( $GLOBALS['trb_qa_retained_http_directories'] ?? array() );
             $table_count += $cleanup_fixture( $stale . '/qa-settings.json' );
+            if ( count( $GLOBALS['trb_qa_retained_http_directories'] ?? array() ) > $retained_before ) continue;
             $entries = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $stale, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
             foreach ( $entries as $entry ) {
                 $ok = $entry->isDir() && ! $entry->isLink() ? rmdir( $entry->getPathname() ) : unlink( $entry->getPathname() );
@@ -79,7 +87,7 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
             if ( ! rmdir( $stale ) ) throw new RuntimeException( 'Stale QA workspace cleanup incomplete.' );
             $removed++;
         }
-        echo json_encode( array( 'synthetic_workspaces_removed' => $removed, 'synthetic_tables_removed' => $table_count ) ) . "\n";
+        echo json_encode( array( 'synthetic_workspaces_removed' => $removed, 'synthetic_tables_removed' => $table_count, 'retained_http_directories' => $GLOBALS['trb_qa_retained_http_directories'] ?? array() ) ) . "\n";
         exit;
     }
     if ( file_exists( $root ) || file_exists( $settings_file ) ) throw new RuntimeException( 'QA workspace already initialized.' );
