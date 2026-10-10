@@ -92,7 +92,7 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          for phase in ('install', 'verify', 'http'):
+          for phase in ('install', 'verify'):
               result=json.loads(Path('/tmp/trb-live-qa/'+phase+'.json').read_text())
               assert result.get('completed') is True, 'Installed-stack '+phase+' incomplete'
               assert not result.get('fatal'), 'Installed-stack fatal diagnostic'
@@ -113,6 +113,7 @@ jobs:
           test "${validation}" = success
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-release-deploy-guard.php'" > /tmp/trb-live-qa/deploy-guard.txt 2>/dev/null
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/maintain-portal-log.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/log-maintenance.json 2>/dev/null
+          python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/http.json"));assert d.get("completed") is True and not d.get("fatal"),"Authenticated installed-stack HTTP tests incomplete"'
           python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/providers.json"));assert d.get("sheets") is True and d.get("sheets_cleanup") is True,"Signed isolated spreadsheet round trip incomplete"'
           printf '{"stage":"complete"}\n' > /tmp/trb-live-qa/stage.json
       - name: Preserve sanitized results
