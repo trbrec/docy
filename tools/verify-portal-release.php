@@ -11,7 +11,7 @@ if ( realpath( dirname( __DIR__ ) ) !== $candidate || is_link( $release ) || tri
 require __DIR__ . '/portal-release-backup.php';
 $files = trb_portal_release_files( $candidate );
 foreach ( $files as $path => $spec ) if ( is_link( $theme . '/' . $path ) || ! is_file( $theme . '/' . $path ) || ! hash_equals( $spec['sha256'], hash_file( 'sha256', $theme . '/' . $path ) ) ) throw new RuntimeException( 'Theme byte mismatch.' );
-$manifest_path = $site . '/private/portal-audit-' . $revision . '/manifest.json';
+$manifest_path = $site . '/private/portal-audit-' . $revision . '/verified-sources.json';
 if ( is_link( $manifest_path ) || ! is_file( $manifest_path ) ) throw new RuntimeException( 'Integration manifest unavailable.' );
 $integrations = json_decode( file_get_contents( $manifest_path ), true, 32, JSON_THROW_ON_ERROR );
 foreach ( $integrations as $entry ) if ( ! str_starts_with( $entry['target'], $site . '/public_html/wp-content/' ) || is_link( $entry['target'] ) || ! is_file( $entry['target'] ) || ! hash_equals( $entry['next_sha256'], hash_file( 'sha256', $entry['target'] ) ) ) throw new RuntimeException( 'Integration byte mismatch.' );

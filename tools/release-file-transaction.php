@@ -54,7 +54,7 @@ function trb_release_file_rollback( $backup, $root ) {
         if ( $current !== $item['previous'] && $current !== $item['next'] ) throw new RuntimeException( 'Integration changed outside this release.' );
         if ( null !== $item['previous'] && ( is_link( $backup . '/' . $item['backup'] ) || ! is_file( $backup . '/' . $item['backup'] ) || ! hash_equals( $item['previous'], hash_file( 'sha256', $backup . '/' . $item['backup'] ) ) ) ) throw new RuntimeException( 'Integration original bytes changed.' );
     }
-    foreach ( $manifest as $item ) {
+    foreach ( array_reverse( $manifest ) as $item ) {
         if ( null === $item['previous'] ) { if ( is_file( $item['path'] ) && ! unlink( $item['path'] ) ) throw new RuntimeException( 'Added integration cleanup failed.' ); }
         else trb_release_file_replace( $item['path'], file_get_contents( $backup . '/' . $item['backup'] ), $item['mode'] );
     }

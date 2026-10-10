@@ -7,7 +7,6 @@ on:
       - tools/qa-installed-stack.php
       - tools/qa-installed-http.php
       - tools/qa-http-relay.php
-      - tools/qa-http-relay.py
       - tools/qa-http-browser-relay.cjs
       - tools/signature-compatibility.php
       - tools/deploy-portal-integrations.php
