@@ -144,7 +144,7 @@ PHP;
     $config = "<?php\n";
     foreach ( array( 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_CHARSET', 'DB_COLLATE' ) as $name ) $config .= 'define(' . var_export( $name, true ) . ',' . var_export( defined( $name ) ? constant( $name ) : '', true ) . ");\n";
     foreach ( array( 'AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT', 'LOGGED_IN_SALT', 'NONCE_SALT' ) as $name ) $config .= 'define(' . var_export( $name, true ) . ',' . var_export( bin2hex( random_bytes( 32 ) ), true ) . ");\n";
-    foreach ( array( 'DISABLE_WP_CRON' => true, 'DISALLOW_FILE_MODS' => true, 'AUTOMATIC_UPDATER_DISABLED' => true, 'WP_DEBUG' => true, 'WP_DEBUG_DISPLAY' => false, 'WP_ENVIRONMENT_TYPE' => 'local', 'WP_CONTENT_DIR' => $root . '/wp-content', 'WP_PLUGIN_DIR' => $root . '/wp-content/plugins', 'WPMU_PLUGIN_DIR' => $root . '/wp-content/mu-plugins', 'WP_DEFAULT_THEME' => 'docy', 'WP_HOME' => 'http://127.0.0.1', 'WP_SITEURL' => 'http://127.0.0.1' ) as $name => $value ) $config .= 'define(' . var_export( $name, true ) . ',' . var_export( $value, true ) . ");\n";
+    foreach ( array( 'DISABLE_WP_CRON' => true, 'DISALLOW_FILE_MODS' => true, 'AUTOMATIC_UPDATER_DISABLED' => true, 'WP_DEBUG' => true, 'WP_DEBUG_DISPLAY' => false, 'WP_ENVIRONMENT_TYPE' => 'local', 'WP_CONTENT_DIR' => $root . '/wp-content', 'WFWAF_LOG_PATH' => $root . '/wp-content/wflogs/', 'WP_PLUGIN_DIR' => $root . '/wp-content/plugins', 'WPMU_PLUGIN_DIR' => $root . '/wp-content/mu-plugins', 'WP_DEFAULT_THEME' => 'docy', 'WP_HOME' => 'http://127.0.0.1', 'WP_SITEURL' => 'http://127.0.0.1' ) as $name => $value ) $config .= 'define(' . var_export( $name, true ) . ',' . var_export( $value, true ) . ");\n";
     $config .= '$table_prefix=' . var_export( $prefix, true ) . ";\nrequire ABSPATH.'wp-settings.php';\n";
     file_put_contents( $root . '/wp-config.php', $config ); chmod( $root . '/wp-config.php', 0600 );
     file_put_contents( $settings_file, json_encode( array( 'prefix' => $prefix, 'plugins' => $plugins ), JSON_THROW_ON_ERROR ) ); chmod( $settings_file, 0600 );
@@ -163,6 +163,7 @@ register_shutdown_function( static function() use ( &$result, $buffer, $phase ) 
 set_error_handler( static function( $severity, $message, $file, $line ) use ( &$result ) {
     $key = $severity . ':' . basename( $file ) . ':' . $line;
     $result['diagnostics'][$key] = ( $result['diagnostics'][$key] ?? 0 ) + 1;
+    foreach ( array( 'missing_file' => 'No such file or directory', 'permission_denied' => 'Permission denied', 'read_only_filesystem' => 'Read-only file system' ) as $category => $phrase ) if ( str_contains( $message, $phrase ) ) $result['diagnostic_categories'][$key][$category] = true;
     // Record identifiers only; never export arguments, paths, configuration or messages.
     if ( preg_match( '/Undefined array key "([A-Z_]{1,40})"/', $message, $missing ) && in_array( $missing[1], array( 'HTTP_HOST', 'SERVER_NAME', 'SERVER_PORT', 'SERVER_PROTOCOL', 'REQUEST_URI', 'REQUEST_METHOD', 'SCRIPT_FILENAME', 'SCRIPT_NAME', 'PHP_SELF', 'HTTPS', 'REMOTE_ADDR', 'REQUEST_SCHEME' ), true ) ) $result['missing_server_fields'][$missing[1]] = true;
     if ( str_contains( $message, '_load_textdomain_just_in_time' ) && preg_match_all( '/<code>([a-z0-9_-]{1,64})<\/code>/', $message, $domains ) ) foreach ( $domains[1] as $domain ) if ( $domain !== 'init' ) $result['early_translation_domains'][$domain] = true;
@@ -175,9 +176,16 @@ set_error_handler( static function( $severity, $message, $file, $line ) use ( &$
     return true;
 } );
 define( 'ABSPATH', $root . '/' );
+if ( defined( 'WFWAF_LOG_PATH' ) && rtrim( WFWAF_LOG_PATH, '/' ) !== $root . '/wp-content/wflogs' ) throw new RuntimeException( 'Unexpected preloaded WAF storage.' );
 $_SERVER['HTTP_HOST'] = '127.0.0.1'; $_SERVER['REQUEST_URI'] = '/'; $_SERVER['REQUEST_METHOD'] = 'GET';
 if ( 'install' === $phase ) define( 'WP_INSTALLING', true );
 require $root . '/wp-config.php';
+if ( defined( 'WFWAF_LOG_PATH' ) ) {
+    $result['waf_storage_isolated'] = realpath( rtrim( WFWAF_LOG_PATH, '/' ) ) === realpath( $root . '/wp-content/wflogs' );
+    if ( ! $result['waf_storage_isolated'] ) throw new RuntimeException( 'WAF storage escaped the synthetic installation.' );
+    $result['waf_rules_file_exists'] = is_file( WFWAF_LOG_PATH . 'rules.php' );
+    $result['waf_rules_file_readable'] = is_readable( WFWAF_LOG_PATH . 'rules.php' );
+}
 $settings = json_decode( file_get_contents( $settings_file ), true, 16, JSON_THROW_ON_ERROR );
 if ( $wpdb->prefix !== $settings['prefix'] || ! str_starts_with( $wpdb->prefix, 'trbqa_' ) ) throw new RuntimeException( 'QA database prefix mismatch.' );
 if ( 'install' === $phase ) {
