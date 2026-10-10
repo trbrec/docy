@@ -16,6 +16,7 @@ on:
       - tools/onboarding-readiness.php
       - tools/rename-known-audit-account.php
       - tools/install-log-maintenance.php
+      - tools/install-launch-release-guard.php
       - integrations/portal-mu-plugins/**
       - .github/workflows/portal-live-qa.yml
 permissions:
@@ -123,6 +124,8 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/maintain-portal-log.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/log-maintenance.json 2>/dev/null
           python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/http.json"));assert d.get("completed") is True and not d.get("fatal"),"Authenticated installed-stack HTTP tests incomplete"'
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-log-maintenance.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/log-schedule.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-launch-release-guard.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/launch-guard.json 2>/dev/null
+          python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/launch-guard.json"));assert d.get("completed") is True and d.get("file_readback_verified") is True and d.get("native_hooks_verified") is True,"Launch announcement guard unconfirmed"'
           python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/providers.json"));assert d.get("sheets") is True and d.get("sheets_cleanup") is True,"Signed isolated spreadsheet round trip incomplete"'
           printf '{"stage":"complete"}\n' > /tmp/trb-live-qa/stage.json
       - name: Preserve sanitized results
