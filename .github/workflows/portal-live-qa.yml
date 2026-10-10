@@ -67,6 +67,7 @@ jobs:
           }
           trap cleanup EXIT
           rsync -az --exclude='.git/' --exclude='.github/' -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" ./ "${remote}:${qa_dir}/candidate/"
+          printf '%s\n' "${GITHUB_SHA}" | ssh "${ssh_opts[@]}" "${remote}" "cat > '${qa_dir}/candidate/.trb-deployed-sha'"
           php_opts='-d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client'
           ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' cleanup-stale '${qa_dir}'" > /tmp/trb-live-qa/stale-cleanup.json 2>/dev/null
           printf '{"stage":"prepare"}\n' > /tmp/trb-live-qa/stage.json
@@ -81,6 +82,7 @@ jobs:
           fi
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-installed-stack.php' http '${qa_dir}'" > /tmp/trb-live-qa/http.json 2>/dev/null || true
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/deploy-portal-integrations.php' preflight '${GITHUB_SHA}'" > /tmp/trb-live-qa/preflight.txt 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/onboarding-readiness.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/onboarding-readiness.json 2>/dev/null || true
           provider_run=$(openssl rand -hex 8)
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-provider-roundtrip.php' '${provider_run}' no-ai" > /tmp/trb-live-qa/providers.json 2>/dev/null
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-store-benefits-live.php' portal '${benefit_run}' ddb" > /tmp/trb-live-qa/store-portal.txt 2>/dev/null
@@ -106,6 +108,7 @@ jobs:
           done
           test "${validation}" = success
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-release-deploy-guard.php'" > /tmp/trb-live-qa/deploy-guard.txt 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/maintain-portal-log.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/log-maintenance.json 2>/dev/null
           python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/providers.json"));assert d.get("sheets") is True and d.get("sheets_cleanup") is True,"Signed isolated spreadsheet round trip incomplete"'
           printf '{"stage":"complete"}\n' > /tmp/trb-live-qa/stage.json
       - name: Preserve sanitized results

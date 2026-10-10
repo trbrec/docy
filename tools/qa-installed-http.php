@@ -26,11 +26,12 @@ function trb_qa_installed_http( $work ) {
         if ( $authenticated ) curl_setopt_array( $curl, array( CURLOPT_COOKIEFILE => $cookie, CURLOPT_COOKIEJAR => $cookie ) );
         if ( null !== $fields ) curl_setopt_array( $curl, array( CURLOPT_POST => true, CURLOPT_POSTFIELDS => $fields ) );
         $response = curl_exec( $curl ); $status = curl_getinfo( $curl, CURLINFO_RESPONSE_CODE ); $header_size = curl_getinfo( $curl, CURLINFO_HEADER_SIZE ); curl_close( $curl );
+        $GLOBALS['trb_qa_http_statuses'][] = (int) $status;
         if ( ! is_string( $response ) ) return array( 'status' => 0, 'body' => '', 'location' => '' );
         preg_match( '/^Location:\s*(.+)$/mi', substr( $response, 0, $header_size ), $location );
         return array( 'status' => $status, 'body' => substr( $response, $header_size ), 'location' => trim( $location[1] ?? '' ) );
     };
-    $check = static function( $condition, $label ) use ( &$checks ) { if ( ! $condition ) throw new RuntimeException( $label ); $checks[] = $label; };
+    $check = static function( $condition, $label ) use ( &$checks ) { $GLOBALS['trb_qa_http_stage'] = $label; if ( ! $condition ) throw new RuntimeException( $label ); $checks[] = $label; };
     try {
         $check( 404 === $request( '/wp-login.php', null, false, false )['status'], 'temporary_endpoint_requires_private_key' );
         for ( $attempt = 0; $attempt < 30; $attempt++ ) { $login = $request( '/wp-login.php' ); if ( $login['status'] ) break; usleep( 100000 ); }

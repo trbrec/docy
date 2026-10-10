@@ -5,6 +5,7 @@ ini_set( 'display_errors', '0' );
 $phase = $argv[1] ?? ''; $work = $argv[2] ?? '';
 set_exception_handler( static function( $error ) use ( $phase ) {
     $detail = array( 'class' => get_class( $error ), 'file' => basename( $error->getFile() ), 'line' => $error->getLine() );
+    if ( 'http' === $phase ) { $detail['stage'] = $GLOBALS['trb_qa_http_stage'] ?? 'bootstrap'; $detail['http_statuses'] = $GLOBALS['trb_qa_http_statuses'] ?? array(); }
     if ( isset( $GLOBALS['qa_stack_result'] ) ) $GLOBALS['qa_stack_result']['fatal'] = $detail;
     else echo json_encode( array( 'phase' => $phase, 'completed' => false, 'fatal' => $detail ) ) . "\n";
     exit( 1 );
