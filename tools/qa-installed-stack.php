@@ -22,9 +22,10 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
         $settings = json_decode( file_get_contents( $settings_file ), true, 16, JSON_THROW_ON_ERROR );
         if ( isset( $settings['http_bridge'] ) ) {
             $bridge = $settings['http_bridge'];
-            if ( ! preg_match( '/^trb-audit-http-[a-f0-9]{24}\.php$/D', $bridge['name'] ?? '' ) || ! preg_match( '/^[a-f0-9]{64}$/D', $bridge['sha256'] ?? '' ) ) throw new RuntimeException( 'Unexpected HTTP QA manifest.' );
+            if ( ! preg_match( '~^trb-audit-http-[a-f0-9]{24}(?:\.php|/index\.php)$~D', $bridge['name'] ?? '' ) || ! preg_match( '/^[a-f0-9]{64}$/D', $bridge['sha256'] ?? '' ) ) throw new RuntimeException( 'Unexpected HTTP QA manifest.' );
             $path = '/home/customer/www/artist.trbrec.com/public_html/' . $bridge['name'];
             if ( is_link( $path ) || is_file( $path ) && ( ! hash_equals( $bridge['sha256'], hash_file( 'sha256', $path ) ) || ! unlink( $path ) ) ) throw new RuntimeException( 'HTTP QA cleanup unconfirmed.' );
+            if ( str_ends_with( $bridge['name'], '/index.php' ) && is_dir( dirname( $path ) ) && ( is_link( dirname( $path ) ) || ! rmdir( dirname( $path ) ) ) ) throw new RuntimeException( 'HTTP QA directory cleanup unconfirmed.' );
         }
         $prefix = $settings['prefix'];
         if ( ! preg_match( '/^trbqa_[a-f0-9]{16}_$/D', $prefix ) || $prefix === $wpdb->prefix ) throw new RuntimeException( 'Unsafe QA cleanup prefix.' );

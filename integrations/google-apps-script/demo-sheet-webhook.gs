@@ -11,6 +11,28 @@ const TRB_SHEET_NAME = '2026 NEW';
 
 function doGet() { return json_({ protocol: 'trb-demo-sheet-v2', isolated_qa: true }); }
 
+/** Editor-only test: the existing secret stays inside Apps Script. No mail is sent. */
+function testIsolatedDemoSheet() {
+  const run = Utilities.getUuid().replace(/-/g, '').slice(0, 16);
+  const secret = PropertiesService.getScriptProperties().getProperty('TRB_WEBHOOK_SECRET');
+  const data = { informazioni_cronologiche: '10/10/2026 12:00', nome: 'Artista', cognome: 'Fittizio', nome_arte: 'Artista Fittizio Tunisia', email: 'qa-' + run + '@example.invalid', titolo: '=Collaudo l’onda تونس', link_provino: 'https://example.invalid/qa/' + run, request_id: 'QA-AUDIT-' + run, qa_run: run };
+  const call = function (action, valid) {
+    const body = JSON.stringify(Object.assign({}, data, { qa_action: action }));
+    return JSON.parse(doPost({ postData: { contents: JSON.stringify({ payload_base64: Utilities.base64Encode(body, Utilities.Charset.UTF_8), signature: valid === false ? '0'.repeat(64) : hmacHex_(body, secret) }) } }).getContent());
+  };
+  const result = { provider_local_signature: false, isolated_readback: false, duplicate: false, cleanup: false, artist_messages: 0 };
+  try {
+    const invalid = call('write', false), write = call('write'), duplicate = call('write'), read = call('read');
+    result.provider_local_signature = invalid.error === 'unauthorized' && write.success === true;
+    result.duplicate = duplicate.duplicate === true;
+    result.isolated_readback = JSON.stringify(read.values) === JSON.stringify(demoValues_(data));
+  } finally {
+    result.cleanup = call('cleanup').cleaned === true;
+    console.log(JSON.stringify(result));
+  }
+  if (!result.provider_local_signature || !result.isolated_readback || !result.duplicate || !result.cleanup) throw new Error('Collaudo interno del foglio non completato.');
+}
+
 function setWebhookSecret(secret) {
   if (!secret || String(secret).length < 24) {
     throw new Error('Il segreto deve contenere almeno 24 caratteri.');
