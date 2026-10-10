@@ -27,9 +27,12 @@ require dirname( __DIR__, 2 ) . '/inc/trb-artist-portal.php';
 if ( $qaServing ) {
     $qaUserId = ( $_SERVER['HTTP_X_TRB_QA_USER'] ?? '' ) === 'anonymous' ? 0 : (int) getenv( 'TRB_QA_USER_ID' );
     wp_set_current_user( $qaUserId );
-    if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) trb_portal_handle_artist_profile();
+    if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
+        if ( ( $_POST['action'] ?? '' ) === 'trb_portal_stage_release_chunk' ) trb_portal_stage_release_chunk();
+        trb_portal_handle_artist_profile();
+    }
     header( 'Content-Type: application/json' );
-    echo wp_json_encode( array( 'nonce' => wp_create_nonce( 'trb_portal_save_artist_profile' ), 'user_id' => $qaUserId, 'outbound_disabled' => ! function_exists( 'mail' ) && ! function_exists( 'curl_exec' ) && ! ini_get( 'allow_url_fopen' ), 'complete' => trb_portal_artist_profile_is_complete(), 'completion' => trb_portal_artist_profile_completion(), 'fields' => get_user_meta( $qaUserId ), 'files' => trb_portal_private_profile_files() ) );
+    echo wp_json_encode( array( 'nonce' => wp_create_nonce( 'trb_portal_save_artist_profile' ), 'stage_nonce' => wp_create_nonce( 'trb_portal_stage_release' ), 'user_id' => $qaUserId, 'outbound_disabled' => ! function_exists( 'mail' ) && ! function_exists( 'curl_exec' ) && ! ini_get( 'allow_url_fopen' ), 'complete' => trb_portal_artist_profile_is_complete(), 'completion' => trb_portal_artist_profile_completion(), 'fields' => get_user_meta( $qaUserId ), 'files' => trb_portal_private_profile_files() ) );
     exit;
 }
 function qa_check( $condition, $message ) { if ( ! $condition ) throw new RuntimeException( $message ); $GLOBALS['qa_checks']++; }
@@ -119,6 +122,28 @@ try {
     try { qa_check( str_contains( qa_http( $qaContract )['location'], 'profile_busy' ), 'Concurrent profile save was not blocked.' ); }
     finally { trb_release_process_unlock( $qaLock ); }
     qa_check( qa_http()['data']['fields'] === $qaComplete['fields'], 'Blocked concurrent save changed the profile.' );
+    // Real chunked multipart: storage protection failure, replay and malformed input.
+    $qaChunkPath = $qaRoot . '/qa-chunk.txt'; file_put_contents( $qaChunkPath, '12345' );
+    $qaChunk = array( 'action' => 'trb_portal_stage_release_chunk', 'trb_release_stage_nonce' => $qaInitial['stage_nonce'], 'session' => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'file_key' => 'f0', 'file_name' => 'qa.txt', 'file_type' => 'text/plain', 'file_size' => '10', 'last_modified' => '1', 'chunk_index' => '0', 'chunk_total' => '2', 'upload_id' => 'qa-native', 'trb_release_chunk' => new CURLFile( $qaChunkPath, 'text/plain', 'chunk.txt' ) );
+    $qaStagingBase = trb_portal_release_staging_base(); wp_mkdir_p( $qaStagingBase ); mkdir( $qaStagingBase . '/.htaccess' );
+    try {
+        qa_check( qa_http( $qaChunk )['status'] === 500, 'Chunk upload continued without private web access protection.' );
+        qa_check( ! is_dir( $qaStagingBase . '/' . $qaUser ), 'Failed protection created an artist staging session.' );
+    } finally { rmdir( $qaStagingBase . '/.htaccess' ); }
+    qa_check( qa_http( $qaChunk )['data']['success'] === true, 'Real first multipart chunk failed.' );
+    qa_check( qa_http( $qaChunk )['data']['data']['next_chunk'] === 1, 'Real repeated chunk was appended twice.' );
+    file_put_contents( $qaChunkPath, '67890' ); $qaChunk['chunk_index'] = '1';
+    qa_check( qa_http( $qaChunk )['data']['data']['complete'] === true, 'Real second multipart chunk did not complete.' );
+    $qaPart = $qaStagingBase . '/' . $qaUser . '/' . $qaChunk['session'] . '/f0.part';
+    qa_check( file_get_contents( $qaPart ) === '1234567890', 'Real multipart chunk assembly changed the bytes.' );
+    $qaPartHash = hash_file( 'sha256', $qaPart );
+    foreach ( array( 'file_key', 'file_size', 'upload_id', 'audio_status', 'trb_release_stage_nonce' ) as $qaMalformedField ) {
+        $qaMalformed = $qaChunk; unset( $qaMalformed[$qaMalformedField] ); $qaMalformed[$qaMalformedField . '[0]'] = 'nested';
+        qa_check( qa_http( $qaMalformed )['status'] === 422, 'Nested chunk field was accepted: ' . $qaMalformedField );
+    }
+    $qaOversizeChunk = $qaChunk; $qaOversizeChunk['chunk_index'] = '0'; $qaOversizeChunk['file_size'] = '1'; $qaOversizeChunk['upload_id'] = 'replacement';
+    qa_check( qa_http( $qaOversizeChunk )['status'] === 422, 'Oversized first chunk replacement was accepted.' );
+    qa_check( hash_file( 'sha256', $qaPart ) === $qaPartHash, 'Rejected chunk input destroyed a previously assembled file.' );
     require dirname( __DIR__, 2 ) . '/inc/trb-crm-connector.php';
     trb_crm_connector_install();
     $qaOutbox = trb_crm_connector_table();
@@ -132,6 +157,61 @@ try {
     $wpdb->query( 'DROP TRIGGER qa_reject_outbox' );
     qa_check( trb_crm_connector_queue( 'artist', $qaUser, array( 'name' => 'Replacement QA snapshot' ) ), 'Native replacement insert failed.' );
     qa_check( $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$qaOutbox} WHERE id=%d", $qaFirstEvent['id'] ) ) === 'superseded', 'Native replacement did not supersede the old event.' );
+    // Independent native WordPress processes exercise the same MySQL counter.
+    $qaVersionProcesses = array();
+    $qaVersionScript = 'require ' . var_export( $qaRoot . '/wp-load.php', true ) . '; require ' . var_export( dirname( __DIR__, 2 ) . '/inc/trb-crm-connector.php', true ) . '; $versions=[];for($i=0;$i<50;$i++){$v=trb_crm_connector_version();if($v===false)exit(2);$versions[]=$v;}echo json_encode($versions);';
+    for ( $qaWorker = 0; $qaWorker < 4; $qaWorker++ ) {
+        $qaVersionOutput = $qaRoot . '/qa-versions-' . $qaWorker . '.json';
+        $qaVersionProcess = proc_open( array( PHP_BINARY, '-d', 'allow_url_fopen=0', '-d', 'disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client', '-r', $qaVersionScript ), array( 0 => array( 'pipe', 'r' ), 1 => array( 'file', $qaVersionOutput, 'w' ), 2 => array( 'file', $qaRoot . '/qa-version-errors.log', 'a' ) ), $qaVersionPipes );
+        if ( ! is_resource( $qaVersionProcess ) ) throw new RuntimeException( 'QA counter worker could not start.' );
+        fclose( $qaVersionPipes[0] ); $qaVersionProcesses[] = array( $qaVersionProcess, $qaVersionOutput );
+    }
+    $qaVersions = array();
+    foreach ( $qaVersionProcesses as list( $qaVersionProcess, $qaVersionOutput ) ) {
+        qa_check( proc_close( $qaVersionProcess ) === 0, 'Concurrent native WordPress counter worker failed.' );
+        $qaWorkerVersions = json_decode( file_get_contents( $qaVersionOutput ), true );
+        qa_check( is_array( $qaWorkerVersions ) && count( $qaWorkerVersions ) === 50, 'Counter worker did not return its actual versions.' );
+        $qaSortedVersions = $qaWorkerVersions; sort( $qaSortedVersions );
+        qa_check( $qaWorkerVersions === $qaSortedVersions, 'Counter decreased within a worker.' );
+        $qaVersions = array_merge( $qaVersions, $qaWorkerVersions );
+    }
+    qa_check( count( array_unique( $qaVersions ) ) === 200, 'Concurrent processes received duplicate entity versions.' );
+    qa_check( (int) $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name=%s", 'trb_crm_last_entity_version' ) ) === max( $qaVersions ), 'Counter persisted an older concurrent version.' );
+    $wpdb->query( "CREATE TRIGGER qa_reject_counter BEFORE UPDATE ON {$wpdb->options} FOR EACH ROW BEGIN IF NEW.option_name='trb_crm_last_entity_version' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Injected QA counter failure'; END IF; END" );
+    $qaEventCount = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$qaOutbox}" );
+    $qaPriorErrors = $wpdb->suppress_errors( true );
+    try {
+        qa_check( ! trb_crm_connector_queue( 'artist', $qaUser, array( 'name' => 'Rejected counter fixture' ) ), 'Failed version counter accepted an event.' );
+        qa_check( (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$qaOutbox}" ) === $qaEventCount, 'Failed counter changed the outbox.' );
+    } finally { $wpdb->suppress_errors( $qaPriorErrors ); $wpdb->query( 'DROP TRIGGER qa_reject_counter' ); }
+    // No provider request: native HTTP is intercepted before any network transport.
+    update_option( 'trb_crm_connector_settings', array( 'enabled' => true, 'endpoint' => 'https://crm.trbrec.com/webhooks/artist-portal/sync', 'secret' => str_repeat( 'q', 64 ) ) );
+    $qaInterceptCalls = 0; $qaResponseCode = 200; $qaMalformedResponse = false; $qaQueueDuringDelivery = false;
+    $qaTransportFixture = static function( $pre, $args, $url ) use ( &$qaInterceptCalls, &$qaResponseCode, &$qaMalformedResponse, &$qaQueueDuringDelivery, $qaUser ) {
+        if ( $url !== 'https://crm.trbrec.com/webhooks/artist-portal/sync' ) return $pre;
+        $qaInterceptCalls++; $batch = json_decode( $args['body'], true );
+        qa_check( $args['redirection'] === 0 && count( $batch['events'] ) === 1, 'Outbox transport fixture boundary changed.' );
+        if ( $qaQueueDuringDelivery ) qa_check( trb_crm_connector_queue( 'artist', $qaUser, array( 'name' => 'Newer concurrent snapshot' ) ), 'Concurrent delivery replacement failed.' );
+        $result = $qaMalformedResponse ? array( 'error' => array( 'unexpected-shape' ), 'results' => array( null, array( 'event_id' => array( 'nested' ) ) ) ) : array( 'results' => array( array( 'event_id' => $batch['events'][0]['event_id'], 'status' => 'applied' ) ) );
+        return array( 'headers' => array(), 'body' => wp_json_encode( $result ), 'response' => array( 'code' => $qaResponseCode, 'message' => 'Synthetic response' ), 'cookies' => array() );
+    };
+    add_filter( 'pre_http_request', $qaTransportFixture, PHP_INT_MAX, 3 );
+    foreach ( array( array( 200, false, false, 'acknowledged' ), array( 500, false, false, 'retry' ), array( 200, true, false, 'retry' ), array( 500, false, true, 'superseded' ), array( 200, false, true, 'superseded' ) ) as list( $qaResponseCode, $qaMalformedResponse, $qaQueueDuringDelivery, $qaExpectedStatus ) ) {
+        $wpdb->query( "DELETE FROM {$qaOutbox}" );
+        qa_check( trb_crm_connector_queue( 'artist', $qaUser, array( 'name' => 'Delivery fixture' ) ), 'Delivery fixture could not queue.' );
+        $qaDeliveringId = (int) $wpdb->get_var( "SELECT MAX(id) FROM {$qaOutbox}" );
+        $qaPreviousCalls = $qaInterceptCalls; trb_crm_connector_deliver( 10 );
+        qa_check( $qaInterceptCalls === $qaPreviousCalls + 1, 'Native HTTP was not intercepted exactly once.' );
+        qa_check( $wpdb->get_var( $wpdb->prepare( "SELECT status FROM {$qaOutbox} WHERE id=%d", $qaDeliveringId ) ) === $qaExpectedStatus, 'Outbox acknowledged an HTTP failure or revived a superseded event.' );
+        if ( $qaQueueDuringDelivery ) qa_check( $wpdb->get_var( "SELECT status FROM {$qaOutbox} ORDER BY id DESC LIMIT 1" ) === 'queued', 'Delivery changed the newer concurrent event.' );
+    }
+    remove_filter( 'pre_http_request', $qaTransportFixture, PHP_INT_MAX );
+    $GLOBALS['trb_crm_connector_dirty_profiles'][$qaUser] = true;
+    trb_crm_connector_profile_saved( $qaUser );
+    $qaEventCount = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$qaOutbox}" );
+    trb_crm_connector_flush_profiles();
+    qa_check( (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$qaOutbox}" ) === $qaEventCount, 'Successful profile save queued the same snapshot again at shutdown.' );
+    qa_check( ! preg_match( '/PHP (Warning|Notice|Deprecated|Fatal error|Parse error)/', file_get_contents( $qaRoot . '/qa-http.log' ) ), 'The real HTTP fixture emitted unexpected PHP diagnostics.' );
     echo $GLOBALS['qa_checks'] . " real WordPress/MySQL/HTTP assertions passed; ordinary Tunisia artist, authentication/nonce, metadata, file rollback/retry, process lock and outbox failure.\n";
 } finally {
     proc_terminate( $qaProcess ); fclose( $qaPipes[0] ); proc_close( $qaProcess );

@@ -43,3 +43,4 @@ for name in ('verify', 'mysql-profile'):
     for step in job['steps']:
         assert not step.get('continue-on-error'), 'Required validation step may ignore failure'
 print('Production dependency graph requires shared regression and real MySQL validation.')
+assert '--enable' not in Path('.github/workflows/deploy.yml').read_text(), 'Ordinary deployment must preserve existing onboarding activation'

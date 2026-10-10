@@ -8,7 +8,6 @@ define( 'MINUTE_IN_SECONDS', 60 );
 $test_uploads   = sys_get_temp_dir() . '/trb-release-staging-' . bin2hex( random_bytes( 6 ) );
 $test_options   = array();
 $test_scheduled = array();
-$test_transients = array();
 
 function wp_upload_dir() {
 	global $test_uploads;
@@ -42,17 +41,6 @@ function wp_delete_file( $path ) {
 function update_option( $key, $value, $autoload = null ) {
 	global $test_options;
 	$test_options[ $key ] = $value;
-	return true;
-}
-
-function get_transient( $key ) {
-	global $test_transients;
-	return $test_transients[ $key ] ?? false;
-}
-
-function set_transient( $key, $value, $expiration ) {
-	global $test_transients;
-	$test_transients[ $key ] = $value;
 	return true;
 }
 
@@ -95,6 +83,9 @@ eval( substr( $integrity, $lock_start, $lock_end - $lock_start ) );
 $start  = strpos( $portal, 'function trb_portal_release_staging_base' );
 $end    = strpos( $portal, 'function trb_portal_release_max_file_bytes', $start );
 if ( false === $start || false === $end ) throw new RuntimeException( 'Release staging cleanup not found.' );
+$guardStart = strpos( $portal, 'function trb_portal_prepare_private_directory(' );
+$guardEnd = strpos( $portal, "\n}\n", $guardStart ) + 3;
+eval( substr( $portal, $guardStart, $guardEnd - $guardStart ) );
 eval( substr( $portal, $start, $end - $start ) ); // phpcs:ignore Squiz.PHP.Eval.Discouraged
 
 try {

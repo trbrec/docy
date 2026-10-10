@@ -47,7 +47,7 @@ jobs:
           extensions: mysqli, pdo_mysql, pdo_sqlite, curl, fileinfo, mbstring, dom
           coverage: none
       - name: Install validation dependencies
-        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg python3-yaml
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg python3-yaml apache2
       - name: Validate workflow YAML and duplicate keys
         run: /usr/bin/python3 tools/check-workflow-yaml.py
       - name: Install an isolated official WordPress core for file and Studio tests
@@ -58,6 +58,7 @@ jobs:
       - name: Validate PHP and portal regressions
         env:
           TRB_WP_TEST_ROOT: /tmp/trb-profile-wp/wordpress
+          TRB_APACHE_BINARY: /usr/sbin/apache2
         run: |
           set -euo pipefail
           find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l

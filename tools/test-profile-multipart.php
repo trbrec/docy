@@ -56,7 +56,7 @@ if ( PHP_SAPI === 'cli-server' ) {
         return file_put_contents( getenv( 'TRB_PROFILE_HTTP_ROOT' ) . '/metadata.json', json_encode( $value ) );
     }
     $tokens = token_get_all( file_get_contents( __DIR__ . '/../inc/trb-artist-portal.php' ) );
-    $wanted = array( 'trb_portal_private_upload_dir', 'trb_portal_private_profile_files', 'trb_portal_private_profile_file_path', 'trb_portal_private_upload_items', 'trb_portal_delete_retired_profile_files', 'trb_portal_handle_private_profile_uploads' );
+    $wanted = array( 'trb_portal_prepare_private_directory', 'trb_portal_private_upload_dir', 'trb_portal_private_profile_files', 'trb_portal_private_profile_file_path', 'trb_portal_private_upload_items', 'trb_portal_delete_retired_profile_files', 'trb_portal_handle_private_profile_uploads' );
     foreach ( $tokens as $i => $token ) {
         if ( ! is_array( $token ) || T_FUNCTION !== $token[0] ) continue;
         $j = $i + 1;

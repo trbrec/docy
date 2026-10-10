@@ -1386,6 +1386,16 @@ add_action( 'wp_ajax_trb_portal_save_artist_profile', 'trb_portal_handle_artist_
  * Store identity files outside the normal Media Library and deny direct web
  * access. The stored metadata contains no public URL, only a private path.
  */
+/** Fail before acquiring private bytes if their web access rules are unavailable. */
+function trb_portal_prepare_private_directory( $directory ) {
+	if ( ! wp_mkdir_p( $directory ) || ! is_dir( $directory ) || ! is_writable( $directory ) ) return false;
+	$rules_file = trailingslashit( $directory ) . '.htaccess';
+	$rules = "Require all denied\nDeny from all\nOptions -Indexes\n";
+	if ( is_link( $rules_file ) || ( file_exists( $rules_file ) && ! is_file( $rules_file ) ) ) return false;
+	if ( ! file_exists( $rules_file ) && file_put_contents( $rules_file, $rules, LOCK_EX ) !== strlen( $rules ) ) return false;
+	return is_readable( $rules_file ) && trim( str_replace( "\r\n", "\n", (string) file_get_contents( $rules_file ) ) ) === trim( $rules );
+}
+
 function trb_portal_private_upload_dir( $dirs ) {
 	$dirs['subdir'] = '/trb-artist-private';
 	$dirs['path']   = $dirs['basedir'] . $dirs['subdir'];
@@ -1525,15 +1535,13 @@ function trb_portal_handle_private_profile_uploads( $user_id, $defer_cleanup = f
 		require_once ABSPATH . 'wp-admin/includes/file.php';
 		$uploads_dir = wp_upload_dir();
 		$private_dir = trailingslashit( $uploads_dir['basedir'] ) . 'trb-artist-private';
-		$rules = "Require all denied\nDeny from all\nOptions -Indexes\n";
-		$rules_file = trailingslashit( $private_dir ) . '.htaccess';
-		if ( ! empty( $uploads_dir['error'] ) || ! wp_mkdir_p( $private_dir ) || ( ! is_file( $rules_file ) && false === file_put_contents( $rules_file, $rules, LOCK_EX ) ) || ! is_readable( $rules_file ) || false === strpos( file_get_contents( $rules_file ), 'Require all denied' ) ) return new WP_Error( 'file_upload_failed' );
+		if ( ! empty( $uploads_dir['error'] ) || ! trb_portal_prepare_private_directory( $private_dir ) ) return new WP_Error( 'file_upload_failed' );
 		foreach ( $pending as $item ) {
 			add_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
 			try {
 				$handled = wp_handle_upload( $item['file'], array( 'test_form' => false, 'mimes' => $item['settings']['mimes'] ) );
 			} catch ( Throwable $error ) {
-				error_log( 'TRB profile upload exception: ' . get_class( $error ) . ': ' . $error->getMessage() );
+				error_log( 'TRB profile upload exception: ' . get_class( $error ) );
 				trb_portal_delete_retired_profile_files( $created, array() );
 				return new WP_Error( 'file_upload_failed' );
 			} finally {
@@ -1907,10 +1915,8 @@ function trb_portal_release_staging_session_dir( $session, $create = false, $use
 	$root = trb_portal_release_staging_root( $user_id );
 	$directory = trailingslashit( $root ) . $session;
 	if ( $create ) {
-		if ( ! wp_mkdir_p( $directory ) ) return false;
 		$protected_root = trb_portal_release_staging_base();
-		$rules = trailingslashit( $protected_root ) . '.htaccess';
-		if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		if ( ! trb_portal_prepare_private_directory( $protected_root ) || ! wp_mkdir_p( $directory ) ) return false;
 	}
 	return $directory;
 }
@@ -1995,13 +2001,6 @@ function trb_portal_cleanup_expired_release_staging_all() {
 	return $summary;
 }
 
-function trb_portal_cleanup_expired_release_staging() {
-	$key = '_trb_release_staging_cleanup_global';
-	if ( get_transient( $key ) ) return;
-	set_transient( $key, 1, HOUR_IN_SECONDS );
-	trb_portal_cleanup_expired_release_staging_all();
-}
-
 function trb_portal_schedule_release_staging_cleanup() {
 	if ( ! wp_next_scheduled( 'trb_portal_cleanup_release_staging_event' ) ) wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly', 'trb_portal_cleanup_release_staging_event' );
 }
@@ -2028,7 +2027,13 @@ function trb_portal_release_staging_declared_bytes( $directory, $exclude_file_ke
 
 function trb_portal_stage_release_chunk() {
 	if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Sessione non valida: aggiorna la pagina e accedi nuovamente.' ), 401 );
+	foreach ( array( 'trb_release_stage_nonce', 'session', 'file_key', 'file_name', 'file_type', 'file_size', 'last_modified', 'chunk_index', 'chunk_total', 'upload_id', 'field_name', 'audio_status' ) as $field ) {
+		if ( isset( $_POST[ $field ] ) && ! is_string( $_POST[ $field ] ) && ! is_int( $_POST[ $field ] ) ) wp_send_json_error( array( 'message' => 'I dati del caricamento non sono validi.' ), 422 );
+	}
 	if ( empty( $_POST['trb_release_stage_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['trb_release_stage_nonce'] ) ), 'trb_portal_stage_release' ) ) wp_send_json_error( array( 'message' => 'La pagina è scaduta: aggiornala prima di riprovare.' ), 403 );
+	foreach ( array( 'file_size', 'last_modified', 'chunk_index', 'chunk_total' ) as $field ) {
+		if ( isset( $_POST[ $field ] ) && ! preg_match( '/^\d+$/D', (string) $_POST[ $field ] ) ) wp_send_json_error( array( 'message' => 'I dati del caricamento non sono validi.' ), 422 );
+	}
 	$session = isset( $_POST['session'] ) ? sanitize_text_field( wp_unslash( $_POST['session'] ) ) : '';
 	$file_key = isset( $_POST['file_key'] ) ? sanitize_key( wp_unslash( $_POST['file_key'] ) ) : '';
 	$file_name = isset( $_POST['file_name'] ) ? sanitize_file_name( wp_unslash( $_POST['file_name'] ) ) : '';
@@ -2040,7 +2045,9 @@ function trb_portal_stage_release_chunk() {
 	if ( $file_size > trb_portal_release_max_file_bytes() ) wp_send_json_error( array( 'message' => 'Ogni file può avere una dimensione massima di 250 MB.' ), 422 );
 	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $session ) || ! preg_match( '/^f[0-9]{1,4}$/', $file_key ) || '' === $file_name || $file_size < 1 || $chunk_total < 1 || $chunk_total > 512 || $chunk_index >= $chunk_total ) wp_send_json_error( array( 'message' => 'I dati del caricamento sono incompleti o non validi. Riapri la pratica da completare e seleziona nuovamente il file.' ), 422 );
 	$chunk = ! empty( $_FILES['trb_release_chunk'] ) ? $_FILES['trb_release_chunk'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-	if ( empty( $chunk['tmp_name'] ) || UPLOAD_ERR_OK !== (int) ( $chunk['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_uploaded_file( $chunk['tmp_name'] ) || (int) $chunk['size'] < 1 || (int) $chunk['size'] > 6 * MB_IN_BYTES ) wp_send_json_error( array( 'message' => 'Un blocco del file non è arrivato correttamente al server.' ), 422 );
+	if ( ! is_array( $chunk ) || empty( $chunk['tmp_name'] ) || ! is_string( $chunk['tmp_name'] ) || ! isset( $chunk['error'], $chunk['size'] ) || ! is_scalar( $chunk['error'] ) || ! is_scalar( $chunk['size'] ) || ! preg_match( '/^\d+$/D', (string) $chunk['error'] ) || ! preg_match( '/^\d+$/D', (string) $chunk['size'] ) || UPLOAD_ERR_OK !== (int) $chunk['error'] || ! is_uploaded_file( $chunk['tmp_name'] ) || (int) $chunk['size'] < 1 || (int) $chunk['size'] > 6 * MB_IN_BYTES ) wp_send_json_error( array( 'message' => 'Un blocco del file non è arrivato correttamente al server.' ), 422 );
+	$chunk_bytes = (int) filesize( $chunk['tmp_name'] );
+	if ( $chunk_bytes !== (int) $chunk['size'] || $chunk_bytes > $file_size ) wp_send_json_error( array( 'message' => 'Il blocco ricevuto supera i byte previsti per il file. Riprova selezionando nuovamente il file.' ), 422 );
 	$session_lock = trb_release_process_lock( 'staging:' . get_current_user_id() . ':' . $session );
 	if ( ! $session_lock ) wp_send_json_error( array( 'message' => 'Un caricamento della stessa pratica è già in corso. Attendi e riprova.' ), 409 );
 	try {
@@ -2079,7 +2086,6 @@ function trb_portal_stage_release_chunk() {
 	if ( $chunk_index < $next_chunk ) wp_send_json_success( array( 'next_chunk' => $next_chunk, 'complete' => ! empty( $meta['complete'] ) ) );
 	if ( $chunk_index > $next_chunk ) wp_send_json_error( array( 'message' => 'È arrivato un blocco fuori sequenza. Riprova senza ricaricare la pagina.' ), 409 );
 	$received_bytes = is_file( $part_path ) ? (int) filesize( $part_path ) : 0;
-	$chunk_bytes = (int) filesize( $chunk['tmp_name'] );
 	if ( $chunk_bytes !== (int) $chunk['size'] || $received_bytes + $chunk_bytes > $file_size ) {
 		wp_send_json_error( array( 'message' => 'Il blocco ricevuto supera i byte previsti per il file. Riprova selezionando nuovamente il file.' ), 422 );
 	}
@@ -2388,9 +2394,7 @@ function trb_portal_store_release_upload( $release_id, $file, $kind, $track_inde
 	$uploads = wp_upload_dir();
 	$relative_dir = 'trb-release-private/' . absint( $release_id );
 	$directory = trailingslashit( $uploads['basedir'] ) . $relative_dir;
-	if ( ! wp_mkdir_p( $directory ) ) return new WP_Error( 'release_storage_failed' );
-	$rules = trailingslashit( $uploads['basedir'] ) . 'trb-release-private/.htaccess';
-	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+	if ( ! empty( $uploads['error'] ) || ! trb_portal_prepare_private_directory( trailingslashit( $uploads['basedir'] ) . 'trb-release-private' ) || ! wp_mkdir_p( $directory ) ) return new WP_Error( 'release_storage_failed' );
 	$prefix = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Reference copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : ( 'rights_document' === $kind ? 'Licenza diritti brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) ) ) );
 	$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ), PATHINFO_EXTENSION ) );
 	if ( 'audio' === $kind ) {
@@ -4763,11 +4767,9 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes, $file = null ) 
 	$uploads = wp_upload_dir();
 	if ( ! empty( $uploads['error'] ) ) return new WP_Error( 'upload_directory_unavailable', $uploads['error'] );
 	$private_dir = trailingslashit( $uploads['basedir'] ) . 'trb-demo-private';
-	if ( ! wp_mkdir_p( $private_dir ) || ! is_dir( $private_dir ) || ! is_writable( $private_dir ) ) {
+	if ( ! trb_portal_prepare_private_directory( $private_dir ) ) {
 		return new WP_Error( 'upload_directory_unavailable', 'La cartella privata dei demo non è disponibile in scrittura.' );
 	}
-	$rules = trailingslashit( $private_dir ) . '.htaccess';
-	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	// WordPress checks the temporary file's extension during sideload validation.
 	// Staging uses .part so it remains resumable; copy only the verified staged
 	// file to a temporary name with its allowed extension for this final step.

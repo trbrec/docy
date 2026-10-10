@@ -39,7 +39,7 @@ function wp_handle_upload( $file, $options ) {
     return array( 'file' => $target, 'type' => $file['type'] );
 }
 $source = file_get_contents( __DIR__ . '/../inc/trb-artist-portal.php' );
-$wanted = array( 'trb_portal_private_profile_files', 'trb_portal_private_profile_file_path', 'trb_portal_private_upload_items', 'trb_portal_delete_retired_profile_files', 'trb_portal_handle_private_profile_uploads', 'trb_portal_render_private_files' );
+$wanted = array( 'trb_portal_prepare_private_directory', 'trb_portal_private_profile_files', 'trb_portal_private_profile_file_path', 'trb_portal_private_upload_items', 'trb_portal_delete_retired_profile_files', 'trb_portal_handle_private_profile_uploads', 'trb_portal_render_private_files' );
 $tokens = token_get_all( $source );
 foreach ( $tokens as $i => $token ) {
     if ( ! is_array( $token ) || T_FUNCTION !== $token[0] ) continue;
