@@ -20,6 +20,12 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
     $cleanup_fixture = static function( $settings_file ) use ( $wpdb ) {
         if ( ! is_file( $settings_file ) || is_link( $settings_file ) ) return 0;
         $settings = json_decode( file_get_contents( $settings_file ), true, 16, JSON_THROW_ON_ERROR );
+        if ( isset( $settings['browser_bootstrap'] ) ) {
+            $bootstrap = $settings['browser_bootstrap'];
+            if ( ! preg_match( '/^trb-audit-bootstrap-[a-f0-9]{16}\.txt$/D', $bootstrap['name'] ?? '' ) || ! preg_match( '/^[a-f0-9]{64}$/D', $bootstrap['sha256'] ?? '' ) ) throw new RuntimeException( 'Unexpected browser bootstrap manifest.' );
+            $path = '/home/customer/www/artist.trbrec.com/public_html/' . $bootstrap['name'];
+            if ( is_link( $path ) || is_file( $path ) && ( ! hash_equals( $bootstrap['sha256'], hash_file( 'sha256', $path ) ) || ! unlink( $path ) ) ) throw new RuntimeException( 'Browser bootstrap cleanup unconfirmed.' );
+        }
         if ( isset( $settings['http_bridge'] ) ) {
             $bridge = $settings['http_bridge'];
             if ( ! preg_match( '~^trb-audit-http-[a-f0-9]{24}(?:\.php|/index\.php)$~D', $bridge['name'] ?? '' ) || ! preg_match( '/^[a-f0-9]{64}$/D', $bridge['sha256'] ?? '' ) ) throw new RuntimeException( 'Unexpected HTTP QA manifest.' );
