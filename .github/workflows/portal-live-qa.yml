@@ -12,6 +12,7 @@ on:
       - tools/deploy-portal-integrations.php
       - tools/qa-provider-roundtrip.php
       - tools/onboarding-readiness.php
+      - tools/rename-known-audit-account.php
       - integrations/portal-mu-plugins/**
       - .github/workflows/portal-live-qa.yml
 permissions:
@@ -117,6 +118,7 @@ jobs:
             sleep 15
           done
           test "${validation}" = success
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/rename-known-audit-account.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/fictional-display.json 2>/dev/null
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-release-deploy-guard.php'" > /tmp/trb-live-qa/deploy-guard.txt 2>/dev/null
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/maintain-portal-log.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/log-maintenance.json 2>/dev/null
           python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/http.json"));assert d.get("completed") is True and not d.get("fatal"),"Authenticated installed-stack HTTP tests incomplete"'
