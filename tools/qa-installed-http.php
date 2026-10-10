@@ -24,11 +24,15 @@ function trb_qa_installed_http( $work ) {
     $request = static function( $path, $fields = null, $authenticated = true, $authorized = true ) use ( $name, $cookie, $token ) {
         $curl = curl_init( 'https://artist.trbrec.com/' . $name . '.php' );
         curl_setopt_array( $curl, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_FOLLOWLOCATION => false, CURLOPT_HTTPHEADER => $authorized ? array( 'X-TRB-QA-Token: ' . $token, 'X-TRB-QA-Route: ' . $path ) : array() ) );
+        curl_setopt( $curl, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; TRB-Audit/1.0)' );
         if ( $authenticated ) curl_setopt_array( $curl, array( CURLOPT_COOKIEFILE => $cookie, CURLOPT_COOKIEJAR => $cookie ) );
         if ( null !== $fields ) curl_setopt_array( $curl, array( CURLOPT_POST => true, CURLOPT_POSTFIELDS => $fields ) );
         $response = curl_exec( $curl ); $status = curl_getinfo( $curl, CURLINFO_RESPONSE_CODE ); $header_size = curl_getinfo( $curl, CURLINFO_HEADER_SIZE ); curl_close( $curl );
         $GLOBALS['trb_qa_http_statuses'][] = (int) $status;
         if ( ! is_string( $response ) ) return array( 'status' => 0, 'body' => '', 'location' => '' );
+        $summary = array( 'status' => (int) $status );
+        foreach ( array( 'wordfence', 'cloudflare', 'siteground', 'mod_security', 'forbidden', 'access denied', 'captcha' ) as $marker ) $summary[str_replace( ' ', '_', $marker )] = stripos( $response, $marker ) !== false;
+        $GLOBALS['trb_qa_http_responses'][] = $summary;
         preg_match( '/^Location:\s*(.+)$/mi', substr( $response, 0, $header_size ), $location );
         return array( 'status' => $status, 'body' => substr( $response, $header_size ), 'location' => trim( $location[1] ?? '' ) );
     };
