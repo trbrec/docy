@@ -31,7 +31,7 @@ if ( ! class_exists( 'CSF_Field_group' ) ) {
       $title_prefix    = ( ! empty( $args['accordion_title_prefix'] ) ) ? $args['accordion_title_prefix'] : '';
       $title_number    = ( ! empty( $args['accordion_title_number'] ) ) ? true : false;
       $title_auto      = ( ! empty( $args['accordion_title_auto'] ) ) ? true : false;
-      $title_first     = ( isset( $this->field['fields'][0]['id'] ) ) ? $this->field['fields'][0]['id'] : $this->field['fields'][1]['id'];
+      $title_first     = $this->field['fields'][0]['id'] ?? $this->field['fields'][1]['id'] ?? '';
       $title_by        = ( is_array( $args['accordion_title_by'] ) ) ? $args['accordion_title_by'] : (array) $args['accordion_title_by'];
       $title_by        = ( empty( $title_by ) ) ? array( $title_first ) : $title_by;
       $title_by_prefix = ( ! empty( $args['accordion_title_by_prefix'] ) ) ? $args['accordion_title_by_prefix'] : '';
@@ -96,8 +96,6 @@ if ( ! class_exists( 'CSF_Field_group' ) ) {
               $title = join( $title_by_prefix, $titles );
 
             }
-
-            $title = ( is_array( $title ) ) ? reset( $title ) : $title;
 
             echo '<div class="csf-cloneable-item">';
 

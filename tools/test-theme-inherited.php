@@ -105,12 +105,12 @@ inherited_check( str_contains( $response->data['content'], 'data-field="fixture_
 $_POST['nonce'] = 'invalid';
 $response = inherited_response( [ $shortcoder, 'get_shortcode' ] );
 inherited_check( str_contains( $response->data['content'], 'csf-error-text' ), 'Valid indices must still require nonce verification.' );
-foreach ( [ CSF_Field_group::class, CSF_Field_repeater::class ] as $field_class ) {
-    $field = new $field_class( [ 'id' => 'path/segment', 'fields' => [ [ 'id' => 'child' ] ] ], '', 'root[path/segment]' );
+foreach ( [ [ CSF_Field_group::class, [ [ 'id' => 'child' ] ] ], [ CSF_Field_repeater::class, [ [ 'id' => 'child' ] ] ], [ CSF_Field_group::class, [] ], [ CSF_Field_group::class, [ [ 'type' => 'notice' ] ] ] ] as [ $field_class, $fields ] ) {
+    $field = new $field_class( [ 'id' => 'path/segment', 'fields' => $fields ], '', 'root[path/segment]' );
     ob_start();
     $field->render();
     $html = ob_get_clean();
-    inherited_check( str_contains( $html, 'Error: Field ID conflict.' ), 'Field IDs containing a slash must be quoted for the regex delimiter.' );
+    inherited_check( str_contains( $html, 'Error: Field ID conflict.' ), 'Slash-delimited IDs and empty or untitled field groups must return the controlled conflict notice without warnings.' );
 }
 foreach ( [ false, new WC_Order() ] as $order ) {
     ob_start();
