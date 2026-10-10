@@ -52,9 +52,9 @@ final class GiuliaSupport
     public static function redact(string $text, array $names = []): string
     {
         $text = mb_substr(trim(strip_tags($text)), 0, 1600);
-        foreach ($names as $name) foreach (preg_split('/\s+/u',trim((string)$name)) ?: [] as $part) if (mb_strlen($part) > 2) $text = preg_replace('/(?<!\p{L})'.preg_quote($part, '/').'(?!\p{L})/iu', '[nome]', $text) ?? $text;
         $text = preg_replace('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', '[email]', $text) ?? '';
         $text = preg_replace('/https?:\/\/\S+/i', '[link]', $text) ?? '';
+        foreach ($names as $name) foreach (preg_split('/\s+/u',trim((string)$name)) ?: [] as $part) if (mb_strlen($part) > 2) $text = preg_replace('/(?<!\p{L})'.preg_quote($part, '/').'(?!\p{L})/iu', '[nome]', $text) ?? $text;
         $text = preg_replace('/\b[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]\b/i', '[codice fiscale]', $text) ?? '';
         $text = preg_replace('/\b(?:TRB|DDB|DDS|TEST)[\s-]*[0-9]+[A-Z]?\b/i', '[contratto]', $text) ?? '';
         return preg_replace('/(?<!\w)\+?\d[\d .()\/-]{5,}\d(?!\w)/', '[numero]', $text) ?? '';
@@ -174,3 +174,4 @@ final class GiuliaSupport
         }
     }
 }
+
