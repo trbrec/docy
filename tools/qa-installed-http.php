@@ -17,6 +17,7 @@ function trb_qa_installed_http( $work ) {
     $code = '<?php ini_set("display_errors","0"); header("Cache-Control: no-store"); if(time()>' . ( time() + 900 ) . '||!hash_equals(' . var_export( $token, true ) . ',(string)($_SERVER["HTTP_X_TRB_QA_TOKEN"]??""))){http_response_code(404);exit;} if(defined("ABSPATH")&&ABSPATH!==' . var_export( $root . '/', true ) . '){http_response_code(409);exit;} if(!defined("ABSPATH"))define("ABSPATH",' . var_export( $root . '/', true ) . '); $path=$_SERVER["HTTP_X_TRB_QA_ROUTE"]??""; $_SERVER["REQUEST_URI"]=$path;';
     // Fixed includes only: a request can never supply an executable path.
     $code .= 'switch($path){case "/wp-login.php":require ' . var_export( $root . '/wp-login.php', true ) . ';break;case "/wp-admin/admin-post.php":require ' . var_export( $root . '/wp-admin/admin-post.php', true ) . ';break;case "/":require ' . var_export( $root . '/index.php', true ) . ';break;default:http_response_code(404);exit;}';
+    $code = str_replace( 'header("Cache-Control: no-store");', 'header("Cache-Control: no-store");header("X-TRB-QA-Entry: 1");', $code );
     $bridge_hash = hash( 'sha256', $code );
     $staged_bridge = $work . '/http-bridge.next';
     if ( file_put_contents( $staged_bridge, $code, LOCK_EX ) !== strlen( $code ) || ! chmod( $staged_bridge, 0644 ) || ! hash_equals( $bridge_hash, hash_file( 'sha256', $staged_bridge ) ) ) throw new RuntimeException( 'HTTP fixture staging failed.' );
@@ -40,6 +41,7 @@ function trb_qa_installed_http( $work ) {
         $GLOBALS['trb_qa_http_statuses'][] = (int) $status;
         if ( ! is_string( $response ) ) return array( 'status' => 0, 'body' => '', 'location' => '' );
         $summary = array( 'status' => (int) $status );
+        $summary['fixture_php_executed'] = preg_match( '/^X-TRB-QA-Entry:\s*1\s*$/mi', substr( $response, 0, $header_size ) ) === 1;
         foreach ( array( 'wordfence', 'cloudflare', 'siteground', 'mod_security', 'forbidden', 'access denied', 'captcha' ) as $marker ) $summary[str_replace( ' ', '_', $marker )] = stripos( $response, $marker ) !== false;
         $GLOBALS['trb_qa_http_responses'][] = $summary;
         preg_match( '/^Location:\s*(.+)$/mi', substr( $response, 0, $header_size ), $location );
@@ -50,6 +52,12 @@ function trb_qa_installed_http( $work ) {
         if ( ! mkdir( $bridge_directory, 0755 ) || ! rename( $staged_bridge, $bridge ) ) throw new RuntimeException( 'HTTP fixture unavailable.' );
         $check( in_array( $request( '/wp-login.php', null, false, false )['status'], array( 403, 404 ), true ), 'temporary_endpoint_requires_private_key' );
         for ( $attempt = 0; $attempt < 30; $attempt++ ) { $login = $request( '/wp-login.php' ); if ( $login['status'] ) break; usleep( 100000 ); }
+        if ( 200 !== $login['status'] ) {
+            $probe = curl_init( 'https://artist.trbrec.com/wp-login.php' );
+            curl_setopt_array( $probe, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; TRB-Audit/1.0)' ) );
+            curl_exec( $probe ); $native_status = (int) curl_getinfo( $probe, CURLINFO_RESPONSE_CODE ); curl_close( $probe );
+            $GLOBALS['trb_qa_http_responses'][] = array( 'native_wp_login_status' => $native_status, 'fixture_owner_matches_core' => fileowner( $bridge ) === fileowner( $site . '/wp-login.php' ), 'fixture_group_matches_core' => filegroup( $bridge ) === filegroup( $site . '/wp-login.php' ) );
+        }
         $check( 200 === $login['status'], 'native_login_page' );
         $login = $request( '/wp-login.php', array( 'log' => 'artista_fittizio_tunisia', 'pwd' => $settings['artist_password'], 'wp-submit' => 'Accedi', 'testcookie' => '1' ) );
         $check( in_array( $login['status'], array( 302, 303 ), true ), 'native_password_login' );
