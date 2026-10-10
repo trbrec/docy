@@ -284,7 +284,6 @@ if ( ! function_exists( 'docy_setup' ) ) :
 			require get_template_directory() . '/inc/meta/all-meta-boxes.php';
 			require get_template_directory() . '/inc/meta/meta-register-login.php';
 			require get_template_directory() . '/inc/meta/meta-post-format.php';
-			require get_template_directory() . '/inc/meta/remove-meta.php';
 
 		}
 	}
