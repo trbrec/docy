@@ -63,8 +63,6 @@ if ( ! function_exists( 'docy_fs' ) ) {
                 ),
             ) );
 
-
-
         }
 
         return $docy_fs;
