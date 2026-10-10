@@ -50,6 +50,7 @@ jobs:
           trap cleanup EXIT
           scp -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/audit-installed-source.php "${remote}:${qa_dir}/inventory.php"
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php'" > /tmp/trb-source-audit/installed-source.json
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php' --sources" > /tmp/trb-source-audit/review-sources.json
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -57,11 +58,13 @@ jobs:
           assert report['read_only'] is True
           assert report['roots']['portal_theme']['available'] is True
           assert report['roots']['crm_app']['available'] is True
+          sources = json.loads(Path('/tmp/trb-source-audit/review-sources.json').read_text())
+          assert sources['read_only'] is True and len(sources['sources']) == 39
           print('Installed source inventory recorded; no application loaded, no database accessed, no mail or external integration called.')
           PY
       - uses: actions/upload-artifact@v4
         with:
           name: installed-source-inventory
-          path: /tmp/trb-source-audit/installed-source.json
+          path: /tmp/trb-source-audit/*.json
           retention-days: 7
           if-no-files-found: error

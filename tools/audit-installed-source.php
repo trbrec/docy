@@ -1,6 +1,25 @@
 <?php
 /** Read-only source inventory. Never bootstraps WordPress or the CRM. */
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
+$source_names = array( 'ActivationFlow.php', 'CandidateContractReview.php', 'CandidateFollowupPolicy.php', 'Controller.php', 'Core.php', 'MailRecovery.php', 'MaterialArchivePolicy.php', 'OnboardingAdmin.php', 'OnboardingContractCatalog.php', 'OnboardingContractWorkflow.php', 'OnboardingDrive.php', 'OnboardingEntry.php', 'OnboardingIdentity.php', 'OnboardingIntake.php', 'OnboardingLedger.php', 'OnboardingMail.php', 'OnboardingPcloud.php', 'OnboardingPolicy.php', 'OnboardingRuntime.php', 'OnboardingService.php', 'OnboardingTransport.php', 'OnboardingWorkflowInstaller.php', 'PcloudDemoStorage.php', 'ProposalMailCatalog.php', 'ProposalMailCopy.php', 'SubmissionRepository.php', 'SymphonicSheet.php', 'View.php', 'bootstrap.php', 'routes.php' );
+if ( in_array( '--sources', $argv, true ) ) {
+    $source_paths = array();
+    foreach ( $source_names as $name ) $source_paths[ 'crm/app/' . $name ] = '/home/customer/www/crm.trbrec.com/public_html/app/' . $name;
+    foreach ( array( 'index.php', 'pcloud-material.php', 'download-folder-handler.php', '.htaccess', 'app-20260831-r27.js', 'release-review-r2.css' ) as $name ) $source_paths[ 'crm/' . $name ] = '/home/customer/www/crm.trbrec.com/public_html/' . $name;
+    foreach ( array( 'trb-crm-sync.php', 'trb-login-cache-guard.php', 'trb-z-crm-release-sync-r26.php' ) as $name ) $source_paths[ 'portal/mu-plugins/' . $name ] = '/home/customer/www/artist.trbrec.com/public_html/wp-content/mu-plugins/' . $name;
+    $sources = array();
+    foreach ( $source_paths as $name => $path ) {
+        if ( ! is_file( $path ) || is_link( $path ) ) throw new RuntimeException( 'An explicitly selected source file is unavailable.' );
+        $content = file_get_contents( $path );
+        // Configuration files, database rows and artist uploads are never selected.
+        // Mask any inline secret literal before the code leaves this server.
+        $content = preg_replace( '/-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----.*?-----END (?:[A-Z ]+ )?PRIVATE KEY-----/s', '[REDACTED PRIVATE KEY]', $content );
+        $content = preg_replace_callback( '~((?:[\'\"]|\$)?[a-z0-9_]*(?:password|passphrase|secret|access_token|refresh_token|api_key|private_key)[a-z0-9_]*(?:[\'\"])?\s*(?:=>|=|,)\s*)([\'\"])([^\'\"\r\n]{8,})\2~i', static function( $match ) { return $match[1] . $match[2] . '[REDACTED INLINE SECRET]' . $match[2]; }, $content, -1, $redactions );
+        $sources[ $name ] = array( 'sha256' => hash_file( 'sha256', $path ), 'inline_redactions' => $redactions, 'content' => $content );
+    }
+    echo json_encode( array( 'read_only' => true, 'sources' => $sources ), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR ) . "\n";
+    exit;
+}
 $roots = array(
     'portal_theme' => '/home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy',
     'portal_mu_plugins' => '/home/customer/www/artist.trbrec.com/public_html/wp-content/mu-plugins',
