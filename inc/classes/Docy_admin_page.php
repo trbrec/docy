@@ -47,7 +47,7 @@ class Docy_admin_page extends Docy_base {
 		$this->position = 2;
 		$this->add_action( 'admin_menu', 'register_page', $priority );
 
-		if ( empty( $_GET['page'] ) || ! $this->id === $_GET['page'] ) {
+		if ( empty( $_GET['page'] ) || $this->id !== $_GET['page'] ) {
 			return;
 		}
 

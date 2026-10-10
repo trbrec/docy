@@ -70,16 +70,11 @@ function dt_registration_validation( $username, $password, $email )  {
 		$reg_errors->add( 'email', esc_html__('Email already in use', 'docy'));
 	}
 
-	if ( is_wp_error( $reg_errors ) ) {
-		foreach ( $reg_errors->get_error_messages() as $error ) {
-			$msg = '<div class="error">';
-			$msg .= '<strong>' . esc_html__('ERROR', 'docy') . '</strong> : ';
-			$msg .= $error . '<br/>';
-			$msg .= '</div>';
-		}
-	} else {
-		$msg = '<div class="no-error">';
-		$msg .= '<strong>' . esc_html__('No Error', 'docy') . '</strong>:';
+	$msg = '';
+	foreach ( $reg_errors->get_error_messages() as $error ) {
+		$msg .= '<div class="error">';
+		$msg .= '<strong>' . esc_html__('ERROR', 'docy') . '</strong> : ';
+		$msg .= $error . '<br/>';
 		$msg .= '</div>';
 	}
 	
@@ -92,36 +87,37 @@ function dt_complete_registration( $username, $password, $email ) {
 		'user_email'    =>   $email,
 		'user_pass'     =>   $password,
 	];
-	$user_id = wp_insert_user( $userdata );
+	return wp_insert_user( $userdata );
 }
 
 add_action( 'wp_ajax_nopriv_dt_custom_registration_form', 'dt_custom_registration_form' );
 add_action( 'wp_ajax_dt_custom_registration_form', 'dt_custom_registration_form' );
 function dt_custom_registration_form() {
-	global $reg_errors;
-	$reg_errors = new WP_Error;
-
 	$data = [];
-	wp_parse_str( wp_unslash( $_POST['data'] ?? '' ), $data );
+	$serialized = $_POST['data'] ?? '';
+	if ( ! is_string( $serialized ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Dati di registrazione non validi.', 'docy' ) ] );
+	}
+	wp_parse_str( wp_unslash( $serialized ), $data );
+	foreach ( [ 'username', 'password', 'email', 'submit_et_form' ] as $field ) {
+		if ( isset( $data[ $field ] ) && ! is_string( $data[ $field ] ) ) {
+			wp_send_json_error( [ 'message' => esc_html__( 'Dati di registrazione non validi.', 'docy' ) ] );
+		}
+	}
+	if ( ! isset( $data['submit_et_form'] ) || ! wp_verify_nonce( sanitize_text_field( $data['submit_et_form'] ), 'et_test_submit_form' ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Verifica di sicurezza non riuscita.', 'docy' ) ] );
+	}
 	// sanitize user form input
 	$username = isset( $data['username'] ) ? sanitize_user($data['username']) : '';
 	$password = isset( $data['password'] ) ? (string) $data['password'] : '';
 	$email = isset( $data['email'] ) ? sanitize_email($data['email']) : '';
-
-	if ( ! isset( $data['submit_et_form'] ) || ! wp_verify_nonce( sanitize_text_field( $data['submit_et_form'] ), 'et_test_submit_form' ) ) {
-		wp_send_json_error([
-			'message' => esc_html__( 'Security verification failed.', 'docy' ),
-		]);
-	} else {
-		if ( 4 > strlen($username) || username_exists($username) || !validate_username($username) || 5 > strlen($password) || !is_email($email) || email_exists($email)) {
-			wp_send_json_error([
-				'message' => dt_registration_validation($username, $password, $email),
-			]);
-		} else {
-			dt_complete_registration($username, $password, $email);
-			wp_send_json_success([
-				'message' => esc_html__( 'You have been registered successfully!', 'docy' )
-			]);
-		}
+	$validation = dt_registration_validation( $username, $password, $email );
+	if ( '' !== $validation ) {
+		wp_send_json_error( [ 'message' => $validation ] );
 	}
+	$user_id = dt_complete_registration( $username, $password, $email );
+	if ( is_wp_error( $user_id ) || ! $user_id ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Registrazione non riuscita. Riprova.', 'docy' ) ] );
+	}
+	wp_send_json_success( [ 'message' => esc_html__( 'Registrazione completata.', 'docy' ) ] );
 }

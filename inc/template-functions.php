@@ -325,6 +325,7 @@ function docy_get_html_tag( $tag = 'blockquote', $content = '' ) {
  * @return int
  */
 function docy_get_page_template_id( $template = 'page-job-apply-form.php' ) {
+	$page_id = 0;
 	$pages = get_pages( [
 		'meta_key'   => '_wp_page_template',
 		'meta_value' => $template
@@ -1448,4 +1449,3 @@ function docy_render_search_form( array $args = [] ): void {
 	</form>
 	<?php
 }
-

@@ -4,7 +4,8 @@ on:
   push:
     branches: [fix/portal-audit-20261010]
     paths:
-      - inc/trb-*.php
+      - inc/**
+      - woocommerce/**
       - template-artist*.php
       - assets/js/trb-*.js
       - assets/css/trb-*.css
