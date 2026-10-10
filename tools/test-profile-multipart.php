@@ -75,8 +75,18 @@ if ( PHP_SAPI === 'cli-server' ) {
     if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) { echo json_encode( array( 'ready' => true ) ); exit; }
     $received = array();
     foreach ( $_FILES as $field => $file ) $received[$field] = is_uploaded_file( $file['tmp_name'] );
+    $moved = array();
+    $checked_types = array();
+    add_filter( 'wp_handle_upload', static function( $upload ) use ( &$moved ) {
+        $moved[] = basename( $upload['file'] );
+        return $upload;
+    } );
+    add_filter( 'wp_check_filetype_and_ext', static function( $checked, $path, $name ) use ( &$checked_types ) {
+        $checked_types[ $name ] = $checked['type'];
+        return $checked;
+    }, 10, 3 );
     $result = trb_portal_handle_private_profile_uploads( 198 );
-    echo json_encode( array( 'ok' => ! is_wp_error( $result ), 'error' => is_wp_error( $result ) ? $result->get_error_code() : '', 'received_as_http_upload' => $received, 'files' => get_user_meta( 198, '_trb_artist_private_files', true ) ) );
+    echo json_encode( array( 'ok' => ! is_wp_error( $result ), 'error' => is_wp_error( $result ) ? $result->get_error_code() : '', 'received_as_http_upload' => $received, 'moved' => $moved, 'checked_types' => $checked_types, 'files' => get_user_meta( 198, '_trb_artist_private_files', true ) ) );
     exit;
 }
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
@@ -120,6 +130,8 @@ try {
     file_put_contents( $root . '/forged.png', 'This is plain text, not an identity image.' );
     $failed = http_upload( array( 'trb_artist_bio_file' => new CURLFile( $root . '/new.txt', 'text/plain', 'new.txt' ), 'trb_artist_id_front' => new CURLFile( $root . '/forged.png', 'image/png', 'identity.png' ) ) );
     http_check( $failed['received_as_http_upload'] === array( 'trb_artist_bio_file' => true, 'trb_artist_id_front' => true ), 'Files did not pass through real PHP multipart reception' );
+    http_check( $failed['moved'] === array( 'new.txt' ), 'Rollback case did not actually move the first file before the second file failed' );
+    http_check( $failed['checked_types'] === array( 'new.txt' => 'text/plain', 'identity.png' => false ), 'Second file was not rejected by the real WordPress MIME check' );
     http_check( ! $failed['ok'] && $failed['files'] === $original, 'WordPress MIME rejection did not preserve previous metadata' );
     http_check( file_get_contents( $root . '/uploads/trb-artist-private/old.txt' ) === 'Biography of fictional test artist', 'MIME failure removed previous biography' );
     http_check( count( glob( $root . '/uploads/trb-artist-private/*' ) ) === 1, 'MIME failure left new files on disk' );
