@@ -124,7 +124,7 @@ function trb_portal_service_catalogue() {
 		'press_release'         => $service( 'Comunicato stampa con diffusione', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'comunicato-stampa' ),
 		'radio_date'            => $service( 'Radio Date', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'radio-date' ),
 		'booking'               => $service( 'Booking e scouting live', $development ),
-		'training'              => $service( 'Formazione e Knowledge Hub', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
+		'training'              => $service( 'Formazione e Centro risorse', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
 		'priority_mentoring'    => $service( 'Assistenza prioritaria e mentoring', array( 'ddb12', 'ddb', 'ddb_trb', 'trb' ) ),
 		'certificate'           => $service( 'Certificato o attestato finale', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
 		'reporting'             => $service( 'Report e rendicontazione royalty', $all ),
@@ -2395,7 +2395,7 @@ function trb_portal_store_release_upload( $release_id, $file, $kind, $track_inde
 	$relative_dir = 'trb-release-private/' . absint( $release_id );
 	$directory = trailingslashit( $uploads['basedir'] ) . $relative_dir;
 	if ( ! empty( $uploads['error'] ) || ! trb_portal_prepare_private_directory( trailingslashit( $uploads['basedir'] ) . 'trb-release-private' ) || ! wp_mkdir_p( $directory ) ) return new WP_Error( 'release_storage_failed' );
-	$prefix = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Reference copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : ( 'rights_document' === $kind ? 'Licenza diritti brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) ) ) );
+	$prefix = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Riferimento per la copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : ( 'rights_document' === $kind ? 'Licenza diritti brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) ) ) );
 	$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ), PATHINFO_EXTENSION ) );
 	if ( 'audio' === $kind ) {
 		$canonical_filename = trb_portal_release_audio_filename(
@@ -3233,7 +3233,7 @@ function trb_portal_start_release() {
 			}
 			if ( function_exists( 'trb_resource_queue_email' ) ) {
 				$artist_name = trb_portal_artist_profile_value( 'artist_name', $user_id );
-				$body = '<p>È stata richiesta la realizzazione della copertina inclusa per la release <strong>' . esc_html( $title ) . '</strong>.</p><p>Artista: ' . esc_html( $artist_name ?: wp_get_current_user()->display_name ) . ' · pratica #' . absint( $release_id ) . '.</p><p><strong>Brief:</strong><br>' . nl2br( esc_html( $cover_brief ) ) . '</p>';
+				$body = '<p>È stata richiesta la realizzazione della copertina inclusa per la release <strong>' . esc_html( $title ) . '</strong>.</p><p>Artista: ' . esc_html( $artist_name ?: wp_get_current_user()->display_name ) . ' · pratica #' . absint( $release_id ) . '.</p><p><strong>Indicazioni creative:</strong><br>' . nl2br( esc_html( $cover_brief ) ) . '</p>';
 				trb_resource_queue_email( 'cover-request-' . absint( $release_id ), 'Nuova richiesta copertina dalla release', $body, true );
 			}
 		} else {
@@ -3507,7 +3507,7 @@ function trb_portal_seed_guides() {
 			'label' => 'TRB',
 			'training' => '<p>TRB è il profilo di roster destinato ad artisti che hanno già completato il percorso formativo o sono già formati.</p><ul><li>La formazione di base e l’attestato finale non fanno parte del profilo TRB.</li><li>Sono inclusi assistenza prioritaria e mentoring artistico-operativo.</li><li>I materiali di approfondimento eventualmente disponibili nel portale restano consultabili, ma non costituiscono un nuovo corso con certificazione.</li></ul>',
 			'audio' => '<p>Puoi caricare un master già definitivo oppure il <strong>pre-master WAV stereo</strong> per il mastering incluso, preferibilmente a <strong>48.000 Hz / 24 bit</strong>.</p><ul><li>Il minimo accettato è 44.100 Hz / 16 bit; non ricampionare materiale inferiore per simulare una qualità maggiore.</li><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Il master finale comparirà nella scheda release, dove potrai ascoltarlo e scaricarlo.</li></ul>',
-			'cover' => '<p>La realizzazione della copertina è compresa nel tuo percorso. Compila il <strong>brief grafico dentro la pratica della release</strong>.</p><ul><li>Descrivi concept, atmosfera, riferimenti e messaggio artistico.</li><li>Indica chiaramente gli elementi obbligatori e quelli da evitare.</li><li>Conferma titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>La grafica deve rappresentare coerentemente l’identità del progetto nel roster.</p>',
+			'cover' => '<p>La realizzazione della copertina è compresa nel tuo percorso. Compila il <strong>brief grafico dentro la pratica della release</strong>.</p><ul><li>Descrivi idea, atmosfera, riferimenti e messaggio artistico.</li><li>Indica chiaramente gli elementi obbligatori e quelli da evitare.</li><li>Conferma titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>La grafica deve rappresentare coerentemente l’identità del progetto nel roster.</p>',
 			'platforms' => '<p>Il tuo percorso comprende ottimizzazione del profilo e strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci link esatti ai profili e segnala omonimie o duplicazioni.</li><li>Descrivi in modo concreto storia, contesto e posizionamento della release.</li><li>Completa i materiali prima della finestra utile alla candidatura.</li></ul><p>Il pitching non garantisce inserimenti editoriali o risultati specifici.</p>',
 			'promo' => '<p>Il profilo TRB comprende Smartlink, Promo Cards, landing page, Digital Press Kit, campagne verso curatori, blogger e influencer, inserimento nelle playlist proprietarie, booking, comunicato stampa con diffusione e Radio Date.</p><p>Come artista del roster, collega alla pratica biografia, fotografie, storia del brano, testi e crediti completi. Stampa, radio, pitching, campagne e booking restano soggetti alla valutazione artistica, editoriale e strategica della singola release e non garantiscono risultati specifici.</p>',
 		),
@@ -4001,7 +4001,7 @@ function trb_portal_render_video_library( $profile ) {
 	} );
 	?>
 	<section id="video" class="trb-portal__section">
-		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2>Video e formazione</h2><p>Un percorso consigliato, ma non obbligatorio, che accompagna il progetto dall’idea alla preparazione finale.</p></div>
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">CENTRO RISORSE</p><h2>Video e formazione</h2><p>Un percorso consigliato, ma non obbligatorio, che accompagna il progetto dall’idea alla preparazione finale.</p></div>
 		<?php if ( empty( $videos ) ) : ?>
 			<div class="trb-portal__empty"><p>La videoteca essenziale per il tuo profilo è in preparazione.</p></div>
 		<?php else : ?>
@@ -4184,7 +4184,7 @@ function trb_portal_dashboard_shortcode() {
 			<div>
 				<p class="trb-portal__eyebrow">PORTALE ARTISTI &middot; AREA RISERVATA</p>
 				<h1>Ciao <?php echo esc_html( $first_name ); ?>.</h1>
-				<p>Knowledge Hub: Linee guida, procedure, formazione e supporto per il percorso artistico.</p>
+				<p>Centro risorse: Linee guida, procedure, formazione e supporto per il percorso artistico.</p>
 			</div>
 			<div class="trb-portal__profile"><span>Sei un artista:</span><strong><?php echo esc_html( $affiliation ); ?></strong><?php if ( 'ddb12' === $profile ) : ?><small>Profilo DDB12 &middot; 1 release al mese</small><?php endif; ?></div>
 		</header>
@@ -4201,9 +4201,9 @@ function trb_portal_dashboard_shortcode() {
 		<?php trb_store_benefits_panel( $user ); ?>
 
 		<section class="trb-portal__search-panel" aria-labelledby="trb-portal-search-title">
-			<div><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2 id="trb-portal-search-title">Trova subito la risposta che ti serve</h2><p>Cerca fra guide aggiornate, procedure e materiali disponibili per il tuo profilo. Le risposte si aprono qui, senza uscire dalla pagina.</p></div>
+			<div><p class="trb-portal__eyebrow">CENTRO RISORSE</p><h2 id="trb-portal-search-title">Trova subito la risposta che ti serve</h2><p>Cerca fra guide aggiornate, procedure e materiali disponibili per il tuo profilo. Le risposte si aprono qui, senza uscire dalla pagina.</p></div>
 			<form class="trb-portal__search" method="get" action="<?php echo esc_url( get_permalink() ); ?>">
-				<label class="screen-reader-text" for="trb-portal-search">Cerca nella Knowledge Hub</label>
+				<label class="screen-reader-text" for="trb-portal-search">Cerca nel centro risorse</label>
 				<input id="trb-portal-search" type="search" name="trb_search" value="<?php echo esc_attr( trb_portal_current_search() ); ?>" placeholder="Es. formato audio, copertina, tempi di pubblicazione" />
 				<button type="submit">Cerca</button>
 			</form>
@@ -5126,7 +5126,7 @@ function trb_portal_render_release_files( $release_id ) {
 		<div class="trb-release-files__list">
 			<?php foreach ( $files as $index => $file ) :
 				$kind = isset( $file['kind'] ) ? $file['kind'] : '';
-				$label = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Reference per la copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) ) );
+				$label = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Riferimento per la copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) ) );
 				$rejected=!empty($file['rejected']);
 				$uploaded_label = in_array( $kind, array( 'cover', 'cover_reference', 'presentation', 'rights_document' ), true ) ? 'caricata correttamente' : 'caricato correttamente';
 				if ( in_array( $kind, array( 'lyrics', 'audio', 'rights_document' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
@@ -5385,8 +5385,8 @@ function trb_portal_render_release_cover_input( $profile ) {
 			<?php trb_portal_render_cover_guidance(); ?>
 		</div>
 		<div class="trb-release-cover-brief" data-cover-request hidden>
-			<label><strong>Brief creativo <span>*</span></strong><small>Descrivi concept, atmosfera, messaggio, colori, elementi obbligatori e ciò che vuoi evitare. Minimo 40 caratteri.</small><textarea name="trb_release_cover_brief" rows="7" minlength="40" maxlength="5000" disabled></textarea></label>
-			<label><strong>Reference visiva <small>(facoltativa)</small></strong><small>Puoi allegare un’immagine o un PDF di riferimento fino a 20 MB. Non deve essere già nel formato definitivo.</small><input type="file" name="trb_release_cover_reference" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" disabled /></label>
+			<label><strong>Indicazioni creative <span>*</span></strong><small>Descrivi idea, atmosfera, messaggio, colori, elementi obbligatori e ciò che vuoi evitare. Minimo 40 caratteri.</small><textarea name="trb_release_cover_brief" rows="7" minlength="40" maxlength="5000" disabled></textarea></label>
+			<label><strong>Immagine di riferimento <small>(facoltativa)</small></strong><small>Puoi allegare un’immagine o un PDF di riferimento fino a 20 MB. Non deve essere già nel formato definitivo.</small><input type="file" name="trb_release_cover_reference" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" disabled /></label>
 		</div>
 	</fieldset>
 	<?php
@@ -5536,8 +5536,8 @@ function trb_portal_render_release_section() {
 		</article>
 	</template>
 	<?php if ($new_genres) : ?><script type="application/json" id="trb-symphonic-genres-data"><?php echo wp_json_encode(trb_symphonic_genres(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?></script><?php endif; ?>
-	<datalist id="trb-release-genres"><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></datalist>
-	<datalist id="trb-credit-roles"><?php foreach ( array_keys( $roles['credits'] ) as $role ) : ?><option value="<?php echo esc_attr( $role ); ?>"><?php echo esc_html( $role ); ?></option><?php endforeach; ?></datalist>
+	<?php if ( ! $new_genres ) : ?><datalist id="trb-release-genres"><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></datalist><?php endif; ?>
+	<?php if ( ! $new_credits ) : ?><datalist id="trb-credit-roles"><?php foreach ( array_keys( $roles['credits'] ) as $role ) : ?><option value="<?php echo esc_attr( $role ); ?>"><?php echo esc_html( $role ); ?></option><?php endforeach; ?></datalist><?php endif; ?>
 	<script>
 	(function(){
 		var form=document.querySelector('[data-release-form]'); if(!form)return;
@@ -5688,7 +5688,7 @@ function trb_portal_get_resources( $profile ) {
 				return ( $left_order ?: PHP_INT_MAX ) <=> ( $right_order ?: PHP_INT_MAX );
 			} );
 		}
-		// Search belongs to the Knowledge Hub answers. It must never make the
+		// Search belongs to the Centro risorse answers. It must never make the
 		// artist's Library, videos or downloads appear to have disappeared.
 		if ( $search && 'trb_guide' === $post_type ) {
 			$ranked = array();
@@ -5780,7 +5780,7 @@ function trb_portal_search_score( $post, $search ) {
 function trb_portal_render_resource_section( $id, $title, $description, $posts ) {
 	?>
 	<section id="<?php echo esc_attr( $id ); ?>" class="trb-portal__section">
-		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2><?php echo esc_html( $title ); ?></h2><p><?php echo esc_html( $description ); ?></p></div>
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">CENTRO RISORSE</p><h2><?php echo esc_html( $title ); ?></h2><p><?php echo esc_html( $description ); ?></p></div>
 		<?php if ( empty( $posts ) ) : ?>
 			<div class="trb-portal__empty"><p>Stiamo aggiornando questa sezione con nuovi contenuti riservati al tuo profilo.</p></div>
 		<?php else : ?>

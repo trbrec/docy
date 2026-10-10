@@ -87,7 +87,7 @@ for profile in ("ddb", "ddb_trb", "trb"):
 
 check("DDS e DDB12 limitati esclusivamente dal profilo mensile", "array( 'dds', 'ddb12' )" in PORTAL)
 check("DDS escluso da pitching e playlist incluse", "'editorial_pitching'    => $service( 'Pitching editoriale', $development )" in PORTAL and "'owned_playlists'       => $service( 'Inserimento nelle playlist proprietarie', $development )" in PORTAL)
-check("DDS escluso da formazione mentoring e attestato", "'training'              => $service( 'Formazione e Knowledge Hub', array( 'ddb12', 'ddb', 'ddb_trb' ) )" in PORTAL and "'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'not_applicable'" in PORTAL)
+check("DDS escluso da formazione mentoring e attestato", "'training'              => $service( 'Formazione e Centro risorse', array( 'ddb12', 'ddb', 'ddb_trb' ) )" in PORTAL and "'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'not_applicable'" in PORTAL)
 check("account QA release limitati a spotify4 e spotify9", "array( 'spotify4', 'spotify9' )" in PORTAL and "array( 'spotify4@trbrec.com', 'spotify9@trbrec.com' )" in PORTAL)
 check("spotify4 ha fixture contrattuale e modulo release verificabile", "trb_release_bridge_seed_spotify4_qa_contract" in BRIDGE and "TRB-QA-SPOTIFY4" in BRIDGE and "trb_portal_release_qa_health_payload" in PORTAL)
 check("spotify4 usa conferma collaudo senza perdere il flusso TRB", "trb_portal_is_release_qa_account" in PORTAL and "current_user_can( 'manage_options' ) || trb_portal_is_release_qa_account()" in PORTAL)

@@ -1,0 +1,42 @@
+<?php
+declare(strict_types=1);
+require_once dirname(__DIR__).'/integrations/giulia/GiuliaSupport.php';
+use TrbCrm\GiuliaSupport as G;
+function check(bool $condition,string $message): void {if(!$condition)throw new RuntimeException($message);}
+$r=['first_name'=>'Mario Luigi','last_name'=>"D’Angelo Rossi",'contract_number'=>'TRB-123D'];
+check(G::matches($r,'mario','d\'angelo rossi','trb-123d'),'second given name ignored');
+check(!G::matches($r,'Luigi','D\'Angelo Rossi','TRB-123D'),'primary first name required');
+check(!G::matches($r,'Mario','Rossi','TRB-123D'),'full surname required');
+check(!G::matches($r,'Mario','D\'Angelo Rossi','TRB-123'),'contract suffix must match');
+check(G::role(['contract_status'=>'accettato'])==='artist','signed is artist');
+check(G::role(['contract_status'=>'inviato','template_key'=>'trb_ccde'])==='candidate','template does not determine role');
+check(G::role(['portal_status'=>'attivo'])==='artist','existing portal artist');
+check(!G::voiceDecision('artist',null,'a',1)['call_allowed'],'artist call refused');
+check(!G::voiceDecision('candidate',['conversation_hash'=>'a','started_at'=>1],'b',2)['call_allowed'],'second call refused');
+check(G::voiceDecision('candidate',['conversation_hash'=>'a','started_at'=>1],'a',601)['max_call_seconds']===600,'20 minute cumulative limit');
+check(!G::voiceDecision('candidate',['conversation_hash'=>'a','started_at'=>1],'a',1201)['call_allowed'],'first call expires');
+$redacted=G::redact('Mario Rossi: scrivere mario@example.com, +39 333 1234567, contratto TEST-0001',['Mario Luigi','Rossi']);
+check(!str_contains($redacted,'Mario')&&!str_contains($redacted,'example.com')&&!str_contains($redacted,'1234567')&&!str_contains($redacted,'TEST-0001'),'report removes identifiers');
+$db=new PDO('mysql:host=127.0.0.1;dbname=giulia_test;charset=utf8mb4','root','test',[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+foreach(['CREATE TABLE contacts(id BIGINT PRIMARY KEY,first_name VARCHAR(120),last_name VARCHAR(120))','CREATE TABLE submissions(id BIGINT PRIMARY KEY,contact_id BIGINT,contract_number VARCHAR(100),status VARCHAR(30))','CREATE TABLE submission_identity_snapshots(submission_id BIGINT PRIMARY KEY,first_name VARCHAR(120),last_name VARCHAR(120))','CREATE TABLE contracts(id BIGINT PRIMARY KEY,submission_id BIGINT,template_key VARCHAR(100),status VARCHAR(30))','CREATE TABLE contract_lifecycle(contract_id BIGINT PRIMARY KEY,contract_status VARCHAR(30),activation_date DATE NULL)','CREATE TABLE portal_entitlements(contract_id BIGINT PRIMARY KEY,portal_status VARCHAR(30))'] as $sql)$db->exec($sql);
+G::install($db);$g=new G($db,str_repeat('a',64));
+$db->exec("INSERT INTO contacts VALUES(1,'Mario Luigi','Rossi');INSERT INTO submissions VALUES(1,1,'TEST-0001','sent');INSERT INTO contracts VALUES(1,1,'ddb_ccad_600','sent');INSERT INTO contract_lifecycle VALUES(1,'inviato',NULL)");
+$ctx=['caller_id'=>'390000000001','conversation_id'=>'conv_test_1','agent_id'=>G::AGENT,'text_only'=>true];
+check($g->handle($ctx)['reason']==='identity_required','new contact gated');
+check(!$g->handle($ctx+['first_name'=>'Mario','last_name'=>'Bianchi','contract_number'=>'TEST-0001'])['verified'],'wrong surname refused');
+$answer=$g->handle($ctx+['first_name'=>'Mario','last_name'=>'Rossi','contract_number'=>'TEST-0001']);
+check($answer['verified']&&$answer['role']==='candidate','database match succeeds without second name');
+check((int)$db->query('SELECT COUNT(*) FROM giulia_first_calls')->fetchColumn()===0,'chat does not consume first call');
+check($g->handle($ctx)['verified'],'same WhatsApp number recognized');
+$voice=array_replace($ctx,['text_only'=>false]);check($g->handle($voice)['call_allowed'],'first candidate call admitted');
+check(!$g->handle(array_replace($voice,['conversation_id'=>'conv_test_2']))['call_allowed'],'repeat call blocked');
+$db->exec("UPDATE contract_lifecycle SET contract_status='accettato' WHERE contract_id=1");
+check($g->handle($voice)['role']==='artist'&&!$g->handle($voice)['call_allowed'],'role refreshed from CRM after signature');
+$u=$g->handle($ctx+['action'=>'unanswered','question'=>'Quali sono i tempi di una verifica tecnica?','reason'=>'technical_problem']);
+check($u['recorded'],'unanswered logged');$g->handle($ctx+['action'=>'unanswered','question'=>'Quali sono i tempi di una verifica tecnica?','reason'=>'technical_problem']);
+check((int)$db->query('SELECT COUNT(*) FROM giulia_unanswered')->fetchColumn()===1,'same question not duplicated');
+$before=(int)$db->query('SELECT COUNT(*) FROM giulia_contact_bindings')->fetchColumn();
+try{$g->handle(array_replace($ctx,['agent_id'=>'wrong']));throw new RuntimeException('bad context accepted');}catch(InvalidArgumentException $e){}
+check((int)$db->query('SELECT COUNT(*) FROM giulia_contact_bindings')->fetchColumn()===$before,'invalid agent cannot bind');
+check(!str_contains(json_encode($answer),'Mario')&&!str_contains(json_encode($answer),'TEST-0001'),'tool returns no identity data');
+echo "Giulia recognition, channel admission, role changes and unanswered reporting passed.\n";
