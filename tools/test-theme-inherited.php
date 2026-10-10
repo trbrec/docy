@@ -38,6 +38,8 @@ function get_comment( $value ) { return $value instanceof WP_Comment ? $value : 
 class CSF_Abstract {}
 class CSF_Fields {
     public function __construct( public $field, public $value = '', public $unique = '', public $where = '', public $parent = '' ) {}
+    public function field_before() { return ''; }
+    public function field_after() { return ''; }
 }
 class CSF {
     public static function field( $field, $default, $shortcode, $context ) { echo '<input data-field="' . esc_attr( $field['id'] ) . '">'; }
@@ -118,6 +120,13 @@ foreach ( [ false, new WC_Order() ] as $order ) {
     $html = ob_get_clean();
     inherited_check( (bool) $order === str_contains( $html, 'class="order-num"' ), 'An unavailable order must not cause a fatal error or display an invented order number.' );
     inherited_check( ! str_contains( $html, '<script>' ), 'Order numbers supplied by plugins must be escaped.' );
+}
+foreach ( [ [ 'id' => 'empty-group' ], [ 'id' => 'empty-group', 'fields' => [] ] ] as $definition ) {
+    $field = new CSF_Field_group( $definition, '', 'fixture-root' );
+    ob_start();
+    $field->render();
+    $html = ob_get_clean();
+    inherited_check( str_contains( $html, 'csf-cloneable-add' ), 'The default empty field list must render a usable group without undefined keys.' );
 }
 foreach ( [ null, 'another-page', [ 'fixture-admin' ], 'fixture-admin' ] as $page ) {
     $_GET = null === $page ? [] : [ 'page' => $page ];

@@ -61,7 +61,7 @@ if ( ! class_exists( 'CSF_Field_group' ) ) {
           echo '</h4>';
 
           echo '<div class="csf-cloneable-content">';
-          foreach ( $this->field['fields'] as $field ) {
+          foreach ( $args['fields'] as $field ) {
 
             $field_default = ( isset( $field['default'] ) ) ? $field['default'] : '';
             $field_unique  = ( ! empty( $this->unique ) ) ? $this->unique .'['. $this->field['id'] .'][0]' : $this->field['id'] .'[0]';
@@ -115,7 +115,7 @@ if ( ! class_exists( 'CSF_Field_group' ) ) {
 
               echo '<div class="csf-cloneable-content">';
 
-              foreach ( $this->field['fields'] as $field ) {
+              foreach ( $args['fields'] as $field ) {
 
                 $field_unique = ( ! empty( $this->unique ) ) ? $this->unique .'['. $this->field['id'] .']['. $num .']' : $this->field['id'] .'['. $num .']';
                 $field_value  = ( isset( $field['id'] ) && isset( $value[$field['id']] ) ) ? $value[$field['id']] : '';
