@@ -8,6 +8,7 @@ $archive_dir = $work . '/private/error-log-archive';
 try {
     $bytes = str_repeat( "Synthetic diagnostic only.\n", 1000 );
     file_put_contents( $root . '/php_errorlog', $bytes );
+    touch( $root . '/php_errorlog', time() - 3 * DAY_IN_SECONDS );
     $first = trb_portal_rotate_error_log( $root, 1024 );
     $archives = glob( $archive_dir . '/portal-*.log' );
     if ( ! $first['rotated'] || count( $archives ) !== 1 || file_get_contents( $archives[0] ) !== $bytes || filesize( $root . '/php_errorlog' ) !== 0 ) throw new RuntimeException( 'Rotation did not preserve every original byte.' );
@@ -16,8 +17,10 @@ try {
     $second = trb_portal_rotate_error_log( $root, 1024 );
     if ( $second['compressed'] !== 1 || $second['bytes_reclaimed'] <= 0 || gzdecode( file_get_contents( $archives[0] . '.gz' ) ) !== $bytes || is_file( $archives[0] ) ) throw new RuntimeException( 'Compression readback or reclamation failed.' );
     file_put_contents( $archive_dir . '/unrelated.txt', 'preserve' );
+    file_put_contents( $archive_dir . '/portal-20269999999999-bbbbbbbb.log.gz', gzencode( 'Malformed timestamp, preserve' ) );
     file_put_contents( $archive_dir . '/portal-20000101000000-aaaaaaaa.log.gz', gzencode( 'Expired synthetic log' ) );
     if ( trb_portal_rotate_error_log( $root, 1024 )['expired_archives_removed'] !== 1 || file_get_contents( $archive_dir . '/unrelated.txt' ) !== 'preserve' ) throw new RuntimeException( 'Retention removed an unrelated or recent file.' );
+    if ( ! is_file( $archive_dir . '/portal-20269999999999-bbbbbbbb.log.gz' ) ) throw new RuntimeException( 'Malformed archive timestamp must not authorize deletion.' );
     if ( trb_portal_maintain_error_log()['skipped'] !== 'isolated_environment' ) throw new RuntimeException( 'Local environment entered production maintenance.' );
     echo "Log byte preservation, writer grace, compressed readback, retention boundaries and isolated environment guards passed.\n";
 } finally {

@@ -25,7 +25,8 @@ function trb_portal_rotate_error_log( $root, $threshold = 20971520 ) {
         if ( is_file( $path ) && filesize( $path ) >= $threshold ) {
             $archive = $directory . '/portal-' . gmdate( 'YmdHis' ) . '-' . bin2hex( random_bytes( 4 ) ) . '.log';
             if ( ! rename( $path, $archive ) ) throw new RuntimeException( 'Log rotation failed.' );
-            chmod( $archive, 0600 );
+            // Start the writer grace at rotation, even when the old log had been quiet.
+            if ( ! chmod( $archive, 0600 ) || ! touch( $archive ) ) { rename( $archive, $path ); throw new RuntimeException( 'Private log permissions unavailable.' ); }
             $fresh = @fopen( $path, 'x' );
             if ( is_resource( $fresh ) ) { fclose( $fresh ); chmod( $path, 0600 ); }
             elseif ( ! is_file( $path ) ) { rename( $archive, $path ); throw new RuntimeException( 'New log unavailable.' ); }
@@ -36,7 +37,9 @@ function trb_portal_rotate_error_log( $root, $threshold = 20971520 ) {
             clearstatcache( true, $archive ); $before = stat( $archive );
             // Existing workers may retain the old file descriptor. Leave them 24h.
             if ( $before['mtime'] > time() - DAY_IN_SECONDS ) continue;
-            $temporary = $archive . '.gz.next'; $input = fopen( $archive, 'rb' ); $output = gzopen( $temporary, 'wb6' );
+            $temporary = $archive . '.gz.next';
+            if ( is_link( $temporary ) || is_link( $archive . '.gz' ) ) throw new RuntimeException( 'Unsafe compressed log target.' );
+            $input = fopen( $archive, 'rb' ); $output = gzopen( $temporary, 'wb6' );
             if ( ! $input || ! $output ) throw new RuntimeException( 'Log compression unavailable.' );
             $hash = hash_init( 'sha256' );
             try {
@@ -59,7 +62,9 @@ function trb_portal_rotate_error_log( $root, $threshold = 20971520 ) {
             $result['compressed']++; $result['bytes_reclaimed'] += max( 0, $before['size'] - filesize( $archive . '.gz' ) );
         }
         foreach ( glob( $directory . '/portal-*.log.gz' ) as $archive ) {
-            if ( ! is_link( $archive ) && preg_match( '/^portal-([0-9]{14})-[a-f0-9]{8}\.log\.gz$/D', basename( $archive ), $date ) && DateTimeImmutable::createFromFormat( '!YmdHis', $date[1], new DateTimeZone( 'UTC' ) )->getTimestamp() < time() - 60 * DAY_IN_SECONDS ) {
+            if ( ! is_link( $archive ) && preg_match( '/^portal-([0-9]{14})-[a-f0-9]{8}\.log\.gz$/D', basename( $archive ), $date ) ) {
+                $stamp = DateTimeImmutable::createFromFormat( '!YmdHis', $date[1], new DateTimeZone( 'UTC' ) );
+                if ( ! $stamp || $stamp->format( 'YmdHis' ) !== $date[1] || $stamp->getTimestamp() >= time() - 60 * DAY_IN_SECONDS ) continue;
                 $bytes = filesize( $archive );
                 if ( ! unlink( $archive ) ) throw new RuntimeException( 'Expired log archive removal failed.' );
                 $result['expired_archives_removed']++; $result['bytes_reclaimed'] += $bytes;
