@@ -221,6 +221,12 @@ if ( 'install' === $phase ) {
     $result['active_plugin_count'] = count( get_option( 'active_plugins', array() ) );
     $result['legacy_acf_deletion_disabled'] = false === has_action( 'init', 'docy_remove_acf_fields_if_exists_in_codestar' ) && ! function_exists( 'docy_remove_acf_fields_if_exists_in_codestar' );
     if ( ! $result['legacy_acf_deletion_disabled'] ) throw new RuntimeException( 'Legacy field-group deletion is still active.' );
+    $result['italian_theme_catalog_verified'] = 'it_IT' === determine_locale()
+        && 'Cerca' === __( 'Search', 'docy' )
+        && 'Nessun risultato corrisponde alla ricerca.' === __( 'Oops! No results matched your search.', 'docy' )
+        && 'Attiva o disattiva la modalità scura' === __( 'Toggle dark mode', 'docy' )
+        && 'Quantità' === _x( 'Qty', 'Product quantity input tooltip', 'docy' );
+    if ( ! $result['italian_theme_catalog_verified'] ) throw new RuntimeException( 'Standard Italian theme translations did not load.' );
     // Compare with retained official public sources; export booleans only.
     $public_vendor_sources = array(
         'wordfence_bootstrap' => array( 'wordfence/waf/bootstrap.php', '2e06eeb9f953bf454e433acffd75abaa080d9d5032f0f07a1b4a83893458e3d1' ),

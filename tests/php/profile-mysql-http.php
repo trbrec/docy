@@ -39,6 +39,21 @@ if ( $qaServing ) {
     $qaUserId = 'anonymous' === $qaIdentity ? 0 : ( 'admin' === $qaIdentity ? get_user_by( 'login', 'qa_admin' )->ID : (int) getenv( 'TRB_QA_USER_ID' ) );
     wp_set_current_user( $qaUserId );
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
+        if ( ( $_POST['action'] ?? '' ) === 'qa_theme_language' ) {
+            $qaLanguage = ( $_POST['qa_locale'] ?? '' ) === 'it_IT' ? 'it_IT' : 'en_US';
+            add_filter( 'pre_determine_locale', static function() use ( $qaLanguage ) { return $qaLanguage; } );
+            load_theme_textdomain( 'docy', dirname( __DIR__, 2 ) . '/languages' );
+            wp_send_json_success( array(
+                'search' => __( 'Search', 'docy' ),
+                'billing' => __( 'Billing details', 'docy' ),
+                'registration' => __( 'Create an account?', 'docy' ),
+                'empty_search' => __( 'Oops! No results matched your search.', 'docy' ),
+                'search_retry' => __( 'You could search again.', 'docy' ),
+                'dark_mode' => __( 'Toggle dark mode', 'docy' ),
+                'registered' => sprintf( __( 'Registered: %s', 'docy' ), '2026' ),
+                'quantity' => _x( 'Qty', 'Product quantity input tooltip', 'docy' ),
+            ) );
+        }
         if ( ( $_POST['action'] ?? '' ) === 'qa_public_search' ) {
             define( 'DOING_AJAX', true );
             register_post_type( 'qa_internal', array( 'public' => false, 'publicly_queryable' => false ) );
@@ -336,6 +351,7 @@ try {
     require __DIR__ . '/theme-comments-mysql-cases.php';
     require __DIR__ . '/theme-search-mysql-cases.php';
     require __DIR__ . '/theme-text-cases.php';
+    require __DIR__ . '/theme-translations-cases.php';
     $qaCartOldUser = get_current_user_id();
     wp_set_current_user( $qaUser );
     $qaCartNonce = wp_create_nonce( 'docy-buy-now-nonce' );
