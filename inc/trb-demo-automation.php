@@ -748,9 +748,29 @@ function trb_demo_health_queue_snapshot() {
     return array( 'counts' => $counts, 'problems' => $problems );
 }
 
+/** Authenticated availability only: no artist data, sheet rows, or email. */
+function trb_demo_health_sheet_probe( $settings ) {
+    $configured = ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] );
+    $started_at = microtime( true );
+    $payload = wp_json_encode( array( 'action' => 'health' ) );
+    $response = $configured ? trb_demo_post_sheet_webhook( $settings['sheet_webhook_url'], array(
+        'payload_base64' => base64_encode( $payload ),
+        'signature' => hash_hmac( 'sha256', $payload, $settings['sheet_webhook_secret'] ),
+    ) ) : null;
+    $result = trb_demo_health_service_result( $configured, $response, array( 200 ), $started_at );
+    if ( 'operational' === $result['status'] ) {
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+        if ( ! is_array( $data ) || true !== ( $data['success'] ?? false ) || 'trb-demo-sheet-health-v1' !== ( $data['protocol'] ?? '' ) || true !== ( $data['sheet_available'] ?? false ) || true !== ( $data['read_only'] ?? false ) ) {
+            $result['status'] = 'error';
+            $result['error_code'] = is_array( $data ) && 'unauthorized' === ( $data['error'] ?? '' ) ? 'UNAUTHORIZED' : 'READINESS_UNCONFIRMED';
+        }
+    }
+    return $result;
+}
+
 /**
  * Probe integrations without uploading data or consuming model tokens.
- * OpenAI uses a model metadata GET; pCloud uses a depth-zero WebDAV PROPFIND.
+ * OpenAI uses metadata GET; pCloud depth-zero PROPFIND; Sheets signed read-only health.
  */
 function trb_demo_refresh_operational_health() {
     if ( get_transient( 'trb_demo_operational_health_lock' ) ) return;
@@ -784,6 +804,7 @@ function trb_demo_refresh_operational_health() {
         )
     ) : null;
     $openai_result = trb_demo_health_service_result( $openai_configured, $openai, array( 200 ), $openai_started );
+    $spreadsheet_result = trb_demo_health_sheet_probe( $settings );
 
     $queue = trb_demo_health_queue_snapshot();
     $snapshot = array(
@@ -793,6 +814,7 @@ function trb_demo_refresh_operational_health() {
         'integrations'   => array(
             'pcloud' => $pcloud_result,
             'openai' => $openai_result,
+            'spreadsheet' => $spreadsheet_result,
         ),
         'queue'          => $queue,
     );
@@ -837,9 +859,10 @@ function trb_demo_health_payload() {
     );
     $problem_total = array_sum( array_map( 'absint', is_array( $queue['problems'] ?? null ) ? $queue['problems'] : array() ) );
     $failed_total = absint( $queue['counts']['manual_review'] ?? 0 ) + absint( $queue['counts']['email_failed'] ?? 0 ) + absint( $queue['counts']['delivery_uncertain'] ?? 0 );
-    $integrations_operational = isset( $integrations['pcloud']['status'], $integrations['openai']['status'] )
+    $integrations_operational = isset( $integrations['pcloud']['status'], $integrations['openai']['status'], $integrations['spreadsheet']['status'] )
         && 'operational' === $integrations['pcloud']['status']
-        && 'operational' === $integrations['openai']['status'];
+        && 'operational' === $integrations['openai']['status']
+        && 'operational' === $integrations['spreadsheet']['status'];
     $ready = ! in_array( false, $configuration, true ) && ! in_array( false, $handlers, true ) && $integrations_operational && ! $stale && 0 === $problem_total && 0 === $failed_total;
     $status = ! $checked_at_ts ? 'pending' : ( $ready ? 'healthy' : 'degraded' );
 

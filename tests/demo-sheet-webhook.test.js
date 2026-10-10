@@ -46,6 +46,13 @@ function post(data, valid = true) {
   return JSON.parse(context.doPost({postData:{contents:JSON.stringify(envelope)}}).text);
 }
 const run = '1234567890abcdef';
+const beforeHealth = JSON.stringify([...sheets].map(([name,s])=>[name,s.cells]));
+assert.equal(post({action:'health'},false).error,'unauthorized');
+assert.deepEqual(post({action:'health'}),{success:true,protocol:'trb-demo-sheet-health-v1',sheet_available:true,read_only:true});
+assert.equal(JSON.stringify([...sheets].map(([name,s])=>[name,s.cells])),beforeHealth,'Health never creates a row or changes headers');
+const normalSheet=sheets.get('2026 NEW');sheets.delete('2026 NEW');
+assert.equal(post({action:'health'}).success,false,'A missing sheet is not healthy');
+sheets.set('2026 NEW',normalSheet);
 const row = {informazioni_cronologiche:'10/10/2026 18:00',nome:'Artista',cognome:'Fittizio',nome_arte:'=Artista تونس',email:'qa-'+run+'@example.invalid',titolo:'Collaudo con apostrofo: l’onda',link_provino:'https://example.invalid/demo',request_id:'QA-AUDIT-'+run,qa_run:run,qa_action:'write'};
 assert.equal(post(row,false).success,false);
 assert.equal(sheets.size,1);

@@ -56,6 +56,11 @@ function doPost(e) {
     }
     const data = JSON.parse(payloadJson);
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Dati non validi.');
+    if (data.action === 'health') {
+      const book = SpreadsheetApp.openById(TRB_SPREADSHEET_ID);
+      if (!book.getSheetByName(TRB_SHEET_NAME)) throw new Error('Scheda dei provini non disponibile.');
+      return json_({ success: true, protocol: 'trb-demo-sheet-health-v1', sheet_available: true, read_only: true });
+    }
     const required = [
       'informazioni_cronologiche', 'nome', 'cognome', 'nome_arte',
       'email', 'titolo', 'link_provino', 'request_id'
