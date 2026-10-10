@@ -1,0 +1,98 @@
+name: Canonical CRM hosting audit executor
+on:
+  push:
+    branches: [fix/portal-audit-20261010]
+    paths: [tools/crm-hosting-request.json]
+permissions:
+  contents: read
+concurrency:
+  group: canonical-crm-hosting-audit
+  cancel-in-progress: false
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the exact CRM request
+        id: request
+        run: |
+          python3 - <<'PY'
+          import json,os,re
+          from pathlib import Path
+          d=json.loads(Path('tools/crm-hosting-request.json').read_text())
+          assert re.fullmatch('[a-f0-9]{40}',d['revision'])
+          assert re.fullmatch(r'bin/server-[a-z-]+\.php',d['command'])
+          assert d['mode'] in ('audit','preflight','apply','verify','rollback')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              for k in ('revision','command','mode'): f.write(k+'='+d[k]+'\n')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          repository: trbrec/trb-crm
+          ref: ${{ steps.request.outputs.revision }}
+          path: crm-candidate
+      - name: Execute the reviewed canonical tool through the existing hosting connection
+        env:
+          CRM_REVISION: ${{ steps.request.outputs.revision }}
+          CRM_COMMAND: ${{ steps.request.outputs.command }}
+          CRM_MODE: ${{ steps.request.outputs.mode }}
+          GH_TOKEN: ${{ github.token }}
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/trb-crm-hosting-result
+          curl --fail --silent --show-error -H "Authorization: Bearer ${GH_TOKEN}" "https://api.github.com/repos/trbrec/trb-crm/actions/runs?head_sha=${CRM_REVISION}&per_page=30" > /tmp/trb-crm-ci.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/trb-crm-ci.json'))['workflow_runs']
+          for name in ('CRM review checks','Portal receiver regression checks','Demo intake regression checks'):
+              runs=[r for r in d if r['name']==name]
+              assert runs and runs[0]['conclusion']=='success', 'Canonical CRM validation incomplete'
+          PY
+          test -f "crm-candidate/${CRM_COMMAND}"
+          install -d -m 700 "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          trap 'ssh-add -D >/dev/null 2>&1 || true; rm -f "${HOME}/.ssh/id_ed25519"' EXIT
+          ssh-keyscan -T 10 -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          candidate="/home/customer/www/crm.trbrec.com/private/crm-audit-${CRM_REVISION}/candidate"
+          ssh "${ssh_opts[@]}" "${remote}" "mkdir -p '${candidate}' && chmod 700 '${candidate}'"
+          rsync -az --checksum --exclude='.git/' --exclude='.github/' --exclude='.env' --exclude='audit/' --exclude='.phpstan-cache/' \
+            -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" crm-candidate/ "${remote}:${candidate}/"
+          set +e
+          ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/${CRM_COMMAND}' '${CRM_MODE}' '${CRM_REVISION}'" > /tmp/trb-crm-private-result.json 2>/dev/null
+          result=$?
+          set -e
+          CRM_EXIT="${result}" python3 - <<'PY'
+          import json,os,re
+          from pathlib import Path
+          try: raw=json.load(open('/tmp/trb-crm-private-result.json'))
+          except Exception: raw={}
+          clean={'revision':os.environ['CRM_REVISION'],'mode':os.environ['CRM_MODE'],'success':raw.get('success') is True and os.environ['CRM_EXIT']=='0'}
+          if isinstance(raw.get('stage'),str) and re.fullmatch('[a-z0-9-]{1,60}',raw['stage']): clean['stage']=raw['stage']
+          for key,value in raw.items():
+              if re.fullmatch('[a-z_]{1,60}',key) and isinstance(value,(bool,int,float)): clean[key]=value
+          clean['success']=raw.get('success') is True and os.environ['CRM_EXIT']=='0'
+          Path('/tmp/trb-crm-hosting-result/result.json').write_text(json.dumps(clean))
+          assert clean['success'], 'Canonical CRM hosting operation unconfirmed'
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: canonical-crm-hosting-result
+          path: /tmp/trb-crm-hosting-result/
+          retention-days: 7

@@ -19,6 +19,12 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
     $cleanup_fixture = static function( $settings_file ) use ( $wpdb ) {
         if ( ! is_file( $settings_file ) || is_link( $settings_file ) ) return 0;
         $settings = json_decode( file_get_contents( $settings_file ), true, 16, JSON_THROW_ON_ERROR );
+        if ( isset( $settings['http_bridge'] ) ) {
+            $bridge = $settings['http_bridge'];
+            if ( ! preg_match( '/^trb-audit-http-[a-f0-9]{24}\.php$/D', $bridge['name'] ?? '' ) || ! preg_match( '/^[a-f0-9]{64}$/D', $bridge['sha256'] ?? '' ) ) throw new RuntimeException( 'Unexpected HTTP QA manifest.' );
+            $path = '/home/customer/www/artist.trbrec.com/public_html/' . $bridge['name'];
+            if ( is_link( $path ) || is_file( $path ) && ( ! hash_equals( $bridge['sha256'], hash_file( 'sha256', $path ) ) || ! unlink( $path ) ) ) throw new RuntimeException( 'HTTP QA cleanup unconfirmed.' );
+        }
         $prefix = $settings['prefix'];
         if ( ! preg_match( '/^trbqa_[a-f0-9]{16}_$/D', $prefix ) || $prefix === $wpdb->prefix ) throw new RuntimeException( 'Unsafe QA cleanup prefix.' );
         $tables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $prefix ) . '%' ) );
@@ -84,8 +90,7 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
     foreach ( trb_signature_compatibility_manifest() as $name => $spec ) {
         $path = $root . '/wp-content/plugins/' . $name;
         $source = file_get_contents( $path );
-        if ( ! hash_equals( $spec['baseline'], hash( 'sha256', $source ) ) ) throw new RuntimeException( 'Signature QA baseline changed.' );
-        file_put_contents( $path, trb_signature_property_patch( $source, $spec['class'], $spec['properties'] ) );
+        file_put_contents( $path, trb_signature_verified_property_patch( $source, $spec ) );
     }
     if ( ! symlink( dirname( __DIR__ ), $root . '/wp-content/themes/docy' ) ) throw new RuntimeException( 'Candidate theme unavailable.' );
     foreach ( glob( dirname( __DIR__ ) . '/integrations/portal-mu-plugins/*.php' ) as $path ) if ( ! copy( $path, $root . '/wp-content/mu-plugins/' . basename( $path ) ) ) throw new RuntimeException( 'Candidate MU copy failed.' );

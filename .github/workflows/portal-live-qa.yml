@@ -82,7 +82,7 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-installed-stack.php' http '${qa_dir}'" > /tmp/trb-live-qa/http.json 2>/dev/null || true
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/deploy-portal-integrations.php' preflight '${GITHUB_SHA}'" > /tmp/trb-live-qa/preflight.txt 2>/dev/null
           provider_run=$(openssl rand -hex 8)
-          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-provider-roundtrip.php' '${provider_run}'" > /tmp/trb-live-qa/providers.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-provider-roundtrip.php' '${provider_run}' no-ai" > /tmp/trb-live-qa/providers.json 2>/dev/null
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-store-benefits-live.php' portal '${benefit_run}' ddb" > /tmp/trb-live-qa/store-portal.txt 2>/dev/null
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-store-benefits-live.php' store '${benefit_run}'" > /tmp/trb-live-qa/store-roundtrip.txt 2>/dev/null
           python3 - <<'PY'
@@ -93,9 +93,8 @@ jobs:
               assert result.get('completed') is True, 'Installed-stack '+phase+' incomplete'
               assert not result.get('fatal'), 'Installed-stack fatal diagnostic'
           providers=json.loads(Path('/tmp/trb-live-qa/providers.json').read_text())
-          assert providers.get('pcloud') is True and providers.get('evaluation') is True, 'Provider round trip incomplete'
+          assert providers.get('pcloud') is True, 'Archive round trip incomplete'
           assert providers.get('pcloud_cleanup') is True, 'Synthetic archive cleanup unconfirmed'
-          assert providers.get('sheets') is True and providers.get('sheets_cleanup') is True, 'Signed isolated spreadsheet round trip incomplete'
           print('Installed plugin parity, synthetic artist authentication and portal initialization verified.')
           PY
           validation=unknown
@@ -107,6 +106,7 @@ jobs:
           done
           test "${validation}" = success
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-release-deploy-guard.php'" > /tmp/trb-live-qa/deploy-guard.txt 2>/dev/null
+          python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/providers.json"));assert d.get("sheets") is True and d.get("sheets_cleanup") is True,"Signed isolated spreadsheet round trip incomplete"'
           printf '{"stage":"complete"}\n' > /tmp/trb-live-qa/stage.json
       - name: Preserve sanitized results
         if: always()

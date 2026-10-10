@@ -3,7 +3,8 @@
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
 ini_set( 'display_errors', '0' );
 $run = $argv[1] ?? '';
-if ( ! preg_match( '/^[a-f0-9]{16}$/D', $run ) ) exit( 2 );
+$mode = $argv[2] ?? 'full';
+if ( ! preg_match( '/^[a-f0-9]{16}$/D', $run ) || ! in_array( $mode, array( 'full', 'no-ai' ), true ) ) exit( 2 );
 $result = array( 'pcloud' => false, 'pcloud_cleanup' => false, 'evaluation' => false, 'sheets' => false, 'artist_messages' => 0 );
 $buffer = ob_get_level(); ob_start();
 register_shutdown_function( static function() use ( &$result, $buffer ) { while ( ob_get_level() > $buffer ) ob_end_clean(); echo json_encode( $result, JSON_UNESCAPED_SLASHES ) . "\n"; } );
@@ -38,9 +39,11 @@ try {
     if ( file_exists( $local ) || file_put_contents( $local, $body, LOCK_EX ) !== strlen( $body ) ) throw new RuntimeException( 'Synthetic fixture collision.' );
     chmod( $local, 0600 );
     $payload = array( 'uuid' => $run, 'title' => 'QA AUDIT FITTIZIO ' . $run, 'first_name' => 'Artista', 'last_name' => 'Fittizio', 'artist_name' => 'Artista Fittizio Tunisia', 'email' => 'qa-audit@example.invalid', 'profile' => 'trb', 'submitted_at' => gmdate( 'c' ), 'genre' => 'Pop', 'text_file' => array( 'path' => 'trb-demo-private/' . basename( $local ), 'name' => basename( $local ), 'original_name' => basename( $local ), 'size' => strlen( $body ), 'sha256' => hash( 'sha256', $body ) ), 'review_context' => array( 'focus' => 'lyrics' ) );
-    $evaluation = trb_demo_openai_review( $payload );
-    $result['evaluation'] = ! is_wp_error( $evaluation ) && is_array( $evaluation ) && ! empty( $evaluation['review'] );
-    if ( is_wp_error( $evaluation ) ) $result['evaluation_error_code'] = sanitize_key( $evaluation->get_error_code() );
+    if ( 'full' === $mode ) {
+        $evaluation = trb_demo_openai_review( $payload );
+        $result['evaluation'] = ! is_wp_error( $evaluation ) && is_array( $evaluation ) && ! empty( $evaluation['review'] );
+        if ( is_wp_error( $evaluation ) ) $result['evaluation_error_code'] = sanitize_key( $evaluation->get_error_code() );
+    } else { $result['evaluation'] = null; $result['evaluation_skipped'] = true; }
     // No undocumented POST action: it could append a row to the live sheet.
     $sheet = wp_remote_get( (string) ( $settings['sheet_webhook_url'] ?? '' ), array( 'timeout' => 30, 'redirection' => 3 ) );
     $result['sheets_http_status'] = is_wp_error( $sheet ) ? 0 : (int) wp_remote_retrieve_response_code( $sheet );

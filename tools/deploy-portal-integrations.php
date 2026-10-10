@@ -19,8 +19,7 @@ foreach ( $baselines as $name => $baseline ) {
 foreach ( trb_signature_compatibility_manifest() as $name => $spec ) {
     $target = $content . '/plugins/' . $name;
     if ( ! is_file( $target ) || is_link( $target ) ) throw new RuntimeException( 'Signature model unavailable.' );
-    $current = file_get_contents( $target ); $next = trb_signature_property_patch( $current, $spec['class'], $spec['properties'] );
-    if ( $current !== $next && ! hash_equals( $spec['baseline'], hash( 'sha256', $current ) ) ) throw new RuntimeException( 'Signature source diverged.' );
+    $current = file_get_contents( $target ); $next = trb_signature_verified_property_patch( $current, $spec );
     $changes[$target] = $next;
 }
 if ( ! is_dir( $private ) && ! mkdir( $private, 0700, true ) ) throw new RuntimeException( 'Private rollback storage unavailable.' );
