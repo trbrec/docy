@@ -33,6 +33,7 @@ if ( $qaServing ) {
     $qaUserId = ( $_SERVER['HTTP_X_TRB_QA_USER'] ?? '' ) === 'anonymous' ? 0 : (int) getenv( 'TRB_QA_USER_ID' );
     wp_set_current_user( $qaUserId );
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
+        if ( ( $_POST['action'] ?? '' ) === 'qa_demo_worker' ) require __DIR__ . '/demo-worker-http.php';
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_stage_release_chunk' ) trb_portal_stage_release_chunk();
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_submit_demo' ) {
             require dirname( __DIR__, 2 ) . '/inc/trb-crm-connector.php';
@@ -243,6 +244,7 @@ try {
     trb_crm_connector_flush_profiles();
     qa_check( (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$qaOutbox}" ) === $qaEventCount, 'Successful profile save queued the same snapshot again at shutdown.' );
     require __DIR__ . '/demo-mysql-cases.php';
+    require __DIR__ . '/demo-worker-mysql-cases.php';
     qa_check( ! preg_match( '/PHP (Warning|Notice|Deprecated|Fatal error|Parse error)/', file_get_contents( $qaRoot . '/qa-http.log' ) ), 'The real HTTP fixture emitted unexpected PHP diagnostics.' );
     echo $GLOBALS['qa_checks'] . " real WordPress/MySQL/HTTP assertions passed; ordinary Tunisia artist, authentication/nonce, metadata, file rollback/retry, process lock and outbox failure.\n";
 } finally {

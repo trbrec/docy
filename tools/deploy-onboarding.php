@@ -15,6 +15,12 @@ $crm='/home/customer/www/crm.trbrec.com/public_html';$private=dirname($crm).'/pr
 $backup=$private.'/onboarding-'.$revision;
 if(!is_dir($backup)&&!mkdir($backup,0700,true))throw new RuntimeException('Backup unavailable');
 $lock=fopen($private.'/onboarding-deploy.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Busy');
+onboarding_stage('crm-source-guard');
+require_once __DIR__.'/crm-module-source-guard.php';
+$crmSources=[];
+foreach(glob($theme.'/integrations/onboarding/crm/*.php') as $file)$crmSources[$crm.'/app/'.basename($file)]=$file;
+$crmSources[$crm.'/assets/onboarding.css']=$theme.'/integrations/onboarding/crm/onboarding.css';
+trb_crm_module_source_guard($crmSources);
 function onboarding_wp(string $root,string $code): array{
     $script='define("WP_USE_THEMES",false);define("DISABLE_WP_CRON",true);require '.var_export($root.'/wp-load.php',true).';'.$code;
     exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($script).' 2>/dev/null',$out,$status);
@@ -27,13 +33,15 @@ $store=onboarding_wp($storeRoot,'echo json_encode(["directory"=>get_stylesheet_d
 if(!$store['bridge']||!$store['woocommerce']||!str_starts_with($store['directory'],$storeRoot.'/wp-content/themes/'))throw new RuntimeException('Store readiness missing');
 $changes=[];
 $stage=static function(string $path,string $next)use(&$changes,$backup){
-    $original=is_file($path)?file_get_contents($path):null;$temp=$backup.'/'.hash('sha256',$path).'.new';
+    $original=is_file($path)?file_get_contents($path):null;
+    if($original===$next)return;
+    $temp=$backup.'/'.hash('sha256',$path).'.new';
     if(file_put_contents($temp,$next)!==strlen($next))throw new RuntimeException('Stage failed');
     exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($temp).' 2>&1',$out,$status);if($status!==0)throw new RuntimeException('Syntax check failed');
     $changes[]=compact('path','next','original','temp');
 };
-foreach(glob($theme.'/integrations/onboarding/crm/*.php') as $file)$stage($crm.'/app/'.basename($file),(string)file_get_contents($file));
-$stage($crm.'/assets/onboarding.css',(string)file_get_contents($theme.'/integrations/onboarding/crm/onboarding.css'));
+// These sources are checked above and maintained by the separate CRM release.
+// Never stage bundled CRM modules over an installed canonical runtime.
 onboarding_stage('crm-entry');
 $indexPath=$crm.'/index.php';$index=(string)file_get_contents($indexPath);
 $anchor='$router->dispatch($method,rtrim($path,\'/\')?:\'/\');';

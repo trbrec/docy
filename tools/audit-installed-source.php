@@ -29,7 +29,7 @@ if ( in_array( '--crm-schema', $argv, true ) ) {
 if ( in_array( '--log-summary', $argv, true ) ) {
     $summary = array( 'read_only' => true, 'contains_messages' => false, 'logs' => array() );
     foreach ( array( 'portal' => '/home/customer/www/artist.trbrec.com/public_html/php_errorlog', 'crm' => '/home/customer/www/crm.trbrec.com/public_html/php_errorlog' ) as $label => $path ) {
-        $entry = array( 'available' => is_file( $path ), 'bytes' => is_file( $path ) ? filesize( $path ) : 0, 'scanned_bytes' => 0, 'groups' => array() );
+        $entry = array( 'available' => is_file( $path ), 'bytes' => is_file( $path ) ? filesize( $path ) : 0, 'scanned_bytes' => 0, 'groups' => array(), 'group_dates_utc' => array() );
         if ( $entry['available'] ) {
             $handle = fopen( $path, 'rb' );
             if ( false === $handle ) throw new RuntimeException( 'Log summary unavailable.' );
@@ -45,7 +45,14 @@ if ( in_array( '--log-summary', $argv, true ) ) {
                 foreach ( array( 'Undefined array key', 'Undefined variable', 'Permission denied', 'Failed to open stream', 'Allowed memory size', 'Uncaught', 'SQLSTATE', 'Deprecated', 'Maximum execution time' ) as $candidate ) if ( stripos( $line, $candidate ) !== false ) { $category = $candidate; break; }
                 // Never return log text: it may contain artist data, tokens or provider responses.
                 $key = $severity[1] . '|' . $component . '|' . $category;
-                if ( isset( $entry['groups'][ $key ] ) || count( $entry['groups'] ) < 200 ) $entry['groups'][ $key ] = ( $entry['groups'][ $key ] ?? 0 ) + 1;
+                if ( isset( $entry['groups'][ $key ] ) || count( $entry['groups'] ) < 200 ) {
+                    $entry['groups'][ $key ] = ( $entry['groups'][ $key ] ?? 0 ) + 1;
+                    if ( preg_match( '/^\[([0-9]{2}-[A-Za-z]{3}-[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2} (?:UTC|Europe\/Rome))\]/', $line, $date ) && false !== ( $timestamp = strtotime( $date[1] ) ) ) {
+                        $iso = gmdate( 'c', $timestamp );
+                        $dates = $entry['group_dates_utc'][$key] ?? array( 'first' => $iso, 'last' => $iso );
+                        $entry['group_dates_utc'][$key] = array( 'first' => min( $dates['first'], $iso ), 'last' => max( $dates['last'], $iso ) );
+                    }
+                }
             }
             $entry['scanned_bytes'] = ftell( $handle ) - $offset;
             fclose( $handle );
@@ -95,7 +102,17 @@ if ( in_array( '--database-shape', $argv, true ) ) {
     require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
     global $wpdb;
     $shape = array( 'read_only' => true, 'table_engines' => array() );
-    foreach ( array( 'usermeta' => $wpdb->usermeta, 'options' => $wpdb->options, 'posts' => $wpdb->posts, 'postmeta' => $wpdb->postmeta ) as $label => $table ) $shape['table_engines'][ $label ] = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $table ) );
+    foreach ( array( 'usermeta' => $wpdb->usermeta, 'options' => $wpdb->options, 'posts' => $wpdb->posts, 'postmeta' => $wpdb->postmeta, 'connector_outbox' => $wpdb->prefix . 'trb_crm_sync_outbox' ) as $label => $table ) $shape['table_engines'][ $label ] = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $table ) );
+    $active = @unserialize( (string) $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name='active_plugins'" ), array( 'allowed_classes' => false ) );
+    $shape['active_plugins'] = array();
+    foreach ( is_array( $active ) ? $active : array() as $plugin ) {
+        if ( ! is_string( $plugin ) || ! preg_match( '~^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+\.php$~D', $plugin ) ) continue;
+        $path = '/home/customer/www/artist.trbrec.com/public_html/wp-content/plugins/' . $plugin;
+        if ( ! is_file( $path ) || is_link( $path ) ) continue;
+        $header = file_get_contents( $path, false, null, 0, 8192 );
+        $version = preg_match( '/^[ \t\/*#]*Version:\s*([0-9A-Za-z_.+-]{1,40})/mi', $header, $match ) ? $match[1] : null;
+        $shape['active_plugins'][$plugin] = array( 'version' => $version, 'sha256' => hash_file( 'sha256', $path ) );
+    }
     $shape['fixture_198_exists'] = 1 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->users} WHERE ID=198 AND user_login=%s AND user_email=%s", 'trb_audit_20261010', 'portal-audit-20261010@example.invalid' ) );
     $shape['protected_andrea_account_exists'] = 1 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->users} WHERE user_email=%s", 'a.tognassi@gmail.com' ) );
     $shape['fixture_12351_exists'] = 1 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE ID=12351 AND post_author=198 AND post_type='trb_release' AND post_title=%s", 'AUDIT TEST 20261010 — synthetic release, no distribution' ) );

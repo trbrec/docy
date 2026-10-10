@@ -17,8 +17,8 @@ $checks['revision']=preg_match('/^[a-f0-9]{40}$/D',$revision)&&trim((string)@fil
 if(!$checks['revision'])exit(2);
 require_once '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';
 \TrbCrm\Env::load('/home/customer/www/crm.trbrec.com/public_html/.env');
-require_once $theme.'/integrations/onboarding/crm/OnboardingTransport.php';
-require_once $theme.'/integrations/onboarding/crm/OnboardingContractCatalog.php';
+require_once '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingTransport.php';
+require_once '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingContractCatalog.php';
 try{$drive=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_drive_health']);$checks['archive_connection']=($drive['provider']??'')==='google_drive'&&($drive['private']??false)===true;}catch(Throwable $ignored){}
 foreach(['portal_secret'=>'ARTIST_PORTAL_SYNC_SECRET','identity_key'=>'OPENAI_API_KEY','signature_secret'=>'CONTRACT_APPS_SCRIPT_SECRET','invitation_key'=>'APP_KEY'] as $check=>$key)$checks[$check]=strlen((string)\TrbCrm\Env::get($key,''))>=(in_array($check,['portal_secret','invitation_key'],true)?32:16);
 if($checks['signature_secret']){

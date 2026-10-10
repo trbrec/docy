@@ -4576,6 +4576,8 @@ function trb_portal_recent_demo_requests( $user_id = 0 ) {
 		'sent'          => 'Valutazione inviata via e-mail',
 		'manual_review' => 'Verifica manuale TRB in corso',
 		'email_failed'  => 'Consegna e-mail in verifica da parte di TRB',
+		'sending'       => 'Consegna e-mail in corso',
+		'delivery_uncertain' => 'Consegna e-mail in verifica da parte di TRB',
 	);
 	$requests = get_posts( array(
 		'post_type'      => 'trb_request',

@@ -1,10 +1,10 @@
 name: Giulia support integration
 on:
   pull_request:
-    paths: ['integrations/giulia/**', 'tools/*giulia-support.php', '.github/workflows/giulia-support.yml']
+    paths: ['integrations/giulia/**', 'tools/*giulia-support.php', 'tools/crm-module-source-guard.php', '.github/workflows/giulia-support.yml']
   push:
     branches: [main]
-    paths: ['integrations/giulia/**', 'tools/*giulia-support.php', '.github/workflows/giulia-support.yml']
+    paths: ['integrations/giulia/**', 'tools/*giulia-support.php', 'tools/crm-module-source-guard.php', '.github/workflows/giulia-support.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -33,6 +33,7 @@ jobs:
       - run: |
           php -l integrations/giulia/GiuliaSupport.php
           php -l tools/deploy-giulia-support.php
+          php tools/test-crm-module-source-guard.php
           set -o pipefail
           php tools/test-giulia-support.php 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
   deploy:
@@ -65,6 +66,6 @@ jobs:
           stage="/home/customer/www/crm.trbrec.com/private/giulia-stage-${GITHUB_SHA}"
           ssh -p "${SSH_PORT}" -o BatchMode=yes "${remote}" "mkdir -p '${stage}/integrations/giulia' '${stage}/tools' && chmod 700 '${stage}'"
           rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes" integrations/giulia/ "${remote}:${stage}/integrations/giulia/"
-          rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes" tools/deploy-giulia-support.php "${remote}:${stage}/tools/"
+          rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes" tools/deploy-giulia-support.php tools/crm-module-source-guard.php "${remote}:${stage}/tools/"
           ssh -p "${SSH_PORT}" -o BatchMode=yes "${remote}" "php '${stage}/tools/deploy-giulia-support.php' '${GITHUB_SHA}'"
 

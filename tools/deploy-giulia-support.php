@@ -7,6 +7,9 @@ set_exception_handler(static function($e)use(&$stage){fwrite(STDERR,'GIULIA_DEPL
 $bundle=dirname(__DIR__);$revision=$argv[1]??'';
 if(!preg_match('/^[a-f0-9]{40}$/D',$revision))exit(2);
 $crm='/home/customer/www/crm.trbrec.com/public_html';$private=dirname($crm).'/private';
+$stage='crm-source-guard';
+require_once __DIR__.'/crm-module-source-guard.php';
+trb_crm_module_source_guard([$crm.'/app/GiuliaSupport.php'=>$bundle.'/integrations/giulia/GiuliaSupport.php']);
 if(!is_dir($private)&&!mkdir($private,0700,true))throw new RuntimeException();
 $lock=fopen($private.'/giulia-deploy.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException();
 $backup=$private.'/giulia-backup-'.$revision;if(!is_dir($backup)&&!mkdir($backup,0700,true))throw new RuntimeException();
@@ -20,9 +23,9 @@ $stage='entry';$indexPath=$crm.'/index.php';$index=(string)file_get_contents($in
 $anchor='$router->dispatch($method,rtrim($path,\'/\')?:\'/\');';
 $hook="require_once __DIR__.'/app/GiuliaSupport.php';\nif(\\TrbCrm\\GiuliaSupport::dispatch(\$method,rtrim(\$path,'/')?:'/'))exit;\n";
 if(!str_contains($index,"require_once __DIR__.'/app/GiuliaSupport.php';")) {if(substr_count($index,$anchor)!==1)throw new RuntimeException();$index=str_replace($anchor,$hook.$anchor,$index);}
-$changes=[$crm.'/app/GiuliaSupport.php'=>(string)file_get_contents($bundle.'/integrations/giulia/GiuliaSupport.php'),$indexPath=>$index];$original=[];
+$changes=$index===(string)file_get_contents($indexPath)?[]:[$indexPath=>$index];$original=[];
 $stage='validate';foreach($changes as $path=>$next){$original[$path]=is_file($path)?file_get_contents($path):null;$staged=$backup.'/'.basename($path).'.next';file_put_contents($staged,$next);exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($staged).' 2>&1',$output,$status);if($status!==0)throw new RuntimeException();if($original[$path]!==null&&!is_file($backup.'/'.basename($path).'.previous'))file_put_contents($backup.'/'.basename($path).'.previous',$original[$path]);}
-$stage='activate';try {foreach($changes as $path=>$next){$temp=$path.'.giulia-next';if(file_put_contents($temp,$next)!==strlen($next)||!rename($temp,$path))throw new RuntimeException();}if(!hash_equals(hash('sha256',$changes[$crm.'/app/GiuliaSupport.php']),hash_file('sha256',$crm.'/app/GiuliaSupport.php')))throw new RuntimeException();}
+$stage='activate';try {foreach($changes as $path=>$next){$temp=$path.'.giulia-next';if(file_put_contents($temp,$next)!==strlen($next)||!rename($temp,$path))throw new RuntimeException();}trb_crm_module_source_guard([$crm.'/app/GiuliaSupport.php'=>$bundle.'/integrations/giulia/GiuliaSupport.php']);}
 catch(Throwable $e){foreach($original as $path=>$content){if($content===null){if(is_file($path))unlink($path);}else file_put_contents($path,$content);}throw $e;}
 try {
 $stage='live-read-check';

@@ -8,13 +8,17 @@ function absint($s){return abs((int)$s);}
 function get_post_meta($id,$key,$single=true){return $GLOBALS['meta'][$id][$key] ?? '';}
 function update_post_meta($id,$key,$v){$GLOBALS['meta'][$id][$key]=$v;}
 function delete_post_meta($id,$key){unset($GLOBALS['meta'][$id][$key]);}
+function wp_cache_delete(...$args){}
+function wp_slash($value){return $value;}
+function trb_release_process_lock($scope){return tmpfile();}
+function trb_release_process_unlock($handle){fclose($handle);}
 function trb_demo_defer_review_if_needed($id,$payload){return false;}
 function trb_store_benefits_live(){return $GLOBALS['benefits_live'] ?? true;}
 function trb_demo_settings(){return ['artist_discount_code'=>'TEST50'];}
 function trb_demo_is_test_payload($p){return !empty($p['owner_qa']);}
 function wp_mail($to,$subject,$body,$headers){$GLOBALS['mail']=compact('to','subject','body','headers');return true;}
 $src=file_get_contents(__DIR__.'/../inc/trb-demo-automation.php');
-foreach(['trb_demo_review_html','trb_demo_services_note','trb_demo_send_review'] as $fn){
+foreach(['trb_demo_run_locked','trb_demo_save_meta','trb_demo_review_html','trb_demo_services_note','trb_demo_send_review'] as $fn){
  preg_match('/function '.$fn.'\(.*?(?=\nfunction |\nadd_action\()/s',$src,$m);
  eval($m[0]);
 }
