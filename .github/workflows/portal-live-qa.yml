@@ -9,6 +9,7 @@ on:
       - tools/signature-compatibility.php
       - tools/deploy-portal-integrations.php
       - tools/qa-provider-roundtrip.php
+      - tools/onboarding-readiness.php
       - integrations/portal-mu-plugins/**
       - .github/workflows/portal-live-qa.yml
 permissions:

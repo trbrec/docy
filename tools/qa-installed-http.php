@@ -13,7 +13,7 @@ function trb_qa_installed_http( $work ) {
     $config = str_replace( "'http://127.0.0.1'", var_export( $base, true ), $config );
     $config = str_replace( "<?php", "<?php\ndefine('COOKIEPATH','/');define('SITECOOKIEPATH','/');define('ADMIN_COOKIE_PATH','/');", $config );
     file_put_contents( $root . '/wp-config.php', $config, LOCK_EX );
-    $code = '<?php ini_set("display_errors","0"); header("Cache-Control: no-store"); if(time()>' . ( time() + 900 ) . '||!hash_equals(' . var_export( $token, true ) . ',(string)($_SERVER["HTTP_X_TRB_QA_TOKEN"]??""))){http_response_code(404);exit;} define("ABSPATH",' . var_export( $root . '/', true ) . '); $path=$_GET["qa_route"]??""; if(!in_array($path,["/wp-login.php","/wp-admin/admin-post.php","/"],true)){http_response_code(404);exit;} $_SERVER["REQUEST_URI"]=$path; require ABSPATH.ltrim($path==="/"?"/index.php":$path,"/");';
+    $code = '<?php ini_set("display_errors","0"); header("Cache-Control: no-store"); if(time()>' . ( time() + 900 ) . '||!hash_equals(' . var_export( $token, true ) . ',(string)($_SERVER["HTTP_X_TRB_QA_TOKEN"]??""))){http_response_code(404);exit;} define("ABSPATH",' . var_export( $root . '/', true ) . '); $path=$_SERVER["HTTP_X_TRB_QA_ROUTE"]??""; if(!in_array($path,["/wp-login.php","/wp-admin/admin-post.php","/"],true)){http_response_code(404);exit;} $_SERVER["REQUEST_URI"]=$path; require ABSPATH.ltrim($path==="/"?"/index.php":$path,"/");';
     // Match ordinary public PHP entry points; the token gates execution before WordPress boots.
     if ( file_put_contents( $bridge, $code, LOCK_EX ) !== strlen( $code ) || ! chmod( $bridge, 0644 ) ) throw new RuntimeException( 'HTTP fixture unavailable.' );
     $bridge_hash = hash( 'sha256', $code );
@@ -22,8 +22,8 @@ function trb_qa_installed_http( $work ) {
     register_shutdown_function( static function() use ( $bridge, $bridge_hash ) { if ( is_file( $bridge ) && ! is_link( $bridge ) && hash_equals( $bridge_hash, hash_file( 'sha256', $bridge ) ) ) unlink( $bridge ); } );
     $cookie = $work . '/http-cookies.txt'; $checks = array();
     $request = static function( $path, $fields = null, $authenticated = true, $authorized = true ) use ( $name, $cookie, $token ) {
-        $curl = curl_init( 'https://artist.trbrec.com/' . $name . '.php?qa_route=' . rawurlencode( $path ) );
-        curl_setopt_array( $curl, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 2, CURLOPT_FOLLOWLOCATION => false, CURLOPT_HTTPHEADER => $authorized ? array( 'X-TRB-QA-Token: ' . $token ) : array() ) );
+        $curl = curl_init( 'https://artist.trbrec.com/' . $name . '.php' );
+        curl_setopt_array( $curl, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_FOLLOWLOCATION => false, CURLOPT_HTTPHEADER => $authorized ? array( 'X-TRB-QA-Token: ' . $token, 'X-TRB-QA-Route: ' . $path ) : array() ) );
         if ( $authenticated ) curl_setopt_array( $curl, array( CURLOPT_COOKIEFILE => $cookie, CURLOPT_COOKIEJAR => $cookie ) );
         if ( null !== $fields ) curl_setopt_array( $curl, array( CURLOPT_POST => true, CURLOPT_POSTFIELDS => $fields ) );
         $response = curl_exec( $curl ); $status = curl_getinfo( $curl, CURLINFO_RESPONSE_CODE ); $header_size = curl_getinfo( $curl, CURLINFO_HEADER_SIZE ); curl_close( $curl );

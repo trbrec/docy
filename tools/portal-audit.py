@@ -307,9 +307,11 @@ check(
     "deploy SiteGround non dichiara successo prima della verifica",
     "timeout-minutes: 12" in deploy_workflow
     and "rsync -az --checksum" in deploy_workflow
-    and 'test "${deployed_sha}" = "${GITHUB_SHA}"' in deploy_workflow
-    and "php -l '${DEPLOY_PATH}/functions.php'" in deploy_workflow
-    and "Successfully deployed and verified ${deployed_sha}." in deploy_workflow,
+    and "tools/verify-portal-release.php' '${GITHUB_SHA}'" in deploy_workflow
+    and "tools/record-ssh-deployment.php' '${GITHUB_SHA}'" in deploy_workflow
+    and deploy_workflow.index("tools/verify-portal-release.php'") < deploy_workflow.index("tools/record-ssh-deployment.php'")
+    and "rollback_release()" in deploy_workflow
+    and "Complete portal release verified: ${GITHUB_SHA}." in deploy_workflow,
 )
 
 
