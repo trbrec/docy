@@ -17,4 +17,10 @@ try {
     trb_qa_loopback_stop( $process );
     if ( is_resource( $process ) || @stream_socket_client( 'tcp://127.0.0.1:' . $port, $number, $error, 0.1 ) ) throw new RuntimeException( 'Loopback process cleanup unconfirmed.' );
     echo "Private loopback readiness, native multipart, token rejection and process termination passed.\n";
-} finally { trb_qa_loopback_stop( $process ); foreach ( glob( $work . '/*' ) as $path ) if ( is_file( $path ) ) unlink( $path ); rmdir( $work ); }
+} finally {
+    trb_qa_loopback_stop( $process );
+    foreach ( glob( $work . '/*' ) as $path ) if ( is_file( $path ) ) unlink( $path );
+    $removed = false;
+    for ( $attempt = 0; $attempt < 20; $attempt++ ) { if ( @rmdir( $work ) ) { $removed = true; break; } usleep( 100000 ); }
+    if ( ! $removed ) throw new RuntimeException( 'Loopback test directory cleanup unconfirmed.' );
+}
