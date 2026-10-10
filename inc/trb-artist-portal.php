@@ -1155,6 +1155,17 @@ function trb_portal_artist_profile_completion( $user_id = 0 ) {
 	return $request_cache[ $user_id ];
 }
 
+/** Validate biography input before any account or profile metadata is written. */
+function trb_portal_validate_biography_upload( $upload, $has_biography ) {
+	if ( ! is_array( $upload ) ) return 'bio_invalid';
+	$name = $upload['name'] ?? '';
+	if ( ! is_string( $name ) ) return 'bio_invalid';
+	if ( '' === $name ) return $has_biography ? '' : 'bio_required';
+	$size = $upload['size'] ?? 0;
+	if ( UPLOAD_ERR_OK !== (int) ( $upload['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_numeric( $size ) || $size < 1 || $size > 5 * MB_IN_BYTES || ! in_array( strtolower( pathinfo( $name, PATHINFO_EXTENSION ) ), array( 'txt', 'docx', 'odt', 'rtf' ), true ) ) return 'bio_invalid';
+	return '';
+}
+
 function trb_portal_handle_artist_profile() {
 	if ( ! is_user_logged_in() ) {
 		auth_redirect();
@@ -1240,6 +1251,18 @@ function trb_portal_handle_artist_profile() {
 		$_POST['trb_artist_tax_code'] = $tax_code;
 		$_POST['trb_artist_document_number'] = $document_number;
 		$_POST['trb_artist_document_expiry'] = $document_expiry;
+	}
+	if ( isset( $_POST['trb_artist_identity_section'] ) ) {
+		$biography = trb_portal_valid_biography_file( $user_id );
+		$remove_ids = isset( $_POST['trb_artist_remove_files'] ) ? array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['trb_artist_remove_files'] ) ) : array();
+		$has_biography = ! empty( $biography ) && ! in_array( $biography['id'] ?? '', $remove_ids, true );
+		$bio_error = trb_portal_validate_biography_upload( $_FILES['trb_artist_bio_file'] ?? array(), $has_biography ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		if ( $bio_error ) {
+			wp_safe_redirect( add_query_arg( 'trb_profile', $bio_error, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+			exit;
+		}
+	}
+	if ( isset( $_POST['trb_artist_company_section'] ) ) {
 		$stored_expiry = trb_portal_artist_profile_value( 'document_expiry', $user_id );
 		if ( $stored_expiry && $stored_expiry < wp_date( 'Y-m-d' ) && ! get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) ) update_user_meta( $user_id, '_trb_identity_documents_refresh_after', time() );
 		if ( $stored_expiry !== $document_expiry ) delete_user_meta( $user_id, '_trb_identity_expiry_notified_for' );
@@ -1263,19 +1286,6 @@ function trb_portal_handle_artist_profile() {
 		update_user_meta( $user_id, '_trb_artist_invoice_requested', isset( $_POST['trb_artist_invoice_requested'] ) ? '1' : '' );
 	}
 	if ( isset( $_POST['trb_artist_identity_section'] ) ) {
-		$bio_upload = isset( $_FILES['trb_artist_bio_file'] ) ? $_FILES['trb_artist_bio_file'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		$has_bio    = ! empty( trb_portal_valid_biography_file( $user_id ) );
-		if ( ! $has_bio && ( empty( $bio_upload['name'] ) || UPLOAD_ERR_OK !== (int) $bio_upload['error'] ) ) {
-			wp_safe_redirect( add_query_arg( 'trb_profile', 'bio_required', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
-			exit;
-		}
-		if ( ! empty( $bio_upload['name'] ) ) {
-			$extension = strtolower( pathinfo( sanitize_file_name( $bio_upload['name'] ), PATHINFO_EXTENSION ) );
-			if ( ! in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) || (int) $bio_upload['size'] > 5 * MB_IN_BYTES ) {
-				wp_safe_redirect( add_query_arg( 'trb_profile', 'bio_invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
-				exit;
-			}
-		}
 		foreach ( array( 'spotify_new', 'apple_music_new', 'youtube_none', 'soundcloud_none' ) as $choice ) {
 			update_user_meta( $user_id, '_trb_artist_' . $choice, isset( $_POST[ 'trb_artist_' . $choice ] ) ? '1' : '' );
 		}
@@ -1342,7 +1352,11 @@ function trb_portal_private_profile_file_by_group( $group, $user_id = 0 ) {
 function trb_portal_valid_biography_file( $user_id = 0 ) {
 	$file = trb_portal_private_profile_file_by_group( 'biography', $user_id );
 	$extension = ! empty( $file['name'] ) ? strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) ) : '';
-	return in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) ? $file : array();
+	if ( ! in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) || empty( $file['path'] ) ) return array();
+	$uploads = wp_upload_dir();
+	$root = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' );
+	$path = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) );
+	return $root && $path && 0 === strpos( $path, $root . DIRECTORY_SEPARATOR ) && is_file( $path ) && filesize( $path ) > 0 && filesize( $path ) <= 5 * MB_IN_BYTES ? $file : array();
 }
 
 function trb_portal_has_valid_biography_content( $user_id = 0 ) {
