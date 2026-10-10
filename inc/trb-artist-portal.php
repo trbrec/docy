@@ -3101,8 +3101,6 @@ function trb_portal_start_release() {
 		trb_portal_release_submission_response( 'audio_duration_mismatch' === $upload_code ? 'duration_mismatch' : 'invalid', trb_portal_release_upload_error_message( $uploads_valid ), 422 );
 	}
 	// Process-owned locks cannot remain stuck after a terminated PHP request.
-	$annual_reservation_key = $monthly_reservation_key = '';
-	$annual_reservation_value = $monthly_reservation_value = '';
 	$submit_lock_key = '_trb_release_submission_lock'; // Clean obsolete markers only.
 	$user_process_lock = trb_release_process_lock( 'submission-user:' . $user_id );
 	if ( ! $user_process_lock ) trb_portal_release_submission_response( 'upload_in_progress', 'Una richiesta è già in elaborazione. Attendi e riprova.', 409, $intake_id );
@@ -3114,8 +3112,6 @@ function trb_portal_start_release() {
 	try {
 	if ( trb_release_is_inactive( $intake_id ) ) trb_portal_release_submission_response( 'release_cancelled', 'La pratica è stata annullata. Nessun file è stato acquisito.', 409, $intake_id );
 	if ( 'complete' === get_post_meta( $intake_id, '_trb_release_intake_phase', true ) ) {
-		if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
-		if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 		delete_user_meta( $user_id, $submit_lock_key );
 		trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: nessun duplicato.', 200, $intake_id );
 	}
@@ -3180,8 +3176,6 @@ function trb_portal_start_release() {
 			update_post_meta( $release_id, '_trb_contract_state', 'upload_failed' );
 			if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
 			wp_update_post( array( 'ID' => $release_id, 'post_status' => 'private' ) );
-			if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key );
-			if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key );
 			delete_user_meta( $user_id, $submit_lock_key );
 			update_post_meta( $release_id, '_trb_release_intake_phase', 'files_partial' );
 			trb_intake_sync( $release_id );
@@ -3203,8 +3197,6 @@ function trb_portal_start_release() {
 				update_post_meta( $release_id, '_trb_contract_state', 'data_error' );
 				if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
 				wp_update_post( array( 'ID' => $release_id, 'post_status' => 'private' ) );
-				if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key );
-				if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key );
 				delete_user_meta( $user_id, $submit_lock_key );
 				if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
 				trb_portal_release_submission_response( 'error', 'La pratica e i file sono stati conservati, ma il sistema non ha potuto assegnare gli ISRC. Nessun codice è stato mostrato o riutilizzato.', 500, $release_id );
@@ -3266,8 +3258,6 @@ function trb_portal_start_release() {
 			update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
 			if ( function_exists( 'trb_resource_event' ) ) trb_resource_event( 'release-' . $release_id, 'security', 'critical', 'Materiali conservati nello storage privato in attesa di scansione antivirus.', array( 'release_id' => $release_id ) );
 		} elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
-		if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
-		if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 		delete_user_meta( $user_id, $submit_lock_key );
 		if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
 		update_post_meta( $release_id, '_trb_release_intake_phase', 'complete' );
@@ -3275,12 +3265,6 @@ function trb_portal_start_release() {
 		delete_post_meta( $release_id, '_trb_release_intake_error_code' );
 		trb_intake_sync( $release_id );
 		trb_portal_release_submission_response( 'created', 'Pratica creata correttamente.', 200, $release_id );
-	}
-	if ( $annual_reservation_key ) {
-		delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
-	}
-	if ( $monthly_reservation_key ) {
-		delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 	}
 	delete_user_meta( $user_id, $submit_lock_key );
 
@@ -3976,7 +3960,7 @@ add_action( 'trb_portal_video_seed_batch', 'trb_portal_seed_video_lessons' );
 
 function trb_portal_video_lessons( $profile ) {
 	$posts = get_posts( array( 'post_type' => 'video', 'post_status' => 'publish', 'posts_per_page' => -1, 'meta_key' => '_trb_video_order', 'orderby' => 'meta_value_num', 'order' => 'ASC' ) );
-	return array_values( array_filter( $posts, function( $post ) use ( $profile ) { return trb_portal_resource_is_visible( $post->ID ) && 'approved' === get_post_meta( $post->ID, '_trb_video_editorial_status', true ) && '0' !== get_post_meta( $post->ID, '_trb_video_available', true ); } ) );
+	return array_values( array_filter( $posts, function( $post ) { return trb_portal_resource_is_visible( $post->ID ) && 'approved' === get_post_meta( $post->ID, '_trb_video_editorial_status', true ) && '0' !== get_post_meta( $post->ID, '_trb_video_available', true ); } ) );
 }
 
 function trb_portal_video_progress() {

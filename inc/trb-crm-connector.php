@@ -192,7 +192,7 @@ function trb_crm_connector_queue( $entity_type, $external_id, $payload = null, $
 	// Never retire a deliverable event before its replacement is durable.
 	// The version condition also preserves a newer concurrent snapshot.
 	$wpdb->query( $wpdb->prepare( "UPDATE " . trb_crm_connector_table() . " SET status='superseded' WHERE entity_type=%s AND external_id=%s AND entity_version<%d AND status IN ('queued','retry')", $entity_type, $external_id, $version ) );
-	return false !== $inserted;
+	return true;
 }
 
 function trb_crm_connector_profile_saved( $user_id ) {

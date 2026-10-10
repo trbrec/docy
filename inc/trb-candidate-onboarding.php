@@ -53,7 +53,7 @@ function trb_onboarding_private_permission($request){
     if(strlen($secret)<32||!ctype_digit($time)||abs(time()-(int)$time)>300||!preg_match('/^[a-f0-9]{32}$/D',$nonce))return new WP_Error('onboarding_auth','Richiesta non autorizzata.',array('status'=>403));
     $expected='sha256='.hash_hmac('sha256','onboarding-portal-v1|'.$time.'|'.$nonce.'|'.$request->get_body(),$secret);
     if(!hash_equals($expected,(string)$request->get_header('x-trb-signature')))return new WP_Error('onboarding_auth','Richiesta non autorizzata.',array('status'=>403));
-    if(!add_option('trb_onboarding_rpc_nonce_'.$nonce,time()+600,'','no'))return new WP_Error('onboarding_replay','Richiesta già utilizzata.',array('status'=>409));
+    if(!add_option('trb_onboarding_rpc_nonce_'.$nonce,time()+600,'',false))return new WP_Error('onboarding_replay','Richiesta già utilizzata.',array('status'=>409));
     if(!wp_next_scheduled('trb_onboarding_rpc_cleanup'))wp_schedule_single_event(time()+600,'trb_onboarding_rpc_cleanup');
     return true;
 }

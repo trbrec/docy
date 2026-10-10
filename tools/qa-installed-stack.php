@@ -97,6 +97,9 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
     $plugins = @unserialize( (string) $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name='active_plugins'" ), array( 'allowed_classes' => false ) );
     if ( ! is_array( $plugins ) || count( $plugins ) < 10 ) throw new RuntimeException( 'Installed plugin list unavailable.' );
     mkdir( $root . '/wp-content/mu-plugins', 0700, true ); mkdir( $root . '/wp-content/plugins', 0700 ); mkdir( $root . '/wp-content/themes', 0700 );
+    // Wordfence's file storage needs a writable, isolated rules directory.
+    // Never reuse the live WAF files or their security configuration.
+    if ( ! mkdir( $root . '/wp-content/wflogs', 0700 ) ) throw new RuntimeException( 'Isolated WAF storage unavailable.' );
     foreach ( array( 'wp-admin', 'wp-includes' ) as $name ) if ( ! symlink( ABSPATH . $name, $root . '/' . $name ) ) throw new RuntimeException( 'Core link failed.' );
     foreach ( glob( ABSPATH . '*.php' ) as $path ) if ( 'wp-config.php' !== basename( $path ) && ! symlink( $path, $root . '/' . basename( $path ) ) ) throw new RuntimeException( 'Core link failed.' );
     foreach ( glob( ABSPATH . 'wp-content/plugins/*', GLOB_ONLYDIR ) as $path ) if ( ! symlink( $path, $root . '/wp-content/plugins/' . basename( $path ) ) ) throw new RuntimeException( 'Plugin link failed.' );
