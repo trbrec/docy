@@ -132,6 +132,7 @@
 				var originalLabel = $submit.is('input') ? $submit.val() : $submit.text();
 
 				$submit.prop('disabled', true).addClass('is-loading');
+				$comment.prop('readonly', true);
 				if ($submit.is('input')) {
 					$submit.val(i18n.posting || originalLabel);
 				} else {
@@ -145,10 +146,15 @@
 					url: params.ajax_url,
 					type: 'POST',
 					data: $.param(formData),
-					dataType: 'json'
+					dataType: 'json',
+					timeout: 20000
 				})
 					.done(function (response) {
-						if (response && response.success && response.data) {
+						var data = response && response.data;
+						if (response && response.success === true && data && Number.isInteger(data.comment_id) && data.comment_id > 0 &&
+							Number.isInteger(data.parent) && data.parent >= 0 && (data.approved === 0 || data.approved === 1) &&
+							typeof data.comment_html === 'string' && data.comment_html.trim() !== '' && Number.isInteger(data.count) && data.count >= 0 &&
+							typeof data.count_text === 'string' && typeof data.message === 'string') {
 							self.handlePosted(response.data, $form);
 						} else {
 							var msg = response && response.data && response.data.message
@@ -166,6 +172,7 @@
 					})
 					.always(function () {
 						$submit.prop('disabled', false).removeClass('is-loading');
+						$comment.prop('readonly', false);
 						if ($submit.is('input')) {
 							$submit.val(originalLabel);
 						} else {
@@ -279,8 +286,8 @@
 				'<div class="docy-comment-editor">' +
 				'<textarea class="docy-comment-edit-field form-control"></textarea>' +
 				'<div class="docy-comment-edit-actions">' +
-				'<button type="button" class="docy-comment-edit-save fill-brand">' + this.escape(i18n.save || 'Save') + '</button>' +
-				'<button type="button" class="docy-comment-edit-cancel">' + this.escape(i18n.cancel || 'Cancel') + '</button>' +
+				'<button type="button" class="docy-comment-edit-save fill-brand">' + this.escape(i18n.save || 'Salva') + '</button>' +
+				'<button type="button" class="docy-comment-edit-cancel">' + this.escape(i18n.cancel || 'Annulla') + '</button>' +
 				'</div></div>'
 			);
 
@@ -338,12 +345,15 @@
 				return;
 			}
 
-			$save.prop('disabled', true).text(i18n.saving || 'Saving…');
+			$save.prop('disabled', true).text(i18n.saving || 'Salvataggio…');
+			$editor.find('.docy-comment-edit-cancel').prop('disabled', true);
+			$field.prop('readonly', true);
 
 			$.ajax({
 				url: params.ajax_url,
 				type: 'POST',
 				dataType: 'json',
+				timeout: 20000,
 				data: {
 					action: 'docy_edit_comment',
 					nonce: params.edit_nonce,
@@ -352,7 +362,9 @@
 				}
 			})
 				.done(function (response) {
-					if (response && response.success && response.data) {
+					var data = response && response.data;
+					if (response && response.success === true && data && data.comment_id === Number(commentId) &&
+						typeof data.content_html === 'string' && typeof data.source === 'string' && data.source.trim() !== '' && typeof data.message === 'string') {
 						var $txt = $comment.find('.comment-txt').first();
 						$txt.html(response.data.content_html);
 						$comment.find('.docy-comment-edit-source').first().val(response.data.source);
@@ -373,7 +385,9 @@
 					self.notify(msg, true);
 				})
 				.always(function () {
-					$save.prop('disabled', false).text(i18n.save || 'Save');
+					$save.prop('disabled', false).text(i18n.save || 'Salva');
+					$editor.find('.docy-comment-edit-cancel').prop('disabled', false);
+					$field.prop('readonly', false);
 				});
 		},
 

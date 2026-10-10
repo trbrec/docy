@@ -1,6 +1,7 @@
 <?php
 /** New candidate workflow; existing accounts are outside this module's scope. */
 if(!defined('ABSPATH'))exit;
+if(!function_exists('trb_crm_sync_atomic'))require_once dirname(__DIR__).'/integrations/portal-mu-plugins/trb-crm-sync-storage.php';
 
 function trb_onboarding_enabled(){return (bool)get_option('trb_candidate_onboarding_enabled',false);}
 /** These POST routes authenticate in their HMAC/browser permission callbacks. */
@@ -52,7 +53,7 @@ function trb_onboarding_private_permission($request){
     if(strlen($secret)<32||!ctype_digit($time)||abs(time()-(int)$time)>300||!preg_match('/^[a-f0-9]{32}$/D',$nonce))return new WP_Error('onboarding_auth','Richiesta non autorizzata.',array('status'=>403));
     $expected='sha256='.hash_hmac('sha256','onboarding-portal-v1|'.$time.'|'.$nonce.'|'.$request->get_body(),$secret);
     if(!hash_equals($expected,(string)$request->get_header('x-trb-signature')))return new WP_Error('onboarding_auth','Richiesta non autorizzata.',array('status'=>403));
-    if(!add_option('trb_onboarding_rpc_nonce_'.$nonce,time()+600,'','no'))return new WP_Error('onboarding_replay','Richiesta già utilizzata.',array('status'=>409));
+    if(!add_option('trb_onboarding_rpc_nonce_'.$nonce,time()+600,'',false))return new WP_Error('onboarding_replay','Richiesta già utilizzata.',array('status'=>409));
     if(!wp_next_scheduled('trb_onboarding_rpc_cleanup'))wp_schedule_single_event(time()+600,'trb_onboarding_rpc_cleanup');
     return true;
 }
@@ -79,34 +80,45 @@ function trb_onboarding_private($request){
         $number=(string)($p['contract_number']??'');$term=(string)($p['contract_term']??'');
         $ownerQa=($p['qa']??false)===true&&get_user_meta($id,'_trb_onboarding_qa',true)==='1'&&strcasecmp($user->user_email,'a.tognassi@gmail.com')===0&&$number==='QA-TRB-NONVALIDO-20261002-2235';
         if((strpos($number,'TRB-')!==0&&!$ownerQa)||is_wp_error(trb_release_bridge_contract_term_dates($term)))return new WP_Error('onboarding_contract','Decorrenza o numero contrattuale non validi.',array('status'=>422));
-        update_user_meta($id,'_trb_artist_preliminary_contract',$number);update_user_meta($id,'_trb_artist_contract_term',$term);
-        $details=(array)($p['details']??array());$billing=(array)($details['billing']??array());
-        foreach(array('phone'=>'phone','city'=>'city','postcode'=>'postal_code','state'=>'province','country'=>'country') as $from=>$to)if(!empty($billing[$from]))update_user_meta($id,'_trb_artist_'.$to,sanitize_text_field($from==='country'&&$billing[$from]==='IT'?'Italia':$billing[$from]));
-        if(!empty($billing['street'])){
-            update_user_meta($id,'_trb_artist_street',sanitize_text_field($billing['street']));
-            update_user_meta($id,'_trb_artist_street_number',sanitize_text_field($billing['street_number']??''));
-        }elseif(!empty($billing['address_1'])){
-            $address=trim($billing['address_1']);$street=$address;$civic='';
-            if(preg_match('/^(.+?)\s+(\d+[A-Za-z0-9\/ -]*)$/u',$address,$parts)){$street=$parts[1];$civic=$parts[2];}
-            update_user_meta($id,'_trb_artist_street',sanitize_text_field($street));if($civic!=='')update_user_meta($id,'_trb_artist_street_number',sanitize_text_field($civic));
-        }
-        foreach(array('tax_code'=>$details['tax_code']??'','birth_date'=>$p['birth_date']??'') as $field=>$value)if($value!=='')update_user_meta($id,'_trb_artist_'.$field,sanitize_text_field($value));
-        foreach(array('birth_place','birth_province','document_number','document_expiry') as $field)if(!empty($details['profile'][$field]))update_user_meta($id,'_trb_artist_'.$field,sanitize_text_field($details['profile'][$field]));
-        if($key!=='trb')foreach(array('company_name'=>'company_name','company_address'=>'company_address','vat_number'=>'company_vat','sdi_code'=>'company_sdi','pec'=>'company_pec') as $from=>$to)if(!empty($details['invoice'][$from]))update_user_meta($id,'_trb_artist_'.$to,sanitize_text_field($details['invoice'][$from]));
-        $labels=array('identity_front'=>array('identity','Carta d’identità — fronte'),'identity_back'=>array('identity','Carta d’identità — retro'),'tax_front'=>array('tax_card','Codice fiscale o tessera sanitaria — fronte'),'tax_back'=>array('tax_card','Codice fiscale o tessera sanitaria — retro'));
-        $files=get_user_meta($id,'_trb_artist_private_files',true);$files=is_array($files)?$files:array();
-        foreach($labels as $slot=>$label){$file=$p['files'][$slot]??null;if(!$file)continue;$fileId='trb-onboarding-'.$slot;
-            if(array_filter($files,static fn($entry)=>($entry['id']??'')===$fileId))continue;
-            $files[]=array('id'=>$fileId,'path'=>'','name'=>sanitize_file_name($file['name']),'type'=>str_ends_with(strtolower($file['name']),'.pdf')?'application/pdf':(str_ends_with(strtolower($file['name']),'.png')?'image/png':'image/jpeg'),'group'=>$label[0],'label'=>$label[1],'time'=>time(),'size'=>absint($file['size']??0),'source'=>($p['archive_provider']??'')==='google_drive'?'onboarding-google-drive':'onboarding-pcloud');
-        }
-        update_user_meta($id,'_trb_artist_private_files',$files);
-        $user->add_role($profiles[$key]['role']);update_user_meta($id,'_trb_artist_contract_profile',$key);update_user_meta($id,'_trb_onboarding_contract_file_id',sanitize_text_field((string)$p['signed_pcloud_file_id']));
+        $saved=trb_crm_sync_atomic('user:'.$id,array('user'=>array($id)),static function()use($id,$p,$number,$term,$user,$profiles,$key){
+            trb_crm_sync_write_meta('user',$id,'_trb_artist_preliminary_contract',$number);trb_crm_sync_write_meta('user',$id,'_trb_artist_contract_term',$term);
+            $details=(array)($p['details']??array());$billing=(array)($details['billing']??array());
+            foreach(array('phone'=>'phone','city'=>'city','postcode'=>'postal_code','state'=>'province','country'=>'country') as $from=>$to)if(!empty($billing[$from]))trb_crm_sync_write_meta('user',$id,'_trb_artist_'.$to,sanitize_text_field($from==='country'&&$billing[$from]==='IT'?'Italia':$billing[$from]));
+            if(!empty($billing['street'])){
+                trb_crm_sync_write_meta('user',$id,'_trb_artist_street',sanitize_text_field($billing['street']));
+                trb_crm_sync_write_meta('user',$id,'_trb_artist_street_number',sanitize_text_field($billing['street_number']??''));
+            }elseif(!empty($billing['address_1'])){
+                $address=trim($billing['address_1']);$street=$address;$civic='';
+                if(preg_match('/^(.+?)\s+(\d+[A-Za-z0-9\/ -]*)$/u',$address,$parts)){$street=$parts[1];$civic=$parts[2];}
+                trb_crm_sync_write_meta('user',$id,'_trb_artist_street',sanitize_text_field($street));if($civic!=='')trb_crm_sync_write_meta('user',$id,'_trb_artist_street_number',sanitize_text_field($civic));
+            }
+            foreach(array('tax_code'=>$details['tax_code']??'','birth_date'=>$p['birth_date']??'') as $field=>$value)if($value!=='')trb_crm_sync_write_meta('user',$id,'_trb_artist_'.$field,sanitize_text_field($value));
+            foreach(array('birth_place','birth_province','document_number','document_expiry') as $field)if(!empty($details['profile'][$field]))trb_crm_sync_write_meta('user',$id,'_trb_artist_'.$field,sanitize_text_field($details['profile'][$field]));
+            if($key!=='trb')foreach(array('company_name'=>'company_name','company_address'=>'company_address','vat_number'=>'company_vat','sdi_code'=>'company_sdi','pec'=>'company_pec') as $from=>$to)if(!empty($details['invoice'][$from]))trb_crm_sync_write_meta('user',$id,'_trb_artist_'.$to,sanitize_text_field($details['invoice'][$from]));
+            $labels=array('identity_front'=>array('identity','Carta d’identità — fronte'),'identity_back'=>array('identity','Carta d’identità — retro'),'tax_front'=>array('tax_card','Codice fiscale o tessera sanitaria — fronte'),'tax_back'=>array('tax_card','Codice fiscale o tessera sanitaria — retro'));
+            $files=get_user_meta($id,'_trb_artist_private_files',true);$files=is_array($files)?$files:array();
+            foreach($labels as $slot=>$label){$file=$p['files'][$slot]??null;if(!$file)continue;$fileId='trb-onboarding-'.$slot;
+                if(array_filter($files,static fn($entry)=>($entry['id']??'')===$fileId))continue;
+                $files[]=array('id'=>$fileId,'path'=>'','name'=>sanitize_file_name($file['name']),'type'=>str_ends_with(strtolower($file['name']),'.pdf')?'application/pdf':(str_ends_with(strtolower($file['name']),'.png')?'image/png':'image/jpeg'),'group'=>$label[0],'label'=>$label[1],'time'=>time(),'size'=>absint($file['size']??0),'source'=>($p['archive_provider']??'')==='google_drive'?'onboarding-google-drive':'onboarding-pcloud');
+            }
+            trb_crm_sync_write_meta('user',$id,'_trb_artist_private_files',$files);
+
+            $user->add_role($profiles[$key]['role']);
+            global $wpdb;
+            $roles=trb_crm_sync_decode_serialized($wpdb->get_var($wpdb->prepare("SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id=%d AND meta_key=%s",$id,$wpdb->get_blog_prefix().'capabilities')));
+            if(!is_array($roles)||empty($roles[$profiles[$key]['role']]))throw new RuntimeException('Onboarding role persistence failed.');
+            trb_crm_sync_write_meta('user',$id,'_trb_artist_contract_profile',$key);trb_crm_sync_write_meta('user',$id,'_trb_onboarding_contract_file_id',sanitize_text_field((string)$p['signed_pcloud_file_id']));
+
+            return true;
+        });
+        if(is_wp_error($saved))return $saved;
         $GLOBALS['trb_onboarding_approve_email']=$user->user_email;
-        try{if(function_exists('pw_new_user_approve'))pw_new_user_approve()->update_user_status($id,'approve');}
+        try{if(function_exists('pw_new_user_approve')&&pw_new_user_approve()->get_user_status($id)!=='approved')pw_new_user_approve()->update_user_status($id,'approve');}
         finally{unset($GLOBALS['trb_onboarding_approve_email']);}
         clean_user_cache($id);
         if(function_exists('pw_new_user_approve')&&pw_new_user_approve()->get_user_status($id)!=='approved')return new WP_Error('onboarding_approval','Approvazione automatica non confermata. Riprova senza creare un nuovo account.',array('status'=>409));
-        update_user_meta($id,'_trb_onboarding_stage','active');
+        $active=trb_crm_sync_atomic('user:'.$id,array('user'=>array($id)),static function()use($id){trb_crm_sync_write_meta('user',$id,'_trb_onboarding_stage','active');return true;});
+        if(is_wp_error($active))return $active;
         return array('portal_user_id'=>$id,'practice_id'=>$practice,'activated'=>true);
     }
     return new WP_Error('onboarding_action','Operazione non disponibile.',array('status'=>422));
@@ -152,21 +164,29 @@ function trb_onboarding_public($request){
     if($action==='register'){
         $ready=trb_onboarding_crm(array('action'=>'registration_authorization','session'=>$browser['session']));if(is_wp_error($ready))return $ready;
         $password=(string)($p['password']??'');if(mb_strlen($password)<10||mb_strlen($password)>128||str_contains($password,"\0")||$password!==(string)($p['repeat_password']??''))return new WP_Error('onboarding_password','Inserisci due password uguali di almeno 10 caratteri.',array('status'=>422));
-        $email=$ready['email'];$existing=get_user_by('email',$email);
-        if($existing){
-            if(get_user_meta($existing->ID,'_trb_onboarding_practice',true)!==$ready['id']||get_user_meta($existing->ID,'_trb_onboarding_version',true)!=='2026.2'||!wp_check_password($password,$existing->user_pass,$existing->ID))return new WP_Error('onboarding_existing','Questo indirizzo è già associato a un account. Contatta l’assistenza per collegare la pratica senza modificare il profilo esistente.',array('status'=>409));
-            $id=$existing->ID;
-        }else{
-            $GLOBALS['trb_onboarding_register_context']=$ready;
-            // This verified signature workflow performs approval itself. Temporarily
-            // remove only the old plugin's manual-approval notification for this insert.
-            $approvalCallback=function_exists('pw_new_user_approve')?array(pw_new_user_approve(),'request_admin_approval_email_2'):null;
-            $approvalPriority=$approvalCallback?has_action('user_register',$approvalCallback):false;
-            if($approvalPriority!==false)remove_action('user_register',$approvalCallback,$approvalPriority);
-            try{$id=wp_insert_user(array('user_login'=>'artista_'.bin2hex(random_bytes(10)),'user_pass'=>$password,'user_email'=>$email,'first_name'=>$ready['first_name'],'last_name'=>$ready['last_name'],'display_name'=>$ready['artist_name']?:trim($ready['first_name'].' '.$ready['last_name']),'role'=>'subscriber'));}
-            finally{if($approvalPriority!==false)add_action('user_register',$approvalCallback,$approvalPriority);unset($GLOBALS['trb_onboarding_register_context']);}
-            if(is_wp_error($id))return new WP_Error('onboarding_register','Account non creato. Riprova senza modificare la pratica.',array('status'=>409));
-        }
+        if(!is_array($ready)||!is_string($ready['id']??null)||!preg_match('/^[a-f0-9]{32}$/D',$ready['id'])||!is_string($ready['email']??null)||!is_email($ready['email']))return new WP_Error('onboarding_authorization','Autorizzazione alla registrazione non valida.',array('status'=>503));
+        foreach(array('first_name','last_name','artist_name') as $field)if(!is_string($ready[$field]??null))return new WP_Error('onboarding_authorization','Dati della registrazione non validi.',array('status'=>503));
+        $email=$ready['email'];
+        $registered=trb_crm_sync_atomic('registration:'.strtolower($email),array(),static function()use($ready,$email,$password){
+            $existing=get_user_by('email',$email);
+            if($existing){
+                if(get_user_meta($existing->ID,'_trb_onboarding_practice',true)!==$ready['id']||get_user_meta($existing->ID,'_trb_onboarding_version',true)!=='2026.2'||!wp_check_password($password,$existing->user_pass,$existing->ID))return new WP_Error('onboarding_existing','Questo indirizzo è già associato a un account. Contatta l’assistenza per collegare la pratica senza modificare il profilo esistente.',array('status'=>409));
+                $id=$existing->ID;
+            }else{
+                $GLOBALS['trb_onboarding_register_context']=$ready;
+                // This verified signature workflow performs approval itself. Temporarily
+                // remove only the old plugin's manual-approval notification for this insert.
+                $approvalCallback=function_exists('pw_new_user_approve')?array(pw_new_user_approve(),'request_admin_approval_email_2'):null;
+                $approvalPriority=$approvalCallback?has_action('user_register',$approvalCallback):false;
+                if($approvalPriority!==false)remove_action('user_register',$approvalCallback,$approvalPriority);
+                try{$id=wp_insert_user(array('user_login'=>'artista_'.bin2hex(random_bytes(10)),'user_pass'=>$password,'user_email'=>$email,'first_name'=>$ready['first_name'],'last_name'=>$ready['last_name'],'display_name'=>$ready['artist_name']?:trim($ready['first_name'].' '.$ready['last_name']),'role'=>'subscriber'));}
+                finally{if($approvalPriority!==false)add_action('user_register',$approvalCallback,$approvalPriority);unset($GLOBALS['trb_onboarding_register_context']);}
+                if(is_wp_error($id))return new WP_Error('onboarding_register','Account non creato. Riprova senza modificare la pratica.',array('status'=>409));
+            }
+            return (int)$id;
+        });
+        if(is_wp_error($registered))return $registered;
+        $id=$registered;
         $result=trb_onboarding_crm(array('action'=>'register','session'=>$browser['session'],'portal_user_id'=>(int)$id));if(is_wp_error($result))return $result;
         if(($result['registered']??false)!==true)return new WP_Error('onboarding_pending','Attivazione non confermata. Riprova senza creare un nuovo account.',array('status'=>409));
         // The CRM activates the account through a separate HTTP request. Discard this
@@ -180,7 +200,7 @@ function trb_onboarding_public($request){
     if($action==='details'){
         if(strtoupper($p['billing']['country']??'')!=='IT')return new WP_Error('onboarding_country','Controlla il paese e il CAP della residenza.',array('status'=>422));
         $tax=trb_portal_validate_tax_code($p['tax_code']??'');if(!$tax)return new WP_Error('onboarding_tax','Codice fiscale non valido. Controlla i dati prima di proseguire.',array('status'=>422));$p['tax_code']=$tax;
-        $phone=trb_portal_validate_mobile($p['billing']['phone']??'');if(!$phone)return new WP_Error('onboarding_phone','Inserisci un cellulare italiano valido per ricevere il codice di firma.',array('status'=>422));$p['billing']['phone']=$phone;
+        $phone=trb_portal_validate_mobile($p['billing']['phone']??'');if(!$phone)return new WP_Error('onboarding_phone','Inserisci un numero SMS valido con prefisso internazionale per ricevere il codice di firma.',array('status'=>422));$p['billing']['phone']=$phone;
         $postcode=(string)($p['billing']['postcode']??'');$places=preg_match('/^[0-9]{5}$/D',$postcode)?trb_portal_lookup_postcode($postcode):array();$matched=false;
         if(!is_wp_error($places))foreach($places as $place)if(strtolower(remove_accents((string)($p['billing']['city']??'')))===strtolower(remove_accents($place['city']))){$matched=$place;break;}
         if(!$matched)return new WP_Error('onboarding_address','Controlla il CAP e seleziona il Comune corretto.',array('status'=>422));
@@ -204,8 +224,8 @@ function trb_onboarding_public($request){
 // Mark before third-party registration callbacks, including DDS annual auto-approval.
 add_action('user_register',static function($id){
     $p=$GLOBALS['trb_onboarding_register_context']??null;if(!$p)return;
-    update_user_meta($id,'_trb_onboarding_version','2026.2');update_user_meta($id,'_trb_onboarding_practice',$p['id']);update_user_meta($id,'_trb_onboarding_stage','account_preparing');update_user_meta($id,'_trb_artist_artist_name',$p['artist_name']);
-    if(($p['qa']??false)===true)update_user_meta($id,'_trb_onboarding_qa','1');
+    trb_crm_sync_write_meta('user',$id,'_trb_onboarding_version','2026.2');trb_crm_sync_write_meta('user',$id,'_trb_onboarding_practice',$p['id']);trb_crm_sync_write_meta('user',$id,'_trb_onboarding_stage','account_preparing');trb_crm_sync_write_meta('user',$id,'_trb_artist_artist_name',$p['artist_name']);
+    if(($p['qa']??false)===true)trb_crm_sync_write_meta('user',$id,'_trb_onboarding_qa','1');
 },-10000);
 // The branded welcome already covers onboarding. Suppress legacy approval/registration
 // mail only for this exact workflow recipient; all other artists keep their existing mail.

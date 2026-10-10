@@ -124,7 +124,7 @@ function trb_portal_service_catalogue() {
 		'press_release'         => $service( 'Comunicato stampa con diffusione', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'comunicato-stampa' ),
 		'radio_date'            => $service( 'Radio Date', $press_roster, array( 'dds', 'ddb12', 'ddb' ), 'radio-date' ),
 		'booking'               => $service( 'Booking e scouting live', $development ),
-		'training'              => $service( 'Formazione e Knowledge Hub', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
+		'training'              => $service( 'Formazione e Centro risorse', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
 		'priority_mentoring'    => $service( 'Assistenza prioritaria e mentoring', array( 'ddb12', 'ddb', 'ddb_trb', 'trb' ) ),
 		'certificate'           => $service( 'Certificato o attestato finale', array( 'ddb12', 'ddb', 'ddb_trb' ) ),
 		'reporting'             => $service( 'Report e rendicontazione royalty', $all ),
@@ -796,7 +796,7 @@ function trb_portal_release_types() {
 		'album'        => array( 'label' => 'Album', 'range' => 'da 9 a 18 brani', 'min' => 9, 'max' => 18 ),
 		'double_album' => array( 'label' => 'Doppio album', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 ),
 		'compilation'  => array( 'label' => 'Compilation', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 ),
-		'collection'   => array( 'label' => 'Collection', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 ),
+		'collection'   => array( 'label' => 'Raccolta', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 ),
 	);
 }
 
@@ -886,12 +886,22 @@ function trb_portal_country_is_italy( $country ) {
 
 /** Foreign identifiers retain punctuation and Unicode; this is presence validation, not identity verification. */
 function trb_portal_validate_international_identifier( $value ) {
+	if ( ! is_string( $value ) ) return false;
 	$value = trim( sanitize_text_field( (string) $value ) );
 	return '' !== $value && strlen( $value ) <= 200 ? $value : false;
 }
 
+/** Preserve an actual calendar date of birth, never a future or impossible date. */
+function trb_portal_validate_birth_date( $value ) {
+	if ( ! is_string( $value ) ) return false;
+	$value = trim( (string) $value );
+	if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts ) || ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) return false;
+	return $value <= wp_date( 'Y-m-d' ) ? $value : false;
+}
+
 /** Resolve Italian locations locally or preserve free-text international locations. */
 function trb_portal_validate_profile_geography( $country, $city, $province = '', $postcode = '', $birth = false ) {
+	foreach ( array( $country, $city, $province, $postcode ) as $value ) if ( ! is_string( $value ) ) return false;
 	$country = trim( sanitize_text_field( (string) $country ) );
 	$city = trim( sanitize_text_field( (string) $city ) );
 	$province = trim( sanitize_text_field( (string) $province ) );
@@ -964,13 +974,16 @@ function trb_portal_find_municipality_exact( $city, $province = '' ) {
 }
 
 function trb_portal_validate_mobile( $value ) {
+	if ( ! is_string( $value ) ) return false;
 	$value = preg_replace( '/[\s\.\-\(\)]+/', '', (string) $value );
 	if ( 0 === strpos( $value, '00' ) ) $value = '+' . substr( $value, 2 );
 	if ( preg_match( '/^3\d{9}$/', $value ) ) $value = '+39' . $value;
+	if ( str_starts_with( $value, '+39' ) && ! preg_match( '/^\+393\d{9}$/D', $value ) ) return false;
 	return preg_match( '/^\+[1-9]\d{6,14}$/', $value ) ? $value : false;
 }
 
 function trb_portal_validate_tax_code( $value ) {
+	if ( ! is_string( $value ) ) return false;
 	$value = strtoupper( preg_replace( '/\s+/', '', (string) $value ) );
 	if ( ! preg_match( '/^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/', $value ) ) return false;
 	$odd = array( '0'=>1,'1'=>0,'2'=>5,'3'=>7,'4'=>9,'5'=>13,'6'=>15,'7'=>17,'8'=>19,'9'=>21,'A'=>1,'B'=>0,'C'=>5,'D'=>7,'E'=>9,'F'=>13,'G'=>15,'H'=>17,'I'=>19,'J'=>21,'K'=>2,'L'=>4,'M'=>18,'N'=>20,'O'=>11,'P'=>3,'Q'=>6,'R'=>8,'S'=>12,'T'=>14,'U'=>16,'V'=>10,'W'=>22,'X'=>25,'Y'=>24,'Z'=>23 );
@@ -987,6 +1000,7 @@ function trb_portal_validate_tax_code( $value ) {
  * The official CIE format is two letters, five digits and two letters.
  */
 function trb_portal_validate_identity_document_number( $value, $type = 'cie' ) {
+	if ( ! is_string( $value ) || ! is_string( $type ) ) return false;
 	if ( in_array( $type, array( 'passport', 'foreign_identity' ), true ) ) return trb_portal_validate_international_identifier( $value );
 	if ( 'cie' !== $type ) return false;
 	$value = strtoupper( preg_replace( '/[\s\-]+/', '', (string) $value ) );
@@ -995,6 +1009,7 @@ function trb_portal_validate_identity_document_number( $value, $type = 'cie' ) {
 
 /** Return a normalized, non-expired CIE expiry date (valid through that day). */
 function trb_portal_validate_identity_document_expiry( $value, $type = 'cie' ) {
+	if ( ! is_string( $value ) || ! in_array( $type, array( 'cie', 'passport', 'foreign_identity' ), true ) ) return false;
 	$value = trim( (string) $value );
 	if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts ) || ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) return false;
 	$maximum = ( new DateTimeImmutable( 'today', wp_timezone() ) )->modify( '+10 years' )->format( 'Y-m-d' );
@@ -1075,6 +1090,7 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 		if ( 'country' === $field && '' === trim( $value ) ) $value = 'Italia';
 		$type = trb_portal_artist_profile_value( 'document_type', $user_id ) ?: 'cie';
 		$complete = 'document_number' === $field ? (bool) trb_portal_validate_identity_document_number( $value, $type ) : ( 'document_expiry' === $field ? (bool) trb_portal_validate_identity_document_expiry( $value, $type ) : '' !== trim( $value ) );
+		if ( 'birth_date' === $field ) $complete = (bool) trb_portal_validate_birth_date( $value );
 		if ( 'document_expiry' === $field && 'foreign_identity' === $type && '1' === trb_portal_artist_profile_value( 'document_no_expiry', $user_id ) ) $complete = true;
 		if ( in_array( $field, array( 'province', 'postal_code', 'street_number' ), true ) && ! trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country', $user_id ) ) ) $complete = true;
 		if ( 'birth_province' === $field && ! trb_portal_country_is_italy( trb_portal_artist_profile_value( 'birth_country', $user_id ) ) ) $complete = true;
@@ -1084,6 +1100,7 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 	$document_times  = array();
 	$has_photo = false;
 	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
+		if ( ! trb_portal_private_profile_file_path( $file ) ) continue;
 		if ( isset( $file['group'] ) && 'photo' === $file['group'] ) $has_photo = true;
 		if ( ! empty( $file['label'] ) ) {
 			$document_labels[] = $file['label'];
@@ -1129,21 +1146,61 @@ function trb_portal_artist_profile_requirements( $user_id = 0 ) {
 /** Return a transparent completion score and the exact missing requirements. */
 function trb_portal_artist_profile_completion( $user_id = 0 ) {
 	$user_id = $user_id ? absint( $user_id ) : get_current_user_id();
-	static $request_cache = array();
-	if ( isset( $request_cache[ $user_id ] ) ) return $request_cache[ $user_id ];
 	$requirements = trb_portal_artist_profile_requirements( $user_id );
 	$missing = array_values( array_filter( $requirements, static function( $requirement ) { return empty( $requirement['complete'] ); } ) );
 	$total = count( $requirements );
 	$completed = $total - count( $missing );
 
-	$request_cache[ $user_id ] = array(
+	return array(
 		'completed' => $completed,
 		'total' => $total,
 		'remaining' => count( $missing ),
 		'percentage' => $total ? (int) round( ( $completed / $total ) * 100 ) : 0,
 		'missing' => $missing,
 	);
-	return $request_cache[ $user_id ];
+}
+
+/** Validate biography input before any account or profile metadata is written. */
+function trb_portal_validate_biography_upload( $upload, $has_biography ) {
+	if ( ! is_array( $upload ) ) return 'bio_invalid';
+	$name = $upload['name'] ?? '';
+	if ( ! is_string( $name ) ) return 'bio_invalid';
+	if ( '' === $name ) return $has_biography ? '' : 'bio_required';
+	$size = $upload['size'] ?? 0;
+	if ( UPLOAD_ERR_OK !== (int) ( $upload['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_numeric( $size ) || $size < 1 || $size > 5 * MB_IN_BYTES || ! in_array( strtolower( pathinfo( $name, PATHINFO_EXTENSION ) ), array( 'txt', 'docx', 'odt', 'rtf' ), true ) ) return 'bio_invalid';
+	return '';
+}
+
+/** Treat unchanged metadata as success, but never ignore a failed write. */
+function trb_portal_write_profile_meta( $user_id, $key, $value = null, $delete = false ) {
+	if ( $delete ) {
+		delete_user_meta( $user_id, $key );
+		if ( metadata_exists( 'user', $user_id, $key ) ) throw new RuntimeException( 'Profile metadata deletion was not confirmed.' );
+		return;
+	}
+	update_user_meta( $user_id, $key, $value );
+	$stored = get_user_meta( $user_id, $key, true );
+	$matches = is_array( $value ) ? $stored === $value : (string) $stored === (string) $value;
+	if ( ! $matches ) throw new RuntimeException( 'Profile metadata write was not confirmed.' );
+}
+
+/** Roll back before releasing the profile lock, including early exit/fatal cleanup. */
+function trb_portal_abort_profile_save( $user_id, &$context ) {
+	global $wpdb;
+	if ( empty( $context['transaction_open'] ) ) return;
+	$rolled_back = false !== $wpdb->query( 'ROLLBACK' );
+	$context['transaction_open'] = false;
+	clean_user_cache( $user_id );
+	wp_cache_delete( 'cron', 'options' );
+	wp_cache_delete( 'alloptions', 'options' );
+	if ( empty( $context['dirty_before'] ) ) unset( $GLOBALS['trb_crm_connector_dirty_profiles'][ $user_id ] );
+	else $GLOBALS['trb_crm_connector_dirty_profiles'][ $user_id ] = true;
+	// A failed COMMIT can have an uncertain outcome. Read back durable metadata
+	// before removing new files, and preserve every path still referenced there.
+	if ( $rolled_back && ! empty( $context['files']['created'] ) ) {
+		$recorded = get_user_meta( $user_id, '_trb_artist_private_files', true );
+		if ( '' === $wpdb->last_error ) trb_portal_delete_retired_profile_files( $context['files']['created'], is_array( $recorded ) ? $recorded : array() );
+	}
 }
 
 function trb_portal_handle_artist_profile() {
@@ -1152,6 +1209,21 @@ function trb_portal_handle_artist_profile() {
 	}
 	check_admin_referer( 'trb_portal_save_artist_profile', 'trb_portal_profile_nonce' );
 	$user_id = get_current_user_id();
+	$profile_lock = trb_release_process_lock( 'profile:' . $user_id );
+	if ( ! $profile_lock ) {
+		wp_safe_redirect( add_query_arg( 'trb_profile', 'profile_busy', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+		exit;
+	}
+	$profile_save_context = array( 'transaction_open' => false, 'files' => array(), 'dirty_before' => ! empty( $GLOBALS['trb_crm_connector_dirty_profiles'][ $user_id ] ) );
+	register_shutdown_function( static function() use ( $profile_lock, $user_id, &$profile_save_context ) {
+		trb_portal_abort_profile_save( $user_id, $profile_save_context );
+		trb_release_process_unlock( $profile_lock );
+	} );
+	// Contract data must always pass the company form's validation, including
+	// forged requests that omit its section marker.
+	foreach ( array( 'first_name', 'last_name', 'phone', 'birth_date', 'birth_place', 'birth_province', 'birth_country', 'tax_code', 'tax_country', 'document_number', 'document_type', 'document_expiry', 'document_no_expiry', 'street', 'street_number', 'city', 'postal_code', 'province', 'country', 'company_name', 'company_vat', 'company_sdi', 'company_address', 'invoice_requested' ) as $contract_field ) {
+		if ( isset( $_POST[ 'trb_artist_' . $contract_field ] ) ) $_POST['trb_artist_company_section'] = '1';
+	}
 	$incoming_bytes = 0;
 	foreach ( $_FILES as $incoming ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		if ( isset( $incoming['size'] ) ) {
@@ -1173,6 +1245,7 @@ function trb_portal_handle_artist_profile() {
 		}
 		$_POST['trb_artist_artist_name'] = $submitted_artist_name;
 	}
+	$account_updates = array();
 	if ( isset( $_POST['trb_artist_company_section'] ) ) {
 		$user = get_userdata( $user_id );
 		foreach ( array( 'first_name', 'last_name' ) as $account_field ) {
@@ -1184,14 +1257,16 @@ function trb_portal_handle_artist_profile() {
 				wp_safe_redirect( add_query_arg( 'trb_profile', 'invalid_account_name', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 				exit;
 			}
-			update_user_meta( $user_id, $account_field, $submitted_value );
+			$account_updates[ $account_field ] = $submitted_value;
 		}
 		$country = isset( $_POST['trb_artist_country'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_country'] ) ) ) : 'Italia';
 		$postcode = isset( $_POST['trb_artist_postal_code'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_postal_code'] ) ) : '';
 		$city = isset( $_POST['trb_artist_city'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_city'] ) ) ) : '';
 		$province = isset( $_POST['trb_artist_province'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_province'] ) ) : '';
+		$street = isset( $_POST['trb_artist_street'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_street'] ) ) ) : '';
+		$street_number = isset( $_POST['trb_artist_street_number'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_street_number'] ) ) ) : '';
 		$matched = trb_portal_validate_profile_geography( $country, $city, $province, $postcode );
-		if ( ! $matched ) {
+		if ( ! $matched || '' === $street || ( trb_portal_country_is_italy( $country ) && '' === $street_number ) ) {
 			wp_safe_redirect( add_query_arg( 'trb_profile', 'invalid_address', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 			exit;
 		}
@@ -1200,6 +1275,7 @@ function trb_portal_handle_artist_profile() {
 		$_POST['trb_artist_country'] = trb_portal_country_is_italy( $country ) ? 'Italia' : $country;
 	}
 	if ( isset( $_POST['trb_artist_company_section'] ) ) {
+		$birth_date = isset( $_POST['trb_artist_birth_date'] ) ? trb_portal_validate_birth_date( wp_unslash( $_POST['trb_artist_birth_date'] ) ) : false;
 		$birth_place = isset( $_POST['trb_artist_birth_place'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_place'] ) ) : '';
 		$birth_province = isset( $_POST['trb_artist_birth_province'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_province'] ) ) : '';
 		$birth_country = isset( $_POST['trb_artist_birth_country'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['trb_artist_birth_country'] ) ) ) : 'Italia';
@@ -1215,72 +1291,91 @@ function trb_portal_handle_artist_profile() {
 		$tax_code = isset( $_POST['trb_artist_tax_code'] ) && '' !== $tax_country ? ( trb_portal_country_is_italy( $tax_country ) ? trb_portal_validate_tax_code( wp_unslash( $_POST['trb_artist_tax_code'] ) ) : trb_portal_validate_international_identifier( wp_unslash( $_POST['trb_artist_tax_code'] ) ) ) : false;
 		$document_number = isset( $_POST['trb_artist_document_number'] ) ? trb_portal_validate_identity_document_number( wp_unslash( $_POST['trb_artist_document_number'] ), $document_type ) : false;
 		$document_expiry = $no_expiry ? '' : ( isset( $_POST['trb_artist_document_expiry'] ) ? trb_portal_validate_identity_document_expiry( wp_unslash( $_POST['trb_artist_document_expiry'] ), $document_type ) : false );
-		$error = ! $birth_match ? 'invalid_birthplace' : ( ! $phone ? 'invalid_phone' : ( ! $tax_code ? 'invalid_tax_code' : ( ! $document_number ? 'invalid_document_number' : ( ! $no_expiry && ! $document_expiry ? 'invalid_document_expiry' : '' ) ) ) );
+		$error = ! $birth_date ? 'invalid_birth_date' : ( ! $birth_match ? 'invalid_birthplace' : ( ! $phone ? 'invalid_phone' : ( ! $tax_code ? 'invalid_tax_code' : ( ! $document_number ? 'invalid_document_number' : ( ! $no_expiry && ! $document_expiry ? 'invalid_document_expiry' : '' ) ) ) ) );
 		if ( $error ) {
 			wp_safe_redirect( add_query_arg( 'trb_profile', $error, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 			exit;
 		}
+		$_POST['trb_artist_birth_date'] = $birth_date;
 		$_POST['trb_artist_birth_place'] = $birth_match['city'];
 		$_POST['trb_artist_birth_province'] = $birth_match['province'];
 		$_POST['trb_artist_phone'] = $phone;
 		$_POST['trb_artist_tax_code'] = $tax_code;
 		$_POST['trb_artist_document_number'] = $document_number;
 		$_POST['trb_artist_document_expiry'] = $document_expiry;
-		$stored_expiry = trb_portal_artist_profile_value( 'document_expiry', $user_id );
-		if ( $stored_expiry && $stored_expiry < wp_date( 'Y-m-d' ) && ! get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) ) update_user_meta( $user_id, '_trb_identity_documents_refresh_after', time() );
-		if ( $stored_expiry !== $document_expiry ) delete_user_meta( $user_id, '_trb_identity_expiry_notified_for' );
-	}
-	foreach ( trb_portal_artist_profile_fields() as $key => $label ) {
-		if ( ! isset( $_POST[ 'trb_artist_' . $key ] ) ) {
-			continue;
-		}
-		if ( 'artist_name' === $key && '' !== trb_portal_artist_profile_value( 'artist_name', $user_id ) ) {
-			continue;
-		}
-		if ( 'trb' === $profile && in_array( $key, $company_fields, true ) ) continue;
-		$value = in_array( $key, $url_fields, true ) ? esc_url_raw( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) ) : sanitize_text_field( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) );
-		update_user_meta( $user_id, '_trb_artist_' . $key, $value );
-	}
-	if ( 'trb' === $profile ) {
-		delete_user_meta( $user_id, '_trb_artist_invoice_requested' );
-		foreach ( $company_fields as $company_field ) delete_user_meta( $user_id, '_trb_artist_' . $company_field );
-	} elseif ( isset( $_POST['trb_artist_invoice_requested'] ) || isset( $_POST['trb_artist_company_section'] ) ) {
-		update_user_meta( $user_id, '_trb_artist_invoice_requested', isset( $_POST['trb_artist_invoice_requested'] ) ? '1' : '' );
 	}
 	if ( isset( $_POST['trb_artist_identity_section'] ) ) {
-		$bio_upload = isset( $_FILES['trb_artist_bio_file'] ) ? $_FILES['trb_artist_bio_file'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		$has_bio    = ! empty( trb_portal_valid_biography_file( $user_id ) );
-		if ( ! $has_bio && ( empty( $bio_upload['name'] ) || UPLOAD_ERR_OK !== (int) $bio_upload['error'] ) ) {
-			wp_safe_redirect( add_query_arg( 'trb_profile', 'bio_required', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+		$biography = trb_portal_valid_biography_file( $user_id );
+		$remove_ids = isset( $_POST['trb_artist_remove_files'] ) ? array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['trb_artist_remove_files'] ) ) : array();
+		$has_biography = ! empty( $biography ) && ! in_array( $biography['id'] ?? '', $remove_ids, true );
+		$bio_error = trb_portal_validate_biography_upload( $_FILES['trb_artist_bio_file'] ?? array(), $has_biography ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		if ( $bio_error ) {
+			wp_safe_redirect( add_query_arg( 'trb_profile', $bio_error, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 			exit;
 		}
-		if ( ! empty( $bio_upload['name'] ) ) {
-			$extension = strtolower( pathinfo( sanitize_file_name( $bio_upload['name'] ), PATHINFO_EXTENSION ) );
-			if ( ! in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) || (int) $bio_upload['size'] > 5 * MB_IN_BYTES ) {
-				wp_safe_redirect( add_query_arg( 'trb_profile', 'bio_invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
-				exit;
+	}
+	$profile_upload_started_at = time();
+	global $wpdb;
+	$profile_save_error = 'profile_save_failed';
+	try {
+		$engine = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $wpdb->usermeta ) );
+		if ( 'INNODB' !== strtoupper( (string) $engine ) || false === $wpdb->query( 'START TRANSACTION' ) ) throw new RuntimeException( 'Transactional profile storage is unavailable.' );
+		$profile_save_context['transaction_open'] = true;
+		$file_result = trb_portal_handle_private_profile_uploads( $user_id, true );
+		if ( is_wp_error( $file_result ) ) {
+			$profile_save_error = $file_result->get_error_code();
+			throw new RuntimeException( 'Profile file batch did not complete.' );
+		}
+		$profile_save_context['files'] = $file_result;
+		if ( isset( $_POST['trb_artist_company_section'] ) ) {
+			$stored_expiry = trb_portal_artist_profile_value( 'document_expiry', $user_id );
+			if ( $stored_expiry && $stored_expiry < wp_date( 'Y-m-d' ) && ! get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) ) trb_portal_write_profile_meta( $user_id, '_trb_identity_documents_refresh_after', $profile_upload_started_at );
+			if ( $stored_expiry !== $document_expiry ) trb_portal_write_profile_meta( $user_id, '_trb_identity_expiry_notified_for', null, true );
+		}
+		foreach ( $account_updates as $account_field => $submitted_value ) trb_portal_write_profile_meta( $user_id, $account_field, $submitted_value );
+		foreach ( trb_portal_artist_profile_fields() as $key => $label ) {
+			if ( ! isset( $_POST[ 'trb_artist_' . $key ] ) ) {
+				continue;
+			}
+			if ( 'artist_name' === $key && '' !== trb_portal_artist_profile_value( 'artist_name', $user_id ) ) {
+				continue;
+			}
+			if ( 'trb' === $profile && in_array( $key, $company_fields, true ) ) continue;
+			$value = in_array( $key, $url_fields, true ) ? esc_url_raw( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) ) : sanitize_text_field( wp_unslash( $_POST[ 'trb_artist_' . $key ] ) );
+			trb_portal_write_profile_meta( $user_id, '_trb_artist_' . $key, $value );
+		}
+		if ( 'trb' === $profile ) {
+			trb_portal_write_profile_meta( $user_id, '_trb_artist_invoice_requested', null, true );
+			foreach ( $company_fields as $company_field ) trb_portal_write_profile_meta( $user_id, '_trb_artist_' . $company_field, null, true );
+		} elseif ( isset( $_POST['trb_artist_invoice_requested'] ) || isset( $_POST['trb_artist_company_section'] ) ) {
+			trb_portal_write_profile_meta( $user_id, '_trb_artist_invoice_requested', isset( $_POST['trb_artist_invoice_requested'] ) ? '1' : '' );
+		}
+		if ( isset( $_POST['trb_artist_identity_section'] ) ) {
+			foreach ( array( 'spotify_new', 'apple_music_new', 'youtube_none', 'soundcloud_none' ) as $choice ) {
+				trb_portal_write_profile_meta( $user_id, '_trb_artist_' . $choice, isset( $_POST[ 'trb_artist_' . $choice ] ) ? '1' : '' );
 			}
 		}
-		foreach ( array( 'spotify_new', 'apple_music_new', 'youtube_none', 'soundcloud_none' ) as $choice ) {
-			update_user_meta( $user_id, '_trb_artist_' . $choice, isset( $_POST[ 'trb_artist_' . $choice ] ) ? '1' : '' );
+		$refresh_after = absint( get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) );
+		if ( $refresh_after ) {
+			$fresh_sides = array();
+			foreach ( trb_portal_private_profile_files( $user_id ) as $file ) if ( isset( $file['group'], $file['label'], $file['time'] ) && 'identity' === $file['group'] && absint( $file['time'] ) >= $refresh_after ) $fresh_sides[] = $file['label'];
+			if ( in_array( 'Carta d’identità — fronte', $fresh_sides, true ) ) trb_portal_write_profile_meta( $user_id, '_trb_identity_documents_refresh_after', null, true );
 		}
-	}
-	trb_portal_remove_private_profile_files( $user_id );
-	if ( trb_portal_has_private_profile_uploads() ) {
-		trb_portal_handle_private_profile_uploads( $user_id );
-	}
-	$refresh_after = absint( get_user_meta( $user_id, '_trb_identity_documents_refresh_after', true ) );
-	if ( $refresh_after ) {
-		$fresh_sides = array();
-		foreach ( trb_portal_private_profile_files( $user_id ) as $file ) if ( isset( $file['group'], $file['label'], $file['time'] ) && 'identity' === $file['group'] && absint( $file['time'] ) >= $refresh_after ) $fresh_sides[] = $file['label'];
-		if ( in_array( 'Carta d’identità — fronte', $fresh_sides, true ) ) delete_user_meta( $user_id, '_trb_identity_documents_refresh_after' );
-	}
-	$bio_file = trb_portal_valid_biography_file( $user_id );
-	if ( isset( $_POST['trb_artist_identity_section'] ) && empty( $bio_file ) ) {
-		wp_safe_redirect( add_query_arg( 'trb_profile', 'bio_invalid', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
+		$bio_file = trb_portal_valid_biography_file( $user_id );
+		if ( isset( $_POST['trb_artist_identity_section'] ) && empty( $bio_file ) ) {
+			$profile_save_error = 'bio_invalid';
+			throw new RuntimeException( 'Stored biography was not confirmed.' );
+		}
+		if ( ! empty( $bio_file['name'] ) ) trb_portal_write_profile_meta( $user_id, '_trb_artist_bio', 'Biografia allegata: ' . sanitize_text_field( $bio_file['name'] ) );
+		if ( false === $wpdb->query( 'COMMIT' ) ) throw new RuntimeException( 'Profile commit was not confirmed.' );
+		$profile_save_context['transaction_open'] = false;
+	} catch ( Throwable $profile_save_exception ) {
+		trb_portal_abort_profile_save( $user_id, $profile_save_context );
+		error_log( 'TRB profile save aborted: ' . get_class( $profile_save_exception ) );
+		wp_safe_redirect( add_query_arg( 'trb_profile', $profile_save_error, get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 		exit;
 	}
-	if ( ! empty( $bio_file['name'] ) ) update_user_meta( $user_id, '_trb_artist_bio', 'Biografia allegata: ' . sanitize_text_field( $bio_file['name'] ) );
+	trb_portal_delete_retired_profile_files( $profile_save_context['files']['retired'], $profile_save_context['files']['remaining'] );
 	do_action( 'trb_portal_artist_profile_saved', $user_id );
 	wp_safe_redirect( add_query_arg( 'trb_profile', 'saved', get_permalink( get_option( 'trb_portal_dashboard_created' ) ) ) . '#profilo' );
 	exit;
@@ -1292,6 +1387,16 @@ add_action( 'wp_ajax_trb_portal_save_artist_profile', 'trb_portal_handle_artist_
  * Store identity files outside the normal Media Library and deny direct web
  * access. The stored metadata contains no public URL, only a private path.
  */
+/** Fail before acquiring private bytes if their web access rules are unavailable. */
+function trb_portal_prepare_private_directory( $directory ) {
+	if ( ! wp_mkdir_p( $directory ) || ! is_dir( $directory ) || ! is_writable( $directory ) ) return false;
+	$rules_file = trailingslashit( $directory ) . '.htaccess';
+	$rules = "Require all denied\nDeny from all\nOptions -Indexes\n";
+	if ( is_link( $rules_file ) || ( file_exists( $rules_file ) && ! is_file( $rules_file ) ) ) return false;
+	if ( ! file_exists( $rules_file ) && file_put_contents( $rules_file, $rules, LOCK_EX ) !== strlen( $rules ) ) return false;
+	return is_readable( $rules_file ) && trim( str_replace( "\r\n", "\n", (string) file_get_contents( $rules_file ) ) ) === trim( $rules );
+}
+
 function trb_portal_private_upload_dir( $dirs ) {
 	$dirs['subdir'] = '/trb-artist-private';
 	$dirs['path']   = $dirs['basedir'] . $dirs['subdir'];
@@ -1303,17 +1408,22 @@ function trb_portal_private_upload_dir( $dirs ) {
 function trb_portal_private_profile_files( $user_id = 0 ) {
 	$files = get_user_meta( $user_id ? $user_id : get_current_user_id(), '_trb_artist_private_files', true );
 	$files = is_array( $files ) ? $files : array();
-	$changed = false;
 	foreach ( $files as $index => $file ) {
+		if ( ! is_array( $file ) ) { unset( $files[ $index ] ); continue; }
 		if ( empty( $file['id'] ) ) {
 			$files[ $index ]['id'] = sha1( ( isset( $file['path'] ) ? $file['path'] : '' ) . '|' . $index );
-			$changed = true;
 		}
 	}
-	if ( $changed ) {
-		update_user_meta( $user_id ? $user_id : get_current_user_id(), '_trb_artist_private_files', $files );
-	}
 	return $files;
+}
+
+/** Resolve only existing, nonempty files inside the private upload directory. */
+function trb_portal_private_profile_file_path( $file, $require_content = true ) {
+	if ( ! is_array( $file ) || empty( $file['path'] ) || ! is_string( $file['path'] ) ) return false;
+	$uploads = wp_upload_dir();
+	$root = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' );
+	$path = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) );
+	return $root && $path && 0 === strpos( $path, $root . DIRECTORY_SEPARATOR ) && is_file( $path ) && ( ! $require_content || filesize( $path ) > 0 ) ? $path : false;
 }
 
 function trb_portal_private_profile_file_by_group( $group, $user_id = 0 ) {
@@ -1325,9 +1435,13 @@ function trb_portal_private_profile_file_by_group( $group, $user_id = 0 ) {
 
 /** Return only a biography stored in one of the low-cost text formats. */
 function trb_portal_valid_biography_file( $user_id = 0 ) {
-	$file = trb_portal_private_profile_file_by_group( 'biography', $user_id );
-	$extension = ! empty( $file['name'] ) ? strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) ) : '';
-	return in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) ? $file : array();
+	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
+		if ( 'biography' !== ( $file['group'] ?? '' ) ) continue;
+		$extension = ! empty( $file['name'] ) ? strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) ) : '';
+		$path = trb_portal_private_profile_file_path( $file );
+		if ( in_array( $extension, array( 'txt', 'docx', 'odt', 'rtf' ), true ) && $path && filesize( $path ) <= 5 * MB_IN_BYTES ) return $file;
+	}
+	return array();
 }
 
 function trb_portal_has_valid_biography_content( $user_id = 0 ) {
@@ -1335,99 +1449,58 @@ function trb_portal_has_valid_biography_content( $user_id = 0 ) {
 		( empty( trb_portal_private_profile_file_by_group( 'biography', $user_id ) ) && '' !== trim( (string) get_user_meta( $user_id ? $user_id : get_current_user_id(), '_trb_artist_bio', true ) ) );
 }
 
-function trb_portal_remove_private_profile_files( $user_id ) {
-	$remove_ids = isset( $_POST['trb_artist_remove_files'] ) ? array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['trb_artist_remove_files'] ) ) : array();
-	if ( empty( $remove_ids ) ) {
-		return;
-	}
-	$upload_dir = wp_upload_dir();
-	$private_dir = realpath( trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private' );
-	$remaining = array();
-	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
-		if ( ! in_array( $file['id'], $remove_ids, true ) ) {
-			$remaining[] = $file;
-			continue;
-		}
-		$target = ! empty( $file['path'] ) ? realpath( trailingslashit( $upload_dir['basedir'] ) . ltrim( $file['path'], '/' ) ) : false;
-		if ( $private_dir && $target && 0 === strpos( $target, $private_dir . DIRECTORY_SEPARATOR ) && is_file( $target ) ) {
-			wp_delete_file( $target );
-		}
-	}
-	update_user_meta( $user_id, '_trb_artist_private_files', $remaining );
-}
-
+/** Normalize PHP's multipart structure; malformed fields must fail, never vanish. */
 function trb_portal_private_upload_items( $input_name ) {
-	if ( empty( $_FILES[ $input_name ]['name'] ) ) {
-		return array();
+	if ( ! isset( $_FILES[ $input_name ] ) ) return array();
+	$input = $_FILES[ $input_name ];
+	if ( ! is_array( $input ) ) return new WP_Error( 'file_upload_failed' );
+	$multiple = isset( $input['name'] ) && is_array( $input['name'] );
+	foreach ( array( 'type', 'tmp_name', 'error', 'size' ) as $key ) {
+		if ( ! isset( $input[ $key ] ) || is_array( $input[ $key ] ) !== $multiple ) return new WP_Error( 'file_upload_failed' );
 	}
-	if ( ! is_array( $_FILES[ $input_name ]['name'] ) ) {
-		return array( array( 'name' => $_FILES[ $input_name ]['name'], 'type' => $_FILES[ $input_name ]['type'], 'tmp_name' => $_FILES[ $input_name ]['tmp_name'], 'error' => $_FILES[ $input_name ]['error'], 'size' => $_FILES[ $input_name ]['size'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-	}
+	$names = $multiple ? $input['name'] : array( $input['name'] ?? null );
 	$items = array();
-	foreach ( $_FILES[ $input_name ]['name'] as $index => $name ) {
-		$items[] = array( 'name' => $name, 'type' => $_FILES[ $input_name ]['type'][ $index ], 'tmp_name' => $_FILES[ $input_name ]['tmp_name'][ $index ], 'error' => $_FILES[ $input_name ]['error'][ $index ], 'size' => $_FILES[ $input_name ]['size'][ $index ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+	foreach ( $names as $index => $name ) {
+		$item = array();
+		foreach ( array( 'name', 'type', 'tmp_name', 'error', 'size' ) as $key ) {
+			$value = $multiple ? ( $input[ $key ][ $index ] ?? null ) : ( $input[ $key ] ?? null );
+			if ( ! is_scalar( $value ) ) return new WP_Error( 'file_upload_failed' );
+			$item[ $key ] = $value;
+		}
+		if ( UPLOAD_ERR_NO_FILE === (int) $item['error'] && '' === $item['name'] ) continue;
+		$items[] = $item;
 	}
 	return $items;
 }
 
-/** Return whether the request contains at least one file that PHP received successfully. */
-function trb_portal_has_private_profile_uploads() {
-	foreach ( array_keys( $_FILES ) as $input_name ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		foreach ( trb_portal_private_upload_items( $input_name ) as $upload ) {
-			if ( ! empty( $upload['name'] ) && ! empty( $upload['tmp_name'] ) && UPLOAD_ERR_OK === (int) $upload['error'] ) {
-				return true;
-			}
-		}
+/** Delete only retired files, preserving paths referenced by surviving metadata. */
+function trb_portal_delete_retired_profile_files( $retired, $remaining ) {
+	$protected = array();
+	foreach ( $remaining as $file ) {
+		$path = trb_portal_private_profile_file_path( $file );
+		if ( $path ) $protected[ $path ] = true;
 	}
-	return false;
+	foreach ( $retired as $file ) {
+		$path = trb_portal_private_profile_file_path( $file, false );
+		if ( $path && ! isset( $protected[ $path ] ) ) wp_delete_file( $path );
+	}
 }
 
-/** Remove byte-identical private files while preserving the first valid copy. */
-function trb_portal_deduplicate_private_profile_files( $user_id ) {
-	$upload_dir = wp_upload_dir();
-	$private_dir = realpath( trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private' );
-	$unique = array();
-	$seen = array();
-	$removed = 0;
-	$changed = false;
-	foreach ( trb_portal_private_profile_files( $user_id ) as $file ) {
-		$target = ! empty( $file['path'] ) ? realpath( trailingslashit( $upload_dir['basedir'] ) . ltrim( $file['path'], '/' ) ) : false;
-		if ( ! $private_dir || ! $target || 0 !== strpos( $target, $private_dir . DIRECTORY_SEPARATOR ) || ! is_file( $target ) ) {
-			$unique[] = $file;
-			continue;
-		}
-		$hash = ! empty( $file['sha256'] ) && preg_match( '/^[a-f0-9]{64}$/i', $file['sha256'] ) ? strtolower( $file['sha256'] ) : hash_file( 'sha256', $target );
-		$key = ( isset( $file['group'] ) ? $file['group'] : '' ) . '|' . ( isset( $file['label'] ) ? $file['label'] : '' ) . '|' . $hash;
-		if ( isset( $seen[ $key ] ) ) {
-			wp_delete_file( $target );
-			$removed++;
-			$changed = true;
-			continue;
-		}
-		$seen[ $key ] = true;
-		if ( empty( $file['sha256'] ) || $hash !== $file['sha256'] ) $changed = true;
-		$file['sha256'] = $hash;
-		$unique[] = $file;
+/** Acquire the complete batch before changing metadata or deleting old files. */
+function trb_portal_handle_private_profile_uploads( $user_id, $defer_cleanup = false ) {
+	$original = get_user_meta( $user_id, '_trb_artist_private_files', true );
+	$existing = trb_portal_private_profile_files( $user_id );
+	$remove_ids = $_POST['trb_artist_remove_files'] ?? array();
+	if ( ! is_array( $remove_ids ) ) return new WP_Error( 'file_upload_failed' );
+	foreach ( $remove_ids as $id ) if ( ! is_string( $id ) ) return new WP_Error( 'file_upload_failed' );
+	$remaining = array();
+	$retired = array();
+	foreach ( $existing as $file ) {
+		if ( in_array( $file['id'], $remove_ids, true ) ) $retired[] = $file;
+		else $remaining[] = $file;
 	}
-	if ( $changed ) update_user_meta( $user_id, '_trb_artist_private_files', $unique );
-	return $removed;
-}
-
-function trb_portal_handle_private_profile_uploads( $user_id ) {
-	if ( empty( $_FILES ) ) return;
-
-	require_once ABSPATH . 'wp-admin/includes/file.php';
-	trb_portal_deduplicate_private_profile_files( $user_id );
-	$existing       = trb_portal_private_profile_files( $user_id );
-	$files_changed  = false;
-	$known_hashes   = array();
-	foreach ( $existing as $stored_file ) {
-		if ( ! empty( $stored_file['sha256'] ) ) {
-			$known_hashes[ ( isset( $stored_file['group'] ) ? $stored_file['group'] : '' ) . '|' . ( isset( $stored_file['label'] ) ? $stored_file['label'] : '' ) . '|' . $stored_file['sha256'] ] = true;
-		}
-	}
-	$photos_count   = count( array_filter( $existing, function( $file ) { return isset( $file['group'] ) && 'photo' === $file['group']; } ) );
-	$uploads        = array(
+	$photos_count = count( array_filter( $remaining, static function( $file ) { return 'photo' === ( $file['group'] ?? '' ); } ) );
+	$uploads = array(
 		'trb_artist_bio_file'     => array( 'group' => 'biography', 'label' => 'Biografia artistica', 'mimes' => array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'odt' => 'application/vnd.oasis.opendocument.text', 'rtf' => 'application/rtf' ) ),
 		'trb_artist_photos'       => array( 'group' => 'photo', 'label' => 'Foto artista', 'mimes' => array( 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp' ) ),
 		'trb_artist_id_front'     => array( 'group' => 'identity', 'label' => 'Carta d’identità — fronte', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
@@ -1435,84 +1508,86 @@ function trb_portal_handle_private_profile_uploads( $user_id ) {
 		'trb_artist_tax_front'    => array( 'group' => 'tax_card', 'label' => 'Codice fiscale o tessera sanitaria — fronte', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
 		'trb_artist_tax_back'     => array( 'group' => 'tax_card', 'label' => 'Codice fiscale o tessera sanitaria — retro', 'mimes' => array( 'pdf' => 'application/pdf', 'jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png' ) ),
 	);
-
+	$pending = array();
 	foreach ( $uploads as $input_name => $settings ) {
-		foreach ( trb_portal_private_upload_items( $input_name ) as $upload ) {
-			if ( empty( $upload['name'] ) || empty( $upload['tmp_name'] ) ) {
-				continue;
+		$items = trb_portal_private_upload_items( $input_name );
+		if ( is_wp_error( $items ) ) return $items;
+		if ( 'photo' !== $settings['group'] && count( $items ) > 1 ) return new WP_Error( 'file_upload_failed' );
+		foreach ( $items as $file ) {
+			if ( UPLOAD_ERR_OK !== (int) $file['error'] || '' === $file['name'] || ! is_file( $file['tmp_name'] ) ) return new WP_Error( 'file_upload_failed' );
+			$size = filesize( $file['tmp_name'] );
+			if ( ! $size || $size !== (int) $file['size'] || $size > wp_max_upload_size() || ( 'biography' === $settings['group'] && $size > 5 * MB_IN_BYTES ) ) return new WP_Error( 'file_upload_failed' );
+			$hash = hash_file( 'sha256', $file['tmp_name'] );
+			if ( ! $hash ) return new WP_Error( 'file_upload_failed' );
+			$duplicate = false;
+			foreach ( $remaining as $stored ) {
+				$path = trb_portal_private_profile_file_path( $stored );
+				if ( $path && $settings['group'] === ( $stored['group'] ?? '' ) && $settings['label'] === ( $stored['label'] ?? '' ) && hash_equals( $hash, hash_file( 'sha256', $path ) ) ) $duplicate = true;
 			}
-			if ( 'photo' === $settings['group'] && $photos_count >= 6 ) {
-				break;
-			}
-
-			$file = array(
-				'name'     => sanitize_file_name( $upload['name'] ),
-				'type'     => isset( $upload['type'] ) ? sanitize_mime_type( $upload['type'] ) : '',
-				'tmp_name' => $upload['tmp_name'], // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-				'error'    => isset( $upload['error'] ) ? absint( $upload['error'] ) : UPLOAD_ERR_NO_FILE,
-				'size'     => isset( $upload['size'] ) ? absint( $upload['size'] ) : 0,
-			);
-			if ( UPLOAD_ERR_OK !== $file['error'] ) {
-				continue;
-			}
-			$incoming_hash = hash_file( 'sha256', $file['tmp_name'] );
-			$hash_key = $settings['group'] . '|' . $settings['label'] . '|' . $incoming_hash;
-			if ( isset( $known_hashes[ $hash_key ] ) ) {
-				continue;
-			}
-			add_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
-			$handled = wp_handle_upload( $file, array( 'test_form' => false, 'mimes' => $settings['mimes'] ) );
-			remove_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
-			if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) {
-				continue;
-			}
-			if ( 'biography' === $settings['group'] || 'identity' === $settings['group'] ) {
-				$upload_dir = wp_upload_dir();
-				$private_dir = realpath( trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private' );
-				$kept = array();
-				foreach ( $existing as $stored_file ) {
-					$replace_biography = isset( $stored_file['group'] ) && 'biography' === $settings['group'] && 'biography' === $stored_file['group'];
-					$replace_identity  = isset( $stored_file['group'], $stored_file['label'] ) && 'identity' === $settings['group'] && 'identity' === $stored_file['group'] && $settings['label'] === $stored_file['label'];
-					if ( $replace_biography || $replace_identity ) {
-						$target = ! empty( $stored_file['path'] ) ? realpath( trailingslashit( $upload_dir['basedir'] ) . ltrim( $stored_file['path'], '/' ) ) : false;
-						if ( $private_dir && $target && 0 === strpos( $target, $private_dir . DIRECTORY_SEPARATOR ) && is_file( $target ) ) wp_delete_file( $target );
-						continue;
-					}
-					$kept[] = $stored_file;
-				}
-				$existing = $kept;
-				$files_changed = true;
-			}
-
-			$upload_dir = wp_upload_dir();
-			$private_dir = trailingslashit( $upload_dir['basedir'] ) . 'trb-artist-private';
-			if ( wp_mkdir_p( $private_dir ) ) {
-				$rules_file = trailingslashit( $private_dir ) . '.htaccess';
-				if ( ! file_exists( $rules_file ) ) {
-					file_put_contents( $rules_file, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-				}
-			}
-
-			$existing[] = array(
-				'id'    => wp_generate_uuid4(),
-				'group' => $settings['group'],
-				'label' => $settings['label'],
-				'name'  => basename( $handled['file'] ),
-				'path'  => str_replace( trailingslashit( $upload_dir['basedir'] ), '', $handled['file'] ),
-				'type'  => $handled['type'],
-				'size'  => filesize( $handled['file'] ),
-				'time'  => time(),
-				'sha256' => $incoming_hash,
-			);
-			$files_changed = true;
-			$known_hashes[ $hash_key ] = true;
-			if ( 'photo' === $settings['group'] ) {
-				$photos_count++;
-			}
+			foreach ( $pending as $item ) if ( $settings['group'] === $item['settings']['group'] && $settings['label'] === $item['settings']['label'] && $hash === $item['hash'] ) $duplicate = true;
+			if ( $duplicate ) continue;
+			if ( 'photo' === $settings['group'] && ++$photos_count > 6 ) return new WP_Error( 'file_upload_failed' );
+			$file['name'] = sanitize_file_name( $file['name'] );
+			$pending[] = array( 'file' => $file, 'settings' => $settings, 'hash' => $hash );
 		}
 	}
-
-	if ( $files_changed ) update_user_meta( $user_id, '_trb_artist_private_files', $existing );
+	$created = array();
+	if ( $pending ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		$uploads_dir = wp_upload_dir();
+		$private_dir = trailingslashit( $uploads_dir['basedir'] ) . 'trb-artist-private';
+		if ( ! empty( $uploads_dir['error'] ) || ! trb_portal_prepare_private_directory( $private_dir ) ) return new WP_Error( 'file_upload_failed' );
+		foreach ( $pending as $item ) {
+			add_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
+			try {
+				$handled = wp_handle_upload( $item['file'], array( 'test_form' => false, 'mimes' => $item['settings']['mimes'] ) );
+			} catch ( Throwable $error ) {
+				error_log( 'TRB profile upload exception: ' . get_class( $error ) );
+				trb_portal_delete_retired_profile_files( $created, array() );
+				return new WP_Error( 'file_upload_failed' );
+			} finally {
+				remove_filter( 'upload_dir', 'trb_portal_private_upload_dir', 99 );
+			}
+			if ( ! empty( $handled['error'] ) || empty( $handled['file'] ) ) {
+				trb_portal_delete_retired_profile_files( $created, array() );
+				return new WP_Error( 'file_upload_failed' );
+			}
+			$file = array( 'id' => wp_generate_uuid4(), 'group' => $item['settings']['group'], 'label' => $item['settings']['label'], 'name' => basename( $handled['file'] ), 'path' => str_replace( trailingslashit( $uploads_dir['basedir'] ), '', $handled['file'] ), 'type' => $handled['type'], 'size' => filesize( $handled['file'] ), 'time' => time(), 'sha256' => $item['hash'] );
+			$created[] = $file;
+			$path = trb_portal_private_profile_file_path( $file );
+			if ( ! $path || ! hash_equals( $item['hash'], hash_file( 'sha256', $path ) ) ) {
+				trb_portal_delete_retired_profile_files( $created, array() );
+				return new WP_Error( 'file_upload_failed' );
+			}
+			if ( 'photo' !== $file['group'] ) {
+				$kept = array();
+				foreach ( $remaining as $stored ) {
+					if ( $file['group'] === ( $stored['group'] ?? '' ) && ( 'biography' === $file['group'] || $file['label'] === ( $stored['label'] ?? '' ) ) ) $retired[] = $stored;
+					else $kept[] = $stored;
+				}
+				$remaining = $kept;
+			}
+			$remaining[] = $file;
+		}
+	}
+	if ( isset( $_POST['trb_artist_identity_section'] ) ) {
+		$has_biography = false;
+		foreach ( $remaining as $file ) if ( 'biography' === ( $file['group'] ?? '' ) && trb_portal_private_profile_file_path( $file ) ) $has_biography = true;
+		if ( ! $has_biography ) {
+			trb_portal_delete_retired_profile_files( $created, array() );
+			return new WP_Error( 'bio_required' );
+		}
+	}
+	if ( $remaining !== array_values( $existing ) ) {
+		// Compare the old value as well as holding the per-user process lock.
+		update_user_meta( $user_id, '_trb_artist_private_files', $remaining, $original );
+		if ( get_user_meta( $user_id, '_trb_artist_private_files', true ) !== $remaining ) {
+			trb_portal_delete_retired_profile_files( $created, array() );
+			return new WP_Error( 'file_upload_failed' );
+		}
+		if ( ! $defer_cleanup ) trb_portal_delete_retired_profile_files( $retired, $remaining );
+	}
+	return $defer_cleanup ? array( 'created' => $created, 'retired' => $retired, 'remaining' => $remaining ) : true;
 }
 
 function trb_portal_user_releases() {
@@ -1840,10 +1915,8 @@ function trb_portal_release_staging_session_dir( $session, $create = false, $use
 	$root = trb_portal_release_staging_root( $user_id );
 	$directory = trailingslashit( $root ) . $session;
 	if ( $create ) {
-		if ( ! wp_mkdir_p( $directory ) ) return false;
 		$protected_root = trb_portal_release_staging_base();
-		$rules = trailingslashit( $protected_root ) . '.htaccess';
-		if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		if ( ! trb_portal_prepare_private_directory( $protected_root ) || ! wp_mkdir_p( $directory ) ) return false;
 	}
 	return $directory;
 }
@@ -1854,14 +1927,29 @@ function trb_portal_release_is_staged_path( $path ) {
 	return $root && $path && is_file( $path ) && 0 === strpos( $path, $root . DIRECTORY_SEPARATOR );
 }
 
-function trb_portal_cleanup_release_staging_session( $session, $user_id = 0 ) {
+function trb_portal_cleanup_release_staging_session( $session, $user_id = 0, $cutoff = 0 ) {
 	$user_id   = $user_id ? absint( $user_id ) : get_current_user_id();
+	$lock = trb_release_process_lock( 'staging:' . $user_id . ':' . $session );
+	if ( ! $lock ) return;
+	try {
 	$directory = trb_portal_release_staging_session_dir( $session, false, $user_id );
 	$root = realpath( trb_portal_release_staging_root( $user_id ) );
 	$directory = $directory ? realpath( $directory ) : false;
 	if ( ! $root || ! $directory || 0 !== strpos( $directory, $root . DIRECTORY_SEPARATOR ) ) return;
+	// Directory mtime does not advance when an existing chunk is appended.
+	// Recheck activity under the same lock held by the upload handler.
+	if ( $cutoff ) {
+		clearstatcache();
+		if ( filemtime( $directory ) > $cutoff ) return;
+		foreach ( glob( trailingslashit( $directory ) . '*' ) ?: array() as $path ) {
+			if ( is_file( $path ) && filemtime( $path ) > $cutoff ) return;
+		}
+	}
 	foreach ( glob( trailingslashit( $directory ) . '*' ) ?: array() as $path ) if ( is_file( $path ) ) wp_delete_file( $path );
 	@rmdir( $directory ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+	} finally {
+		trb_release_process_unlock( $lock );
+	}
 }
 
 /**
@@ -1897,7 +1985,7 @@ function trb_portal_cleanup_expired_release_staging_all() {
 				$session_files++;
 				$session_bytes += max( 0, (int) filesize( $path ) );
 			}
-			trb_portal_cleanup_release_staging_session( $session, (int) $user_id );
+			trb_portal_cleanup_release_staging_session( $session, (int) $user_id, $cutoff );
 			clearstatcache( true, $resolved_directory );
 			if ( ! is_dir( $resolved_directory ) ) {
 				$summary['sessions']++;
@@ -1911,13 +1999,6 @@ function trb_portal_cleanup_expired_release_staging_all() {
 
 	update_option( 'trb_release_staging_cleanup_last', $summary, false );
 	return $summary;
-}
-
-function trb_portal_cleanup_expired_release_staging() {
-	$key = '_trb_release_staging_cleanup_global';
-	if ( get_transient( $key ) ) return;
-	set_transient( $key, 1, HOUR_IN_SECONDS );
-	trb_portal_cleanup_expired_release_staging_all();
 }
 
 function trb_portal_schedule_release_staging_cleanup() {
@@ -1946,8 +2027,13 @@ function trb_portal_release_staging_declared_bytes( $directory, $exclude_file_ke
 
 function trb_portal_stage_release_chunk() {
 	if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Sessione non valida: aggiorna la pagina e accedi nuovamente.' ), 401 );
-	trb_portal_cleanup_expired_release_staging();
+	foreach ( array( 'trb_release_stage_nonce', 'session', 'file_key', 'file_name', 'file_type', 'file_size', 'last_modified', 'chunk_index', 'chunk_total', 'upload_id', 'field_name', 'audio_status' ) as $field ) {
+		if ( isset( $_POST[ $field ] ) && ! is_string( $_POST[ $field ] ) && ! is_int( $_POST[ $field ] ) ) wp_send_json_error( array( 'message' => 'I dati del caricamento non sono validi.' ), 422 );
+	}
 	if ( empty( $_POST['trb_release_stage_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['trb_release_stage_nonce'] ) ), 'trb_portal_stage_release' ) ) wp_send_json_error( array( 'message' => 'La pagina è scaduta: aggiornala prima di riprovare.' ), 403 );
+	foreach ( array( 'file_size', 'last_modified', 'chunk_index', 'chunk_total' ) as $field ) {
+		if ( isset( $_POST[ $field ] ) && ! preg_match( '/^\d+$/D', (string) $_POST[ $field ] ) ) wp_send_json_error( array( 'message' => 'I dati del caricamento non sono validi.' ), 422 );
+	}
 	$session = isset( $_POST['session'] ) ? sanitize_text_field( wp_unslash( $_POST['session'] ) ) : '';
 	$file_key = isset( $_POST['file_key'] ) ? sanitize_key( wp_unslash( $_POST['file_key'] ) ) : '';
 	$file_name = isset( $_POST['file_name'] ) ? sanitize_file_name( wp_unslash( $_POST['file_name'] ) ) : '';
@@ -1959,7 +2045,12 @@ function trb_portal_stage_release_chunk() {
 	if ( $file_size > trb_portal_release_max_file_bytes() ) wp_send_json_error( array( 'message' => 'Ogni file può avere una dimensione massima di 250 MB.' ), 422 );
 	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $session ) || ! preg_match( '/^f[0-9]{1,4}$/', $file_key ) || '' === $file_name || $file_size < 1 || $chunk_total < 1 || $chunk_total > 512 || $chunk_index >= $chunk_total ) wp_send_json_error( array( 'message' => 'I dati del caricamento sono incompleti o non validi. Riapri la pratica da completare e seleziona nuovamente il file.' ), 422 );
 	$chunk = ! empty( $_FILES['trb_release_chunk'] ) ? $_FILES['trb_release_chunk'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-	if ( empty( $chunk['tmp_name'] ) || UPLOAD_ERR_OK !== (int) ( $chunk['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_uploaded_file( $chunk['tmp_name'] ) || (int) $chunk['size'] < 1 || (int) $chunk['size'] > 6 * MB_IN_BYTES ) wp_send_json_error( array( 'message' => 'Un blocco del file non è arrivato correttamente al server.' ), 422 );
+	if ( ! is_array( $chunk ) || empty( $chunk['tmp_name'] ) || ! is_string( $chunk['tmp_name'] ) || ! isset( $chunk['error'], $chunk['size'] ) || ! is_scalar( $chunk['error'] ) || ! is_scalar( $chunk['size'] ) || ! preg_match( '/^\d+$/D', (string) $chunk['error'] ) || ! preg_match( '/^\d+$/D', (string) $chunk['size'] ) || UPLOAD_ERR_OK !== (int) $chunk['error'] || ! is_uploaded_file( $chunk['tmp_name'] ) || (int) $chunk['size'] < 1 || (int) $chunk['size'] > 6 * MB_IN_BYTES ) wp_send_json_error( array( 'message' => 'Un blocco del file non è arrivato correttamente al server.' ), 422 );
+	$chunk_bytes = (int) filesize( $chunk['tmp_name'] );
+	if ( $chunk_bytes !== (int) $chunk['size'] || $chunk_bytes > $file_size ) wp_send_json_error( array( 'message' => 'Il blocco ricevuto supera i byte previsti per il file. Riprova selezionando nuovamente il file.' ), 422 );
+	$session_lock = trb_release_process_lock( 'staging:' . get_current_user_id() . ':' . $session );
+	if ( ! $session_lock ) wp_send_json_error( array( 'message' => 'Un caricamento della stessa pratica è già in corso. Attendi e riprova.' ), 409 );
+	try {
 	$directory = trb_portal_release_staging_session_dir( $session, true );
 	if ( ! $directory ) wp_send_json_error( array( 'message' => 'Il server non riesce a preparare l’area temporanea del file.' ), 500 );
 	$part_path = trailingslashit( $directory ) . $file_key . '.part';
@@ -1994,6 +2085,10 @@ function trb_portal_stage_release_chunk() {
 	}
 	if ( $chunk_index < $next_chunk ) wp_send_json_success( array( 'next_chunk' => $next_chunk, 'complete' => ! empty( $meta['complete'] ) ) );
 	if ( $chunk_index > $next_chunk ) wp_send_json_error( array( 'message' => 'È arrivato un blocco fuori sequenza. Riprova senza ricaricare la pagina.' ), 409 );
+	$received_bytes = is_file( $part_path ) ? (int) filesize( $part_path ) : 0;
+	if ( $chunk_bytes !== (int) $chunk['size'] || $received_bytes + $chunk_bytes > $file_size ) {
+		wp_send_json_error( array( 'message' => 'Il blocco ricevuto supera i byte previsti per il file. Riprova selezionando nuovamente il file.' ), 422 );
+	}
 	$source = fopen( $chunk['tmp_name'], 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 	$target = fopen( $part_path, 0 === $chunk_index ? 'wb' : 'ab' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 	if ( ! $source || ! $target ) {
@@ -2032,6 +2127,9 @@ function trb_portal_stage_release_chunk() {
 	} finally {
 		flock( $upload_lock, LOCK_UN );
 		fclose( $upload_lock );
+	}
+	} finally {
+		trb_release_process_unlock( $session_lock );
 	}
 }
 add_action( 'admin_post_trb_portal_stage_release_chunk', 'trb_portal_stage_release_chunk' );
@@ -2296,10 +2394,8 @@ function trb_portal_store_release_upload( $release_id, $file, $kind, $track_inde
 	$uploads = wp_upload_dir();
 	$relative_dir = 'trb-release-private/' . absint( $release_id );
 	$directory = trailingslashit( $uploads['basedir'] ) . $relative_dir;
-	if ( ! wp_mkdir_p( $directory ) ) return new WP_Error( 'release_storage_failed' );
-	$rules = trailingslashit( $uploads['basedir'] ) . 'trb-release-private/.htaccess';
-	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-	$prefix = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Reference copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : ( 'rights_document' === $kind ? 'Licenza diritti brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) ) ) );
+	if ( ! empty( $uploads['error'] ) || ! trb_portal_prepare_private_directory( trailingslashit( $uploads['basedir'] ) . 'trb-release-private' ) || ! wp_mkdir_p( $directory ) ) return new WP_Error( 'release_storage_failed' );
+	$prefix = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Riferimento per la copertina' : ( 'presentation' === $kind ? 'Presentazione release' : ( 'audio' === $kind ? 'Audio brano ' . ( absint( $track_index ) + 1 ) : ( 'rights_document' === $kind ? 'Licenza diritti brano ' . ( absint( $track_index ) + 1 ) : 'Testo brano ' . ( absint( $track_index ) + 1 ) ) ) ) );
 	$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ), PATHINFO_EXTENSION ) );
 	if ( 'audio' === $kind ) {
 		$canonical_filename = trb_portal_release_audio_filename(
@@ -2548,7 +2644,7 @@ function trb_portal_replace_release_file() {
 			$documents[ $document_index ] = $rights_meta;
 			break;
 		}
-		update_post_meta( $release_id, '_trb_release_rights_documents', array_values( $documents ) );
+		update_post_meta( $release_id, '_trb_release_rights_documents', $documents );
 	}
 	if ( $security_blocked ) update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
 	elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id, true );
@@ -2722,7 +2818,7 @@ function trb_portal_normalize_release_draft_pairs( $pairs, &$report = null ) {
 		);
 	}
 	$report['changed'] = wp_json_encode( array_values( $pairs ) ) !== wp_json_encode( $clean );
-	return array_values( $clean );
+	return $clean;
 }
 
 /** One-time reversible migration of every stored release draft. */
@@ -3004,8 +3100,6 @@ function trb_portal_start_release() {
 		trb_portal_release_submission_response( 'audio_duration_mismatch' === $upload_code ? 'duration_mismatch' : 'invalid', trb_portal_release_upload_error_message( $uploads_valid ), 422 );
 	}
 	// Process-owned locks cannot remain stuck after a terminated PHP request.
-	$annual_reservation_key = $monthly_reservation_key = '';
-	$annual_reservation_value = $monthly_reservation_value = '';
 	$submit_lock_key = '_trb_release_submission_lock'; // Clean obsolete markers only.
 	$user_process_lock = trb_release_process_lock( 'submission-user:' . $user_id );
 	if ( ! $user_process_lock ) trb_portal_release_submission_response( 'upload_in_progress', 'Una richiesta è già in elaborazione. Attendi e riprova.', 409, $intake_id );
@@ -3017,8 +3111,6 @@ function trb_portal_start_release() {
 	try {
 	if ( trb_release_is_inactive( $intake_id ) ) trb_portal_release_submission_response( 'release_cancelled', 'La pratica è stata annullata. Nessun file è stato acquisito.', 409, $intake_id );
 	if ( 'complete' === get_post_meta( $intake_id, '_trb_release_intake_phase', true ) ) {
-		if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
-		if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 		delete_user_meta( $user_id, $submit_lock_key );
 		trb_portal_release_submission_response( 'created', 'La pratica era già stata registrata: nessun duplicato.', 200, $intake_id );
 	}
@@ -3083,8 +3175,6 @@ function trb_portal_start_release() {
 			update_post_meta( $release_id, '_trb_contract_state', 'upload_failed' );
 			if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
 			wp_update_post( array( 'ID' => $release_id, 'post_status' => 'private' ) );
-			if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key );
-			if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key );
 			delete_user_meta( $user_id, $submit_lock_key );
 			update_post_meta( $release_id, '_trb_release_intake_phase', 'files_partial' );
 			trb_intake_sync( $release_id );
@@ -3106,8 +3196,6 @@ function trb_portal_start_release() {
 				update_post_meta( $release_id, '_trb_contract_state', 'data_error' );
 				if ( $submission_token ) update_post_meta( $release_id, '_trb_release_submission_token', $submission_token );
 				wp_update_post( array( 'ID' => $release_id, 'post_status' => 'private' ) );
-				if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key );
-				if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key );
 				delete_user_meta( $user_id, $submit_lock_key );
 				if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
 				trb_portal_release_submission_response( 'error', 'La pratica e i file sono stati conservati, ma il sistema non ha potuto assegnare gli ISRC. Nessun codice è stato mostrato o riutilizzato.', 500, $release_id );
@@ -3137,7 +3225,7 @@ function trb_portal_start_release() {
 			}
 			if ( function_exists( 'trb_resource_queue_email' ) ) {
 				$artist_name = trb_portal_artist_profile_value( 'artist_name', $user_id );
-				$body = '<p>È stata richiesta la realizzazione della copertina inclusa per la release <strong>' . esc_html( $title ) . '</strong>.</p><p>Artista: ' . esc_html( $artist_name ?: wp_get_current_user()->display_name ) . ' · pratica #' . absint( $release_id ) . '.</p><p><strong>Brief:</strong><br>' . nl2br( esc_html( $cover_brief ) ) . '</p>';
+				$body = '<p>È stata richiesta la realizzazione della copertina inclusa per la release <strong>' . esc_html( $title ) . '</strong>.</p><p>Artista: ' . esc_html( $artist_name ?: wp_get_current_user()->display_name ) . ' · pratica #' . absint( $release_id ) . '.</p><p><strong>Indicazioni creative:</strong><br>' . nl2br( esc_html( $cover_brief ) ) . '</p>';
 				trb_resource_queue_email( 'cover-request-' . absint( $release_id ), 'Nuova richiesta copertina dalla release', $body, true );
 			}
 		} else {
@@ -3169,8 +3257,6 @@ function trb_portal_start_release() {
 			update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
 			if ( function_exists( 'trb_resource_event' ) ) trb_resource_event( 'release-' . $release_id, 'security', 'critical', 'Materiali conservati nello storage privato in attesa di scansione antivirus.', array( 'release_id' => $release_id ) );
 		} elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id );
-		if ( $annual_reservation_key ) delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
-		if ( $monthly_reservation_key ) delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 		delete_user_meta( $user_id, $submit_lock_key );
 		if ( $submission_token ) trb_portal_cleanup_release_staging_session( $submission_token );
 		update_post_meta( $release_id, '_trb_release_intake_phase', 'complete' );
@@ -3178,12 +3264,6 @@ function trb_portal_start_release() {
 		delete_post_meta( $release_id, '_trb_release_intake_error_code' );
 		trb_intake_sync( $release_id );
 		trb_portal_release_submission_response( 'created', 'Pratica creata correttamente.', 200, $release_id );
-	}
-	if ( $annual_reservation_key ) {
-		delete_user_meta( $user_id, $annual_reservation_key, $annual_reservation_value );
-	}
-	if ( $monthly_reservation_key ) {
-		delete_user_meta( $user_id, $monthly_reservation_key, $monthly_reservation_value );
 	}
 	delete_user_meta( $user_id, $submit_lock_key );
 
@@ -3411,7 +3491,7 @@ function trb_portal_seed_guides() {
 			'label' => 'TRB',
 			'training' => '<p>TRB è il profilo di roster destinato ad artisti che hanno già completato il percorso formativo o sono già formati.</p><ul><li>La formazione di base e l’attestato finale non fanno parte del profilo TRB.</li><li>Sono inclusi assistenza prioritaria e mentoring artistico-operativo.</li><li>I materiali di approfondimento eventualmente disponibili nel portale restano consultabili, ma non costituiscono un nuovo corso con certificazione.</li></ul>',
 			'audio' => '<p>Puoi caricare un master già definitivo oppure il <strong>pre-master WAV stereo</strong> per il mastering incluso, preferibilmente a <strong>48.000 Hz / 24 bit</strong>.</p><ul><li>Il minimo accettato è 44.100 Hz / 16 bit; non ricampionare materiale inferiore per simulare una qualità maggiore.</li><li>Evita limiter aggressivi, clipping e normalizzazione automatica.</li><li>Per stem e tracce multiple usa identico punto di partenza e durata.</li><li>Il master finale comparirà nella scheda release, dove potrai ascoltarlo e scaricarlo.</li></ul>',
-			'cover' => '<p>La realizzazione della copertina è compresa nel tuo percorso. Compila il <strong>brief grafico dentro la pratica della release</strong>.</p><ul><li>Descrivi concept, atmosfera, riferimenti e messaggio artistico.</li><li>Indica chiaramente gli elementi obbligatori e quelli da evitare.</li><li>Conferma titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>La grafica deve rappresentare coerentemente l’identità del progetto nel roster.</p>',
+			'cover' => '<p>La realizzazione della copertina è compresa nel tuo percorso. Compila il <strong>brief grafico dentro la pratica della release</strong>.</p><ul><li>Descrivi idea, atmosfera, riferimenti e messaggio artistico.</li><li>Indica chiaramente gli elementi obbligatori e quelli da evitare.</li><li>Conferma titolo, nome d’arte e testi prima dell’avvio.</li></ul><p>La grafica deve rappresentare coerentemente l’identità del progetto nel roster.</p>',
 			'platforms' => '<p>Il tuo percorso comprende ottimizzazione del profilo e strategia di pitching editoriale su <strong>Spotify e Apple Music</strong>.</p><ul><li>Fornisci link esatti ai profili e segnala omonimie o duplicazioni.</li><li>Descrivi in modo concreto storia, contesto e posizionamento della release.</li><li>Completa i materiali prima della finestra utile alla candidatura.</li></ul><p>Il pitching non garantisce inserimenti editoriali o risultati specifici.</p>',
 			'promo' => '<p>Il profilo TRB comprende Smartlink, Promo Cards, landing page, Digital Press Kit, campagne verso curatori, blogger e influencer, inserimento nelle playlist proprietarie, booking, comunicato stampa con diffusione e Radio Date.</p><p>Come artista del roster, collega alla pratica biografia, fotografie, storia del brano, testi e crediti completi. Stampa, radio, pitching, campagne e booking restano soggetti alla valutazione artistica, editoriale e strategica della singola release e non garantiscono risultati specifici.</p>',
 		),
@@ -3438,7 +3518,7 @@ function trb_portal_seed_guides() {
 		$guides[ $prefix . 'tipologie-release' ] = array(
 			'title' => 'Quale tipologia di release devo scegliere?', 'profiles' => array( $profile ),
 			'excerpt' => 'Singolo, EP, album, doppio album, compilation e collection.',
-			'content' => '<p>Scegli la tipologia in base al numero effettivo dei brani:</p><ul><li><strong>Singolo:</strong> da 1 a 3 brani.</li><li><strong>EP:</strong> da 4 a 8 brani.</li><li><strong>Album:</strong> da 9 a 18 brani.</li><li><strong>Doppio album:</strong> da 18 a 24 brani.</li><li><strong>Compilation:</strong> da 18 a 24 brani.</li><li><strong>Collection:</strong> da 18 a 24 brani.</li></ul><p>Il portale controlla automaticamente la quantità prima di creare la pratica. Il blocco “Catalogo / repertorio edito” non è più disponibile: ogni invio deve corrispondere a una release definita, con un massimo di 24 brani.</p>',
+			'content' => '<p>Scegli la tipologia in base al numero effettivo dei brani:</p><ul><li><strong>Singolo:</strong> da 1 a 3 brani.</li><li><strong>EP:</strong> da 4 a 8 brani.</li><li><strong>Album:</strong> da 9 a 18 brani.</li><li><strong>Doppio album:</strong> da 18 a 24 brani.</li><li><strong>Compilation:</strong> da 18 a 24 brani.</li><li><strong>Raccolta:</strong> da 18 a 24 brani.</li></ul><p>Il portale controlla automaticamente la quantità prima di creare la pratica. Il blocco “Catalogo / repertorio edito” non è più disponibile: ogni invio deve corrispondere a una release definita, con un massimo di 24 brani.</p>',
 		);
 		$guides[ $prefix . 'inedita-o-edita' ] = array(
 			'title' => 'Release inedita o già pubblicata: come indicarla', 'profiles' => array( $profile ),
@@ -3729,7 +3809,7 @@ add_action( 'init', 'trb_portal_migrate_known_download_audiences', 36 );
 
 function trb_portal_video_seed_data() {
 	return array(
-		array( '2Ppuzp_8CyQ', 'Come Musixmatch ha costruito un prodotto scalabile', 'Music business', 'Comprendi come una piattaforma musicale sviluppa prodotto, community e servizi per artisti.', 'Intermedio', 21 ),
+		array( '2Ppuzp_8CyQ', 'Come Musixmatch ha costruito un prodotto scalabile', 'Professioni e industria musicale', 'Comprendi come una piattaforma musicale sviluppa prodotto, community e servizi per artisti.', 'Intermedio', 21 ),
 		array( 'LZX3Ma2Oass', 'Come nasce una canzone: dall’idea al brano', 'Scrittura e composizione', 'Un percorso completo da idea, testo e musica fino alla struttura definitiva della canzone.', 'Base', 1 ),
 		array( 'lpj4wDenbvo', 'Come scrivere il testo di una canzone', 'Scrittura e composizione', 'Principi e scelte utili per costruire un testo coerente, personale e cantabile.', 'Base', 2 ),
 		array( 'rovW0nBWOpQ', 'Strofa, ritornello e bridge: costruire la struttura', 'Scrittura e composizione', 'Organizza le sezioni del brano per renderlo dinamico, chiaro e riconoscibile.', 'Base', 3 ),
@@ -3751,19 +3831,19 @@ function trb_portal_video_seed_data() {
 		array( 'sDa7rVQGH1Q', 'Quattro posizioni microfoniche per la chitarra acustica', 'Registrazione', 'Confronta quattro collocazioni con un solo microfono e riconosci come cambia il timbro registrato.', 'Base/intermedio', 19 ),
 		array( 'Y5qiNz7QQNI', 'Registrare voce e chitarra con un solo microfono', 'Registrazione', 'Imposta una ripresa semplice per provini e preproduzioni bilanciando voce e strumento.', 'Base', 20 ),
 		array( 'Tx4cIS3wHLQ', '16, 24 e 32 bit: scegliere il formato di registrazione', 'Registrazione', 'Comprendi la profondità di bit e perché le consegne TRB devono rispettare il formato richiesto.', 'Base', 21 ),
-		array( 'yxyYwgylNSM', 'Gain staging: gestire correttamente i livelli', 'Mixaggio e mastering', 'Gestisci i livelli lungo la catena audio evitando clipping e processori alimentati in modo scorretto.', 'Base', 15 ),
-		array( 'YrpxrgQFVGY', 'Come iniziare correttamente un mix', 'Mixaggio e mastering', 'Prepara la sessione, stabilisci le priorità e costruisci un primo bilanciamento ordinato.', 'Base', 16 ),
-		array( 'baJE7zsNW-I', 'Cinque errori di mixaggio da evitare', 'Mixaggio e mastering', 'Riconosci gli sbagli che rendono il mix confuso, sbilanciato o poco efficace.', 'Base', 17 ),
-		array( '21vchwZhX3w', 'Volumi e clipping: preparare correttamente il mix', 'Mixaggio e mastering', 'Gestisci picchi e livelli lasciando al mastering un segnale tecnicamente adeguato.', 'Base', 18 ),
-		array( 'fsCKKraAUw0', 'Che cos’è il mastering e come si prepara un brano', 'Mixaggio e mastering', 'Una panoramica delle finalità del mastering e delle verifiche prima della pubblicazione.', 'Base/intermedio', 19 ),
-		array( 'Y5b8ul2mmU8', 'Loudness e LUFS spiegati in modo semplice', 'Mixaggio e mastering', 'Comprendi volume percepito, picco e dinamica e perché non indicano la stessa cosa.', 'Intermedio', 20 ),
-		array( 'uyNy0Lw5Fd0', 'Come preparare un DJ set', 'Live e DJ set', 'Organizza selezione musicale, materiali e sviluppo del set prima dell’esibizione.', 'Base', 22 ),
-		array( '1tSbsRI0UYU', 'Le regole fondamentali di un buon DJ set', 'Live e DJ set', 'Costruisci una scaletta coerente e gestisci con criterio ritmo, transizioni e pubblico.', 'Base', 23 ),
-		array( 'gN9sOSbwwGc', 'Cinque errori da evitare durante un DJ set', 'Live e DJ set', 'Previeni gli errori più frequenti nella preparazione e nella gestione dell’esibizione.', 'Base', 24 ),
-		array( 'uzGN_8tlxqQ', 'Come affrontare l’ansia da esibizione', 'Live e DJ set', 'Strategie concrete per gestire tensione, concentrazione e presenza davanti al pubblico.', 'Base', 25 ),
-		array( 'nnlWxEvqMXw', 'Suonare davanti al pubblico con maggiore sicurezza', 'Live e DJ set', 'Prepara l’esibizione e sviluppa sicurezza senza perdere naturalezza e attenzione musicale.', 'Base', 26 ),
-		array( '6z9NmF2HhR8', 'Come comunicare e muoversi sul palco', 'Live e DJ set', 'Introduzione alla presenza scenica, alla comunicazione e all’uso consapevole dello spazio.', 'Base/intermedio', 27 ),
-		array( 'UY1k-zoO_bg', 'In-ear monitor: ascoltarsi correttamente dal vivo', 'Live e DJ set', 'Comprendi funzione, vantaggi e impostazione generale del monitoraggio personale.', 'Base', 28 ),
+		array( 'yxyYwgylNSM', 'Gain staging: gestire correttamente i livelli', 'Missaggio e finalizzazione audio', 'Gestisci i livelli lungo la catena audio evitando clipping e processori alimentati in modo scorretto.', 'Base', 15 ),
+		array( 'YrpxrgQFVGY', 'Come iniziare correttamente un mix', 'Missaggio e finalizzazione audio', 'Prepara la sessione, stabilisci le priorità e costruisci un primo bilanciamento ordinato.', 'Base', 16 ),
+		array( 'baJE7zsNW-I', 'Cinque errori di mixaggio da evitare', 'Missaggio e finalizzazione audio', 'Riconosci gli sbagli che rendono il mix confuso, sbilanciato o poco efficace.', 'Base', 17 ),
+		array( '21vchwZhX3w', 'Volumi e clipping: preparare correttamente il mix', 'Missaggio e finalizzazione audio', 'Gestisci picchi e livelli lasciando al mastering un segnale tecnicamente adeguato.', 'Base', 18 ),
+		array( 'fsCKKraAUw0', 'Che cos’è il mastering e come si prepara un brano', 'Missaggio e finalizzazione audio', 'Una panoramica delle finalità del mastering e delle verifiche prima della pubblicazione.', 'Base/intermedio', 19 ),
+		array( 'Y5b8ul2mmU8', 'Loudness e LUFS spiegati in modo semplice', 'Missaggio e finalizzazione audio', 'Comprendi volume percepito, picco e dinamica e perché non indicano la stessa cosa.', 'Intermedio', 20 ),
+		array( 'uyNy0Lw5Fd0', 'Come preparare un DJ set', 'Concerti e DJ set', 'Organizza selezione musicale, materiali e sviluppo del set prima dell’esibizione.', 'Base', 22 ),
+		array( '1tSbsRI0UYU', 'Le regole fondamentali di un buon DJ set', 'Concerti e DJ set', 'Costruisci una scaletta coerente e gestisci con criterio ritmo, transizioni e pubblico.', 'Base', 23 ),
+		array( 'gN9sOSbwwGc', 'Cinque errori da evitare durante un DJ set', 'Concerti e DJ set', 'Previeni gli errori più frequenti nella preparazione e nella gestione dell’esibizione.', 'Base', 24 ),
+		array( 'uzGN_8tlxqQ', 'Come affrontare l’ansia da esibizione', 'Concerti e DJ set', 'Strategie concrete per gestire tensione, concentrazione e presenza davanti al pubblico.', 'Base', 25 ),
+		array( 'nnlWxEvqMXw', 'Suonare davanti al pubblico con maggiore sicurezza', 'Concerti e DJ set', 'Prepara l’esibizione e sviluppa sicurezza senza perdere naturalezza e attenzione musicale.', 'Base', 26 ),
+		array( '6z9NmF2HhR8', 'Come comunicare e muoversi sul palco', 'Concerti e DJ set', 'Introduzione alla presenza scenica, alla comunicazione e all’uso consapevole dello spazio.', 'Base/intermedio', 27 ),
+		array( 'UY1k-zoO_bg', 'In-ear monitor: ascoltarsi correttamente dal vivo', 'Concerti e DJ set', 'Comprendi funzione, vantaggi e impostazione generale del monitoraggio personale.', 'Base', 28 ),
 		array( 'jdi6XviNxsc', 'Come richiedere e gestire Spotify for Artists', 'Social e profili artista', 'Ottieni il controllo del profilo artista e gestisci correttamente le funzioni principali.', 'Base', 29 ),
 		array( '6YNWOKxbusM', 'Come ottenere Apple Music for Artists', 'Social e profili artista', 'Richiedi direttamente l’accesso al profilo e distinguilo da un normale account Apple Music.', 'Base', 30 ),
 		array( 'KjwAoZPrlL4', 'Come ottenere il Canale ufficiale artista YouTube', 'Social e profili artista', 'Comprendi requisiti e differenze tra canale personale, tematico e Official Artist Channel.', 'Base', 31 ),
@@ -3771,13 +3851,13 @@ function trb_portal_video_seed_data() {
 		array( 'PSYz_hyMRPg', 'Come caricare un Canvas su Spotify', 'Social e profili artista', 'Associa correttamente un contenuto verticale al brano tramite Spotify for Artists.', 'Base', 33 ),
 		array( 'qeV1Wo_MNfI', 'Come rendere disponibile la propria musica su Instagram', 'Social e profili artista', 'Comprendi la presenza dei brani nella libreria musicale di storie e reel.', 'Base', 34 ),
 		array( '_TCbMA1dMcU', 'Come recuperare o correggere un profilo Spotify', 'Social e profili artista', 'Intervieni quando una pubblicazione è associata a un omonimo o manca l’accesso al profilo corretto.', 'Base', 35 ),
-		array( 'uR-UgAIQQRw', 'Come sviluppare un’identità artistica riconoscibile', 'Identità e branding', 'Definisci direzione, obiettivi e caratteristiche distintive del progetto artistico.', 'Base', 36 ),
-		array( 'zifxjQiuFIg', 'Come esprimere concretamente la propria identità artistica', 'Identità e branding', 'Trasforma l’identità in scelte coerenti di repertorio, immagine e comunicazione.', 'Base', 37 ),
-		array( 'tuEwiKbh29c', 'Come può evolvere l’identità di un artista', 'Identità e branding', 'Comprendi come far crescere il progetto mantenendo riconoscibilità e coerenza.', 'Base/intermedio', 38 ),
-		array( '0uB7_YiA_UA', 'Come scrivere la biografia per il press kit', 'Identità e branding', 'Imposta una biografia utile a stampa, addetti ai lavori e presentazioni professionali.', 'Base', 39 ),
-		array( '_tZY7b0_ZgU', 'Rendere coerenti musica, immagini e comunicazione', 'Identità e branding', 'Allinea cover, video, linguaggio e percezione complessiva del progetto musicale.', 'Base', 40 ),
-		array( 'yQyV31WeS-c', 'Come realizzare un portfolio artistico efficace', 'Identità e branding', 'Organizza materiali e informazioni per una presentazione chiara e credibile.', 'Base', 41 ),
-		array( '6zoIEd9HgLk', 'Come viene costruito e posizionato un progetto musicale', 'Identità e branding', 'Introduzione a management, posizionamento e costruzione del brand musicale.', 'Intermedio', 42 ),
+		array( 'uR-UgAIQQRw', 'Come sviluppare un’identità artistica riconoscibile', 'Identità e immagine', 'Definisci direzione, obiettivi e caratteristiche distintive del progetto artistico.', 'Base', 36 ),
+		array( 'zifxjQiuFIg', 'Come esprimere concretamente la propria identità artistica', 'Identità e immagine', 'Trasforma l’identità in scelte coerenti di repertorio, immagine e comunicazione.', 'Base', 37 ),
+		array( 'tuEwiKbh29c', 'Come può evolvere l’identità di un artista', 'Identità e immagine', 'Comprendi come far crescere il progetto mantenendo riconoscibilità e coerenza.', 'Base/intermedio', 38 ),
+		array( '0uB7_YiA_UA', 'Come scrivere la biografia per il press kit', 'Identità e immagine', 'Imposta una biografia utile a stampa, addetti ai lavori e presentazioni professionali.', 'Base', 39 ),
+		array( '_tZY7b0_ZgU', 'Rendere coerenti musica, immagini e comunicazione', 'Identità e immagine', 'Allinea cover, video, linguaggio e percezione complessiva del progetto musicale.', 'Base', 40 ),
+		array( 'yQyV31WeS-c', 'Come realizzare un portfolio artistico efficace', 'Identità e immagine', 'Organizza materiali e informazioni per una presentazione chiara e credibile.', 'Base', 41 ),
+		array( '6zoIEd9HgLk', 'Come viene costruito e posizionato un progetto musicale', 'Identità e immagine', 'Introduzione a management, posizionamento e costruzione del brand musicale.', 'Intermedio', 42 ),
 		array( 'PBMYvZbDTu4', 'Creare contenuti senza trasformarsi in influencer', 'Contenuti video', 'Costruisci una presenza editoriale sostenibile senza snaturare l’attività artistica.', 'Base', 43 ),
 		array( '7sqUlCAXHaU', 'Come creare reel e TikTok per un progetto musicale', 'Contenuti video', 'Imposta contenuti verticali adatti a solisti, gruppi e altre formazioni musicali.', 'Base', 44 ),
 		array( 'I0S70j3FXvg', 'Come realizzare un reel efficace', 'Contenuti video', 'Dall’idea al montaggio: principi essenziali per un video verticale chiaro e coinvolgente.', 'Base', 45 ),
@@ -3785,11 +3865,11 @@ function trb_portal_video_seed_data() {
 		array( 'w18pD6nqXUI', 'Creare un visual video con Canva', 'Contenuti video', 'Realizza teaser, annunci e visualizer semplici combinando immagini, musica e testi.', 'Base', 47 ),
 		array( 'zYHZJBMvW6Y', 'Quando serve davvero un videoclip musicale', 'Contenuti video', 'Valuta quando investire in un videoclip e quando privilegiare contenuti verticali più frequenti.', 'Base/intermedio', 48 ),
 		array( 'At2haa6sQ2A', 'Creare un video musicale con l’intelligenza artificiale', 'Contenuti video', 'Introduzione alla generazione di immagini e sequenze per un contenuto musicale.', 'Base', 49 ),
-		array( 'fHiiX7dZq6E', 'Master, copyright e distribuzione musicale', 'Music business', 'Comprendi proprietà dei master, tutela dei diritti e funzione della distribuzione.', 'Base', 50 ),
-		array( 'LNTJvB9ihoQ', 'Come pianificare l’uscita di un nuovo singolo', 'Music business', 'Prepara pubblicazione, materiali e comunicazione con una sequenza coerente.', 'Base', 51 ),
-		array( '5v0oO4mr7Co', 'Come promuovere la propria musica', 'Music business', 'Una panoramica di music marketing e sviluppo consapevole del progetto.', 'Base/intermedio', 52 ),
-		array( 'B7u-FBQUqkI', 'Come presentare la propria musica ai curatori', 'Music business', 'Prepara un invio chiaro e pertinente per playlist e curatori editoriali.', 'Base', 53 ),
-		array( 'bucflmOyU2A', 'Come pubblicare una cover senza violare il copyright', 'Music business', 'Comprendi autorizzazioni e principali cautele per distribuire una reinterpretazione.', 'Base/intermedio', 54 ),
+		array( 'fHiiX7dZq6E', 'Master, copyright e distribuzione musicale', 'Professioni e industria musicale', 'Comprendi proprietà dei master, tutela dei diritti e funzione della distribuzione.', 'Base', 50 ),
+		array( 'LNTJvB9ihoQ', 'Come pianificare l’uscita di un nuovo singolo', 'Professioni e industria musicale', 'Prepara pubblicazione, materiali e comunicazione con una sequenza coerente.', 'Base', 51 ),
+		array( '5v0oO4mr7Co', 'Come promuovere la propria musica', 'Professioni e industria musicale', 'Una panoramica di music marketing e sviluppo consapevole del progetto.', 'Base/intermedio', 52 ),
+		array( 'B7u-FBQUqkI', 'Come presentare la propria musica ai curatori', 'Professioni e industria musicale', 'Prepara un invio chiaro e pertinente per playlist e curatori editoriali.', 'Base', 53 ),
+		array( 'bucflmOyU2A', 'Come pubblicare una cover senza violare il copyright', 'Professioni e industria musicale', 'Comprendi autorizzazioni e principali cautele per distribuire una reinterpretazione.', 'Base/intermedio', 54 ),
 		array( '91_SFWpiihw', 'Tre esercizi per allenare la scrittura di un testo', 'Scrittura e composizione', 'Esercizi guidati per superare il blocco iniziale e sviluppare immagini, lessico e continuità narrativa.', 'Base', 62 ),
 		array( 'YxWdz4z0q8w', 'Costruire la dinamica di un arrangiamento', 'Scrittura e composizione', 'Organizza densità, intensità e contrasti affinché le sezioni del brano accompagnino l’ascolto.', 'Base/intermedio', 63 ),
 		array( 'pGDF-5U4UHk', 'Scrittura musicale: metodo, intenzione e riconoscibilità', 'Scrittura e composizione', 'Una masterclass sulla costruzione delle idee e sulle scelte che rendono personale una canzone.', 'Intermedio', 64 ),
@@ -3798,22 +3878,22 @@ function trb_portal_video_seed_data() {
 		array( 'vG7QmEX2fN0', 'Dizione e chiarezza nella voce cantata', 'Canto e interpretazione', 'Articola parole e consonanti preservando naturalezza, intenzione e qualità del suono.', 'Base/intermedio', 67 ),
 		array( 'LK5j3Cohp3w', 'Creare cori e armonizzazioni vocali', 'Canto e interpretazione', 'Esercizi pratici per riconoscere gli intervalli e costruire seconde voci coerenti con la melodia.', 'Base/intermedio', 68 ),
 		array( 'AwkCX7rIgzA', 'Prepararsi a una sessione di registrazione vocale', 'Canto e interpretazione', 'Organizza testo, tonalità, riscaldamento e ascolto in cuffia prima di iniziare le riprese.', 'Base', 69 ),
-		array( 'Gc11_a_UOdE', 'Controllare fase e compatibilità mono', 'Mixaggio e mastering', 'Verifica correlazione e cancellazioni affinché il mix rimanga solido anche fuori dall’ascolto stereo ideale.', 'Intermedio', 70 ),
-		array( '8BPu8dFygOw', 'Comprendere e usare correttamente la compressione', 'Mixaggio e mastering', 'Impara funzione e parametri del compressore evitando di ridurre la dinamica senza una finalità precisa.', 'Base/intermedio', 71 ),
-		array( 'dWANq78ntnM', 'Equalizzazione: principi e metodo di ascolto', 'Mixaggio e mastering', 'Riconosci frequenze, filtri e interventi utili senza affidarti a correzioni casuali.', 'Base', 72 ),
-		array( 'AA66AIBGhuw', 'Usare una traccia di riferimento nel mix', 'Mixaggio e mastering', 'Confronta equilibrio, dinamica e immagine sonora mantenendo l’identità della produzione.', 'Intermedio', 73 ),
-		array( '7S9uyrQcGgQ', 'Soundcheck, palco e monitor: istruzioni essenziali', 'Live e DJ set', 'Comunica con il fonico e prepara livelli, monitoraggio e disposizione sul palco senza rallentare il soundcheck.', 'Base', 74 ),
-		array( 'POaJ5Thpk34', 'Costruire una scaletta efficace per un concerto', 'Live e DJ set', 'Ordina repertorio, pause e cambi di intensità per sostenere attenzione e coerenza dello spettacolo.', 'Base', 75 ),
+		array( 'Gc11_a_UOdE', 'Controllare fase e compatibilità mono', 'Missaggio e finalizzazione audio', 'Verifica correlazione e cancellazioni affinché il mix rimanga solido anche fuori dall’ascolto stereo ideale.', 'Intermedio', 70 ),
+		array( '8BPu8dFygOw', 'Comprendere e usare correttamente la compressione', 'Missaggio e finalizzazione audio', 'Impara funzione e parametri del compressore evitando di ridurre la dinamica senza una finalità precisa.', 'Base/intermedio', 71 ),
+		array( 'dWANq78ntnM', 'Equalizzazione: principi e metodo di ascolto', 'Missaggio e finalizzazione audio', 'Riconosci frequenze, filtri e interventi utili senza affidarti a correzioni casuali.', 'Base', 72 ),
+		array( 'AA66AIBGhuw', 'Usare una traccia di riferimento nel mix', 'Missaggio e finalizzazione audio', 'Confronta equilibrio, dinamica e immagine sonora mantenendo l’identità della produzione.', 'Intermedio', 73 ),
+		array( '7S9uyrQcGgQ', 'Soundcheck, palco e monitor: istruzioni essenziali', 'Concerti e DJ set', 'Comunica con il fonico e prepara livelli, monitoraggio e disposizione sul palco senza rallentare il soundcheck.', 'Base', 74 ),
+		array( 'POaJ5Thpk34', 'Costruire una scaletta efficace per un concerto', 'Concerti e DJ set', 'Ordina repertorio, pause e cambi di intensità per sostenere attenzione e coerenza dello spettacolo.', 'Base', 75 ),
 		array( 'c2p0m8TNAmQ', 'Spotify for Artists: funzioni e gestione del profilo', 'Social e profili artista', 'Panoramica degli strumenti disponibili per controllare informazioni, pubblico e presentazione del profilo ufficiale.', 'Base', 76 ),
-		array( 'Djd-TSGihuU', 'Branding musicale: rendere riconoscibile il progetto', 'Identità e branding', 'Collega identità, immagine, tono e continuità visiva senza imitare modelli estranei al progetto.', 'Base', 77 ),
+		array( 'Djd-TSGihuU', 'Branding musicale: rendere riconoscibile il progetto', 'Identità e immagine', 'Collega identità, immagine, tono e continuità visiva senza imitare modelli estranei al progetto.', 'Base', 77 ),
 		array( 'Xg5Yb3yLJpQ', 'Illuminare correttamente reel e video verticali', 'Contenuti video', 'Imposta una luce semplice e leggibile per migliorare i contenuti realizzati con smartphone e attrezzatura accessibile.', 'Base', 78 ),
-		array( 'pLgHqI3ED6I', 'Diritto d’autore e società di collecting', 'Music business', 'Matteo Fedeli di SIAE spiega funzione del diritto d’autore, tutela delle opere e gestione collettiva dei compensi.', 'Base', 79 ),
-		array( 'DWM2DVM12pg', 'Il ruolo dell’A&R nello sviluppo di un progetto', 'Music business', 'Comprendi valutazione, repertorio e rapporto tra artista e struttura attraverso l’esperienza di Sony Music Italy.', 'Base', 80 ),
-		array( 'Y62DH2aENHQ', 'Il ruolo del manager musicale', 'Music business', 'Paola Zukar descrive responsabilità, relazioni professionali e collaborazioni che accompagnano la crescita artistica.', 'Base', 81 ),
-		array( 'O1dt42cW6U8', 'Codice ISRC: identità e tracciamento di una registrazione', 'Music business', 'Comprendi perché ogni registrazione necessita di un identificativo corretto e perché non deve essere duplicato o inventato.', 'Base', 82 ),
-		array( 'sCuuqAjJz-8', 'Autore, artista e produttore di fonogrammi', 'Music business', 'Distingui ruoli e diritti delle principali figure coinvolte nella creazione e pubblicazione di una registrazione.', 'Base', 83 ),
-		array( 'ldzX7Oret68', 'Autori, compositori, arrangiatori e interpreti', 'Music business', 'Riconosci correttamente i contributi creativi ed esecutivi da dichiarare nei crediti e nei metadati.', 'Base', 84 ),
-		array( 'U5qC6u2MYtw', 'Streaming artificiale: rischi e conseguenze', 'Music business', 'Spotify for Artists spiega come riconoscere pratiche non autentiche e perché compromettono dati, royalty e distribuzione.', 'Base/intermedio · sottotitoli', 85 ),
+		array( 'pLgHqI3ED6I', 'Diritto d’autore e società di collecting', 'Professioni e industria musicale', 'Matteo Fedeli di SIAE spiega funzione del diritto d’autore, tutela delle opere e gestione collettiva dei compensi.', 'Base', 79 ),
+		array( 'DWM2DVM12pg', 'Il ruolo dell’A&R nello sviluppo di un progetto', 'Professioni e industria musicale', 'Comprendi valutazione, repertorio e rapporto tra artista e struttura attraverso l’esperienza di Sony Music Italy.', 'Base', 80 ),
+		array( 'Y62DH2aENHQ', 'Il ruolo del manager musicale', 'Professioni e industria musicale', 'Paola Zukar descrive responsabilità, relazioni professionali e collaborazioni che accompagnano la crescita artistica.', 'Base', 81 ),
+		array( 'O1dt42cW6U8', 'Codice ISRC: identità e tracciamento di una registrazione', 'Professioni e industria musicale', 'Comprendi perché ogni registrazione necessita di un identificativo corretto e perché non deve essere duplicato o inventato.', 'Base', 82 ),
+		array( 'sCuuqAjJz-8', 'Autore, artista e produttore di fonogrammi', 'Professioni e industria musicale', 'Distingui ruoli e diritti delle principali figure coinvolte nella creazione e pubblicazione di una registrazione.', 'Base', 83 ),
+		array( 'ldzX7Oret68', 'Autori, compositori, arrangiatori e interpreti', 'Professioni e industria musicale', 'Riconosci correttamente i contributi creativi ed esecutivi da dichiarare nei crediti e nei metadati.', 'Base', 84 ),
+		array( 'U5qC6u2MYtw', 'Streaming artificiale: rischi e conseguenze', 'Professioni e industria musicale', 'Spotify for Artists spiega come riconoscere pratiche non autentiche e perché compromettono dati, royalty e distribuzione.', 'Base/intermedio · sottotitoli', 85 ),
 	);
 }
 
@@ -3879,7 +3959,7 @@ add_action( 'trb_portal_video_seed_batch', 'trb_portal_seed_video_lessons' );
 
 function trb_portal_video_lessons( $profile ) {
 	$posts = get_posts( array( 'post_type' => 'video', 'post_status' => 'publish', 'posts_per_page' => -1, 'meta_key' => '_trb_video_order', 'orderby' => 'meta_value_num', 'order' => 'ASC' ) );
-	return array_values( array_filter( $posts, function( $post ) use ( $profile ) { return trb_portal_resource_is_visible( $post->ID ) && 'approved' === get_post_meta( $post->ID, '_trb_video_editorial_status', true ) && '0' !== get_post_meta( $post->ID, '_trb_video_available', true ); } ) );
+	return array_values( array_filter( $posts, function( $post ) { return trb_portal_resource_is_visible( $post->ID ) && 'approved' === get_post_meta( $post->ID, '_trb_video_editorial_status', true ) && '0' !== get_post_meta( $post->ID, '_trb_video_available', true ); } ) );
 }
 
 function trb_portal_video_progress() {
@@ -3891,7 +3971,7 @@ function trb_portal_render_video_library( $profile ) {
 	$videos = trb_portal_video_lessons( $profile );
 	$progress = trb_portal_video_progress();
 	$completed = count( array_filter( $progress, function( $item ) { return ! empty( $item['completed_at'] ); } ) );
-	$category_order = array( 'Scrittura e composizione', 'Canto e interpretazione', 'Registrazione', 'Mixaggio e mastering', 'Live e DJ set', 'Social e profili artista', 'Identità e branding', 'Contenuti video', 'Music business' );
+	$category_order = array( 'Scrittura e composizione', 'Canto e interpretazione', 'Registrazione', 'Missaggio e finalizzazione audio', 'Concerti e DJ set', 'Social e profili artista', 'Identità e immagine', 'Contenuti video', 'Professioni e industria musicale' );
 	$grouped_videos = array();
 	foreach ( $videos as $video ) {
 		$video_category = get_post_meta( $video->ID, '_trb_video_category', true );
@@ -3905,7 +3985,7 @@ function trb_portal_render_video_library( $profile ) {
 	} );
 	?>
 	<section id="video" class="trb-portal__section">
-		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2>Video e formazione</h2><p>Un percorso consigliato, ma non obbligatorio, che accompagna il progetto dall’idea alla preparazione finale.</p></div>
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">CENTRO RISORSE</p><h2>Video e formazione</h2><p>Un percorso consigliato, ma non obbligatorio, che accompagna il progetto dall’idea alla preparazione finale.</p></div>
 		<?php if ( empty( $videos ) ) : ?>
 			<div class="trb-portal__empty"><p>La videoteca essenziale per il tuo profilo è in preparazione.</p></div>
 		<?php else : ?>
@@ -4088,7 +4168,7 @@ function trb_portal_dashboard_shortcode() {
 			<div>
 				<p class="trb-portal__eyebrow">PORTALE ARTISTI &middot; AREA RISERVATA</p>
 				<h1>Ciao <?php echo esc_html( $first_name ); ?>.</h1>
-				<p>Knowledge Hub: Linee guida, procedure, formazione e supporto per il percorso artistico.</p>
+				<p>Centro risorse: Linee guida, procedure, formazione e supporto per il percorso artistico.</p>
 			</div>
 			<div class="trb-portal__profile"><span>Sei un artista:</span><strong><?php echo esc_html( $affiliation ); ?></strong><?php if ( 'ddb12' === $profile ) : ?><small>Profilo DDB12 &middot; 1 release al mese</small><?php endif; ?></div>
 		</header>
@@ -4105,9 +4185,9 @@ function trb_portal_dashboard_shortcode() {
 		<?php trb_store_benefits_panel( $user ); ?>
 
 		<section class="trb-portal__search-panel" aria-labelledby="trb-portal-search-title">
-			<div><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2 id="trb-portal-search-title">Trova subito la risposta che ti serve</h2><p>Cerca fra guide aggiornate, procedure e materiali disponibili per il tuo profilo. Le risposte si aprono qui, senza uscire dalla pagina.</p></div>
+			<div><p class="trb-portal__eyebrow">CENTRO RISORSE</p><h2 id="trb-portal-search-title">Trova subito la risposta che ti serve</h2><p>Cerca fra guide aggiornate, procedure e materiali disponibili per il tuo profilo. Le risposte si aprono qui, senza uscire dalla pagina.</p></div>
 			<form class="trb-portal__search" method="get" action="<?php echo esc_url( get_permalink() ); ?>">
-				<label class="screen-reader-text" for="trb-portal-search">Cerca nella Knowledge Hub</label>
+				<label class="screen-reader-text" for="trb-portal-search">Cerca nel centro risorse</label>
 				<input id="trb-portal-search" type="search" name="trb_search" value="<?php echo esc_attr( trb_portal_current_search() ); ?>" placeholder="Es. formato audio, copertina, tempi di pubblicazione" />
 				<button type="submit">Cerca</button>
 			</form>
@@ -4157,7 +4237,8 @@ function trb_portal_render_artist_profile_section() {
 	<section id="profilo" class="trb-portal__section trb-portal__profile-section">
 		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">PRIMO PASSAGGIO OBBLIGATORIO</p><h2>Aggiorna il profilo artista</h2><p>Prima della prima release servono dati completi e verificabili. Li riuseremo per preparare le pratiche e, in seguito, i contratti.</p></div>
 		<?php if ( $saved ) : ?><div class="trb-portal__message trb-portal__message--success">Profilo artista aggiornato.</div><?php endif; ?>
-		<?php if ( $invalid_address ) : ?><div class="trb-portal__message trb-portal__message--error">Indirizzo non salvato: indica nazione e città; per l’Italia seleziona il Comune corrispondente al CAP.</div><?php endif; ?>
+		<?php if ( $invalid_address ) : ?><div class="trb-portal__message trb-portal__message--error">Indirizzo non salvato: indica nazione, indirizzo di residenza e città; per l’Italia servono anche il numero civico e il Comune corrispondente al CAP.</div><?php endif; ?>
+		<?php if ( 'invalid_birth_date' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci una data di nascita valida e non futura.</div><?php endif; ?>
 		<?php if ( 'invalid_birthplace' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: indica nazione e località di nascita; per l’Italia seleziona il Comune proposto.</div><?php endif; ?>
 		<?php if ( 'invalid_phone' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci un numero SMS con prefisso internazionale e da 7 a 15 cifre complessive.</div><?php endif; ?>
 		<?php if ( 'invalid_tax_code' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: verifica la nazione fiscale e l’identificativo. Per l’Italia sono richiesti i 16 caratteri con lettera finale valida.</div><?php endif; ?>
@@ -4167,6 +4248,9 @@ function trb_portal_render_artist_profile_section() {
 		<?php if ( 'invalid_account_name' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Dati non salvati: inserisci nome e cognome anagrafici completi.</div><?php endif; ?>
 		<?php if ( 'artist_name_taken' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Questo nome d’arte risulta già assegnato a un altro account. Apri una segnalazione se ritieni che si tratti di un errore.</div><?php endif; ?>
 		<?php if ( 'bio_required' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Allega la biografia artistica in formato TXT, DOCX, ODT o RTF prima di salvare l’identità artistica.</div><?php endif; ?>
+		<?php if ( 'file_upload_failed' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Caricamento non completato. Nessun dato del profilo è stato salvato e i file precedenti sono conservati. Controlla formato, dimensioni e limite di sei foto, quindi riprova.</div><?php endif; ?>
+		<?php if ( 'profile_busy' === $profile_error ) : ?><div class="trb-portal__message">Un salvataggio del profilo è già in corso. Attendi il completamento e riprova.</div><?php endif; ?>
+		<?php if ( 'profile_save_failed' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Il server non ha confermato il salvataggio. Controlla il profilo prima di riprovare.</div><?php endif; ?>
 		<?php if ( 'bio_invalid' === $profile_error ) : ?><div class="trb-portal__message trb-portal__message--error">Biografia non acquisita: usa un file TXT, DOCX, ODT o RTF non superiore a 5 MB.</div><?php endif; ?>
 		<?php if ( 'storage_waiting' === $profile_error ) : ?><div class="trb-portal__message"><strong>Caricamento temporaneamente in attesa.</strong><p>I dati già salvati restano invariati. Non ripetere l’invio: riprova quando lo spazio sarà nuovamente disponibile.</p></div><?php endif; ?>
 		<?php if ( ! $complete ) : ?><div class="trb-portal__message trb-portal__message--error">Completa attentamente entrambi i moduli qui sotto prima di avviare la tua prima release. Se nome o cognome sono vuoti puoi inserirli ora; per correggere dati già registrati o l’e-mail dell’account, apri una segnalazione.</div><?php endif; ?>
@@ -4186,7 +4270,7 @@ function trb_portal_render_artist_profile_section() {
 						<label>Cognome anagrafico <span>*</span><input type="text" <?php echo '' === trim( (string) $user->last_name ) ? 'name="trb_artist_last_name" required' : 'readonly'; ?> value="<?php echo esc_attr( $user->last_name ); ?>" autocomplete="family-name" aria-describedby="trb-account-data-note" /></label>
 						<label>E-mail di riferimento <span>*</span><input type="email" value="<?php echo esc_attr( $user->user_email ); ?>" autocomplete="email" readonly aria-describedby="trb-account-data-note" /></label>
 						<label>Cellulare abilitato a ricezione SMS <span>*</span><input type="tel" name="trb_artist_phone" autocomplete="tel" inputmode="tel" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'phone' ) ); ?>" placeholder="Es. +39 333 1234567" required /><small>Inserisci il prefisso internazionale, ad esempio +39 o +216. Usa un numero abilitato agli SMS.</small></label>
-						<label>Data di nascita <span>*</span><input type="date" name="trb_artist_birth_date" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_date' ) ); ?>" required /></label>
+						<label>Data di nascita <span>*</span><input type="date" name="trb_artist_birth_date" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_date' ) ); ?>" max="<?php echo esc_attr( wp_date( 'Y-m-d' ) ); ?>" required /></label>
 						<label>Nazione di nascita <span>*</span><input type="text" name="trb_artist_birth_country" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_country' ) ?: 'Italia' ); ?>" data-trb-birth-country required /><small>Indica la nazione. Per nascite all’estero puoi scrivere qualsiasi località.</small></label>
 						<label>Comune / località di nascita <span>*</span><input type="text" name="trb_artist_birth_place" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_place' ) ); ?>" autocomplete="off" list="trb-birthplace-options" data-trb-birthplace required /><datalist id="trb-birthplace-options"></datalist><small data-trb-birthplace-status>Per l’Italia seleziona il Comune proposto; per l’estero scrivi la località.</small></label>
 						<label>Provincia / regione di nascita <input type="text" name="trb_artist_birth_province" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'birth_province' ) ); ?>" data-trb-birth-province <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'birth_country' ) ) ? 'readonly required' : ''; ?> /><small>Per l’estero è facoltativa se non prevista.</small></label>
@@ -4198,7 +4282,7 @@ function trb_portal_render_artist_profile_section() {
 						<label data-trb-no-expiry-label><input type="checkbox" name="trb_artist_document_no_expiry" value="1" data-trb-no-expiry <?php checked( trb_portal_artist_profile_value( 'document_no_expiry' ), '1' ); ?> /> Il documento estero non ha una scadenza</label>
 						<label>Nazione di residenza <span>*</span><input type="text" name="trb_artist_country" autocomplete="country-name" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'country' ) ?: 'Italia' ); ?>" data-trb-country required /></label>
 						<label>Indirizzo di residenza <span>*</span><input type="text" name="trb_artist_street" autocomplete="street-address" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street' ) ); ?>" required /></label>
-						<label>Numero civico <input type="text" name="trb_artist_street_number" data-trb-street-number value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" required /></label>
+						<label>Numero civico <input type="text" name="trb_artist_street_number" data-trb-street-number value="<?php echo esc_attr( trb_portal_artist_profile_value( 'street_number' ) ); ?>" <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'required' : ''; ?> /></label>
 						<label>CAP / codice postale <input type="text" name="trb_artist_postal_code" autocomplete="postal-code" maxlength="40" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'postal_code' ) ); ?>" data-trb-postcode <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'required' : ''; ?> /><small data-trb-postcode-status>Per l’Italia inserisci il CAP; per l’estero indica il codice postale se previsto.</small></label>
 						<label>Città <span>*</span><select name="trb_artist_city" autocomplete="address-level2" data-trb-city <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'required' : 'disabled hidden'; ?>><option value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>"><?php echo esc_html( trb_portal_artist_profile_value( 'city' ) ? trb_portal_artist_profile_value( 'city' ) : 'Inserisci prima il CAP' ); ?></option></select><input type="text" name="trb_artist_city" aria-label="Città" autocomplete="address-level2" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'city' ) ); ?>" data-trb-international-city <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'disabled hidden' : 'required'; ?> /></label>
 						<label>Provincia / regione <input type="text" name="trb_artist_province" autocomplete="address-level1" value="<?php echo esc_attr( trb_portal_artist_profile_value( 'province' ) ); ?>" data-trb-province <?php echo trb_portal_country_is_italy( trb_portal_artist_profile_value( 'country' ) ) ? 'readonly required' : ''; ?> /><small>Per l’estero è facoltativa se non prevista.</small></label>
@@ -4284,15 +4368,42 @@ function trb_portal_render_private_files( $group = '' ) {
 		$files = array_filter( $files, function( $file ) use ( $group ) { return isset( $file['group'] ) && $group === $file['group']; } );
 	}
 	if ( empty( $files ) ) return;
-	$uploads = null;
-	$base = null;
-	?><fieldset class="trb-portal__uploaded-files <?php echo 'photo' === $group ? 'trb-portal__uploaded-photos' : ''; ?>"><legend><?php echo 'photo' === $group ? 'Fotografie caricate correttamente' : 'File caricati correttamente'; ?></legend><p>Questi sono i file attualmente conservati nel tuo profilo. Puoi scaricare l’originale o sostituirlo caricando una nuova versione.</p><div class="<?php echo 'photo' === $group ? 'trb-portal__photo-grid' : 'trb-portal__file-list'; ?>"><?php foreach ( $files as $file ) :
-		$size = absint( $file['size'] ?? 0 );
-		if ( ! $size && ! empty( $file['path'] ) ) { if ( null === $uploads ) { $uploads = wp_upload_dir(); $base = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-artist-private' ); } $target = realpath( trailingslashit( $uploads['basedir'] ) . ltrim( $file['path'], '/' ) ); if ( $base && $target && 0 === strpos( $target, $base . DIRECTORY_SEPARATOR ) && is_file( $target ) ) $size = filesize( $target ); }
+	?>
+	<fieldset class="trb-portal__uploaded-files <?php echo 'photo' === $group ? 'trb-portal__uploaded-photos' : ''; ?>">
+		<legend><?php echo 'photo' === $group ? 'Fotografie nel profilo' : 'File nel profilo'; ?></legend>
+		<p>Puoi scaricare i file disponibili o sostituirli caricando una nuova versione.</p>
+		<div class="<?php echo 'photo' === $group ? 'trb-portal__photo-grid' : 'trb-portal__file-list'; ?>">
+		<?php foreach ( $files as $file ) :
+		$path = trb_portal_private_profile_file_path( $file );
+		$size = $path ? filesize( $path ) : 0;
 		$meta = strtoupper( pathinfo( $file['name'] ?? '', PATHINFO_EXTENSION ) );
 		if ( $size ) $meta .= ' · ' . size_format( $size, 1 );
 		if ( ! empty( $file['time'] ) ) $meta .= ' · caricato il ' . wp_date( 'd/m/Y', absint( $file['time'] ) );
-		?><?php if ( 'photo' === $group ) : ?><article class="trb-portal__photo-card"><img src="<?php echo esc_url( trb_portal_private_file_url( $file['id'], true ) ); ?>" alt="Anteprima foto artista" loading="lazy" /><small><?php echo esc_html( $meta ); ?></small><div class="trb-portal__stored-file-actions"><a href="<?php echo esc_url( trb_portal_private_file_url( $file['id'] ) ); ?>">Scarica originale</a><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label></div></article><?php else : ?><div class="trb-portal__stored-file"><span><b>✓ Caricato correttamente</b><br><?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ); ?><small><?php echo esc_html( $meta ); ?></small></span><div class="trb-portal__stored-file-actions"><a href="<?php echo esc_url( trb_portal_private_file_url( $file['id'] ) ); ?>">Scarica originale</a><label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label></div></div><?php endif; ?><?php endforeach; ?></div></fieldset><?php
+		?>
+		<?php if ( 'photo' === $group ) : ?>
+			<article class="trb-portal__photo-card">
+				<?php if ( $path ) : ?><img src="<?php echo esc_url( trb_portal_private_file_url( $file['id'], true ) ); ?>" alt="Anteprima foto artista" loading="lazy" />
+				<?php else : ?><p>File non disponibile: carica una nuova copia.</p><?php endif; ?>
+				<small><?php echo esc_html( $meta ); ?></small>
+				<div class="trb-portal__stored-file-actions">
+					<?php if ( $path ) : ?><a href="<?php echo esc_url( trb_portal_private_file_url( $file['id'] ) ); ?>">Scarica originale</a><?php endif; ?>
+					<label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label>
+				</div>
+			</article>
+		<?php else : ?>
+			<div class="trb-portal__stored-file">
+				<span><b><?php echo $path ? '✓ File disponibile' : 'File non disponibile: carica una nuova copia.'; ?></b><br>
+					<?php echo esc_html( ! empty( $file['label'] ) ? $file['label'] . ': ' : '' ); ?><?php echo esc_html( $file['name'] ?? '' ); ?><small><?php echo esc_html( $meta ); ?></small></span>
+				<div class="trb-portal__stored-file-actions">
+					<?php if ( $path ) : ?><a href="<?php echo esc_url( trb_portal_private_file_url( $file['id'] ) ); ?>">Scarica originale</a><?php endif; ?>
+					<label><input type="checkbox" name="trb_artist_remove_files[]" value="<?php echo esc_attr( $file['id'] ); ?>" /> Elimina</label>
+				</div>
+			</div>
+		<?php endif; ?>
+		<?php endforeach; ?>
+		</div>
+	</fieldset>
+	<?php
 }
 
 function trb_portal_is_demo_test_account( $user = null ) {
@@ -4449,6 +4560,8 @@ function trb_portal_recent_demo_requests( $user_id = 0 ) {
 		'sent'          => 'Valutazione inviata via e-mail',
 		'manual_review' => 'Verifica manuale TRB in corso',
 		'email_failed'  => 'Consegna e-mail in verifica da parte di TRB',
+		'sending'       => 'Consegna e-mail in corso',
+		'delivery_uncertain' => 'Consegna e-mail in verifica da parte di TRB',
 	);
 	$requests = get_posts( array(
 		'post_type'      => 'trb_request',
@@ -4492,6 +4605,7 @@ function trb_portal_render_demo_section() {
 			<?php if ( 'processing' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Il provino è già in caricamento. Attendi il completamento senza inviarlo nuovamente.</div><?php endif; ?>
 			<?php if ( 'duplicate' === $status ) : ?><div class="trb-portal__message trb-portal__message--success">Questo stesso provino è già stato ricevuto. Non è stato creato un invio duplicato.</div><?php endif; ?>
 			<?php if ( 'invalid' === $status || 'upload_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Invio non completato. Controlla titolo, dichiarazioni e formati degli allegati, quindi riprova.</div><?php endif; ?>
+			<?php if ( 'storage_error' === $status ) : ?><div class="trb-portal__message trb-portal__message--error">Il salvataggio del provino non è stato confermato. Controlla lo stato delle valutazioni prima di riprovare.</div><?php endif; ?>
 			<details class="trb-portal__demo-module">
 				<summary class="trb-button trb-button--secondary">Richiedi una valutazione demo</summary>
 				<form class="trb-portal__request-form trb-portal__demo-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-demo-form>
@@ -4585,16 +4699,16 @@ function trb_portal_demo_next_delivery_time( $timestamp ) {
 
 /**
  * Add working hours without delivering automated reviews outside the agreed
- * window: Monday-Saturday, 08:30-18:30, in the WordPress timezone.
+ * window: Monday-Saturday, 08:30-18:30, in the Europe/Rome timezone.
  */
 function trb_portal_add_demo_working_hours( $submitted_at, $hours = null ) {
 	$window   = trb_portal_demo_delivery_window();
 	$timezone = trb_portal_demo_delivery_timezone();
 	$current  = ( new DateTimeImmutable( '@' . (int) $submitted_at ) )->setTimezone( $timezone );
 	$hours = null === $hours ? $window['hours'] : $hours;
-	$remaining_minutes = max( 1, (int) $hours ) * 60;
+	$remaining_seconds = max( 1, (int) $hours ) * 3600;
 
-	while ( $remaining_minutes > 0 ) {
+	while ( $remaining_seconds > 0 ) {
 		$weekday = (int) $current->format( 'N' );
 		if ( $weekday > $window['last_weekday'] ) {
 			$current = $current->modify( 'next monday' )->setTime( $window['opening_hour'], $window['opening_minute'] );
@@ -4607,10 +4721,12 @@ function trb_portal_add_demo_working_hours( $submitted_at, $hours = null ) {
 			$current = $current->modify( '+1 day' )->setTime( $window['opening_hour'], $window['opening_minute'] );
 			continue;
 		}
-		$available = (int) floor( ( $closing->getTimestamp() - $current->getTimestamp() ) / 60 );
-		$step = min( $remaining_minutes, $available );
-		$current = $current->modify( '+' . $step . ' minutes' );
-		$remaining_minutes -= $step;
+		// Rounding to minutes leaves a zero-length step in the last 59 seconds
+		// before closing. Keep seconds so every iteration makes progress.
+		$available = $closing->getTimestamp() - $current->getTimestamp();
+		$step = min( $remaining_seconds, $available );
+		$current = $current->modify( '+' . $step . ' seconds' );
+		$remaining_seconds -= $step;
 	}
 
 	return $current->getTimestamp();
@@ -4640,11 +4756,9 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes, $file = null ) 
 	$uploads = wp_upload_dir();
 	if ( ! empty( $uploads['error'] ) ) return new WP_Error( 'upload_directory_unavailable', $uploads['error'] );
 	$private_dir = trailingslashit( $uploads['basedir'] ) . 'trb-demo-private';
-	if ( ! wp_mkdir_p( $private_dir ) || ! is_dir( $private_dir ) || ! is_writable( $private_dir ) ) {
+	if ( ! trb_portal_prepare_private_directory( $private_dir ) ) {
 		return new WP_Error( 'upload_directory_unavailable', 'La cartella privata dei demo non è disponibile in scrittura.' );
 	}
-	$rules = trailingslashit( $private_dir ) . '.htaccess';
-	if ( ! file_exists( $rules ) ) file_put_contents( $rules, "Require all denied\nDeny from all\nOptions -Indexes\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	// WordPress checks the temporary file's extension during sideload validation.
 	// Staging uses .part so it remains resumable; copy only the verified staged
 	// file to a temporary name with its allowed extension for this final step.
@@ -4682,8 +4796,49 @@ function trb_portal_store_demo_file( $input, $mimes, $max_bytes, $file = null ) 
 	return array( 'name' => basename( $handled['file'] ), 'path' => str_replace( trailingslashit( $uploads['basedir'] ), '', $handled['file'] ), 'type' => $handled['type'], 'size' => (int) $file['size'] );
 }
 
+/** Hash verified incoming bytes, rather than treating equal names/sizes as retries. */
+function trb_portal_demo_upload_hash( $file, $max_bytes ) {
+	if ( ! is_array( $file ) || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || ! is_string( $file['tmp_name'] ?? null ) || ! is_numeric( $file['size'] ?? null ) || $file['size'] < 1 || $file['size'] > $max_bytes ) return new WP_Error( 'invalid_upload' );
+	$path = $file['tmp_name'];
+	$is_staged = ! empty( $file['_trb_staged'] ) && trb_portal_release_is_staged_path( $path );
+	if ( ( ! $is_staged && ! is_uploaded_file( $path ) ) || ! is_file( $path ) || filesize( $path ) !== (int) $file['size'] ) return new WP_Error( 'invalid_upload' );
+	$hash = hash_file( 'sha256', $path );
+	return is_string( $hash ) ? $hash : new WP_Error( 'invalid_upload' );
+}
+
+/** Undo an incomplete acquisition; preserve files if an uncertain commit kept them. */
+function trb_portal_abort_demo_save( $user_id, &$context ) {
+	global $wpdb;
+	if ( ! empty( $context['complete'] ) || ! empty( $context['cleaned'] ) ) return;
+	$rolled_back = empty( $context['transaction_open'] ) || false !== $wpdb->query( 'ROLLBACK' );
+	$context['transaction_open'] = false;
+	$context['cleaned'] = true;
+	wp_cache_delete( $user_id, 'user_meta' );
+	foreach ( array( 'cron', 'alloptions', 'notoptions', 'trb_crm_last_entity_version' ) as $key ) wp_cache_delete( $key, 'options' );
+	$request_id = (int) ( $context['request_id'] ?? 0 );
+	$recorded = array();
+	if ( $request_id ) {
+		clean_post_cache( $request_id );
+		$recorded = get_post_meta( $request_id, '_trb_demo_payload', true );
+		if ( '' !== $wpdb->last_error ) return; // Database outcome is unknown: retain the bytes.
+	}
+	if ( ! $rolled_back ) return;
+	$keep = array();
+	foreach ( array( 'text_file', 'audio_file' ) as $key ) if ( ! empty( $recorded[ $key ]['path'] ) ) $keep[] = $recorded[ $key ]['path'];
+	$uploads = wp_upload_dir();
+	$private_root = realpath( trailingslashit( $uploads['basedir'] ) . 'trb-demo-private' );
+	if ( ! $private_root ) return;
+	$private_root = str_replace( '\\', '/', $private_root ) . '/';
+	foreach ( $context['files'] as $file ) {
+		if ( empty( $file['path'] ) || in_array( $file['path'], $keep, true ) ) continue;
+		$path = realpath( trailingslashit( $uploads['basedir'] ) . $file['path'] );
+		if ( $path && 0 === strpos( str_replace( '\\', '/', $path ), $private_root ) && is_file( $path ) ) wp_delete_file( $path );
+	}
+}
+
 function trb_portal_demo_finish( $status, $dashboard, $success = false ) {
-	if ( 'processing' !== $status && is_user_logged_in() && ! empty( $_POST['trb_staged_uploads_json'] ) ) {
+	// A recoverable error must leave the staged originals available for retry.
+	if ( $success && is_user_logged_in() && ! empty( $_POST['trb_staged_uploads_json'] ) ) {
 		$session = sanitize_text_field( wp_unslash( $_POST['trb_release_submission_token'] ?? '' ) );
 		if ( preg_match( '/^[a-f0-9-]{36}$/i', $session ) ) trb_portal_cleanup_release_staging_session( $session );
 	}
@@ -4713,7 +4868,6 @@ function trb_portal_submit_demo() {
 	}
 	$owner_qa = current_user_can( 'manage_options' ) && isset( $_POST['trb_demo_owner_qa'] );
 	$is_test_account = $owner_qa || trb_portal_is_demo_test_account( $user );
-	$last = (int) get_user_meta( $user_id, '_trb_demo_last_submission', true );
 	$title = isset( $_POST['trb_demo_title'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_title'] ) ) : '';
 	$genre = isset( $_POST['trb_demo_genre'] ) ? sanitize_text_field( wp_unslash( $_POST['trb_demo_genre'] ) ) : '';
 	$kind = isset($_POST['trb_demo_submission_kind']) && is_string($_POST['trb_demo_submission_kind']) ? sanitize_key(wp_unslash($_POST['trb_demo_submission_kind'])) : 'new';
@@ -4745,65 +4899,88 @@ function trb_portal_submit_demo() {
 		trb_portal_demo_finish( 'invalid', $dashboard );
 	}
 
-	// Atomic server-side lock: browser retries or repeated clicks cannot create
-	// simultaneous practices while the first upload is still being processed.
-	$lock_key = '_trb_demo_submission_lock';
-	$lock_time = (int) get_user_meta( $user_id, $lock_key, true );
-	if ( $lock_time && time() - $lock_time < 15 * MINUTE_IN_SECONDS ) {
+	// WordPress's unique user-meta flag is a SELECT followed by INSERT, not an
+	// atomic lock. Use a process lock that PHP releases even after a fatal error.
+	$demo_lock = trb_release_process_lock( 'demo-user:' . $user_id );
+	if ( ! $demo_lock ) {
 		trb_portal_demo_finish( 'processing', $dashboard );
 	}
-	if ( $lock_time ) delete_user_meta( $user_id, $lock_key );
-	if ( ! add_user_meta( $user_id, $lock_key, time(), true ) ) {
-		trb_portal_demo_finish( 'processing', $dashboard );
-	}
+	$save_context = array( 'transaction_open' => false, 'complete' => false, 'cleaned' => false, 'request_id' => 0, 'files' => array() );
+	register_shutdown_function( static function() use ( $demo_lock, $user_id, &$save_context ) {
+		trb_portal_abort_demo_save( $user_id, $save_context );
+		trb_release_process_unlock( $demo_lock );
+	} );
+	wp_cache_delete( $user_id, 'user_meta' );
+	delete_user_meta( $user_id, '_trb_demo_submission_lock' ); // Retire obsolete timed markers.
+	$last = (int) get_user_meta( $user_id, '_trb_demo_last_submission', true );
+	$text_hash = $has_text ? trb_portal_demo_upload_hash( $text_upload, 2 * MB_IN_BYTES ) : '-';
+	$audio_hash = $has_audio ? trb_portal_demo_upload_hash( $audio_upload, 25 * MB_IN_BYTES ) : '-';
+	if ( is_wp_error( $text_hash ) || is_wp_error( $audio_hash ) ) trb_portal_demo_finish( 'upload_error', $dashboard );
 
-	$fingerprint = hash( 'sha256', wp_json_encode( $revision ) . '|' . wp_json_encode( $review_context ) . '|' . strtolower( $title ) . '|' . strtolower( $genre ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . ( $has_text ? sanitize_file_name( $text_upload['name'] ) . ':' . (int) $text_upload['size'] : '-' ) . '|' . ( $has_audio ? sanitize_file_name( $audio_upload['name'] ) . ':' . (int) $audio_upload['size'] : '-' ) );
+	$fingerprint = hash( 'sha256', wp_json_encode( $revision ) . '|' . wp_json_encode( $review_context ) . '|' . strtolower( $title ) . '|' . strtolower( $genre ) . '|' . ( $no_lyrics ? '1' : '0' ) . '|' . ( $text_only ? '1' : '0' ) . '|' . $text_hash . '|' . $audio_hash );
 	$previous = get_user_meta( $user_id, '_trb_demo_last_fingerprint', true );
 	if ( is_array( $previous ) && ! empty( $previous['hash'] ) && hash_equals( (string) $previous['hash'], $fingerprint ) && time() - (int) $previous['time'] < 10 * MINUTE_IN_SECONDS ) {
-		delete_user_meta( $user_id, $lock_key );
 		trb_portal_demo_finish( 'duplicate', $dashboard, true );
 	}
 	if ( ! $is_test_account && $last && time() - $last < WEEK_IN_SECONDS ) {
-		delete_user_meta( $user_id, $lock_key );
 		trb_portal_demo_finish( 'weekly_limit', $dashboard );
 	}
 
-	$text = $has_text ? trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ), 2 * MB_IN_BYTES, $text_upload ) : null;
-	$audio = $has_audio ? trb_portal_store_demo_file( 'trb_demo_audio', array( 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES, $audio_upload ) : null;
-	if ( ( $has_text && ! is_array( $text ) ) || ( $has_audio && ! is_array( $audio ) ) ) {
-		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
-		delete_user_meta( $user_id, $lock_key );
-		trb_portal_demo_finish( 'upload_error', $dashboard );
+	global $wpdb;
+	$save_error = 'storage_error';
+	try {
+		$tables = array( $wpdb->posts, $wpdb->postmeta, $wpdb->usermeta, $wpdb->options );
+		if ( function_exists( 'trb_crm_connector_table' ) ) $tables[] = trb_crm_connector_table();
+		foreach ( $tables as $table ) {
+			$engine = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $table ) );
+			if ( 'INNODB' !== strtoupper( (string) $engine ) ) throw new RuntimeException( 'Transactional demo storage is unavailable.' );
+		}
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) throw new RuntimeException( 'Demo transaction did not start.' );
+		$save_context['transaction_open'] = true;
+		$text = $has_text ? trb_portal_store_demo_file( 'trb_demo_text', array( 'txt' => 'text/plain', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ), 2 * MB_IN_BYTES, $text_upload ) : null;
+		if ( is_array( $text ) ) $save_context['files'][] = $text;
+		$audio = $has_audio ? trb_portal_store_demo_file( 'trb_demo_audio', array( 'mp3' => 'audio/mpeg' ), 25 * MB_IN_BYTES, $audio_upload ) : null;
+		if ( is_array( $audio ) ) $save_context['files'][] = $audio;
+		if ( ( $has_text && ! is_array( $text ) ) || ( $has_audio && ! is_array( $audio ) ) ) {
+			$save_error = 'upload_error';
+			throw new RuntimeException( 'Demo file batch did not complete.' );
+		}
+		$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Demo] ' . $title, 'post_author' => $user_id ), true );
+		if ( ! $request_id || is_wp_error( $request_id ) ) throw new RuntimeException( 'Demo request was not stored.' );
+		$save_context['request_id'] = $request_id;
+		$submitted_timestamp = time();
+		$earliest_delivery   = $is_test_account ? $submitted_timestamp + MINUTE_IN_SECONDS : trb_portal_add_demo_working_hours( $submitted_timestamp );
+		$payload = array(
+			'uuid' => wp_generate_uuid4(), 'submitted_at' => gmdate( 'c', $submitted_timestamp ), 'status' => 'queued',
+			'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
+			'first_name' => $user->first_name, 'last_name' => $user->last_name,
+			'artist_name' => trb_portal_artist_profile_value( 'artist_name', $user_id ), 'email' => $user->user_email,
+			'owner_qa' => $owner_qa, 'revision' => $revision,
+			'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'genre' => $genre, 'no_lyrics' => $no_lyrics, 'review_context' => $review_context,
+			'text_only' => $text_only, 'text_file' => $text, 'audio_file' => $audio,
+		);
+		if ( $owner_qa ) {
+			$payload['email'] = 'andrea.tognassi@trbrec.com';
+			$payload['first_name'] = 'Andrea';
+			$payload['title'] = '[QA] ' . $title;
+		}
+		foreach ( array( '_trb_demo_payload' => $payload, '_trb_demo_earliest_delivery' => $earliest_delivery, '_trb_demo_delete_after' => $submitted_timestamp + 60 * DAY_IN_SECONDS ) as $key => $value ) {
+			update_post_meta( $request_id, $key, wp_slash( $value ) );
+			$stored = get_post_meta( $request_id, $key, true );
+			if ( is_array( $value ) ? $stored !== $value : (string) $stored !== (string) $value ) throw new RuntimeException( 'Demo metadata write was not confirmed.' );
+		}
+		if ( ! $is_test_account ) trb_portal_write_profile_meta( $user_id, '_trb_demo_last_submission', $submitted_timestamp );
+		trb_portal_write_profile_meta( $user_id, '_trb_demo_last_fingerprint', array( 'hash' => $fingerprint, 'time' => $submitted_timestamp, 'request_id' => $request_id ) );
+		$scheduled = wp_schedule_single_event( time() + 10, 'trb_portal_process_demo', array( $request_id ), true );
+		if ( ! $scheduled || is_wp_error( $scheduled ) ) throw new RuntimeException( 'Demo processing was not scheduled.' );
+		if ( false === $wpdb->query( 'COMMIT' ) ) throw new RuntimeException( 'Demo commit was not confirmed.' );
+		$save_context['transaction_open'] = false;
+		$save_context['complete'] = true;
+	} catch ( Throwable $exception ) {
+		trb_portal_abort_demo_save( $user_id, $save_context );
+		error_log( 'TRB demo save aborted: ' . get_class( $exception ) );
+		trb_portal_demo_finish( $save_error, $dashboard );
 	}
-	$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Demo] ' . $title, 'post_author' => $user_id ) );
-	if ( ! $request_id || is_wp_error( $request_id ) ) {
-		foreach ( array( $text, $audio ) as $stored ) if ( is_array( $stored ) && ! empty( $stored['path'] ) ) { $uploads = wp_upload_dir(); wp_delete_file( trailingslashit( $uploads['basedir'] ) . ltrim( $stored['path'], '/' ) ); }
-		delete_user_meta( $user_id, $lock_key );
-		trb_portal_demo_finish( 'upload_error', $dashboard );
-	}
-	$submitted_timestamp = time();
-	$earliest_delivery   = $is_test_account ? $submitted_timestamp + MINUTE_IN_SECONDS : trb_portal_add_demo_working_hours( $submitted_timestamp );
-	$payload = array(
-		'uuid' => wp_generate_uuid4(), 'submitted_at' => gmdate( 'c', $submitted_timestamp ), 'status' => 'queued',
-		'earliest_delivery_at' => gmdate( 'c', $earliest_delivery ),
-		'first_name' => $user->first_name, 'last_name' => $user->last_name,
-		'artist_name' => trb_portal_artist_profile_value( 'artist_name', $user_id ), 'email' => $user->user_email,
-		'owner_qa' => $owner_qa, 'revision' => $revision,
-		'profile' => trb_portal_user_profile( $user ), 'title' => $title, 'genre' => $genre, 'no_lyrics' => $no_lyrics, 'review_context' => $review_context,
-		'text_only' => $text_only, 'text_file' => $text, 'audio_file' => $audio,
-	);
-	if ( $owner_qa ) {
-		$payload['email'] = 'andrea.tognassi@trbrec.com';
-		$payload['first_name'] = 'Andrea';
-		$payload['title'] = '[QA] ' . $title;
-	}
-	update_post_meta( $request_id, '_trb_demo_payload', $payload );
-	update_post_meta( $request_id, '_trb_demo_earliest_delivery', $earliest_delivery );
-	update_post_meta( $request_id, '_trb_demo_delete_after', $submitted_timestamp + 60 * DAY_IN_SECONDS );
-	if ( ! $is_test_account ) update_user_meta( $user_id, '_trb_demo_last_submission', $submitted_timestamp );
-	update_user_meta( $user_id, '_trb_demo_last_fingerprint', array( 'hash' => $fingerprint, 'time' => $submitted_timestamp, 'request_id' => $request_id ) );
-	delete_user_meta( $user_id, $lock_key );
-	wp_schedule_single_event( time() + 10, 'trb_portal_process_demo', array( $request_id ) );
 	trb_portal_demo_finish( 'sent', $dashboard, true );
 }
 add_action( 'admin_post_trb_portal_submit_demo', 'trb_portal_submit_demo' );
@@ -4935,7 +5112,7 @@ function trb_portal_render_release_files( $release_id ) {
 		<div class="trb-release-files__list">
 			<?php foreach ( $files as $index => $file ) :
 				$kind = isset( $file['kind'] ) ? $file['kind'] : '';
-				$label = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Reference per la copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) ) );
+				$label = 'cover' === $kind ? 'Copertina' : ( 'cover_reference' === $kind ? 'Riferimento per la copertina' : ( 'presentation' === $kind ? 'Presentazione della release' : ( 'audio' === $kind ? 'File audio del brano' : ( 'rights_document' === $kind ? 'Licenza o autorizzazione del brano' : 'Testo del brano' ) ) ) );
 				$rejected=!empty($file['rejected']);
 				$uploaded_label = in_array( $kind, array( 'cover', 'cover_reference', 'presentation', 'rights_document' ), true ) ? 'caricata correttamente' : 'caricato correttamente';
 				if ( in_array( $kind, array( 'lyrics', 'audio', 'rights_document' ), true ) && isset( $file['track'] ) && isset( $tracks[ $file['track'] ]['title'] ) ) $label .= ' “' . $tracks[ $file['track'] ]['title'] . '”';
@@ -5194,8 +5371,8 @@ function trb_portal_render_release_cover_input( $profile ) {
 			<?php trb_portal_render_cover_guidance(); ?>
 		</div>
 		<div class="trb-release-cover-brief" data-cover-request hidden>
-			<label><strong>Brief creativo <span>*</span></strong><small>Descrivi concept, atmosfera, messaggio, colori, elementi obbligatori e ciò che vuoi evitare. Minimo 40 caratteri.</small><textarea name="trb_release_cover_brief" rows="7" minlength="40" maxlength="5000" disabled></textarea></label>
-			<label><strong>Reference visiva <small>(facoltativa)</small></strong><small>Puoi allegare un’immagine o un PDF di riferimento fino a 20 MB. Non deve essere già nel formato definitivo.</small><input type="file" name="trb_release_cover_reference" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" disabled /></label>
+			<label><strong>Indicazioni creative <span>*</span></strong><small>Descrivi idea, atmosfera, messaggio, colori, elementi obbligatori e ciò che vuoi evitare. Minimo 40 caratteri.</small><textarea name="trb_release_cover_brief" rows="7" minlength="40" maxlength="5000" disabled></textarea></label>
+			<label><strong>Immagine di riferimento <small>(facoltativa)</small></strong><small>Puoi allegare un’immagine o un PDF di riferimento fino a 20 MB. Non deve essere già nel formato definitivo.</small><input type="file" name="trb_release_cover_reference" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf" disabled /></label>
 		</div>
 	</fieldset>
 	<?php
@@ -5306,7 +5483,7 @@ function trb_portal_render_release_section() {
 					<?php trb_portal_render_release_cover_input( $profile ); ?>
 					<div data-tracks></div>
 					<button type="button" class="trb-button trb-button--secondary trb-portal__add-track" data-add-track>+ Aggiungi un altro brano</button>
-					<div class="trb-release-upload trb-release-upload--presentation"><strong>Presentazione della release <span>*</span></strong><p>Racconta la pubblicazione con informazioni che possano trasformarsi in contenuti: origine del progetto, significato, curiosità, riferimenti, collaborazioni e dettagli utili a redazioni, radio, playlist editor, ufficio stampa e comunicazione social. Una presentazione concreta e ricca di spunti ci permette di valorizzare meglio la release e riduce le successive richieste di integrazione.</p><input type="file" name="trb_release_presentation" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" required /><small>Formati elaborabili in modo efficiente: TXT, DOCX, ODT o RTF · massimo 5 MB.</small></div>
+					<div class="trb-release-upload trb-release-upload--presentation"><strong>Presentazione della release <span>*</span></strong><p>Racconta la pubblicazione con informazioni che possano trasformarsi in contenuti: origine del progetto, significato, curiosità, riferimenti, collaborazioni e dettagli utili a redazioni, radio, curatori di playlist, ufficio stampa e comunicazione sui canali social. Una presentazione concreta e ricca di spunti ci permette di valorizzare meglio la release e riduce le successive richieste di integrazione.</p><input type="file" name="trb_release_presentation" accept=".txt,.docx,.odt,.rtf,text/plain,application/rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text" required /><small>Formati elaborabili in modo efficiente: TXT, DOCX, ODT o RTF · massimo 5 MB.</small></div>
 				</section>
 				<button class="trb-button trb-button--submit-release" type="submit">Crea la pratica release</button><div class="trb-portal__upload-progress" data-release-upload-progress hidden aria-live="polite"><div class="trb-portal__upload-progress-head"><strong>Caricamento sicuro della release</strong><span data-release-upload-value>0%</span></div><progress max="100" value="0" data-release-upload-bar>0%</progress><p data-release-upload-text>Preparazione e verifica dei file…</p></div>
 			</form>
@@ -5321,12 +5498,12 @@ function trb_portal_render_release_section() {
 			<div class="trb-track-block"><h4>Informazioni del brano</h4><div class="trb-portal__field-grid">
 				<label>Titolo del brano <span aria-hidden="true">*</span><input type="text" name="trb_tracks[__INDEX__][title]" required maxlength="160" /></label>
 				<label><span class="trb-track-version-label">Versione della release <span class="trb-portal__info" tabindex="0" data-tooltip="Da usare per versioni alternative del brano, ad esempio: Remastered, Live, Remix, Radio Edit o Acoustic Version." aria-label="Informazioni sulla versione della release">?</span> <small>(facoltativo)</small></span><input type="text" name="trb_tracks[__INDEX__][version]" maxlength="100" placeholder="Es. Remastered, Live, Remix, Radio Edit" /></label>
-				<label class="trb-track-featuring">Featuring <small>solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label>
-				<label>Contenuto audio <span>*</span><select data-track-vocal><option value="vocal">Con voce / testo</option><option value="instrumental">Strumentale, senza testo</option></select></label><label class="trb-track-advisory">Parental Advisory <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required data-track-advisory><option value="" selected disabled>Seleziona una voce</option><option value="no_lyrics" hidden>Non esplicito</option><option value="non_explicit">Non esplicito</option><option value="explicit">Esplicito</option><option value="clean">Censurato</option></select></label>
+				<label class="trb-track-featuring">Artista ospite <small>solo se presente</small><input type="text" name="trb_tracks[__INDEX__][featuring]" maxlength="160" /></label>
+				<label>Contenuto audio <span>*</span><select data-track-vocal><option value="vocal">Con voce / testo</option><option value="instrumental">Strumentale, senza testo</option></select></label><label class="trb-track-advisory">Contenuti espliciti <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][advisory]" required data-track-advisory><option value="" selected disabled>Seleziona una voce</option><option value="no_lyrics" hidden>Non esplicito</option><option value="non_explicit">Non esplicito</option><option value="explicit">Esplicito</option><option value="clean">Censurato</option></select></label>
 				<label>Uso di IA nel brano<select name="trb_tracks[__INDEX__][ai_usage]"><option value="None">Nessuno</option><option value="Some">Parziale</option><option value="All">Integrale</option></select></label><label class="trb-track-duration">Durata <span aria-hidden="true">*</span><span class="trb-duration-picker"><select name="trb_tracks[__INDEX__][duration_minutes]" required aria-label="Minuti"><option value="">Minuti</option><?php for ( $minute = 0; $minute <= 19; $minute++ ) : ?><option value="<?php echo esc_attr( $minute ); ?>"><?php echo esc_html( sprintf( '%02d min', $minute ) ); ?></option><?php endfor; ?></select><select name="trb_tracks[__INDEX__][duration_seconds]" required aria-label="Secondi"><option value="">Secondi</option><?php for ( $second = 0; $second <= 59; $second++ ) : ?><option value="<?php echo esc_attr( $second ); ?>"><?php echo esc_html( sprintf( '%02d sec', $second ) ); ?></option><?php endfor; ?></select></span></label>
 				<label class="trb-track-existing-isrc" data-existing-isrc hidden><span data-isrc-title>ISRC del brano già pubblicato</span> <span aria-hidden="true">*</span><input type="text" name="trb_existing_isrc[__INDEX__]" minlength="12" maxlength="12" pattern="[A-Z]{2}[A-Z0-9]{3}[0-9]{7}" inputmode="latin" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Es. ITV242600005" disabled /><small data-isrc-help>Inserisci i 12 caratteri dell’ISRC, senza spazi o trattini.</small></label>
 				<?php if ($new_genres) : ?>
-				<label class="trb-track-primary-genre">Genere musicale primario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][primary_genre]" required data-symphonic-primary><option value="">Seleziona il genere</option><?php foreach (array_keys(trb_symphonic_genres()) as $genre) : ?><option value="<?php echo esc_attr($genre); ?>"><?php echo esc_html($genre); ?></option><?php endforeach; ?></select></label>
+				<label class="trb-track-primary-genre">Genere musicale primario <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][primary_genre]" required data-symphonic-primary><option value="">Seleziona il genere</option><?php foreach (array_keys(trb_symphonic_genres()) as $genre) : ?><option value="<?php echo esc_attr($genre); ?>"><?php echo esc_html(trb_symphonic_genre_label($genre)); ?></option><?php endforeach; ?></select></label>
 				<label class="trb-track-secondary-genre">Sottogenere <span aria-hidden="true">*</span><select name="trb_tracks[__INDEX__][secondary_genre]" required data-symphonic-subgenre disabled><option value="">Seleziona prima il genere</option></select><small>Scegli un sottogenere disponibile per il genere primario selezionato.</small></label>
 				<?php else : ?>
 				<label class="trb-track-primary-genre">Genere musicale primario <span aria-hidden="true">*</span><input type="search" name="trb_tracks[__INDEX__][primary_genre]" required list="trb-release-genres" autocomplete="off" placeholder="Cerca e seleziona il genere primario" /></label>
@@ -5345,16 +5522,18 @@ function trb_portal_render_release_section() {
 		</article>
 	</template>
 	<?php if ($new_genres) : ?><script type="application/json" id="trb-symphonic-genres-data"><?php echo wp_json_encode(trb_symphonic_genres(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?></script><?php endif; ?>
-	<datalist id="trb-release-genres"><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></datalist>
-	<datalist id="trb-credit-roles"><?php foreach ( array_keys( $roles['credits'] ) as $role ) : ?><option value="<?php echo esc_attr( $role ); ?>"><?php echo esc_html( $role ); ?></option><?php endforeach; ?></datalist>
+	<?php if ($new_genres) : ?><script type="application/json" id="trb-symphonic-genre-labels"><?php echo wp_json_encode(trb_symphonic_genre_labels(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?></script><?php endif; ?>
+	<?php if ( ! $new_genres ) : ?><datalist id="trb-release-genres"><?php foreach ( $genres as $genre ) : ?><option value="<?php echo esc_attr( $genre ); ?>"><?php echo esc_html( $genre ); ?></option><?php endforeach; ?></datalist><?php endif; ?>
+	<?php if ( ! $new_credits ) : ?><datalist id="trb-credit-roles"><?php foreach ( array_keys( $roles['credits'] ) as $role ) : ?><option value="<?php echo esc_attr( $role ); ?>"><?php echo esc_html( $role ); ?></option><?php endforeach; ?></datalist><?php endif; ?>
 	<script>
 	(function(){
 		var form=document.querySelector('[data-release-form]'); if(!form)return;
 		var genreData=document.getElementById('trb-symphonic-genres-data'),genreMap=genreData?JSON.parse(genreData.textContent):null;
+		var genreLabelData=document.getElementById('trb-symphonic-genre-labels'),genreLabels=genreLabelData?JSON.parse(genreLabelData.textContent):{};
 		var wrap=form.querySelector('[data-tracks]'), template=document.getElementById('trb-portal-track-template'), add=form.querySelector('[data-add-track]'), title=form.querySelector('.trb-portal__release-title'), releaseDate=form.querySelector('.trb-portal__release-date'), releaseDateInput=releaseDate.querySelector('input'), originalDate=form.querySelector('.trb-portal__original-date'), originalDateInput=originalDate.querySelector('input'), autoAssignIsrc=<?php echo wp_json_encode( 'trb' === $profile ); ?>;
 		function contributorRows(group){var rows=group.querySelector('[data-contributor-rows]');return rows?rows.querySelectorAll(':scope > .trb-contributor-row:not([data-shadow])'):[];}
 		function contributorPrototype(group){var source=template.content.querySelector('[data-contributor-group="'+group.dataset.contributorGroup+'"] [data-contributor-rows] > .trb-contributor-row');return source?source.cloneNode(true):null;}
-		function validateGenres(track){var primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]');if(genreMap&&primary.matches('[data-symphonic-primary]')){var selected=secondary.value,options=genreMap[primary.value]||[];secondary.innerHTML='<option value="">Seleziona il sottogenere</option>';options.forEach(function(name){var option=document.createElement('option');option.value=name;option.textContent=name;secondary.appendChild(option);});secondary.disabled=!options.length;secondary.value=options.indexOf(selected)!==-1?selected:'';return;}var same=primary.value.trim()!==''&&primary.value.trim()===secondary.value.trim();secondary.setCustomValidity(same?'Il genere secondario deve essere diverso dal genere primario.':'');}
+		function validateGenres(track){var primary=track.querySelector('[name$="[primary_genre]"]'),secondary=track.querySelector('[name$="[secondary_genre]"]');if(genreMap&&primary.matches('[data-symphonic-primary]')){var selected=secondary.value,options=genreMap[primary.value]||[];secondary.innerHTML='<option value="">Seleziona il sottogenere</option>';options.forEach(function(name){var option=document.createElement('option');option.value=name;option.textContent=genreLabels[name]||name;secondary.appendChild(option);});secondary.disabled=!options.length;secondary.value=options.indexOf(selected)!==-1?selected:'';return;}var same=primary.value.trim()!==''&&primary.value.trim()===secondary.value.trim();secondary.setCustomValidity(same?'Il genere secondario deve essere diverso dal genere primario.':'');}
 		function normalizeIsrc(input){var clean=String(input.value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(input.value!==clean)input.value=clean;input.setCustomValidity(clean&& !/^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$/.test(clean)?'Inserisci un ISRC valido di 12 caratteri.':'');}
 		function updateLyrics(track){var advisory=track.querySelector('[data-track-advisory]'),wrap=track.querySelector('[data-track-lyrics]'),file=wrap.querySelector('input[type="file"]'),required=advisory.value!==''&&advisory.value!=='no_lyrics';var vocal=track.querySelector('[data-track-vocal]');if(vocal){vocal.value=advisory.value==='no_lyrics'?'instrumental':'vocal';advisory.closest('label').hidden=vocal.value==='instrumental';}wrap.hidden=!required;file.disabled=!required;file.required=required&&!file._trbRetained;if(!required)file.value='';}
 		function syncRightsFields(track){var nature=track.querySelector('[data-content-nature]'),basis=track.querySelector('[data-rights-basis]'),help=track.querySelector('[data-rights-help]'),documentWrap=track.querySelector('[data-rights-document]');if(!nature||!basis||!documentWrap)return;var documentInput=documentWrap.querySelector('input'),needsDocument=nature.value==='type_beat'||nature.value==='protected_samples'||(nature.value==='remix'&&basis.value==='licensed'),state=form.querySelector('input[name="trb_release_state"]:checked'),stateValue=state?state.value:'',message='';if(basis.value==='catalogue_reissue'&&stateValue!=='previously_released')message='Questa dichiarazione richiede lo stato Edita / già pubblicata.';if(basis.value==='owned'&&stateValue==='previously_released')message='Per una release già pubblicata seleziona la dichiarazione relativa alla versione già distribuita.';basis.setCustomValidity(message);if(help&&nature.value==='original'){help.textContent=basis.value==='catalogue_reissue'?'Usa questa voce solo per lo stesso master già distribuito e indica il relativo ISRC. ACRCloud non verrà eseguito; i controlli tecnici e di integrità resteranno attivi.':'Usa questa voce soltanto per un brano inedito, mai pubblicato o distribuito e privo di contenuti di terzi.';}documentWrap.hidden=!needsDocument;documentInput.disabled=!needsDocument;documentInput.required=needsDocument&&!documentInput._trbRetained;if(!needsDocument)documentInput.value='';}
@@ -5385,6 +5564,25 @@ function trb_portal_redirect_artist_after_login( $redirect_to, $requested_redire
 	return $redirect_to;
 }
 add_filter( 'login_redirect', 'trb_portal_redirect_artist_after_login', 9999, 3 );
+
+/** Legacy plugins must not send an authenticated or logged-out artist to an old host. */
+function trb_portal_canonical_account_redirect( $location ) {
+	$parts = wp_parse_url( $location );
+	$host = strtolower( isset( $parts['host'] ) ? $parts['host'] : '' );
+	if ( ! in_array( $host, array( 'faq.trbrec.com', 'artisti.trbrec.com' ), true ) ) return $location;
+	$path = isset( $parts['path'] ) ? $parts['path'] : '/';
+	if ( in_array( untrailingslashit( $path ), array( '/login', '/logout' ), true ) ) $path = '/accedi/';
+	if ( '/wp-login.php' === $path ) {
+		parse_str( isset( $parts['query'] ) ? $parts['query'] : '', $args );
+		$action = isset( $args['action'] ) && is_string( $args['action'] ) ? $args['action'] : '';
+		$path = in_array( $action, array( 'rp', 'resetpass', 'lostpassword' ), true ) ? '/recupera-password/' : ( 'register' === $action ? '/registrati/' : '/accedi/' );
+	}
+	if ( '/register' === untrailingslashit( $path ) ) $path = '/registrati/';
+	$query = isset( $parts['query'] ) ? '?' . $parts['query'] : '';
+	$fragment = isset( $parts['fragment'] ) ? '#' . $parts['fragment'] : '';
+	return home_url( $path . $query . $fragment );
+}
+add_filter( 'wp_redirect', 'trb_portal_canonical_account_redirect', PHP_INT_MAX );
 
 /**
  * LoginWP can replace the WordPress login_redirect value with an old
@@ -5478,7 +5676,7 @@ function trb_portal_get_resources( $profile ) {
 				return ( $left_order ?: PHP_INT_MAX ) <=> ( $right_order ?: PHP_INT_MAX );
 			} );
 		}
-		// Search belongs to the Knowledge Hub answers. It must never make the
+		// Search belongs to the Centro risorse answers. It must never make the
 		// artist's Library, videos or downloads appear to have disappeared.
 		if ( $search && 'trb_guide' === $post_type ) {
 			$ranked = array();
@@ -5570,7 +5768,7 @@ function trb_portal_search_score( $post, $search ) {
 function trb_portal_render_resource_section( $id, $title, $description, $posts ) {
 	?>
 	<section id="<?php echo esc_attr( $id ); ?>" class="trb-portal__section">
-		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">KNOWLEDGE HUB</p><h2><?php echo esc_html( $title ); ?></h2><p><?php echo esc_html( $description ); ?></p></div>
+		<div class="trb-portal__section-heading"><p class="trb-portal__eyebrow">CENTRO RISORSE</p><h2><?php echo esc_html( $title ); ?></h2><p><?php echo esc_html( $description ); ?></p></div>
 		<?php if ( empty( $posts ) ) : ?>
 			<div class="trb-portal__empty"><p>Stiamo aggiornando questa sezione con nuovi contenuti riservati al tuo profilo.</p></div>
 		<?php else : ?>
@@ -5907,10 +6105,14 @@ function trb_portal_submit_support_request() {
 	}
 	$profile = $logged_in ? trb_portal_user_profile( $user ) : 'Utente non autenticato';
 	$body = "Tipo: {$labels[ $type ]}\nNome e cognome: {$name}\nNome d’arte: {$artist_name}\nE-mail: {$email}\nProfilo: {$profile}\n\n{$message}";
-	wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Supporto] ' . $subject, 'post_content' => $body, 'post_author' => $logged_in ? $user->ID : 0 ) );
+	$request_id = wp_insert_post( array( 'post_type' => 'trb_request', 'post_status' => 'private', 'post_title' => '[Supporto] ' . $subject, 'post_content' => $body, 'post_author' => $logged_in ? $user->ID : 0 ), true );
+	if ( is_wp_error( $request_id ) || ! $request_id ) {
+		wp_safe_redirect( add_query_arg( 'trb_support', 'storage_failed', home_url( '/segnalazione/' ) ) );
+		exit;
+	}
 	set_transient( $rate_key, 1, 2 * MINUTE_IN_SECONDS );
-	wp_mail( 'info@trbrec.com', '[Portale Artisti] ' . $labels[ $type ] . ' — ' . $subject, $body, array( 'From: TRB rec - Music Publishing <info@trbrec.com>', 'Reply-To: ' . $email ) );
-	wp_safe_redirect( add_query_arg( 'trb_support', 'sent', home_url( '/segnalazione/' ) ) );
+	$notified = wp_mail( 'info@trbrec.com', '[Portale Artisti] ' . $labels[ $type ] . ' — ' . $subject, $body, array( 'From: TRB rec - Music Publishing <info@trbrec.com>', 'Reply-To: ' . $email ) );
+	wp_safe_redirect( add_query_arg( 'trb_support', $notified ? 'sent' : 'notification_failed', home_url( '/segnalazione/' ) ) );
 	exit;
 }
 add_action( 'admin_post_trb_portal_submit_support', 'trb_portal_submit_support_request' );
@@ -6272,6 +6474,22 @@ function trb_portal_maybe_create_login_page() {
 }
 add_action( 'init', 'trb_portal_maybe_create_login_page', 32 );
 
+/** Keep existing authentication failures out of Download Manager's email check. */
+function trb_portal_download_manager_login_compat( $user, $login, $password ) {
+	if ( is_wp_error( $user ) ) return $user;
+	return \WPDM\User\Login::getInstance()->verifyLoginEmail( $user, $login, $password );
+}
+
+function trb_portal_register_download_manager_login_compat() {
+	if ( ! class_exists( '\\WPDM\\User\\Login' ) ) return;
+	$callback = array( \WPDM\User\Login::getInstance(), 'verifyLoginEmail' );
+	$priority = has_filter( 'authenticate', $callback );
+	if ( false === $priority ) return;
+	remove_filter( 'authenticate', $callback, $priority );
+	add_filter( 'authenticate', 'trb_portal_download_manager_login_compat', $priority, 3 );
+}
+add_action( 'init', 'trb_portal_register_download_manager_login_compat', PHP_INT_MAX );
+
 /** Authenticate on the canonical portal host, bypassing legacy redirect rules. */
 function trb_portal_handle_login() {
 	if ( 'POST' !== strtoupper( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : 'GET' ) ) {
@@ -6515,5 +6733,3 @@ function trb_portal_document_title( $title ) {
 	return $title;
 }
 add_filter( 'pre_get_document_title', 'trb_portal_document_title', 99 );
-
-

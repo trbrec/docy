@@ -597,7 +597,11 @@ if ( ! class_exists( 'CSF_Setup' ) ) {
 
       // Main scripts
       wp_enqueue_script( 'csf-plugins', self::include_plugin_url( 'assets/js/plugins'. $min .'.js' ), array(), self::$version, true );
-      wp_enqueue_script( 'csf', self::include_plugin_url( 'assets/js/main'. $min .'.js' ), array( 'csf-plugins' ), self::$version, true );
+      $main_script = 'assets/js/main'. $min .'.js';
+      $main_path = self::$dir .'/'. $main_script;
+      $main_hash = is_readable( $main_path ) ? md5_file( $main_path ) : false;
+      $main_version = $main_hash ? self::$version .'.'. substr( $main_hash, 0, 12 ) : self::$version;
+      wp_enqueue_script( 'csf', self::include_plugin_url( $main_script ), array( 'csf-plugins' ), $main_version, true );
 
       // Main variables
       wp_localize_script( 'csf', 'csf_vars', array(

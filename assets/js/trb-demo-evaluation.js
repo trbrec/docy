@@ -199,6 +199,7 @@ document.addEventListener('DOMContentLoaded', function () {
           invalid_revision: 'Seleziona un tuo provino con valutazione già inviata e ancora disponibile.',
           invalid: 'Controlla titolo, dichiarazioni e allegati prima di riprovare.',
           upload_error: 'Uno degli allegati non è valido. Usa TXT o DOCX per il testo e un solo file MP3 per l’audio.',
+          storage_error: 'Il salvataggio del provino non è stato confermato. I dati del modulo sono ancora disponibili: controlla lo stato delle valutazioni prima di riprovare.',
           processing: 'Un invio dello stesso account è già in corso. Attendi il completamento.',
           weekly_limit: 'Hai già utilizzato la valutazione disponibile per questa settimana.',
           forbidden: 'Questo profilo non è abilitato alla valutazione dei demo.',

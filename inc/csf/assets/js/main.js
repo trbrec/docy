@@ -2383,6 +2383,16 @@
           flooding = false,
           timeout;
 
+      function saveFailed( response, value ) {
+        $panel.removeClass('csf-saving');
+        $buttons.prop('disabled', false).attr('value', value);
+        flooding = false;
+        var $result = $('.csf-form-success').stop(true, true);
+        clearTimeout(timeout);
+        CSF.vars.form_modified = true;
+        $result.addClass('notice notice-error inline').text(response && typeof response.error === 'string' && response.error ? response.error : 'Impossibile salvare le impostazioni. Riprova.').show();
+      }
+
       $this.on('click', function( e ) {
 
         if ( !flooding ) {
@@ -2403,6 +2413,11 @@
               data: $('#csf-form').serializeJSONCSF()
             })
             .done( function( response ) {
+
+              if ( !response || typeof response.notice !== 'string' || !response.errors || typeof response.errors !== 'object' || Array.isArray(response.errors) ) {
+                saveFailed(null, $value);
+                return;
+              }
 
               // clear errors
               $('.csf-error').remove();
@@ -2438,10 +2453,9 @@
               CSF.vars.form_modified = false;
               CSF.vars.$form_warning.hide();
 
+              var $result_success = $('.csf-form-success').stop(true, true);
               clearTimeout(timeout);
-
-              var $result_success = $('.csf-form-success');
-              $result_success.empty().append(response.notice).fadeIn('fast', function() {
+              $result_success.removeClass('notice notice-error inline').empty().text(response.notice).fadeIn('fast', function() {
                 timeout = setTimeout( function() {
                   $result_success.fadeOut('fast');
                 }, 1000);
@@ -2449,7 +2463,7 @@
 
             })
             .fail( function( response ) {
-              alert( response.error );
+              saveFailed(response, $value);
             });
 
           } else {
@@ -2498,7 +2512,7 @@
 
       }
 
-      if ( $form_success.hasClass('csf-form-show') ) {
+      if ( $form_success.hasClass('csf-form-show') && !$form_success.hasClass('notice-error') ) {
         setTimeout( function() {
           $form_success.fadeOut('fast');
         }, 1000);

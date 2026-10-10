@@ -1,12 +1,11 @@
 <?php
 $register = new Docy_register_theme;
 $purchase_code_status = trim( get_option( 'docy_purchase_code_status' ) );
+$license_status = '';
 if ( $purchase_code_status == 'valid' ) {
     $license_status = 'success';
 } elseif ( $purchase_code_status == 'invalid' ) {
     $license_status = 'failed';
-} elseif ( $purchase_code_status == '' ) {
-    $license_status = '';
 }
 
 ?>

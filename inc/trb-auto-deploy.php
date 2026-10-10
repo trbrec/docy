@@ -1,10 +1,9 @@
 <?php
 /**
- * Automatic deployment bridge for the public trbrec/docy repository.
+ * Verified deployment monitor for the public trbrec/docy repository.
  *
- * It keeps the Deployer for Git secret inside WordPress and asks the installed
- * plugin to update the active theme whenever GitHub main changes.
- * Production revision: spotify4-release-gate.
+ * The hosting workflow installs the complete bundle after validation. WordPress
+ * records completion only after the private server receipt and source hashes match.
  *
  * @package docy
  */
@@ -159,72 +158,34 @@ function trb_docy_verify_deployed_commit( $sha ) {
 	return array( 'verified' => true, 'checked' => $checked );
 }
 
-/** Deploy one already verified commit through Deployer for Git. */
+/** The hosting workflow alone installs the coherent theme and integration bundle. */
+function trb_docy_deployment_is_ssh_only() { return true; }
+
+/** Read the hosting verifier's receipt without network requests or state changes. */
+function trb_docy_has_completed_release( $expected_sha = null ) {
+    $marker = trailingslashit( get_template_directory() ) . '.trb-deployed-sha';
+    if ( is_link( $marker ) || ! is_file( $marker ) || filesize( $marker ) > 128 ) return false;
+    $sha = trim( (string) @file_get_contents( $marker ) );
+    if ( ! preg_match( '/^[a-f0-9]{40}$/D', $sha ) || ( null !== $expected_sha && ( ! is_string( $expected_sha ) || ! hash_equals( $sha, $expected_sha ) ) ) ) return false;
+    $directory = dirname( untrailingslashit( ABSPATH ) ) . '/private/portal-release-' . $sha;
+    $path = $directory . '/complete.json';
+    if ( is_link( $directory ) || is_link( $path ) || ! is_file( $path ) || filesize( $path ) > 16384 ) return false;
+    $receipt = json_decode( (string) @file_get_contents( $path ), true );
+    return is_array( $receipt ) && ( $receipt['revision'] ?? '' ) === $sha && ( $receipt['verified'] ?? false ) === true;
+}
+
+/** Verify a completed SSH release; a notification can never install an archive. */
 function trb_docy_deploy_verified_sha( $sha ) {
-	if ( get_transient( 'trb_docy_auto_deploy_lock' ) ) {
-		return new WP_Error( 'trb_deploy_locked', 'Un altro deploy è già in corso.', array( 'status' => 409 ) );
-	}
-	set_transient( 'trb_docy_auto_deploy_lock', 1, 4 * MINUTE_IN_SECONDS );
-
-	if ( hash_equals( (string) get_option( TRB_DOCY_DEPLOYED_SHA_OPTION, '' ), $sha ) ) {
-		trb_docy_store_deploy_status( 'current', 'Il tema è già aggiornato.', $sha );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return array( 'success' => true, 'state' => 'current', 'sha' => $sha );
-	}
-
-	if ( ! class_exists( '\\DeployerForGit\\ApiRequests\\PackageUpdate' ) ) {
-		trb_docy_store_deploy_status( 'error', 'Deployer for Git non è attivo.', $sha );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return new WP_Error( 'trb_deployer_missing', 'Deployer for Git non è attivo.', array( 'status' => 503 ) );
-	}
-
-	$request = new WP_REST_Request( 'POST', '/dfg/v1/package_update/' );
-	$request->set_param( 'secret', \DeployerForGit\Helper::get_api_secret() );
-	$request->set_param( 'type', 'theme' );
-	$request->set_param( 'package', 'docy' );
-	$updater = new \DeployerForGit\ApiRequests\PackageUpdate();
-	$payload = $updater->update_package_callback( $request );
-
-	if ( empty( $payload['success'] ) ) {
-		$message = isset( $payload['message'] ) ? $payload['message'] : 'Deploy non riuscito.';
-		trb_docy_store_deploy_status( 'error', $message, $sha );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return new WP_Error( 'trb_deploy_failed', $message, array( 'status' => 500 ) );
-	}
-
-	// Deployer for Git can report success before its GitHub archive cache has
-	// caught up with main. Verify only the blobs changed by the requested
-	// commit: static marker files can legitimately differ after an emergency
-	// production hotfix and used to produce false deployment failures.
-	$verification = trb_docy_verify_deployed_commit( $sha );
-	if ( is_wp_error( $verification ) ) {
-		$message = $verification->get_error_message();
-		trb_docy_store_deploy_status( 'error', $message, $sha );
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return new WP_Error( 'trb_deploy_stale', $message, array( 'status' => 503 ) );
-	}
-
-	// Keep the same verified revision marker used by the SSH installer.
-	$marker = trailingslashit( get_template_directory() ) . '.trb-deployed-sha';
-	$temp_marker = $marker . '.tmp';
-	if ( false === file_put_contents( $temp_marker, $sha . "\n", LOCK_EX ) || ! rename( $temp_marker, $marker ) ) {
-		delete_transient( 'trb_docy_auto_deploy_lock' );
-		return new WP_Error( 'trb_revision_marker_failed', 'Impossibile registrare la revisione verificata.', array( 'status' => 503 ) );
-	}
-	update_option( TRB_DOCY_DEPLOYED_SHA_OPTION, $sha, false );
-	wp_cache_flush();
-	// Some SiteGround PHP workers keep executing the previous opcode after an
-	// overwrite-style theme deploy. Reset it only after source verification, so
-	// the next request cannot serve stale PHP while GitHub already reports green.
-	if ( function_exists( 'opcache_reset' ) ) {
-		@opcache_reset(); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-	}
-	if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
-		sg_cachepress_purge_cache();
-	}
-	trb_docy_store_deploy_status( 'success', 'Tema aggiornato automaticamente.', $sha );
-	delete_transient( 'trb_docy_auto_deploy_lock' );
-	return array( 'success' => true, 'state' => 'deployed', 'sha' => $sha );
+    if ( ! is_string( $sha ) || ! preg_match( '/^[a-f0-9]{40}$/D', $sha ) ) return new WP_Error( 'trb_invalid_sha', 'Revisione non valida.', array( 'status' => 400 ) );
+    if ( ! trb_docy_has_completed_release( $sha ) ) {
+        trb_docy_store_deploy_status( 'pending', 'Pubblicazione in attesa delle verifiche del server.', $sha );
+        return new WP_Error( 'trb_ssh_release_pending', 'La pubblicazione deve completare le verifiche del server.', array( 'status' => 409 ) );
+    }
+    $verification = trb_docy_verify_deployed_commit( $sha );
+    if ( is_wp_error( $verification ) ) return $verification;
+    update_option( TRB_DOCY_DEPLOYED_SHA_OPTION, $sha, false );
+    trb_docy_store_deploy_status( 'success', 'Pubblicazione verificata dal server.', $sha );
+    return array( 'success' => true, 'state' => 'verified', 'sha' => $sha );
 }
 
 /** Read and validate the current GitHub main SHA. */
@@ -469,55 +430,6 @@ function trb_docy_allow_push_deploy_authentication( $result ) {
 	return $result;
 }
 add_filter( 'rest_authentication_errors', 'trb_docy_allow_push_deploy_authentication', PHP_INT_MAX );
-
-/** Schedule a one-time cleanup of every standard plugin that is not active. */
-function trb_docy_schedule_inactive_plugin_cleanup() {
-	if ( get_option( 'trb_docy_inactive_plugins_cleaned_v1' ) || wp_next_scheduled( 'trb_docy_cleanup_inactive_plugins' ) ) {
-		return;
-	}
-	wp_schedule_single_event( time() + MINUTE_IN_SECONDS, 'trb_docy_cleanup_inactive_plugins' );
-}
-add_action( 'init', 'trb_docy_schedule_inactive_plugin_cleanup', 31 );
-
-/** Delete inactive plugins and expose a short-lived audit report for verification. */
-function trb_docy_cleanup_inactive_plugins() {
-	require_once ABSPATH . 'wp-admin/includes/plugin.php';
-
-	$active = (array) get_option( 'active_plugins', array() );
-	if ( is_multisite() ) {
-		$active = array_unique( array_merge( $active, array_keys( (array) get_site_option( 'active_sitewide_plugins', array() ) ) ) );
-	}
-
-	$installed = get_plugins();
-	$inactive  = array_values( array_diff( array_keys( $installed ), $active ) );
-	$report    = array(
-		'time'    => wp_date( 'c' ),
-		'removed' => array(),
-		'errors'  => array(),
-	);
-
-	foreach ( $inactive as $plugin_file ) {
-		$name   = isset( $installed[ $plugin_file ]['Name'] ) ? $installed[ $plugin_file ]['Name'] : $plugin_file;
-		$result = delete_plugins( array( $plugin_file ) );
-		if ( is_wp_error( $result ) ) {
-			$report['errors'][] = array( 'file' => $plugin_file, 'name' => $name, 'message' => $result->get_error_message() );
-		} else {
-			$report['removed'][] = array( 'file' => $plugin_file, 'name' => $name );
-		}
-	}
-
-	update_option( 'trb_docy_inactive_plugins_cleaned_v1', $report, false );
-	$uploads = wp_upload_dir();
-	if ( empty( $uploads['error'] ) ) {
-		$directory = trailingslashit( $uploads['basedir'] ) . 'trb-audit';
-		if ( wp_mkdir_p( $directory ) ) {
-			$file = trailingslashit( $directory ) . 'plugin-cleanup-20260802.json';
-			file_put_contents( $file, wp_json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-			wp_schedule_single_event( time() + DAY_IN_SECONDS, 'trb_docy_remove_plugin_cleanup_report', array( $file ) );
-		}
-	}
-}
-add_action( 'trb_docy_cleanup_inactive_plugins', 'trb_docy_cleanup_inactive_plugins' );
 
 /** Remove only the generated cleanup report from the uploads directory. */
 function trb_docy_remove_plugin_cleanup_report( $file ) {

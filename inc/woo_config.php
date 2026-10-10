@@ -153,36 +153,45 @@ function docy_get_add_to_cart( $product ) {
  */
 function docy_buy_now_add_to_cart() {
 	// Verify nonce
-	if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'docy-buy-now-nonce' ) ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Security check failed.', 'docy' ) ] );
+	if ( ! isset( $_POST['nonce'] ) || ! is_string( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'docy-buy-now-nonce' ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Controllo di sicurezza fallito. Ricarica la pagina e riprova.', 'docy' ) ], 403 );
 	}
 
-	// Get product ID
-	$product_id   = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
-	$quantity     = isset( $_POST['quantity'] ) ? absint( $_POST['quantity'] ) : 1;
-	$variation_id = isset( $_POST['variation_id'] ) ? absint( $_POST['variation_id'] ) : 0;
-	$variation    = isset( $_POST['variation'] ) ? wc_clean( wp_unslash( $_POST['variation'] ) ) : [];
-
-	if ( ! $product_id ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Invalid product.', 'docy' ) ] );
+	foreach ( array( 'product_id', 'quantity', 'variation_id' ) as $key ) {
+		if ( isset( $_POST[ $key ] ) && ( ! is_string( $_POST[ $key ] ) || ! ctype_digit( $_POST[ $key ] ) || (float) $_POST[ $key ] >= PHP_INT_MAX ) ) {
+			wp_send_json_error( [ 'message' => esc_html__( 'Prodotto o quantità non validi.', 'docy' ) ], 400 );
+		}
 	}
-
-	// Clear cart before adding (optional - remove if you want to keep existing cart items)
-	// WC()->cart->empty_cart();
+	$product_id = isset( $_POST['product_id'] ) ? (int) $_POST['product_id'] : 0;
+	$quantity = isset( $_POST['quantity'] ) ? (int) $_POST['quantity'] : 1;
+	$variation_id = isset( $_POST['variation_id'] ) ? (int) $_POST['variation_id'] : 0;
+	$variation = $_POST['variation'] ?? array();
+	if ( ! $product_id || ! $quantity || ! is_array( $variation ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Prodotto o quantità non validi.', 'docy' ) ], 400 );
+	}
+	foreach ( $variation as $key => $value ) {
+		if ( ! is_string( $key ) || ! is_string( $value ) ) wp_send_json_error( [ 'message' => esc_html__( 'Variante del prodotto non valida.', 'docy' ) ], 400 );
+	}
+	$woocommerce = function_exists( 'WC' ) ? WC() : null;
+	$cart = is_object( $woocommerce ) ? ( $woocommerce->cart ?? null ) : null;
+	if ( ! is_object( $cart ) || ! is_callable( array( $cart, 'add_to_cart' ) ) || ! function_exists( 'wc_clean' ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Carrello non disponibile. Riprova più tardi.', 'docy' ) ], 503 );
+	}
+	$variation = wc_clean( wp_unslash( $variation ) );
 
 	// Add product to cart
 	if ( $variation_id ) {
 		// Variable product
-		$cart_item_key = WC()->cart->add_to_cart( $product_id, $quantity, $variation_id, $variation );
+		$cart_item_key = $cart->add_to_cart( $product_id, $quantity, $variation_id, $variation );
 	} else {
 		// Simple product
-		$cart_item_key = WC()->cart->add_to_cart( $product_id, $quantity );
+		$cart_item_key = $cart->add_to_cart( $product_id, $quantity );
 	}
 
-	if ( $cart_item_key ) {
-		wp_send_json_success( [ 'message' => esc_html__( 'Product added to cart successfully.', 'docy' ) ] );
+	if ( is_string( $cart_item_key ) && '' !== $cart_item_key ) {
+		wp_send_json_success( [ 'message' => esc_html__( 'Prodotto aggiunto al carrello.', 'docy' ) ] );
 	} else {
-		wp_send_json_error( [ 'message' => esc_html__( 'Failed to add product to cart.', 'docy' ) ] );
+		wp_send_json_error( [ 'message' => esc_html__( 'Impossibile aggiungere il prodotto al carrello. Riprova.', 'docy' ) ], 409 );
 	}
 }
 add_action( 'wp_ajax_docy_buy_now_add_to_cart', 'docy_buy_now_add_to_cart' );

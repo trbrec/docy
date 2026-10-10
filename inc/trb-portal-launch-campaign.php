@@ -28,11 +28,11 @@ function trb_portal_launch_campaign_roles() {
 }
 
 /**
- * Register the one-time campaign. The overdue fallback protects the campaign
- * if WP-Cron is cleared or the deployment completes shortly before launch.
+ * Register the one-time campaign only after the installed release is verified.
+ * The overdue fallback also recovers an event removed from WP-Cron.
  */
 function trb_portal_schedule_launch_campaign() {
-	if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN ) {
+	if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN || ! trb_docy_has_completed_release() ) {
 		return;
 	}
 
@@ -89,54 +89,63 @@ function trb_portal_launch_campaign_message( WP_User $user ) {
 
 /** Send a small batch, recording every successful delivery to prevent duplicates. */
 function trb_portal_send_launch_campaign_batch() {
-	if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN ) {
+	if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN || ! trb_docy_has_completed_release() ) {
 		return;
 	}
+	$lock = trb_release_process_lock( 'portal-launch:' . TRB_PORTAL_LAUNCH_CAMPAIGN );
+	if ( ! $lock ) return;
+	try {
+		// Recheck after acquiring the lock; another worker may have completed it.
+		if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN || ! trb_docy_has_completed_release() ) return;
 
-	$users  = get_users(
-		array(
-			'role__in' => trb_portal_launch_campaign_roles(),
-			'orderby'  => 'ID',
-			'order'    => 'ASC',
-			'number'   => -1,
-		)
-	);
-	$users = array_values(
-		array_filter(
-			$users,
-			static function( $user ) {
-				$sent     = get_user_meta( $user->ID, '_trb_portal_launch_campaign_sent', true );
-				$attempts = (int) get_user_meta( $user->ID, '_trb_portal_launch_campaign_attempts', true );
-				return TRB_PORTAL_LAUNCH_CAMPAIGN !== $sent && $attempts < 3;
-			}
-		)
-	);
-	$users = array_slice( $users, 0, 20 );
+		$users  = get_users(
+			array(
+				'role__in' => trb_portal_launch_campaign_roles(),
+				'orderby'  => 'ID',
+				'order'    => 'ASC',
+				'number'   => -1,
+			)
+		);
+		$users = array_values(
+			array_filter(
+				$users,
+				static function( $user ) {
+					$sent     = get_user_meta( $user->ID, '_trb_portal_launch_campaign_sent', true );
+					$attempts = (int) get_user_meta( $user->ID, '_trb_portal_launch_campaign_attempts', true );
+					return TRB_PORTAL_LAUNCH_CAMPAIGN !== $sent && $attempts < 3;
+				}
+			)
+		);
+		$users = array_slice( $users, 0, 20 );
 
-	if ( empty( $users ) ) {
-		update_option( 'trb_portal_launch_campaign_completed', TRB_PORTAL_LAUNCH_CAMPAIGN, false );
-		update_option( 'trb_portal_launch_campaign_completed_at', current_time( 'mysql' ), false );
-		return;
-	}
-
-	$subject = 'Inaugurazione del nuovo portale artisti TRB rec';
-	$headers = array(
-		'Content-Type: text/html; charset=UTF-8',
-		'From: TRB rec - Music Publishing <info@trbrec.com>',
-		'Reply-To: TRB rec - Music Publishing <info@trbrec.com>',
-	);
-
-	foreach ( $users as $user ) {
-		$attempts = (int) get_user_meta( $user->ID, '_trb_portal_launch_campaign_attempts', true ) + 1;
-		update_user_meta( $user->ID, '_trb_portal_launch_campaign_attempts', $attempts );
-		if ( wp_mail( $user->user_email, $subject, trb_portal_launch_campaign_message( $user ), $headers ) ) {
-			update_user_meta( $user->ID, '_trb_portal_launch_campaign_sent', TRB_PORTAL_LAUNCH_CAMPAIGN );
-			update_user_meta( $user->ID, '_trb_portal_launch_campaign_sent_at', current_time( 'mysql' ) );
+		if ( empty( $users ) ) {
+			update_option( 'trb_portal_launch_campaign_completed', TRB_PORTAL_LAUNCH_CAMPAIGN, false );
+			update_option( 'trb_portal_launch_campaign_completed_at', current_time( 'mysql' ), false );
+			return;
 		}
-	}
 
-	if ( ! wp_next_scheduled( TRB_PORTAL_LAUNCH_HOOK ) ) {
-		wp_schedule_single_event( time() + MINUTE_IN_SECONDS, TRB_PORTAL_LAUNCH_HOOK );
+		$subject = 'Inaugurazione del nuovo portale artisti TRB rec';
+		$headers = array(
+			'Content-Type: text/html; charset=UTF-8',
+			'From: TRB rec - Music Publishing <info@trbrec.com>',
+			'Reply-To: TRB rec - Music Publishing <info@trbrec.com>',
+		);
+
+		foreach ( $users as $user ) {
+			if ( ! trb_docy_has_completed_release() ) return;
+			$attempts = (int) get_user_meta( $user->ID, '_trb_portal_launch_campaign_attempts', true ) + 1;
+			update_user_meta( $user->ID, '_trb_portal_launch_campaign_attempts', $attempts );
+			if ( wp_mail( $user->user_email, $subject, trb_portal_launch_campaign_message( $user ), $headers ) ) {
+				update_user_meta( $user->ID, '_trb_portal_launch_campaign_sent', TRB_PORTAL_LAUNCH_CAMPAIGN );
+				update_user_meta( $user->ID, '_trb_portal_launch_campaign_sent_at', current_time( 'mysql' ) );
+			}
+		}
+
+		if ( ! wp_next_scheduled( TRB_PORTAL_LAUNCH_HOOK ) ) {
+			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, TRB_PORTAL_LAUNCH_HOOK );
+		}
+	} finally {
+		trb_release_process_unlock( $lock );
 	}
 }
 add_action( TRB_PORTAL_LAUNCH_HOOK, 'trb_portal_send_launch_campaign_batch' );

@@ -16,6 +16,9 @@ function trb_release_process_lock( $scope ) {
 		wp_cache_delete($id,'posts');
 		wp_cache_delete($id,'post_meta');
 	}
+	if ( 0 === strpos( $scope, 'profile:' ) && function_exists( 'wp_cache_delete' ) ) {
+		wp_cache_delete( absint( substr( $scope, 8 ) ), 'user_meta' );
+	}
 	return $handle;
 }
 function trb_release_process_unlock( $handle ) {

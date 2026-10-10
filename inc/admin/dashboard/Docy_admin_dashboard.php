@@ -13,8 +13,7 @@ class Docy_admin_dashboard extends Docy_admin_page {
 	protected string $menu_title;
 
 	/**
-	 * [__construct description]
-	 * @method __construct
+	 * Configure and register the theme dashboard.
 	 */
 	public function __construct() {
 
@@ -27,18 +26,16 @@ class Docy_admin_dashboard extends Docy_admin_page {
 	}
 
 	/**
-	 * [display description]
-	 * @method display
-	 * @return [type]  [description]
+	 * Render the dashboard template.
+	 * @return void
 	 */
 	public function display() {
 		include_once( get_template_directory() . '/inc/admin/dashboard/dashboard.php' );
 	}
 
 	/**
-	 * [save description]
-	 * @method save
-	 * @return [type] [description]
+	 * The dashboard has no editable settings to save.
+	 * @return void
 	 */
 	public function save() {
 

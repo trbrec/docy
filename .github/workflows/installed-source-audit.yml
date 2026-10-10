@@ -1,0 +1,83 @@
+name: Read-only installed source audit
+on:
+  push:
+    branches: [fix/portal-audit-20261010]
+    paths:
+      - tools/audit-installed-source.php
+      - .github/workflows/installed-source-audit.yml
+permissions:
+  contents: read
+concurrency:
+  group: installed-source-audit
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only inventory
+        run: php -l tools/audit-installed-source.php
+      - name: Read installed code using the existing hosting connection
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "${HOME}/.ssh" /tmp/trb-source-audit
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          qa_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /tmp/trb-source-audit.XXXXXXXX')
+          [[ "${qa_dir}" =~ ^/tmp/trb-source-audit\.[A-Za-z0-9]{8}$ ]]
+          cleanup() {
+            ssh "${ssh_opts[@]}" "${remote}" "rm -f '${qa_dir}/inventory.php'; rmdir '${qa_dir}'" >/dev/null 2>&1 || true
+            ssh-add -D >/dev/null 2>&1 || true
+            rm -f "${HOME}/.ssh/id_ed25519"
+          }
+          trap cleanup EXIT
+          scp -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/audit-installed-source.php "${remote}:${qa_dir}/inventory.php"
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php'" > /tmp/trb-source-audit/installed-source.json
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php' --sources" > /tmp/trb-source-audit/review-sources.json
+          ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${qa_dir}/inventory.php' --database-shape" > /tmp/trb-source-audit/database-shape.json
+          ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${qa_dir}/inventory.php' --crm-shape" > /tmp/trb-source-audit/crm-shape.json
+          ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${qa_dir}/inventory.php' --crm-schema" > /tmp/trb-source-audit/crm-schema.json
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php' --log-summary" > /tmp/trb-source-audit/log-summary.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('/tmp/trb-source-audit/installed-source.json').read_text())
+          assert report['read_only'] is True
+          assert report['roots']['portal_theme']['available'] is True
+          assert report['roots']['crm_app']['available'] is True
+          sources = json.loads(Path('/tmp/trb-source-audit/review-sources.json').read_text())
+          assert sources['read_only'] is True and len(sources['sources']) >= 39
+          shape = json.loads(Path('/tmp/trb-source-audit/database-shape.json').read_text())
+          assert shape['read_only'] is True
+          crm = json.loads(Path('/tmp/trb-source-audit/crm-shape.json').read_text())
+          assert crm['read_only'] is True
+          schema = json.loads(Path('/tmp/trb-source-audit/crm-schema.json').read_text())
+          assert schema['read_only'] is True and schema['contains_rows'] is False
+          assert all(t in schema['tables'] for t in ('contacts', 'submissions', 'users'))
+          logs = json.loads(Path('/tmp/trb-source-audit/log-summary.json').read_text())
+          assert logs['read_only'] is True and logs['contains_messages'] is False
+          print('Installed code and read-only database metadata recorded; no application worker, data writes, mail or external integration calls.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installed-source-inventory
+          path: /tmp/trb-source-audit/*.json
+          retention-days: 7
+          if-no-files-found: error

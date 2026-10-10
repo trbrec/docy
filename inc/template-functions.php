@@ -301,11 +301,14 @@ function docy_get_postTitleArray( $postType = 'post' ) {
 /**
  * Get a specific html tag from content
  *
- * @return a specific HTML tag from the loaded content
+ * @return void
  */
 function docy_get_html_tag( $tag = 'blockquote', $content = '' ) {
+	if ( ! is_string( $content ) || '' === trim( $content ) ) {
+		return;
+	}
 	$dom = new DOMDocument();
-	$dom->loadHTML( $content );
+	$dom->loadHTML( '<?xml encoding="UTF-8">' . $content, LIBXML_NONET );
 	$divs = $dom->getElementsByTagName( $tag );
 	$i    = 0;
 	foreach ( $divs as $div ) {
@@ -325,6 +328,7 @@ function docy_get_html_tag( $tag = 'blockquote', $content = '' ) {
  * @return int
  */
 function docy_get_page_template_id( $template = 'page-job-apply-form.php' ) {
+	$page_id = 0;
 	$pages = get_pages( [
 		'meta_key'   => '_wp_page_template',
 		'meta_value' => $template
@@ -1222,7 +1226,7 @@ function docy_get_post_options( string $post_type ): array {
 /**
  * Page title
  *
- * @return string
+ * @return void
  */
 function docy_page_title() {
 	$opt = get_option( 'docy_opt' );
@@ -1258,7 +1262,7 @@ function docy_page_title() {
 /**
  * Page subtitle
  *
- * @return string
+ * @return void
  */
 function docy_page_subtitle() {
 	$opt      = get_option( 'docy_opt' );
@@ -1448,4 +1452,3 @@ function docy_render_search_form( array $args = [] ): void {
 	</form>
 	<?php
 }
-

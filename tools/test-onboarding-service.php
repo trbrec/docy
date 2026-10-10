@@ -37,6 +37,11 @@ service_check($ledger->practice($id)['snapshot']['plans']===$snapshot['plans'],'
 $details=['privacy_acknowledged'=>true,'billing'=>['address_1'=>'Via collaudo 11/A','street'=>'Via collaudo','street_number'=>'11/A','city'=>'Roma','postcode'=>'00100','country'=>'IT','phone'=>'+393330000000'],'tax_code'=>'RSSMRA90A01H501W'];
 $details['profile']=['birth_date'=>'1990-01-01','birth_place'=>'Roma','birth_province'=>'RM','document_number'=>'CA12345AB','document_expiry'=>'2090-01-01'];
 $service->details($ledger->practice($id),$details);
+foreach(['+216 20 000 000','00216 20 000 000'] as $phone){
+ $international=$details;$international['billing']['phone']=$phone;$service->details($ledger->practice($id),$international);
+ service_check($ledger->details($id)['billing']['phone']==='+21620000000','International number survives administrative storage');
+}
+$service->details($ledger->practice($id),$details);
 service_check($ledger->details($id)['billing']['street_number']==='11/A'&&$ledger->details($id)['profile']['document_number']==='CA12345AB','structured portal fields survive CRM storage');
 foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>10+$i,'folder_id'=>333,'hash'=>'h'.$i,'name'=>$slot.'.pdf']);
 $mismatch=$details;$mismatch['profile']['birth_date']='1991-01-01';$service->details($ledger->practice($id),$mismatch);$service->identity($ledger->practice($id));$service->processIdentity($id);service_check($service->view($ledger->practice($id))['state']==='identity_review','declared birth date cannot contradict the documents');$service->details($ledger->practice($id),$details);$service->identity($ledger->practice($id));$service->processIdentity($id);
@@ -89,4 +94,3 @@ service_check(empty($ledger->details($freeId)['proposal_read_at']),'automatic TR
 service_reject(fn()=>$service->dispatchSignature($ledger->practice($freeId)),'owner approval still precedes the chargeable signature dossier');
 $service->view($ledger->practice($freeId));service_check($ledger->practice($freeId)['state']==='owner_review','TRB refresh is idempotent');
 echo "Onboarding orchestration, trusted receipts, one dossier, both signatures, archive and account binding verified.\n";
-

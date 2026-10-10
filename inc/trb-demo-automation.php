@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/trb-webdav.php';
 require_once __DIR__ . '/trb-demo-context.php';
 /**
  * Automated demo evaluation pipeline.
@@ -47,21 +48,11 @@ function trb_demo_extract_text( $file ) {
 }
 
 function trb_demo_remote_url( $endpoint, $relative_path ) {
-	$segments = array_filter( explode( '/', str_replace( '\\', '/', $relative_path ) ), 'strlen' );
-	return untrailingslashit( $endpoint ) . '/' . implode( '/', array_map( 'rawurlencode', $segments ) );
+	return trb_webdav_url( $endpoint, $relative_path );
 }
 
 function trb_demo_webdav_request( $method, $relative_path, $body = null, $headers = array() ) {
-	$settings = trb_demo_settings();
-	if ( empty( $settings['webdav_endpoint'] ) || empty( $settings['pcloud_user'] ) || empty( $settings['pcloud_pass'] ) ) return new WP_Error( 'missing_webdav_settings' );
-	if ( 'PUT' === strtoupper( $method ) && function_exists( 'trb_resource_pcloud_guard' ) ) {
-		$guard = trb_resource_pcloud_guard( is_string( $body ) ? strlen( $body ) : 0 );
-		if ( is_wp_error( $guard ) ) return $guard;
-	}
-	$headers['Authorization'] = 'Basic ' . base64_encode( $settings['pcloud_user'] . ':' . $settings['pcloud_pass'] ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-	$args = array( 'method' => $method, 'headers' => $headers, 'timeout' => 90, 'redirection' => 0 );
-	if ( null !== $body ) $args['body'] = $body;
-	return wp_remote_request( trb_demo_remote_url( $settings['webdav_endpoint'], $relative_path ), $args );
+	return trb_webdav_request( trb_demo_settings(), $method, $relative_path, $body, $headers );
 }
 
 function trb_demo_ensure_remote_folder( $relative_path ) {
@@ -324,35 +315,38 @@ function trb_demo_sheet_row( $request_id, $payload, $remote ) {
 		'email' => $payload['email'], 'titolo' => $payload['title'], 'genere' => $payload['genre'] ?? '',
 		'link_provino' => trb_demo_remote_url( trb_demo_settings()['webdav_endpoint'], $remote['folder'] ), 'request_id' => $request_id,
 	);
-	update_post_meta( $request_id, '_trb_demo_sheet_row', $row );
+	if ( ! trb_demo_save_meta( $request_id, '_trb_demo_sheet_row', $row ) ) return false;
 	$settings = trb_demo_settings();
 	if ( empty( $settings['sheet_webhook_url'] ) ) return false;
 	$row_json = wp_json_encode( $row );
 	$envelope = array( 'payload_base64' => base64_encode( $row_json ), 'signature' => hash_hmac( 'sha256', $row_json, $settings['sheet_webhook_secret'] ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 	$response = trb_demo_post_sheet_webhook( $settings['sheet_webhook_url'], $envelope );
 	$response_data = is_wp_error( $response ) ? array() : json_decode( wp_remote_retrieve_body( $response ), true );
-	$ok = ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) < 300 && ! empty( $response_data['success'] );
-	update_post_meta( $request_id, '_trb_demo_sheet_synced', $ok ? time() : 0 );
-	return $ok;
+	$code = is_wp_error( $response ) ? 0 : wp_remote_retrieve_response_code( $response );
+	$ok = $code >= 200 && $code < 300 && is_array( $response_data ) && true === ( $response_data['success'] ?? false );
+	return trb_demo_save_meta( $request_id, '_trb_demo_sheet_synced', $ok ? time() : 0 ) && $ok;
 }
 
 function trb_demo_sync_sheet_retry( $request_id ) {
-	$payload = get_post_meta( absint( $request_id ), '_trb_demo_payload', true );
-	$remote  = get_post_meta( absint( $request_id ), '_trb_demo_remote', true );
-	if ( ! is_array( $payload ) || empty( $remote['folder'] ) || get_post_meta( $request_id, '_trb_demo_sheet_synced', true ) ) return;
-	if ( trb_demo_sheet_row( $request_id, $payload, $remote ) ) {
-		delete_post_meta( $request_id, '_trb_demo_sheet_attempts' );
-		return;
-	}
-	$attempts = (int) get_post_meta( $request_id, '_trb_demo_sheet_attempts', true ) + 1;
-	update_post_meta( $request_id, '_trb_demo_sheet_attempts', $attempts );
-	if ( $attempts < 5 ) {
-		if ( ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) wp_schedule_single_event( time() + 15 * MINUTE_IN_SECONDS, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
-		return;
-	}
-	$body = '<p>La valutazione demo #' . absint( $request_id ) . ' è stata elaborata, ma la riga non è stata registrata nel foglio Google dopo cinque tentativi.</p>';
-	if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'demo-sheet-failed-' . absint( $request_id ), 'Sincronizzazione demo con Google Sheet non riuscita', $body, true );
-	else wp_mail( 'info@trbrec.com', 'Sincronizzazione demo con Google Sheet non riuscita', wp_strip_all_tags( $body ) );
+	return trb_demo_run_locked( $request_id, 'trb_portal_sync_demo_sheet', static function( $request_id ) {
+		$payload = get_post_meta( absint( $request_id ), '_trb_demo_payload', true );
+		$remote  = get_post_meta( absint( $request_id ), '_trb_demo_remote', true );
+		if ( ! is_array( $payload ) || empty( $remote['folder'] ) || get_post_meta( $request_id, '_trb_demo_sheet_synced', true ) ) return;
+		if ( (int) get_post_meta( $request_id, '_trb_demo_sheet_attempts', true ) >= 5 ) return;
+		if ( trb_demo_sheet_row( $request_id, $payload, $remote ) ) {
+			delete_post_meta( $request_id, '_trb_demo_sheet_attempts' );
+			return;
+		}
+		$attempts = (int) get_post_meta( $request_id, '_trb_demo_sheet_attempts', true ) + 1;
+		if ( ! trb_demo_save_meta( $request_id, '_trb_demo_sheet_attempts', $attempts ) ) return;
+		if ( $attempts < 5 ) {
+			if ( ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) wp_schedule_single_event( time() + 15 * MINUTE_IN_SECONDS, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
+			return;
+		}
+		$body = '<p>La valutazione demo #' . absint( $request_id ) . ' è stata elaborata, ma la riga non è stata registrata nel foglio Google dopo cinque tentativi.</p>';
+		if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'demo-sheet-failed-' . absint( $request_id ), 'Sincronizzazione demo con Google Sheet non riuscita', $body, true );
+		else wp_mail( 'info@trbrec.com', 'Sincronizzazione demo con Google Sheet non riuscita', wp_strip_all_tags( $body ) );
+	} );
 }
 add_action( 'trb_portal_sync_demo_sheet', 'trb_demo_sync_sheet_retry' );
 
@@ -393,48 +387,86 @@ function trb_demo_migrate_delivery_window() {
 }
 add_action( 'init', 'trb_demo_migrate_delivery_window', 25 );
 
-function trb_demo_process_request( $request_id ) {
-	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
-	if ( ! is_array( $payload ) || ! in_array( $payload['status'], array( 'queued', 'retry' ), true ) ) return;
-	$payload['request_id'] = absint($request_id);
-	$delete_after = (int) get_post_meta( $request_id, '_trb_demo_delete_after', true );
-	if ( $delete_after && ! wp_next_scheduled( 'trb_portal_cleanup_demo', array( $request_id ) ) ) wp_schedule_single_event( $delete_after, 'trb_portal_cleanup_demo', array( $request_id ) );
-	$remote = trb_demo_upload_to_pcloud( $payload );
-	if ( ! is_wp_error( $remote ) ) update_post_meta( $request_id, '_trb_demo_remote', $remote );
-	// Preserve a successful evaluation even when the independent archive transfer fails.
-	$saved_review = get_post_meta( $request_id, '_trb_demo_review', true );
-	$saved_usage = get_post_meta( $request_id, '_trb_demo_openai_usage', true );
-	$review_result = $saved_review && is_array( $saved_usage ) && ( empty($payload['audio_file']) || !function_exists('trb_demo_audio_evidence_valid') || trb_demo_audio_evidence_valid($saved_review,!empty($payload['text_file'])) ) && ( ! function_exists('trb_demo_team_voice_valid') || trb_demo_team_voice_valid($saved_review) ) && ( ! function_exists('trb_demo_service_selection_prompt') || in_array(get_post_meta($request_id,'_trb_demo_service_decision',true)['status'] ?? '',array('selected','none'),true) ) ? array( 'review' => $saved_review, 'usage' => $saved_usage ) : trb_demo_openai_review( $payload );
-	if ( ! is_wp_error( $review_result ) ) {
-		update_post_meta( $request_id, '_trb_demo_review', $review_result['review'] );
-		update_post_meta( $request_id, '_trb_demo_openai_usage', $review_result['usage'] );
-		update_post_meta( $request_id, '_trb_demo_cost_usd', (float) ( $review_result['usage']['estimated_cost_usd'] ?? 0 ) );
-	}
-	if ( is_wp_error($review_result) && in_array($review_result->get_error_code(),array('demo_review_incomplete','demo_team_voice','demo_service_decision_invalid','demo_source_quote_mismatch','demo_audio_evidence'),true) ) update_post_meta($request_id,'_trb_demo_rejected_review',$review_result->get_error_data());
-	if ( is_wp_error( $remote ) || is_wp_error( $review_result ) ) {
-		$attempts = (int) get_post_meta( $request_id, '_trb_demo_attempts', true ) + 1;
-		update_post_meta( $request_id, '_trb_demo_attempts', $attempts );
-		update_post_meta( $request_id, '_trb_demo_last_error', is_wp_error( $remote ) ? $remote->get_error_message() : $review_result->get_error_message() );
-		update_post_meta( $request_id, '_trb_demo_last_error_code', is_wp_error( $remote ) ? sanitize_key( $remote->get_error_code() ) : sanitize_key( $review_result->get_error_code() ) );
-		if ( $attempts < 3 ) { $payload['status'] = 'retry'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_process_demo', array( $request_id ) ); }
-		else { $payload['status'] = 'manual_review'; update_post_meta( $request_id, '_trb_demo_payload', $payload ); wp_mail( ! empty($payload['owner_qa']) ? 'andrea.tognassi@trbrec.com' : 'info@trbrec.com', 'Provino da verificare manualmente: ' . $payload['title'], 'La procedura automatica non è riuscita dopo tre tentativi. Richiesta #' . $request_id ); }
+/** Serialize archive, analysis, delivery and retention for the same request. */
+function trb_demo_run_locked( $request_id, $hook, $worker ) {
+	$request_id = absint( $request_id );
+	if ( ! $request_id || ! function_exists( 'trb_release_process_lock' ) ) return;
+	$lock = trb_release_process_lock( 'demo-request:' . $request_id );
+	if ( ! $lock ) {
+		if ( 'trb_demo_recover_stalled_requests' !== $hook && ! wp_next_scheduled( $hook, array( $request_id ) ) ) wp_schedule_single_event( time() + 5 * MINUTE_IN_SECONDS, $hook, array( $request_id ) );
 		return;
 	}
-	$review = $review_result['review'];
-	$usage = $review_result['usage'];
-	update_post_meta( $request_id, '_trb_demo_review', $review );
-	update_post_meta( $request_id, '_trb_demo_openai_usage', $usage );
-	update_post_meta( $request_id, '_trb_demo_cost_usd', (float) $usage['estimated_cost_usd'] );
-	if ( ! trb_demo_sheet_row( $request_id, $payload, $remote ) && ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) {
-		wp_schedule_single_event( time() + 15 * MINUTE_IN_SECONDS, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
-	}
-	delete_post_meta( $request_id, '_trb_demo_last_error' );
-	delete_post_meta( $request_id, '_trb_demo_last_error_code' );
-	$payload['status'] = 'ready';
-	update_post_meta( $request_id, '_trb_demo_payload', $payload );
-	$send_at = max( time() + 30, (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true ) );
-	if ( ! trb_demo_is_test_payload( $payload ) ) $send_at = trb_portal_demo_next_delivery_time( $send_at );
-	wp_schedule_single_event( $send_at, 'trb_portal_send_demo_review', array( $request_id ) );
+	try {
+		wp_cache_delete( $request_id, 'post_meta' );
+		return $worker( $request_id );
+	} finally { trb_release_process_unlock( $lock ); }
+}
+
+/** WordPress returns false for unchanged values too; verify the persisted value. */
+function trb_demo_save_meta( $request_id, $key, $value ) {
+	update_post_meta( $request_id, $key, wp_slash( $value ) );
+	wp_cache_delete( $request_id, 'post_meta' );
+	$stored = get_post_meta( $request_id, $key, true );
+	return is_array( $value ) || is_object( $value ) ? $stored === $value : (string) $stored === (string) $value;
+}
+
+function trb_demo_process_request( $request_id ) {
+	return trb_demo_run_locked( $request_id, 'trb_portal_process_demo', static function( $request_id ) {
+		$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
+		if ( ! is_array( $payload ) || ! in_array( $payload['status'], array( 'queued', 'retry' ), true ) ) return;
+		$payload['request_id'] = absint($request_id);
+		$saved_result = get_post_meta( $request_id, '_trb_demo_review_result', true );
+		if ( get_post_meta( $request_id, '_trb_demo_analysis_pending', true ) && ! is_array( $saved_result ) ) {
+			$payload['status'] = 'manual_review';
+			trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload );
+			trb_demo_save_meta( $request_id, '_trb_demo_last_error_code', 'analysis_result_uncertain' );
+			return;
+		}
+		$delete_after = (int) get_post_meta( $request_id, '_trb_demo_delete_after', true );
+		if ( $delete_after && ! wp_next_scheduled( 'trb_portal_cleanup_demo', array( $request_id ) ) ) wp_schedule_single_event( $delete_after, 'trb_portal_cleanup_demo', array( $request_id ) );
+		$remote = trb_demo_upload_to_pcloud( $payload );
+		if ( ! is_wp_error( $remote ) && ! trb_demo_save_meta( $request_id, '_trb_demo_remote', $remote ) ) return;
+		// Preserve a successful evaluation even when the independent archive transfer fails.
+		$saved_review = is_array( $saved_result ) ? ( $saved_result['review'] ?? '' ) : get_post_meta( $request_id, '_trb_demo_review', true );
+		$saved_usage = is_array( $saved_result ) ? ( $saved_result['usage'] ?? null ) : get_post_meta( $request_id, '_trb_demo_openai_usage', true );
+		$reusable = $saved_review && is_array( $saved_usage ) && ( empty($payload['audio_file']) || !function_exists('trb_demo_audio_evidence_valid') || trb_demo_audio_evidence_valid($saved_review,!empty($payload['text_file'])) ) && ( ! function_exists('trb_demo_team_voice_valid') || trb_demo_team_voice_valid($saved_review) ) && ( ! function_exists('trb_demo_service_selection_prompt') || in_array(get_post_meta($request_id,'_trb_demo_service_decision',true)['status'] ?? '',array('selected','none'),true) );
+		if ( is_array( $saved_result ) && ! $reusable ) {
+			$payload['status'] = 'manual_review';
+			trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload );
+			trb_demo_save_meta( $request_id, '_trb_demo_last_error_code', 'review_requires_verification' );
+			return;
+		}
+		if ( $reusable ) $review_result = array( 'review' => $saved_review, 'usage' => $saved_usage );
+		else {
+			if ( ! trb_demo_save_meta( $request_id, '_trb_demo_analysis_pending', gmdate( 'c' ) ) ) return;
+			$review_result = trb_demo_openai_review( $payload );
+			if ( ! is_wp_error( $review_result ) && ! trb_demo_save_meta( $request_id, '_trb_demo_review_result', $review_result ) ) return;
+			delete_post_meta( $request_id, '_trb_demo_analysis_pending' );
+		}
+		if ( ! is_wp_error( $review_result ) ) {
+			if ( ! trb_demo_save_meta( $request_id, '_trb_demo_review', $review_result['review'] ) || ! trb_demo_save_meta( $request_id, '_trb_demo_openai_usage', $review_result['usage'] ) || ! trb_demo_save_meta( $request_id, '_trb_demo_cost_usd', (float) ( $review_result['usage']['estimated_cost_usd'] ?? 0 ) ) ) return;
+		}
+		if ( is_wp_error($review_result) && in_array($review_result->get_error_code(),array('demo_review_incomplete','demo_team_voice','demo_service_decision_invalid','demo_source_quote_mismatch','demo_audio_evidence'),true) ) update_post_meta($request_id,'_trb_demo_rejected_review',$review_result->get_error_data());
+		if ( is_wp_error( $remote ) || is_wp_error( $review_result ) ) {
+			$attempts = (int) get_post_meta( $request_id, '_trb_demo_attempts', true ) + 1;
+			update_post_meta( $request_id, '_trb_demo_attempts', $attempts );
+			update_post_meta( $request_id, '_trb_demo_last_error', is_wp_error( $remote ) ? $remote->get_error_message() : $review_result->get_error_message() );
+			update_post_meta( $request_id, '_trb_demo_last_error_code', is_wp_error( $remote ) ? sanitize_key( $remote->get_error_code() ) : sanitize_key( $review_result->get_error_code() ) );
+			if ( $attempts < 3 ) { $payload['status'] = 'retry'; if ( ! trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload ) ) return; wp_schedule_single_event( time() + ( trb_demo_is_test_payload( $payload ) ? MINUTE_IN_SECONDS : HOUR_IN_SECONDS ), 'trb_portal_process_demo', array( $request_id ) ); }
+			else { $payload['status'] = 'manual_review'; if ( ! trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload ) ) return; wp_mail( ! empty($payload['owner_qa']) ? 'andrea.tognassi@trbrec.com' : 'info@trbrec.com', 'Provino da verificare manualmente: ' . $payload['title'], 'La procedura automatica non è riuscita dopo tre tentativi. Richiesta #' . $request_id ); }
+			return;
+		}
+		if ( ! trb_demo_sheet_row( $request_id, $payload, $remote ) && ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) {
+			wp_schedule_single_event( time() + 15 * MINUTE_IN_SECONDS, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
+		}
+		delete_post_meta( $request_id, '_trb_demo_last_error' );
+		delete_post_meta( $request_id, '_trb_demo_last_error_code' );
+		$payload['status'] = 'ready';
+		if ( ! trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload ) ) return;
+		$send_at = max( time() + 30, (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true ) );
+		if ( ! trb_demo_is_test_payload( $payload ) ) $send_at = trb_portal_demo_next_delivery_time( $send_at );
+		wp_schedule_single_event( $send_at, 'trb_portal_send_demo_review', array( $request_id ) );
+	} );
 }
 add_action( 'trb_portal_process_demo', 'trb_demo_process_request' );
 
@@ -478,90 +510,101 @@ function trb_demo_services_note( $profile, $code = '', $context = array() ) {
 }
 
 function trb_demo_send_review( $request_id ) {
-	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
-	$review = get_post_meta( $request_id, '_trb_demo_review', true );
-	if ( ! is_array( $payload ) || 'ready' !== $payload['status'] || ! $review || empty( $payload['email'] ) ) return;
-	if ( trb_demo_defer_review_if_needed( $request_id, $payload ) ) return;
-    $quality_error = function_exists('trb_demo_team_voice_valid') && !trb_demo_team_voice_valid($review) ? 'Voce del mittente non coerente con il team.' : '';
-    if ( function_exists('trb_demo_service_selection_prompt') && ! in_array(get_post_meta($request_id,'_trb_demo_service_decision',true)['status'] ?? '',array('selected','none'),true) ) $quality_error = 'Decisione sui servizi mancante o non valida: verifica richiesta prima dell’invio.';
-    if ( !empty($payload['audio_file']) && function_exists('trb_demo_audio_evidence_valid') && !trb_demo_audio_evidence_valid($review,!empty($payload['text_file'])) ) $quality_error='La valutazione audio contiene citazioni o timestamp non verificati.';
-    $selection = get_post_meta($request_id,'_trb_demo_service_selection',true);
-    if ( function_exists('trb_demo_extract_service_selection') ) {
-        $stored_decision = trb_demo_extract_service_selection($review . "\nTRB_SERVICE_JSON: " . json_encode($selection), !empty($payload['audio_file']));
-        if ( !in_array($stored_decision['status'],array('selected','none'),true) ) $quality_error = 'Proposta di supporto assente o non sostenuta dal testo definitivo.';
-    }
-    if ( is_array($selection) && !empty($selection['reason']) && function_exists('trb_demo_team_voice_valid') && !trb_demo_team_voice_valid($selection['reason']) ) $quality_error = 'Proposta di supporto non coerente con la voce del team.';
-    if ( $quality_error ) {
-        $payload['status']='manual_review'; update_post_meta($request_id,'_trb_demo_payload',$payload);
-        update_post_meta($request_id,'_trb_demo_last_error',$quality_error);
-        return;
-    }
+	return trb_demo_run_locked( $request_id, 'trb_portal_send_demo_review', static function( $request_id ) {
+		$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
+		$review = get_post_meta( $request_id, '_trb_demo_review', true );
+		if ( ! is_array( $payload ) || 'ready' !== $payload['status'] || ! $review || empty( $payload['email'] ) ) return;
+		if ( trb_demo_defer_review_if_needed( $request_id, $payload ) ) return;
+	    $quality_error = function_exists('trb_demo_team_voice_valid') && !trb_demo_team_voice_valid($review) ? 'Voce del mittente non coerente con il team.' : '';
+	    if ( function_exists('trb_demo_service_selection_prompt') && ! in_array(get_post_meta($request_id,'_trb_demo_service_decision',true)['status'] ?? '',array('selected','none'),true) ) $quality_error = 'Decisione sui servizi mancante o non valida: verifica richiesta prima dell’invio.';
+	    if ( !empty($payload['audio_file']) && function_exists('trb_demo_audio_evidence_valid') && !trb_demo_audio_evidence_valid($review,!empty($payload['text_file'])) ) $quality_error='La valutazione audio contiene citazioni o timestamp non verificati.';
+	    $selection = get_post_meta($request_id,'_trb_demo_service_selection',true);
+	    if ( function_exists('trb_demo_extract_service_selection') ) {
+	        $stored_decision = trb_demo_extract_service_selection($review . "\nTRB_SERVICE_JSON: " . json_encode($selection), !empty($payload['audio_file']));
+	        if ( !in_array($stored_decision['status'],array('selected','none'),true) ) $quality_error = 'Proposta di supporto assente o non sostenuta dal testo definitivo.';
+	    }
+	    if ( is_array($selection) && !empty($selection['reason']) && function_exists('trb_demo_team_voice_valid') && !trb_demo_team_voice_valid($selection['reason']) ) $quality_error = 'Proposta di supporto non coerente con la voce del team.';
+	    if ( $quality_error ) {
+	        $payload['status']='manual_review'; update_post_meta($request_id,'_trb_demo_payload',$payload);
+	        update_post_meta($request_id,'_trb_demo_last_error',$quality_error);
+	        return;
+	    }
 
-	$name = trim((string)($payload['first_name'] ?? '')) ?: 'Artista';
-	$artist_name = ! empty( $payload['artist_name'] ) ? $payload['artist_name'] : trim( $payload['first_name'] . ' ' . $payload['last_name'] );
-	$affiliation = function_exists( 'trb_portal_profile_affiliation' ) ? trb_portal_profile_affiliation( $payload['profile'] ) : ( 'trb' === $payload['profile'] ? 'TRB rec - Music Publishing' : 'Digital Distribution Bundle' );
-	if (!in_array($payload['profile'] ?? '',array('dds','ddb12','ddb','ddb_trb','trb'),true)) $affiliation='Non dichiarata';
-	$review_html = trb_demo_review_html( $review );
-	$focus_label = trb_demo_focus_options()[ $payload['review_context']['focus'] ?? 'overall' ] ?? 'Valutazione complessiva';
-	$genre_html = '<span style="display:block;margin-top:5px;"><strong>Approfondimento richiesto:</strong> ' . esc_html( $focus_label ) . '</span>';
-	$genre_html .= ! empty( $payload['genre'] ) ? '<span style="display:block;margin-top:5px;color:#66708a;"><strong style="color:#39415a;">Genere musicale:</strong> ' . esc_html( $payload['genre'] ) . '</span>' : '';
-	$is_revision=!empty($payload['revision']);
-	$intro=$is_revision ? 'abbiamo valutato la nuova versione del tuo provino riprendendo il riscontro precedente. Trovi il confronto sui materiali disponibili e le prossime priorità di lavoro.' : 'abbiamo completato la valutazione del tuo provino. Trovi i punti da conservare e gli interventi consigliati in ordine di priorità.';
-	if ($is_revision) {
-		$comparison=get_post_meta($request_id,'_trb_demo_revision_comparison',true);
-		$version=max(2,(int)($payload['revision']['version'] ?? 2));
-		$genre_html.='<span style="display:block;margin-top:9px;"><strong>Revisione:</strong> versione '.$version.' · riscontro precedente #'.absint($payload['revision']['parent_id'] ?? 0).'</span>';
-		$basis=array('valutazione scritta precedente');
-		if (!empty($comparison['previous_text'])) $basis[]='testo precedente';
-		if (!empty($comparison['previous_audio'])) $basis[]='audio precedente';
-		$genre_html.='<span style="display:block;margin-top:5px;"><strong>Confronto basato su:</strong> '.esc_html(implode(', ',$basis)).' e materiali della nuova versione.</span>';
-	}
-	$service_note = trb_demo_services_note( $payload['profile'] ?? '', '', array( 'email' => $payload['email'], 'owner_qa' => trb_demo_is_test_payload( $payload ), 'selection' => get_post_meta( $request_id, '_trb_demo_service_selection', true ) ) );
-	$body = '<!doctype html><html><body style="margin:0;background:#f3f5f9;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#20263b;">'
-		. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5f9;padding:24px 12px;"><tr><td align="center">'
-		. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 35px rgba(20,28,60,.10);">'
-		. '<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:16px;padding:28px 34px;background:linear-gradient(135deg,#091b3c,#303e9f);color:#ffffff;"><div style="font-size:12px;letter-spacing:1.5px;font-weight:700;">TRB REC - MUSIC PUBLISHING</div><h1 style="margin:10px 0 0;font-size:28px;line-height:1.2;">Valutazione del provino</h1></td></tr>'
-		. '<tr><td style="padding:34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#20263b;"><p style="margin:0 0 16px;font-size:16px;">Gentile <strong>' . esc_html( $name ) . '</strong>,</p>'
-		. '<p style="margin:0 0 24px;line-height:1.65;">'.esc_html($intro).'</p>'
-		. '<div style="padding:18px 20px;background:#f7f8fc;border:1px solid #e4e7f0;border-radius:10px;"><div style="font-size:12px;color:#66708a;text-transform:uppercase;letter-spacing:1px;">Provino analizzato</div><strong style="display:block;margin-top:5px;font-size:20px;color:#101936;">' . esc_html( $payload['title'] ) . '</strong><span style="display:block;margin-top:9px;color:#66708a;"><strong style="color:#39415a;">Artista:</strong> ' . esc_html( $artist_name ) . '</span>' . $genre_html . '<span style="display:block;margin-top:5px;color:#66708a;"><strong style="color:#39415a;">Etichetta:</strong> ' . esc_html( $affiliation ) . '</span></div>'
-		. '<div style="margin-top:28px;line-height:1.7;font-size:16px;">' . $review_html . '</div>' . $service_note
-		. '<div style="margin-top:34px;padding-top:22px;border-top:1px solid #e4e7f0;"><p style="margin:0 0 6px;">Un saluto,</p><strong style="font-size:16px;color:#101936;">TRB rec - Music Publishing</strong><p style="margin:7px 0 0;color:#4c5670;line-height:1.55;">A&amp;R Management<br><a href="https://artist.trbrec.com/" style="color:#4038e8;text-decoration:none;">artist.trbrec.com</a></p></div>'
-		. '<div style="margin-top:24px;padding-top:18px;border-top:1px solid #e4e7f0;color:#7a8296;font-size:10px;line-height:1.45;"><strong>Nota di riservatezza:</strong> Questo documento è destinato esclusivamente al destinatario. Tutte le informazioni contenute, compresi eventuali allegati, sono confidenziali e riservate ai sensi del D.Lgs. 196/2003 e del Regolamento europeo 679/2016 (GDPR). Ne è vietato qualsiasi utilizzo, divulgazione o distribuzione non autorizzati. Se avete ricevuto questo messaggio per errore, vi preghiamo di contattare immediatamente il mittente e cancellare l’e-mail.<br><br><strong>Confidentiality notice:</strong> This e-mail, including any attachments, is intended solely for the named recipient and may contain confidential and privileged information pursuant to Italian Legislative Decree 196/2003 and European Regulation 679/2016 (GDPR). Any unauthorized review, use, disclosure or distribution is prohibited. If you are not the intended recipient, please notify the sender by reply e-mail and delete all copies of the original message.</div>'
-		. '</td></tr></table></td></tr></table></body></html>';
-	$subject = ($is_revision ? 'Valutazione revisione v'.$version.' del provino “' : 'Valutazione del provino “') . $payload['title'] . '” | TRB rec';
-	$headers = array(
-		'Content-Type: text/html; charset=UTF-8',
-		'From: TRB rec - Music Publishing <info@trbrec.com>',
-		'Reply-To: TRB rec - Music Publishing <info@trbrec.com>',
-	);
-	// Owner must receive real artist evaluations; QA remains isolated.
-	if ( ! trb_demo_is_test_payload( $payload ) && 0 !== strcasecmp( trim( $payload['email'] ), 'andrea.tognassi@trbrec.com' ) ) {
-		$headers[] = 'Cc: Andrea Tognassi <andrea.tognassi@trbrec.com>';
-	}
-	$attempts = (int) get_post_meta( $request_id, '_trb_demo_email_attempts', true ) + 1;
-	update_post_meta( $request_id, '_trb_demo_email_attempts', $attempts );
-	$sent = wp_mail( $payload['email'], $subject, $body, $headers );
-	if ( $sent ) {
-		$payload['status'] = 'sent';
-		$payload['sent_at'] = gmdate( 'c' );
-		update_post_meta( $request_id, '_trb_demo_payload', $payload );
-		delete_post_meta( $request_id, '_trb_demo_email_attempts' );
-	} elseif ( $attempts < 5 ) {
-		$retry_at = time() + ( trb_demo_is_test_payload( $payload ) ? 5 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS );
-		if ( ! trb_demo_is_test_payload( $payload ) ) $retry_at = trb_portal_demo_next_delivery_time( $retry_at );
-		if ( ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) wp_schedule_single_event( $retry_at, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
-	} else {
-		$payload['status'] = 'email_failed';
-		update_post_meta( $request_id, '_trb_demo_payload', $payload );
-		$failure_body = '<p>La valutazione demo #' . absint( $request_id ) . ' (' . esc_html( $payload['title'] ) . ') non è stata consegnata all’artista dopo cinque tentativi.</p>';
-		if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'demo-email-failed-' . absint( $request_id ), 'Consegna valutazione demo non riuscita', $failure_body, true );
-		else wp_mail( 'info@trbrec.com', 'Consegna valutazione demo non riuscita', wp_strip_all_tags( $failure_body ) );
-	}
+		$name = trim((string)($payload['first_name'] ?? '')) ?: 'Artista';
+		$artist_name = ! empty( $payload['artist_name'] ) ? $payload['artist_name'] : trim( $payload['first_name'] . ' ' . $payload['last_name'] );
+		$affiliation = function_exists( 'trb_portal_profile_affiliation' ) ? trb_portal_profile_affiliation( $payload['profile'] ) : ( 'trb' === $payload['profile'] ? 'TRB rec - Music Publishing' : 'Digital Distribution Bundle' );
+		if (!in_array($payload['profile'] ?? '',array('dds','ddb12','ddb','ddb_trb','trb'),true)) $affiliation='Non dichiarata';
+		$review_html = trb_demo_review_html( $review );
+		$focus_label = trb_demo_focus_options()[ $payload['review_context']['focus'] ?? 'overall' ] ?? 'Valutazione complessiva';
+		$genre_html = '<span style="display:block;margin-top:5px;"><strong>Approfondimento richiesto:</strong> ' . esc_html( $focus_label ) . '</span>';
+		$genre_html .= ! empty( $payload['genre'] ) ? '<span style="display:block;margin-top:5px;color:#66708a;"><strong style="color:#39415a;">Genere musicale:</strong> ' . esc_html( $payload['genre'] ) . '</span>' : '';
+		$is_revision=!empty($payload['revision']);
+		$intro=$is_revision ? 'abbiamo valutato la nuova versione del tuo provino riprendendo il riscontro precedente. Trovi il confronto sui materiali disponibili e le prossime priorità di lavoro.' : 'abbiamo completato la valutazione del tuo provino. Trovi i punti da conservare e gli interventi consigliati in ordine di priorità.';
+		if ($is_revision) {
+			$comparison=get_post_meta($request_id,'_trb_demo_revision_comparison',true);
+			$version=max(2,(int)($payload['revision']['version'] ?? 2));
+			$genre_html.='<span style="display:block;margin-top:9px;"><strong>Revisione:</strong> versione '.$version.' · riscontro precedente #'.absint($payload['revision']['parent_id'] ?? 0).'</span>';
+			$basis=array('valutazione scritta precedente');
+			if (!empty($comparison['previous_text'])) $basis[]='testo precedente';
+			if (!empty($comparison['previous_audio'])) $basis[]='audio precedente';
+			$genre_html.='<span style="display:block;margin-top:5px;"><strong>Confronto basato su:</strong> '.esc_html(implode(', ',$basis)).' e materiali della nuova versione.</span>';
+		}
+		$service_note = trb_demo_services_note( $payload['profile'] ?? '', '', array( 'email' => $payload['email'], 'owner_qa' => trb_demo_is_test_payload( $payload ), 'selection' => get_post_meta( $request_id, '_trb_demo_service_selection', true ) ) );
+		$body = '<!doctype html><html><body style="margin:0;background:#f3f5f9;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#20263b;">'
+			. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5f9;padding:24px 12px;"><tr><td align="center">'
+			. '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 35px rgba(20,28,60,.10);">'
+			. '<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:16px;padding:28px 34px;background:linear-gradient(135deg,#091b3c,#303e9f);color:#ffffff;"><div style="font-size:12px;letter-spacing:1.5px;font-weight:700;">TRB REC - MUSIC PUBLISHING</div><h1 style="margin:10px 0 0;font-size:28px;line-height:1.2;">Valutazione del provino</h1></td></tr>'
+			. '<tr><td style="padding:34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;color:#20263b;"><p style="margin:0 0 16px;font-size:16px;">Gentile <strong>' . esc_html( $name ) . '</strong>,</p>'
+			. '<p style="margin:0 0 24px;line-height:1.65;">'.esc_html($intro).'</p>'
+			. '<div style="padding:18px 20px;background:#f7f8fc;border:1px solid #e4e7f0;border-radius:10px;"><div style="font-size:12px;color:#66708a;text-transform:uppercase;letter-spacing:1px;">Provino analizzato</div><strong style="display:block;margin-top:5px;font-size:20px;color:#101936;">' . esc_html( $payload['title'] ) . '</strong><span style="display:block;margin-top:9px;color:#66708a;"><strong style="color:#39415a;">Artista:</strong> ' . esc_html( $artist_name ) . '</span>' . $genre_html . '<span style="display:block;margin-top:5px;color:#66708a;"><strong style="color:#39415a;">Etichetta:</strong> ' . esc_html( $affiliation ) . '</span></div>'
+			. '<div style="margin-top:28px;line-height:1.7;font-size:16px;">' . $review_html . '</div>' . $service_note
+			. '<div style="margin-top:34px;padding-top:22px;border-top:1px solid #e4e7f0;"><p style="margin:0 0 6px;">Un saluto,</p><strong style="font-size:16px;color:#101936;">TRB rec - Music Publishing</strong><p style="margin:7px 0 0;color:#4c5670;line-height:1.55;">A&amp;R Management<br><a href="https://artist.trbrec.com/" style="color:#4038e8;text-decoration:none;">artist.trbrec.com</a></p></div>'
+			. '<div style="margin-top:24px;padding-top:18px;border-top:1px solid #e4e7f0;color:#7a8296;font-size:10px;line-height:1.45;"><strong>Nota di riservatezza:</strong> Questo documento è destinato esclusivamente al destinatario. Tutte le informazioni contenute, compresi eventuali allegati, sono confidenziali e riservate ai sensi del D.Lgs. 196/2003 e del Regolamento europeo 679/2016 (GDPR). Ne è vietato qualsiasi utilizzo, divulgazione o distribuzione non autorizzati. Se avete ricevuto questo messaggio per errore, vi preghiamo di contattare immediatamente il mittente e cancellare l’e-mail.<br><br><strong>Confidentiality notice:</strong> This e-mail, including any attachments, is intended solely for the named recipient and may contain confidential and privileged information pursuant to Italian Legislative Decree 196/2003 and European Regulation 679/2016 (GDPR). Any unauthorized review, use, disclosure or distribution is prohibited. If you are not the intended recipient, please notify the sender by reply e-mail and delete all copies of the original message.</div>'
+			. '</td></tr></table></td></tr></table></body></html>';
+		$subject = ($is_revision ? 'Valutazione revisione v'.$version.' del provino “' : 'Valutazione del provino “') . $payload['title'] . '” | TRB rec';
+		$headers = array(
+			'Content-Type: text/html; charset=UTF-8',
+			'From: TRB rec - Music Publishing <info@trbrec.com>',
+			'Reply-To: TRB rec - Music Publishing <info@trbrec.com>',
+		);
+		// Owner must receive real artist evaluations; QA remains isolated.
+		if ( ! trb_demo_is_test_payload( $payload ) && 0 !== strcasecmp( trim( $payload['email'] ), 'andrea.tognassi@trbrec.com' ) ) {
+			$headers[] = 'Cc: Andrea Tognassi <andrea.tognassi@trbrec.com>';
+		}
+		$attempts = (int) get_post_meta( $request_id, '_trb_demo_email_attempts', true ) + 1;
+		// Persist intent before the side effect. An interrupted/uncertain send requires
+		// inspection rather than an automatic second message to the artist.
+		if ( ! trb_demo_save_meta( $request_id, '_trb_demo_email_attempts', $attempts ) ) return;
+		$payload['status'] = 'sending';
+		$payload['delivery_started_at'] = gmdate( 'c' );
+		if ( ! trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload ) ) return;
+		$sent = wp_mail( $payload['email'], $subject, $body, $headers );
+		if ( $sent ) {
+			$payload['status'] = 'sent';
+			$payload['sent_at'] = gmdate( 'c' );
+			if ( ! trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload ) ) return;
+			delete_post_meta( $request_id, '_trb_demo_email_attempts' );
+		} elseif ( $attempts < 5 ) {
+			$payload['status'] = 'ready';
+			if ( ! trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload ) ) return;
+			$retry_at = time() + ( trb_demo_is_test_payload( $payload ) ? 5 * MINUTE_IN_SECONDS : HOUR_IN_SECONDS );
+			if ( ! trb_demo_is_test_payload( $payload ) ) $retry_at = trb_portal_demo_next_delivery_time( $retry_at );
+			if ( ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) wp_schedule_single_event( $retry_at, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
+		} else {
+			$payload['status'] = 'email_failed';
+			if ( ! trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload ) ) return;
+			$failure_body = '<p>La valutazione demo #' . absint( $request_id ) . ' (' . esc_html( $payload['title'] ) . ') non è stata consegnata all’artista dopo cinque tentativi.</p>';
+			if ( function_exists( 'trb_resource_queue_email' ) ) trb_resource_queue_email( 'demo-email-failed-' . absint( $request_id ), 'Consegna valutazione demo non riuscita', $failure_body, true );
+			else wp_mail( 'info@trbrec.com', 'Consegna valutazione demo non riuscita', wp_strip_all_tags( $failure_body ) );
+		}
+	} );
 }
 add_action( 'trb_portal_send_demo_review', 'trb_demo_send_review' );
 
 /** Recover demo jobs when a one-shot WP-Cron event is lost or interrupted. */
 function trb_demo_recover_stalled_requests() {
+	$pending = array( 'relation' => 'OR' );
+	foreach ( array( 'queued', 'retry', 'ready', 'sending' ) as $status ) $pending[] = array( 'key' => '_trb_demo_payload', 'compare' => 'LIKE', 'value' => 's:6:"status";s:' . strlen( $status ) . ':"' . $status . '";' );
 	$request_ids = get_posts( array(
 		'post_type'      => 'trb_request',
 		'post_status'    => array( 'publish', 'private', 'draft', 'pending' ),
@@ -569,25 +612,38 @@ function trb_demo_recover_stalled_requests() {
 		'fields'         => 'ids',
 		'orderby'        => 'modified',
 		'order'          => 'ASC',
-		'meta_query'     => array( array( 'key' => '_trb_demo_payload', 'compare' => 'EXISTS' ) ),
+		'meta_query'     => $pending,
 	) );
+	// Completed historical requests must not consume the recovery page forever.
+	$cleanup_ids = get_posts( array( 'post_type' => 'trb_request', 'post_status' => array( 'publish', 'private', 'draft', 'pending' ), 'posts_per_page' => 100, 'fields' => 'ids', 'orderby' => 'meta_value_num', 'order' => 'ASC', 'meta_key' => '_trb_demo_delete_after', 'meta_query' => array( array( 'key' => '_trb_demo_cleaned_at', 'compare' => 'NOT EXISTS' ) ) ) );
+	$request_ids = array_unique( array_merge( $request_ids, $cleanup_ids ) );
 	foreach ( $request_ids as $request_id ) {
-		$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
-		if ( ! is_array( $payload ) ) continue;
-		$status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
-		if ( in_array( $status, array( 'queued', 'retry' ), true ) && ! wp_next_scheduled( 'trb_portal_process_demo', array( absint( $request_id ) ) ) ) {
-			wp_schedule_single_event( time() + 5, 'trb_portal_process_demo', array( absint( $request_id ) ) );
-		}
-		$earliest = (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true );
-		if ( 'ready' === $status && ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) {
-			$send_at = max( time() + 5, $earliest );
-			if ( ! trb_demo_is_test_payload( $payload ) ) $send_at = trb_portal_demo_next_delivery_time( $send_at );
-			wp_schedule_single_event( $send_at, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
-		}
-		$remote = get_post_meta( $request_id, '_trb_demo_remote', true );
-		if ( ! empty( $remote['folder'] ) && ! get_post_meta( $request_id, '_trb_demo_sheet_synced', true ) && ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) {
-			wp_schedule_single_event( time() + 10, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
-		}
+		trb_demo_run_locked( $request_id, 'trb_demo_recover_stalled_requests', static function( $request_id ) {
+			$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
+			if ( ! is_array( $payload ) ) return;
+			$status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
+			if ( 'sending' === $status && strtotime( $payload['delivery_started_at'] ?? '' ) < time() - 15 * MINUTE_IN_SECONDS ) {
+				$payload['status'] = 'delivery_uncertain';
+				trb_demo_save_meta( $request_id, '_trb_demo_payload', $payload );
+				trb_demo_save_meta( $request_id, '_trb_demo_last_error_code', 'delivery_uncertain' );
+			}
+			if ( in_array( $status, array( 'queued', 'retry' ), true ) && ! wp_next_scheduled( 'trb_portal_process_demo', array( absint( $request_id ) ) ) ) {
+				wp_schedule_single_event( time() + 5, 'trb_portal_process_demo', array( absint( $request_id ) ) );
+			}
+			$earliest = (int) get_post_meta( $request_id, '_trb_demo_earliest_delivery', true );
+			if ( 'ready' === $status && ! wp_next_scheduled( 'trb_portal_send_demo_review', array( absint( $request_id ) ) ) ) {
+				$send_at = max( time() + 5, $earliest );
+				if ( ! trb_demo_is_test_payload( $payload ) ) $send_at = trb_portal_demo_next_delivery_time( $send_at );
+				wp_schedule_single_event( $send_at, 'trb_portal_send_demo_review', array( absint( $request_id ) ) );
+			}
+			$remote = get_post_meta( $request_id, '_trb_demo_remote', true );
+			if ( ! empty( $remote['folder'] ) && (int) get_post_meta( $request_id, '_trb_demo_sheet_attempts', true ) < 5 && ! get_post_meta( $request_id, '_trb_demo_sheet_synced', true ) && ! wp_next_scheduled( 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) ) ) {
+				wp_schedule_single_event( time() + 10, 'trb_portal_sync_demo_sheet', array( absint( $request_id ) ) );
+			}
+			if ( ! get_post_meta( $request_id, '_trb_demo_cleaned_at', true ) && get_post_meta( $request_id, '_trb_demo_delete_after', true ) && ! wp_next_scheduled( 'trb_portal_cleanup_demo', array( $request_id ) ) ) {
+				wp_schedule_single_event( max( time() + 10, (int) get_post_meta( $request_id, '_trb_demo_delete_after', true ) ), 'trb_portal_cleanup_demo', array( $request_id ) );
+			}
+		} );
 	}
 }
 add_action( 'trb_demo_recover_stalled_requests', 'trb_demo_recover_stalled_requests' );
@@ -596,17 +652,36 @@ add_action( 'init', function() {
 } );
 
 function trb_demo_cleanup_request( $request_id ) {
-	$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
-	if (!empty($payload['text_file']) && !get_post_meta($request_id,'_trb_demo_text_snapshot',true)) {
-		$text=trb_demo_extract_text($payload['text_file']);
-		if ($text) update_post_meta($request_id,'_trb_demo_text_snapshot',$text);
-	}
-	if ( is_array( $payload ) ) foreach ( array( 'text_file', 'audio_file' ) as $key ) { $path = ! empty( $payload[ $key ] ) ? trb_demo_local_path( $payload[ $key ] ) : ''; if ( $path ) wp_delete_file( $path ); }
-	$remote = get_post_meta( $request_id, '_trb_demo_remote', true );
-	if ( ! empty( $remote['folder'] ) ) trb_demo_webdav_request( 'DELETE', $remote['folder'] );
-	// Keep the written review and text snapshot for the artist's revision history.
-	delete_post_meta( $request_id, '_trb_demo_remote' );
-	update_post_meta( $request_id, '_trb_demo_cleaned_at', time() );
+	return trb_demo_run_locked( $request_id, 'trb_portal_cleanup_demo', static function( $request_id ) {
+		$payload = get_post_meta( $request_id, '_trb_demo_payload', true );
+		if ( ! is_array( $payload ) ) return;
+		$delete_after = (int) get_post_meta( $request_id, '_trb_demo_delete_after', true );
+		if ( $delete_after > time() ) {
+			if ( ! wp_next_scheduled( 'trb_portal_cleanup_demo', array( $request_id ) ) ) wp_schedule_single_event( $delete_after, 'trb_portal_cleanup_demo', array( $request_id ) );
+			return;
+		}
+		if (!empty($payload['text_file']) && !get_post_meta($request_id,'_trb_demo_text_snapshot',true)) {
+			$text=trb_demo_extract_text($payload['text_file']);
+			if ( $text && ! trb_demo_save_meta( $request_id, '_trb_demo_text_snapshot', $text ) ) return;
+		}
+		$remote = get_post_meta( $request_id, '_trb_demo_remote', true );
+		$failed = false;
+		if ( ! empty( $remote['folder'] ) ) {
+			$response = trb_demo_webdav_request( 'DELETE', rtrim( $remote['folder'], '/' ) . '/' );
+			$failed = is_wp_error( $response ) || ! in_array( wp_remote_retrieve_response_code( $response ), array( 200, 204, 404, 410 ), true );
+			if ( ! $failed ) delete_post_meta( $request_id, '_trb_demo_remote' );
+		}
+		foreach ( array( 'text_file', 'audio_file' ) as $key ) {
+			$path = ! empty( $payload[ $key ] ) ? trb_demo_local_path( $payload[ $key ] ) : '';
+			if ( $path ) { wp_delete_file( $path ); clearstatcache( true, $path ); if ( is_file( $path ) ) $failed = true; }
+		}
+		if ( $failed ) {
+			if ( ! wp_next_scheduled( 'trb_portal_cleanup_demo', array( $request_id ) ) ) wp_schedule_single_event( time() + HOUR_IN_SECONDS, 'trb_portal_cleanup_demo', array( $request_id ) );
+			return;
+		}
+		// Keep the written review and text snapshot for the artist's revision history.
+		trb_demo_save_meta( $request_id, '_trb_demo_cleaned_at', time() );
+	} );
 }
 add_action( 'trb_portal_cleanup_demo', 'trb_demo_cleanup_request' );
 
@@ -638,7 +713,7 @@ function trb_demo_health_service_result( $configured, $response, $accepted_codes
 
 /** Read-only queue snapshot. It never processes jobs, sends mail or touches files. */
 function trb_demo_health_queue_snapshot() {
-    $counts = array_fill_keys( array( 'queued', 'retry', 'ready', 'sent', 'manual_review', 'email_failed' ), 0 );
+    $counts = array_fill_keys( array( 'queued', 'retry', 'ready', 'sending', 'sent', 'manual_review', 'email_failed', 'delivery_uncertain' ), 0 );
     $problems = array_fill_keys( array( 'stalled', 'missing_files', 'missing_remote', 'sheet_unsynced' ), 0 );
     $request_ids = get_posts( array(
         'post_type'      => 'trb_request',
@@ -673,9 +748,29 @@ function trb_demo_health_queue_snapshot() {
     return array( 'counts' => $counts, 'problems' => $problems );
 }
 
+/** Authenticated availability only: no artist data, sheet rows, or email. */
+function trb_demo_health_sheet_probe( $settings ) {
+    $configured = ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] );
+    $started_at = microtime( true );
+    $payload = wp_json_encode( array( 'action' => 'health' ) );
+    $response = $configured ? trb_demo_post_sheet_webhook( $settings['sheet_webhook_url'], array(
+        'payload_base64' => base64_encode( $payload ),
+        'signature' => hash_hmac( 'sha256', $payload, $settings['sheet_webhook_secret'] ),
+    ) ) : null;
+    $result = trb_demo_health_service_result( $configured, $response, array( 200 ), $started_at );
+    if ( 'operational' === $result['status'] ) {
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+        if ( ! is_array( $data ) || true !== ( $data['success'] ?? false ) || 'trb-demo-sheet-health-v1' !== ( $data['protocol'] ?? '' ) || true !== ( $data['sheet_available'] ?? false ) || true !== ( $data['read_only'] ?? false ) ) {
+            $result['status'] = 'error';
+            $result['error_code'] = is_array( $data ) && 'unauthorized' === ( $data['error'] ?? '' ) ? 'UNAUTHORIZED' : 'READINESS_UNCONFIRMED';
+        }
+    }
+    return $result;
+}
+
 /**
  * Probe integrations without uploading data or consuming model tokens.
- * OpenAI uses a model metadata GET; pCloud uses a depth-zero WebDAV PROPFIND.
+ * OpenAI uses metadata GET; pCloud depth-zero PROPFIND; Sheets signed read-only health.
  */
 function trb_demo_refresh_operational_health() {
     if ( get_transient( 'trb_demo_operational_health_lock' ) ) return;
@@ -709,6 +804,7 @@ function trb_demo_refresh_operational_health() {
         )
     ) : null;
     $openai_result = trb_demo_health_service_result( $openai_configured, $openai, array( 200 ), $openai_started );
+    $spreadsheet_result = trb_demo_health_sheet_probe( $settings );
 
     $queue = trb_demo_health_queue_snapshot();
     $snapshot = array(
@@ -718,6 +814,7 @@ function trb_demo_refresh_operational_health() {
         'integrations'   => array(
             'pcloud' => $pcloud_result,
             'openai' => $openai_result,
+            'spreadsheet' => $spreadsheet_result,
         ),
         'queue'          => $queue,
     );
@@ -761,10 +858,11 @@ function trb_demo_health_payload() {
         'spreadsheet'=> ! empty( $settings['spreadsheet_id'] ) && ! empty( $settings['spreadsheet_tab'] ) && ! empty( $settings['sheet_webhook_url'] ) && ! empty( $settings['sheet_webhook_secret'] ),
     );
     $problem_total = array_sum( array_map( 'absint', is_array( $queue['problems'] ?? null ) ? $queue['problems'] : array() ) );
-    $failed_total = absint( $queue['counts']['manual_review'] ?? 0 ) + absint( $queue['counts']['email_failed'] ?? 0 );
-    $integrations_operational = isset( $integrations['pcloud']['status'], $integrations['openai']['status'] )
+    $failed_total = absint( $queue['counts']['manual_review'] ?? 0 ) + absint( $queue['counts']['email_failed'] ?? 0 ) + absint( $queue['counts']['delivery_uncertain'] ?? 0 );
+    $integrations_operational = isset( $integrations['pcloud']['status'], $integrations['openai']['status'], $integrations['spreadsheet']['status'] )
         && 'operational' === $integrations['pcloud']['status']
-        && 'operational' === $integrations['openai']['status'];
+        && 'operational' === $integrations['openai']['status']
+        && 'operational' === $integrations['spreadsheet']['status'];
     $ready = ! in_array( false, $configuration, true ) && ! in_array( false, $handlers, true ) && $integrations_operational && ! $stale && 0 === $problem_total && 0 === $failed_total;
     $status = ! $checked_at_ts ? 'pending' : ( $ready ? 'healthy' : 'degraded' );
 

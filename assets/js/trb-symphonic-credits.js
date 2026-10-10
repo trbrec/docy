@@ -13,9 +13,9 @@ function validate(track) {
    else {var select=row.querySelector('select');if(select&&select.value)roles.push(select.value);}
   });
   var message='';
-  if(key==='engineering'&&roles.indexOf('Producer')<0)message='Indica almeno un Producer.';
-  if(vocal&&key==='writers'&&roles.indexOf('Lyricist')<0)message='Il brano contiene un testo: indica chi lo ha scritto con il ruolo Lyricist.';
-  if(vocal&&key==='performers'&&roles.indexOf('Vocals')<0)message='Il brano contiene voce: indica chi canta con il ruolo Vocals.';
+  if(key==='engineering'&&roles.indexOf('Producer')<0)message='Indica almeno un produttore musicale.';
+  if(vocal&&key==='writers'&&roles.indexOf('Lyricist')<0)message='Il brano contiene un testo: indica chi lo ha scritto con il ruolo Autore del testo.';
+  if(vocal&&key==='performers'&&roles.indexOf('Vocals')<0)message='Il brano contiene voce: indica chi canta con il ruolo Voce.';
   if(first)first.setCustomValidity(message);
   var error=group.querySelector('[data-credit-error]');if(error)error.textContent=message;
  });

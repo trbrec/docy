@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Automatic GitHub main deployment through the installed Deployer plugin. */
+/** Monitor GitHub releases installed and verified by the hosting workflow. */
 require_once get_template_directory() . '/inc/trb-auto-deploy.php';
 
 /**
@@ -19,7 +19,7 @@ require_once get_template_directory() . '/inc/trb-auto-deploy.php';
 /**
  * Error handling configuration
  */
-error_reporting( E_ALL & ~E_WARNING );
+// Keep WordPress's error reporting policy, including warnings in its error log.
 if ( ! headers_sent() ) {
 	@ini_set( 'display_errors', 0 );
 }
@@ -63,32 +63,6 @@ if ( ! function_exists( 'docy_fs' ) ) {
                 ),
             ) );
 
-
-/** Area Artisti TRB rec */
-require_once get_template_directory() . '/inc/trb-release-sheet-data.php';
-require get_template_directory() . '/inc/trb-artist-portal.php';
-require_once get_template_directory() . '/inc/trb-candidate-onboarding.php';
-require get_template_directory() . '/inc/trb-store-benefits.php';
-require get_template_directory() . '/inc/trb-demo-services.php';
-require get_template_directory() . '/inc/trb-demo-automation.php';
-require get_template_directory() . '/inc/trb-artist-pcloud-archive.php';
-require get_template_directory() . '/inc/trb-artist-promo-archive.php';
-require_once get_template_directory() . '/inc/trb-artist-admin-name.php';
-require get_template_directory() . '/inc/trb-release-pcloud-archive.php';
-require get_template_directory() . '/inc/trb-release-analysis.php';
-require get_template_directory() . '/inc/trb-resource-monitor.php';
-require get_template_directory() . '/inc/trb-owner-dashboard.php';
-require get_template_directory() . '/inc/trb-portal-launch-campaign.php';
-require get_template_directory() . '/inc/trb-crm-connector.php';
-
-/** Canonical portal favicon (also covers admin and login screens). */
-function trb_portal_favicon() {
-	echo '<link rel="icon" href="' . esc_url( home_url( '/favicon.ico' ) ) . '" sizes="any">';
-}
-add_action( 'wp_head', 'trb_portal_favicon', 1 );
-add_action( 'admin_head', 'trb_portal_favicon', 1 );
-add_action( 'login_head', 'trb_portal_favicon', 1 );
-
         }
 
         return $docy_fs;
@@ -99,6 +73,32 @@ add_action( 'login_head', 'trb_portal_favicon', 1 );
     // Signal that SDK was initiated.
     do_action( 'docy_fs_loaded' );
 }
+
+/** Area Artisti TRB rec */
+require_once get_template_directory() . '/inc/trb-release-sheet-data.php';
+require_once get_template_directory() . '/inc/trb-artist-portal.php';
+require_once get_template_directory() . '/inc/trb-log-maintenance.php';
+require_once get_template_directory() . '/inc/trb-candidate-onboarding.php';
+require_once get_template_directory() . '/inc/trb-store-benefits.php';
+require_once get_template_directory() . '/inc/trb-demo-services.php';
+require_once get_template_directory() . '/inc/trb-demo-automation.php';
+require_once get_template_directory() . '/inc/trb-artist-pcloud-archive.php';
+require_once get_template_directory() . '/inc/trb-artist-promo-archive.php';
+require_once get_template_directory() . '/inc/trb-artist-admin-name.php';
+require_once get_template_directory() . '/inc/trb-release-pcloud-archive.php';
+require_once get_template_directory() . '/inc/trb-release-analysis.php';
+require_once get_template_directory() . '/inc/trb-resource-monitor.php';
+require_once get_template_directory() . '/inc/trb-owner-dashboard.php';
+require_once get_template_directory() . '/inc/trb-portal-launch-campaign.php';
+require_once get_template_directory() . '/inc/trb-crm-connector.php';
+
+/** Canonical portal favicon (also covers admin and login screens). */
+function trb_portal_favicon() {
+	echo '<link rel="icon" href="' . esc_url( home_url( '/favicon.ico' ) ) . '" sizes="any">';
+}
+add_action( 'wp_head', 'trb_portal_favicon', 1 );
+add_action( 'admin_head', 'trb_portal_favicon', 1 );
+add_action( 'login_head', 'trb_portal_favicon', 1 );
 
 // Handle null post object errors
 add_action(
@@ -284,7 +284,6 @@ if ( ! function_exists( 'docy_setup' ) ) :
 			require get_template_directory() . '/inc/meta/all-meta-boxes.php';
 			require get_template_directory() . '/inc/meta/meta-register-login.php';
 			require get_template_directory() . '/inc/meta/meta-post-format.php';
-			require get_template_directory() . '/inc/meta/remove-meta.php';
 
 		}
 	}

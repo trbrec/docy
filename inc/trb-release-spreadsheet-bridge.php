@@ -948,13 +948,20 @@ function trb_release_bridge_payload( $release_id ) {
         'phone'=>trb_release_bridge_profile_value($post->post_author,'phone'),'artist_name'=>trb_release_bridge_profile_value($post->post_author,'artist_name'),
         'tax_code'=>trb_release_bridge_profile_value($post->post_author,'tax_code'),'birth_date'=>trb_release_bridge_profile_value($post->post_author,'birth_date'),
         'birth_place'=>trb_release_bridge_profile_value($post->post_author,'birth_place'),'birth_province'=>trb_release_bridge_profile_value($post->post_author,'birth_province'),
+		'birth_country'=>trb_release_bridge_profile_value($post->post_author,'birth_country','Italia'),
+		'tax_country'=>trb_release_bridge_profile_value($post->post_author,'tax_country','Italia'),
         'document_type'=>trb_release_bridge_profile_value($post->post_author,'document_type','Carta d’identità'),
+		'document_expiry'=>trb_release_bridge_profile_value($post->post_author,'document_expiry'),
+		'document_no_expiry'=>trb_release_bridge_profile_value($post->post_author,'document_no_expiry'),
         'document_number'=>trb_release_bridge_profile_value($post->post_author,'document_number'),'address'=>trb_release_bridge_profile_value($post->post_author,'street'),
         'street_number'=>trb_release_bridge_profile_value($post->post_author,'street_number'),'postcode'=>trb_release_bridge_profile_value($post->post_author,'postal_code'),
         'municipality'=>trb_release_bridge_profile_value($post->post_author,'city'),'province'=>trb_release_bridge_profile_value($post->post_author,'province'),
         'country'=>trb_release_bridge_profile_value($post->post_author,'country','Italia'),
     );
-    foreach ( array( 'name','surname','email','phone','artist_name','tax_code','birth_date','birth_place','birth_province','document_type','document_number','address','street_number','postcode','municipality','province','country' ) as $required ) {
+	$required_fields = array( 'name','surname','email','phone','artist_name','tax_code','tax_country','birth_date','birth_place','birth_country','document_type','document_number','address','municipality','country' );
+	if ( trb_portal_country_is_italy( $artist['birth_country'] ) ) $required_fields[] = 'birth_province';
+	if ( trb_portal_country_is_italy( $artist['country'] ) ) $required_fields = array_merge( $required_fields, array( 'street_number','postcode','province' ) );
+    foreach ( $required_fields as $required ) {
         if ( '' === trim( (string) $artist[ $required ] ) ) return new WP_Error( 'artist_data_missing', 'Dato contrattuale mancante: ' . $required . '.' );
     }
     if ( empty( $tracks ) ) return new WP_Error( 'tracks_missing', 'Nessun brano disponibile per il contratto.' );
@@ -987,6 +994,12 @@ function trb_release_bridge_spreadsheet_row( $payload ) {
             return $entry['name'] . $suffix;
         }, $entries ) ) );
     };
+	$birth_place = (string) ( $artist['birth_place'] ?? '' );
+	$birth_country = (string) ( $artist['birth_country'] ?? 'Italia' );
+	if ( ! trb_portal_country_is_italy( $birth_country ) ) $birth_place .= ' (' . $birth_country . ')';
+	$document_type = (string) ( $artist['document_type'] ?? '' );
+	$document_labels = array( 'cie' => 'Carta d’identità elettronica italiana', 'passport' => 'Passaporto', 'foreign_identity' => 'Documento d’identità estero' );
+	$document_type = $document_labels[ $document_type ] ?? $document_type;
 
     $row = array(
         wp_date( 'd/m/Y H:i', strtotime( (string) ( $payload['confirmed_at'] ?? 'now' ) ) ),
@@ -994,9 +1007,9 @@ function trb_release_bridge_spreadsheet_row( $payload ) {
         (string) ( $artist['name'] ?? '' ),
         (string) ( $artist['surname'] ?? '' ),
         $format_date( $artist['birth_date'] ?? '' ),
-        (string) ( $artist['birth_place'] ?? '' ),
+        $birth_place,
         (string) ( $artist['tax_code'] ?? '' ),
-        (string) ( $artist['document_type'] ?? '' ),
+        $document_type,
         (string) ( $artist['document_number'] ?? '' ),
         (string) ( $artist['address'] ?? '' ),
         (string) ( $artist['street_number'] ?? '' ),
@@ -1173,8 +1186,6 @@ function trb_release_bridge_apply_callback( $payload ) {
     if ( $stored_dossier && ! hash_equals( $stored_dossier, $dossier_id ) ) return new WP_Error( 'dossier_mismatch', 'Il dossier OTP non corrisponde alla pratica.', array( 'status' => 409 ) );
     if ( ! $stored_dossier ) update_post_meta( $release_id, '_trb_otp_dossier_id', $dossier_id );
 
-    $status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
-    if ( ! in_array( $status, array( 'completed', 'contract_sent' ), true ) ) return new WP_Error( 'status_invalid', 'Stato firma non valido.', array( 'status' => 400 ) );
     if ( 'completed' !== $status ) {
         if ( 'signed' !== get_post_meta( $release_id, '_trb_contract_state', true ) ) update_post_meta( $release_id, '_trb_contract_state', 'contract_sent' );
         return array( 'success' => true, 'state' => get_post_meta( $release_id, '_trb_contract_state', true ) );

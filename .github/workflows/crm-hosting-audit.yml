@@ -1,0 +1,59 @@
+name: Read-only CRM hosting inventory
+on:
+  push:
+    branches: [fix/portal-audit-20261010]
+    paths: [tools/crm-hosting-request.json]
+permissions:
+  contents: read
+concurrency:
+  group: canonical-crm-hosting-audit
+  cancel-in-progress: false
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the read-only request
+        run: |
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          d=json.loads(Path('tools/crm-hosting-request.json').read_text())
+          assert d['mode']=='audit' and re.fullmatch('20261010-inventory-public-[0-9]{2}',d['request'])
+          PY
+      - name: Run the independent public inventory through the existing hosting connection
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          trap 'ssh-add -D >/dev/null 2>&1 || true; rm -f "${HOME}/.ssh/id_ed25519"' EXIT
+          ssh-keyscan -T 10 -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          inventory="/home/customer/www/crm.trbrec.com/private/hosting-inventory-${GITHUB_SHA}"
+          ssh "${ssh_opts[@]}" "${remote}" "mkdir -p '${inventory}' && chmod 700 '${inventory}'"
+          scp -q -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-crm-hosting-inventory.php "${remote}:${inventory}/inventory.php"
+          ssh "${ssh_opts[@]}" "${remote}" "chmod 600 '${inventory}/inventory.php' && php -l '${inventory}/inventory.php'" >/dev/null 2>&1
+          ssh "${ssh_opts[@]}" "${remote}" "umask 077; php '${inventory}/inventory.php' > '${inventory}/inventory.json'" >/dev/null 2>&1
+          # Inspect the receipt on hosting. No paths, hashes, tables, logs or cron metadata leave it.
+          ssh "${ssh_opts[@]}" "${remote}" "php -r '\$d=json_decode(file_get_contents(\$argv[1]),true); exit((\$d[\"success\"]??false)===true&&(\$d[\"read_only\"]??false)===true?0:1);' '${inventory}/inventory.json'" >/dev/null 2>&1
+          echo "Read-only CRM inventory completed; its report remains in private hosting storage."
+          scp -q -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-crm-private-source-access.php "${remote}:${inventory}/private-source-access.php"
+          ssh "${ssh_opts[@]}" "${remote}" "chmod 600 '${inventory}/private-source-access.php' && php -l '${inventory}/private-source-access.php'" >/dev/null 2>&1
+          ssh "${ssh_opts[@]}" "${remote}" "umask 077; php '${inventory}/private-source-access.php' > '${inventory}/private-source-access.json'" >/dev/null 2>&1
+          echo "Existing private Git source access verified without transferring source code."

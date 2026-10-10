@@ -11,24 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 function docy_fonts_url(): string
 {
-	$fonts_url = '';
-	$fonts     = [];
-	$subsets   = '';
-
-	/* Body font */
-	if ( 'off' !== 'on' ) {
-		$fonts[] = "Roboto:300,400,500,600,700";
-	}
-
-	if ( $fonts ) {
-		$fonts_url = add_query_arg( [
-			'family'  => urlencode( implode( '|', $fonts ) ),
-			'subset'  => urlencode( $subsets ),
-			'display' => 'swap',
-		], "https://fonts.googleapis.com/css" );
-	}
-
-	return $fonts_url;
+	return add_query_arg( [
+		'family'  => urlencode( 'Roboto:300,400,500,600,700' ),
+		'subset'  => '',
+		'display' => 'swap',
+	], 'https://fonts.googleapis.com/css' );
 }
 
 /**
@@ -79,7 +66,10 @@ function docy_scripts() {
 	if ( class_exists( 'WooCommerce' ) ) {
 		// Enqueue WooCommerce JavaScript for all WooCommerce pages
 		if ( is_shop() || is_singular('product') || is_cart() || is_checkout() || is_account_page() || is_product_taxonomy() ) {
-			wp_enqueue_script( 'docy-woocommerce', DOCY_DIR_JS . '/woocommerce.js', [ 'jquery' ], DOCY_VERSION, true );
+			$woocommerce_path = get_template_directory() . '/assets/js/woocommerce.js';
+			$woocommerce_hash = is_readable( $woocommerce_path ) ? md5_file( $woocommerce_path ) : false;
+			$woocommerce_version = $woocommerce_hash ? DOCY_VERSION . '.' . substr( $woocommerce_hash, 0, 12 ) : DOCY_VERSION;
+			wp_enqueue_script( 'docy-woocommerce', DOCY_DIR_JS . '/woocommerce.js', [ 'jquery' ], $woocommerce_version, true );
 			wp_localize_script( 'docy-woocommerce', 'docy_buy_now_params', [
 				'ajax_url'     => admin_url( 'admin-ajax.php' ),
 				'checkout_url' => wc_get_checkout_url(),
@@ -112,17 +102,24 @@ function docy_scripts() {
 		if ( '1' === $is_rating_enabled ) {
 			$thank_you_text = isset( $opt['article_rating_thank_you'] ) && ! empty( $opt['article_rating_thank_you'] )
 				? $opt['article_rating_thank_you']
-				: esc_html__( 'Thank you for rating this article!', 'docy' );
+				: esc_html__( 'Grazie per aver votato questo articolo!', 'docy' );
+			if ( ! is_string( $thank_you_text ) || 'Thank you for rating this article!' === $thank_you_text ) {
+				$thank_you_text = esc_html__( 'Grazie per aver votato questo articolo!', 'docy' );
+			}
 
-			wp_enqueue_script( 'docy-article-rating', DOCY_DIR_JS . '/article-rating.js', [ 'jquery' ], DOCY_VERSION, true );
+			$rating_path = get_template_directory() . '/assets/js/article-rating.js';
+			$rating_hash = is_readable( $rating_path ) ? md5_file( $rating_path ) : false;
+			$rating_version = $rating_hash ? DOCY_VERSION . '.' . substr( $rating_hash, 0, 12 ) : DOCY_VERSION;
+			wp_enqueue_script( 'docy-article-rating', DOCY_DIR_JS . '/article-rating.js', [ 'jquery' ], $rating_version, true );
 			wp_localize_script(
 				'docy-article-rating',
 				'docy_rating_params',
 				[
 					'ajax_url'        => admin_url( 'admin-ajax.php' ),
 					'nonce'           => wp_create_nonce( 'docy_article_rating_nonce' ),
-					'thank_you_text'  => esc_html( $thank_you_text ),
-					'submitting_text' => esc_html__( 'Submitting your rating...', 'docy' ),
+					'thank_you_text'  => wp_strip_all_tags( $thank_you_text ),
+					'submitting_text' => esc_html__( 'Invio del voto…', 'docy' ),
+					'error_text'      => esc_html__( 'Impossibile salvare il voto. Riprova.', 'docy' ),
 				]
 			);
 		}
@@ -317,7 +314,7 @@ function docy_scripts() {
 	 * template and submission flow.
 	 */
 	if ( is_singular() && comments_open() && ! is_singular( 'product' ) && function_exists( 'docy_is_ajax_comments_enabled' ) && docy_is_ajax_comments_enabled() ) {
-		wp_enqueue_script( 'docy-comments', DOCY_DIR_JS . '/comments.js', [ 'jquery' ], DOCY_VERSION, true );
+		wp_enqueue_script( 'docy-comments', DOCY_DIR_JS . '/comments.js', [ 'jquery' ], DOCY_VERSION . '.' . substr( md5_file( get_template_directory() . '/assets/js/comments.js' ), 0, 12 ), true );
 
 		wp_localize_script(
 			'docy-comments',
@@ -328,12 +325,12 @@ function docy_scripts() {
 				'editing_enabled' => docy_is_comment_editing_enabled() ? 1 : 0,
 				'is_logged_in'    => is_user_logged_in() ? 1 : 0,
 				'i18n'            => [
-					'posting'        => esc_html__( 'Posting…', 'docy' ),
-					'saving'         => esc_html__( 'Saving…', 'docy' ),
-					'save'           => esc_html__( 'Save', 'docy' ),
-					'cancel'         => esc_html__( 'Cancel', 'docy' ),
-					'empty_comment'  => esc_html__( 'Please enter a comment before submitting.', 'docy' ),
-					'generic_error'  => esc_html__( 'Something went wrong. Please try again.', 'docy' ),
+					'posting'        => esc_html__( 'Pubblicazione…', 'docy' ),
+					'saving'         => esc_html__( 'Salvataggio…', 'docy' ),
+					'save'           => esc_html__( 'Salva', 'docy' ),
+					'cancel'         => esc_html__( 'Annulla', 'docy' ),
+					'empty_comment'  => esc_html__( 'Scrivi un commento prima di inviarlo.', 'docy' ),
+					'generic_error'  => esc_html__( 'Si è verificato un errore. Riprova.', 'docy' ),
 				],
 			]
 		);

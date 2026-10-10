@@ -6,6 +6,23 @@ final class Env{public static function get($key,$default=''){return $key==='APP_
 require_once __DIR__.'/../integrations/onboarding/crm/OnboardingContractWorkflow.php';
 require_once __DIR__.'/../integrations/onboarding/crm/OnboardingWorkflowInstaller.php';
 function workflow_check($ok,$message){if(!$ok)throw new \RuntimeException($message);}
+$scriptCases = [
+    ['/assets/app-main.js', '/assets/app-main.js?onboardingWorkflow=20261001r3'],
+    ['/assets/app-main.js?keep=1&keep=2&onboardingWorkflow=old&onboardingWorkflow=old#fragment', '/assets/app-main.js?keep=1&keep=2&onboardingWorkflow=20261001r3#fragment'],
+    ['/assets/app-main.js?keep=a%26b&amp;onboardingWorkflow=old&amp;other=value', '/assets/app-main.js?keep=a%26b&amp;other=value&amp;onboardingWorkflow=20261001r3'],
+    ['/assets/app-main.js?onboarding%57orkflow=old', '/assets/app-main.js?onboardingWorkflow=20261001r3'],
+];
+foreach ($scriptCases as [$before, $after]) {
+    foreach (["'", '"'] as $quote) {
+        $source = '<script defer src=' . $quote . $before . $quote . '></script>';
+        $expected = '<script defer src=' . $quote . $after . $quote . '></script>';
+        $normalized = OnboardingWorkflowInstaller::view($source);
+        workflow_check($normalized === $expected, 'Workflow URL preserves unrelated parameters and fragments');
+        workflow_check(OnboardingWorkflowInstaller::view($normalized) === $normalized, 'Repeated view installation is stable');
+    }
+}
+$unrelated = '<script src="/assets/onboarding.js?revision=other"></script><a href="/assets/app-main.js">Download</a>';
+workflow_check(OnboardingWorkflowInstaller::view($unrelated) === $unrelated, 'Unrelated assets and links are preserved');
 $pdf='%PDF-synthetic';$id=OnboardingContractWorkflow::proposalMessageId(str_repeat('a',32));
 workflow_check(preg_match('/^<trbcrm\.[a-zA-Z0-9.]+@crm\.trbrec\.com>$/D',$id)===1,'Proposal ID accepted by the published Gmail bridge');
 workflow_check($id===OnboardingContractWorkflow::proposalMessageId(str_repeat('a',32)),'Proposal ID remains stable across attempts');

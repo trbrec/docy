@@ -1,12 +1,11 @@
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: Docy\n"
 "POT-Creation-Date: 2025-06-24 17:22+0600\n"
-"PO-Revision-Date: 2025-06-24 17:31+0600\n"
+"PO-Revision-Date: 2026-10-10 23:00+0200\n"
 "Last-Translator: \n"
 "Language-Team: \n"
-"Language: it\n"
+"Language: it_IT\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -16,32 +15,30 @@ msgstr ""
 "X-Poedit-Flags-xgettext: --add-comments=translators:\n"
 "X-Poedit-WPHeader: style.css\n"
 "X-Poedit-SourceCharset: UTF-8\n"
-"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;"
-"esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;_n_noop:1,2;"
-"_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
+"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;_n_noop:1,2;_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
 "X-Poedit-SearchPath-0: .\n"
 "X-Poedit-SearchPathExcluded-0: *.min.js\n"
 "X-Poedit-SearchPathExcluded-1: assets\n"
 
 #: 404.php:26
 msgid "404 page background shape."
-msgstr ""
+msgstr "Decorazione dello sfondo della pagina 404."
 
 #: 404.php:32 404.php:46
 msgid "4 illustration"
-msgstr ""
+msgstr "Illustrazione del numero 4"
 
 #: 404.php:39
 msgid "0 illustration"
-msgstr ""
+msgstr "Illustrazione del numero 0"
 
 #: 404.php:53 options/opt_404.php:13
 msgid "Error! We can't find the page you're looking for."
-msgstr ""
+msgstr "Errore: la pagina che cerchi non è stata trovata."
 
 #: 404.php:54
 msgid "We can't seem to find the page you're looking for"
-msgstr ""
+msgstr "La pagina che cerchi non è stata trovata"
 
 #: 404.php:58 bbpress/form-search.php:21 searchform.php:5
 #: woocommerce/product-searchform.php:24
@@ -50,7 +47,7 @@ msgstr "Cerca"
 
 #: 404.php:62
 msgid "Go Back to home Page"
-msgstr ""
+msgstr "Torna alla pagina iniziale"
 
 #: bbpress/alert-topic-lock.php:21
 msgid "Leave"
@@ -172,19 +169,13 @@ msgid "Create New Forum"
 msgstr "Crea Nuovo Forum"
 
 #: bbpress/form-forum.php:50 bbpress/form-reply.php:46
-msgid ""
-"This forum is closed to new content, however your posting capabilities still "
-"allow you to post."
-msgstr ""
-"Questo forum è chiuso a nuovi contenuti, tuttavia i tuoi permessi ti "
-"consentono comunque di pubblicare."
+msgid "This forum is closed to new content, however your posting capabilities still allow you to post."
+msgstr "Questo forum è chiuso a nuovi contenuti, tuttavia i tuoi permessi ti consentono comunque di pubblicare."
 
 #: bbpress/form-forum.php:60 bbpress/form-reply.php:56
 #: bbpress/form-topic.php:68
 msgid "Your account has the ability to post unrestricted HTML content."
-msgstr ""
-"Il tuo account ha l’autorizzazione a postare del contenuto HTML senza "
-"restrizioni."
+msgstr "Il tuo account ha l’autorizzazione a postare del contenuto HTML senza restrizioni."
 
 #: bbpress/form-forum.php:73
 #, php-format
@@ -192,16 +183,12 @@ msgid "Forum Name (Maximum Length: %d):"
 msgstr "Nome del forum (Lunghezza massima: %d):"
 
 #: bbpress/form-forum.php:88 bbpress/form-reply.php:77
-msgid ""
-"You may use these <abbr title=\"HyperText Markup Language\">HTML</abbr> tags "
-"and attributes:"
-msgstr ""
-"Puoi utilizzare questi tags e attributi <abbr title=“HyperText Markup "
-"Language”>HTML</abbr> :"
+msgid "You may use these <abbr title=\"HyperText Markup Language\">HTML</abbr> tags and attributes:"
+msgstr "Puoi utilizzare questi tags e attributi <abbr title=“HyperText Markup Language”>HTML</abbr> :"
 
 #: bbpress/form-forum.php:99
 msgid "Forum Moderators:"
-msgstr ""
+msgstr "Moderatori del forum:"
 
 #: bbpress/form-forum.php:110
 msgid "Forum Type:"
@@ -253,20 +240,12 @@ msgid "Move reply \"%s\""
 msgstr "Sposta la risposta \"%s\""
 
 #: bbpress/form-reply-move.php:31
-msgid ""
-"You can either make this reply a new topic with a new title, or merge it "
-"into an existing topic."
-msgstr ""
-"Puoi convertire questo commento in una discussione con un nuovo titolo o "
-"collegarlo ad una discussione esistente."
+msgid "You can either make this reply a new topic with a new title, or merge it into an existing topic."
+msgstr "Puoi convertire questo commento in una discussione con un nuovo titolo o collegarlo ad una discussione esistente."
 
 #: bbpress/form-reply-move.php:37
-msgid ""
-"If you choose an existing topic, replies will be ordered by the time and "
-"date they were created."
-msgstr ""
-"Se si sceglie un argomento esistente, le risposte saranno ordinate per data "
-"e ora di creazione."
+msgid "If you choose an existing topic, replies will be ordered by the time and date they were created."
+msgstr "Se si sceglie un argomento esistente, le risposte saranno ordinate per data e ora di creazione."
 
 #: bbpress/form-reply-move.php:42
 msgid "Move Method"
@@ -293,7 +272,7 @@ msgstr "Questo processo non può essere annullato."
 
 #: bbpress/form-reply-move.php:93
 msgid "You do not have permission to edit this reply."
-msgstr ""
+msgstr "Non hai il permesso di modificare questa risposta."
 
 #: bbpress/form-reply-move.php:94
 msgid "You cannot edit this reply."
@@ -305,7 +284,7 @@ msgstr "Cerca risposte:"
 
 #: bbpress/form-reply-search.php:17
 msgid "Search in Reply"
-msgstr ""
+msgstr "Cerca nelle risposte"
 
 #: bbpress/form-reply.php:28
 #, php-format
@@ -318,12 +297,8 @@ msgid "Reply #%1$s in %2$s"
 msgstr "Rispondi a %1s in %2s"
 
 #: bbpress/form-reply.php:36
-msgid ""
-"This topic is marked as closed to new replies, however your posting "
-"capabilities still allow you to reply."
-msgstr ""
-"Questo topic è chiuso a nuovi contenuti, tuttavia i tuoi permessi ti "
-"consentono comunque di pubblicare."
+msgid "This topic is marked as closed to new replies, however your posting capabilities still allow you to reply."
+msgstr "Questo topic è chiuso a nuovi contenuti, tuttavia i tuoi permessi ti consentono comunque di pubblicare."
 
 #: bbpress/form-reply.php:88
 msgid "Tags:"
@@ -343,7 +318,7 @@ msgstr "Rispondi a:"
 
 #: bbpress/form-reply.php:136
 msgid "Reply Status:"
-msgstr ""
+msgstr "Stato della risposta:"
 
 #: bbpress/form-reply.php:151 bbpress/form-topic.php:174
 msgid "Keep a log of this edit:"
@@ -381,31 +356,16 @@ msgid "Merge topic \"%s\""
 msgstr "Unisci argomento \"%s\""
 
 #: bbpress/form-topic-merge.php:31
-msgid ""
-"Select the topic to merge this one into. The destination topic will remain "
-"the lead topic, and this one will change into a reply."
-msgstr ""
-"Selezionare l'argomento da unire. L'argomento di destinazione rimarrà quello "
-"principale, e questo si trasformerà in un commento."
+msgid "Select the topic to merge this one into. The destination topic will remain the lead topic, and this one will change into a reply."
+msgstr "Selezionare l'argomento da unire. L'argomento di destinazione rimarrà quello principale, e questo si trasformerà in un commento."
 
 #: bbpress/form-topic-merge.php:32
-msgid ""
-"To keep this topic as the lead, go to the other topic and use the merge tool "
-"from there instead."
-msgstr ""
-"Per unire i due argomenti utilizzare lo strumento di unione posizionandoti "
-"nell'altro argomento."
+msgid "To keep this topic as the lead, go to the other topic and use the merge tool from there instead."
+msgstr "Per unire i due argomenti utilizzare lo strumento di unione posizionandoti nell'altro argomento."
 
 #: bbpress/form-topic-merge.php:38
-msgid ""
-"Replies to both topics are merged chronologically, ordered by the time and "
-"date they were published. Topics may be updated to a 1 second difference to "
-"maintain chronological order based on the merge direction."
-msgstr ""
-"Le risposte a entrambi i topic vengono unite in ordine cronologico, ordinate "
-"in base alla data e ora di pubblicazione. I topic possono essere aggiornati "
-"a una differenza di 1 secondo per mantenere l'ordine cronologico in base "
-"alla direzione di unione."
+msgid "Replies to both topics are merged chronologically, ordered by the time and date they were published. Topics may be updated to a 1 second difference to maintain chronological order based on the merge direction."
+msgstr "Le risposte a entrambi i topic vengono unite in ordine cronologico, ordinate in base alla data e ora di pubblicazione. I topic possono essere aggiornati a una differenza di 1 secondo per mantenere l'ordine cronologico in base alla direzione di unione."
 
 #: bbpress/form-topic-merge.php:43
 msgid "Destination"
@@ -417,8 +377,7 @@ msgstr "Unisci con questo argomento:"
 
 #: bbpress/form-topic-merge.php:62
 msgid "There are no other topics in this forum to merge with."
-msgstr ""
-"Non ci sono altri argomenti in questo forum con i quali effettuare l'unione."
+msgstr "Non ci sono altri argomenti in questo forum con i quali effettuare l'unione."
 
 #: bbpress/form-topic-merge.php:70 bbpress/form-topic-split.php:74
 msgid "Topic Extras"
@@ -450,7 +409,7 @@ msgstr "Cerca argomenti:"
 
 #: bbpress/form-topic-search.php:18
 msgid "Search in Topics"
-msgstr ""
+msgstr "Cerca nelle discussioni"
 
 #: bbpress/form-topic-split.php:25
 #, php-format
@@ -458,25 +417,12 @@ msgid "Split topic \"%s\""
 msgstr "Dividi argomento \"%s\""
 
 #: bbpress/form-topic-split.php:31
-msgid ""
-"When you split a topic, you are slicing it in half starting with the reply "
-"you just selected. Choose to use that reply as a new topic with a new title, "
-"or merge those replies into an existing topic."
-msgstr ""
-"Quando si suddivide un argomento, si sta affettare a metà a partire dalla "
-"risposta appena selezionata. Scegliere di utilizzare tale risposta come un "
-"nuovo argomento con un nuovo titolo, o unire tali risposte in un argomento "
-"esistente."
+msgid "When you split a topic, you are slicing it in half starting with the reply you just selected. Choose to use that reply as a new topic with a new title, or merge those replies into an existing topic."
+msgstr "Quando si suddivide un argomento, si sta affettare a metà a partire dalla risposta appena selezionata. Scegliere di utilizzare tale risposta come un nuovo argomento con un nuovo titolo, o unire tali risposte in un argomento esistente."
 
 #: bbpress/form-topic-split.php:37
-msgid ""
-"If you use the existing topic option, replies within both topics will be "
-"merged chronologically. The order of the merged replies is based on the time "
-"and date they were posted."
-msgstr ""
-"Se si utilizza l’opzione “discussione esistente”, le risposte di entrambe le "
-"discussioni verrano unite cronologicamente. L’ordine delle risposte unite è "
-"basato sull’ora e la data di pubblicazione."
+msgid "If you use the existing topic option, replies within both topics will be merged chronologically. The order of the merged replies is based on the time and date they were posted."
+msgstr "Se si utilizza l’opzione “discussione esistente”, le risposte di entrambe le discussioni verrano unite cronologicamente. L’ordine delle risposte unite è basato sull’ora e la data di pubblicazione."
 
 #: bbpress/form-topic-split.php:42
 msgid "Split Method"
@@ -510,16 +456,11 @@ msgstr "Rinomina"
 
 #: bbpress/form-topic-tag.php:27
 msgid "Leave the slug empty to have one automatically generated."
-msgstr ""
-"Se non si specifica alcun valore, il sistema ne genererà uno automaticamente."
+msgstr "Se non si specifica alcun valore, il sistema ne genererà uno automaticamente."
 
 #: bbpress/form-topic-tag.php:33
-msgid ""
-"Changing the slug affects its permalink. Any links to the old slug will stop "
-"working."
-msgstr ""
-"La modifica del campo Slug influisce sul relativo permalink. Tutti i "
-"collegamenti al precedente Slug non saranno più funzionanti."
+msgid "Changing the slug affects its permalink. Any links to the old slug will stop working."
+msgstr "La modifica del campo Slug influisce sul relativo permalink. Tutti i collegamenti al precedente Slug non saranno più funzionanti."
 
 #: bbpress/form-topic-tag.php:40
 msgid "Name:"
@@ -551,8 +492,7 @@ msgstr "Tag esistente:"
 
 #: bbpress/form-topic-tag.php:85
 #, php-format
-msgid ""
-"Are you sure you want to merge the \"%s\" tag into the tag you specified?"
+msgid "Are you sure you want to merge the \"%s\" tag into the tag you specified?"
 msgstr "Sei sicuro che vuoi unire i tag “%s” in un tag da te specificato?"
 
 #: bbpress/form-topic-tag.php:100 bbpress/form-topic-tag.php:117
@@ -573,12 +513,8 @@ msgstr "Tutti i collegamenti a questo tag non funzioneranno più."
 
 #: bbpress/form-topic-tag.php:117
 #, php-format
-msgid ""
-"Are you sure you want to delete the \"%s\" tag? This is permanent and cannot "
-"be undone."
-msgstr ""
-"Sei sicuro che vuoi eliminare il tag “%s”? Questa azione sarà definitiva e "
-"non potrà essere annullata."
+msgid "Are you sure you want to delete the \"%s\" tag? This is permanent and cannot be undone."
+msgstr "Sei sicuro che vuoi eliminare il tag “%s”? Questa azione sarà definitiva e non potrà essere annullata."
 
 #: bbpress/form-topic.php:44
 #, php-format
@@ -590,12 +526,8 @@ msgid "Create New Topic"
 msgstr "Crea nuova discussione"
 
 #: bbpress/form-topic.php:57
-msgid ""
-"This forum is marked as closed to new topics, however your posting "
-"capabilities still allow you to create a topic."
-msgstr ""
-"Questo forum è contrassegnato come chiuso ai nuuovi topic, tuttaviai tuoi "
-"permessi consentono comunque di creare un topic."
+msgid "This forum is marked as closed to new topics, however your posting capabilities still allow you to create a topic."
+msgstr "Questo forum è contrassegnato come chiuso ai nuuovi topic, tuttaviai tuoi permessi consentono comunque di creare un topic."
 
 #: bbpress/form-topic.php:83
 #, php-format
@@ -682,7 +614,7 @@ msgstr "Informazioni Personali"
 
 #: bbpress/form-user-edit.php:70
 msgid "Write about yourself"
-msgstr ""
+msgstr "Scrivi qualcosa su di te"
 
 #: bbpress/form-user-edit.php:81
 msgid "Account"
@@ -713,8 +645,7 @@ msgstr "Ruolo del Network"
 
 #: bbpress/form-user-edit.php:121
 msgid "Grant this user super admin privileges for the Network."
-msgstr ""
-"Assicura privilegi di super amministratore a questo utente per la Rete."
+msgstr "Assicura privilegi di super amministratore a questo utente per la Rete."
 
 #: bbpress/form-user-edit.php:141
 msgid "Update Profile"
@@ -787,16 +718,11 @@ msgstr "Crea un Account"
 
 #: bbpress/form-user-register.php:23
 msgid "Your username must be unique, and cannot be changed later."
-msgstr ""
-"Il tuo username deve essere unico, e non può essere cambiato successivamente."
+msgstr "Il tuo username deve essere unico, e non può essere cambiato successivamente."
 
 #: bbpress/form-user-register.php:24
-msgid ""
-"We use your email address to email you a secure password and verify your "
-"account."
-msgstr ""
-"Usiamo il tuo indirizzo email per inviare la password e per verificare il "
-"tuo account."
+msgid "We use your email address to email you a secure password and verify your account."
+msgstr "Usiamo il tuo indirizzo email per inviare la password e per verificare il tuo account."
 
 #: bbpress/form-user-register.php:42 woocommerce/myaccount/form-login.php:85
 #: woocommerce/myaccount/form-login.php:127
@@ -859,7 +785,7 @@ msgstr "Etichetta"
 
 #: bbpress/loop-topics-head.php:29
 msgid "Filter by label"
-msgstr ""
+msgstr "Filtra per etichetta"
 
 #: bbpress/loop-topics-head.php:31
 msgid "Search label"
@@ -895,11 +821,11 @@ msgstr "Aggiornato di recente"
 
 #: bbpress/loop-topics-head.php:62
 msgid "Least recently updated"
-msgstr ""
+msgstr "Aggiornati meno di recente"
 
 #: bbpress/loop-topics.php:141
 msgid "Oops! No Posts Found"
-msgstr ""
+msgstr "Nessun contenuto trovato"
 
 #: bbpress/user-details.php:35
 #, php-format
@@ -975,17 +901,17 @@ msgstr "Argomenti preferiti del Forum"
 #: bbpress/user-profile.php:19
 #, php-format
 msgid "Registered: %s"
-msgstr ""
+msgstr "Registrazione: %s"
 
 #: bbpress/user-profile.php:29
 #, php-format
 msgid "Website: %s"
-msgstr ""
+msgstr "Sito web: %s"
 
 #: bbpress/user-profile.php:38
 #, php-format
 msgid "Last Activity: %s"
-msgstr ""
+msgstr "Ultima attività: %s"
 
 #: bbpress/user-profile.php:42
 #, php-format
@@ -1025,7 +951,7 @@ msgstr "I commenti sono chiusi."
 
 #: comments.php:56
 msgid "Website (Optional)"
-msgstr ""
+msgstr "Sito web (facoltativo)"
 
 #: comments.php:58
 msgid "Full Name"
@@ -1049,7 +975,7 @@ msgstr "Commento"
 
 #: footer.php:30
 msgid "©2025 Spider Themes. All rights reserved"
-msgstr ""
+msgstr "© 2025 Spider Themes. Tutti i diritti riservati"
 
 #: footer.php:41 options/opt_general.php:225 options/opt_general.php:232
 msgid "Back to Top"
@@ -1092,11 +1018,7 @@ msgid "Welcome to the Docy Theme"
 msgstr ""
 
 #: inc/Admin.php:89
-msgid ""
-"Docy is the ultimate WordPress theme for creating comprehensive "
-"documentation, knowledge base, and LMS websites. Our theme is loaded with "
-"powerful features, seamless integration with popular plugins, and extensive "
-"customization options to suit your needs."
+msgid "Docy is the ultimate WordPress theme for creating comprehensive documentation, knowledge base, and LMS websites. Our theme is loaded with powerful features, seamless integration with popular plugins, and extensive customization options to suit your needs."
 msgstr ""
 
 #: inc/Admin.php:93
@@ -1124,9 +1046,7 @@ msgid "Support"
 msgstr "Supporto"
 
 #: inc/Admin.php:125
-msgid ""
-"If your questions that have not been answered by our documentation or video "
-"tutorials, just drop us a line."
+msgid "If your questions that have not been answered by our documentation or video tutorials, just drop us a line."
 msgstr ""
 
 #: inc/Admin.php:127 inc/admin/support/ticket.php:6
@@ -1210,14 +1130,11 @@ msgid "Docy YouTube Playlist"
 msgstr ""
 
 #: inc/admin/notices/deactivate-plugins.php:13
-msgid ""
-"We replaced the ACF metaboxes with the Theme Settings options framework to "
-"make the theme more lightweight and dependency free."
+msgid "We replaced the ACF metaboxes with the Theme Settings options framework to make the theme more lightweight and dependency free."
 msgstr ""
 
 #: inc/admin/notices/deactivate-plugins.php:14
-msgid ""
-"Deactivate ACF Pro plugin to avoid conflict with the new metabox fields."
+msgid "Deactivate ACF Pro plugin to avoid conflict with the new metabox fields."
 msgstr ""
 
 #: inc/admin/notices/deactivate-plugins.php:18
@@ -1229,9 +1146,7 @@ msgid "Congratulations!"
 msgstr "Congratulazioni!"
 
 #: inc/admin/notices/welcome-notice.php:14
-msgid ""
-"Docy is now installed and ready to use. We've assembled some links to get "
-"you started."
+msgid "Docy is now installed and ready to use. We've assembled some links to get you started."
 msgstr ""
 
 #: inc/admin/notices/welcome-notice.php:20
@@ -1244,9 +1159,7 @@ msgid "Ready To GO"
 msgstr ""
 
 #: inc/admin/notices/welcome-notice.php:26
-msgid ""
-"Now you need to configure the theme step by step to build your dream "
-"website. Follow the steps bellow to get started with Docy."
+msgid "Now you need to configure the theme step by step to build your dream website. Follow the steps bellow to get started with Docy."
 msgstr ""
 
 #: inc/admin/notices/welcome-notice.php:31
@@ -1279,9 +1192,7 @@ msgid "Documentation"
 msgstr "Documentazione"
 
 #: inc/admin/notices/welcome-notice.php:53
-msgid ""
-"Need more details? Please check our full documentation for detailed "
-"information on how to use Docy."
+msgid "Need more details? Please check our full documentation for detailed information on how to use Docy."
 msgstr ""
 
 #: inc/admin/notices/welcome-notice.php:56
@@ -1342,17 +1253,17 @@ msgstr "Contattaci"
 
 #: inc/ajax_actions.php:121
 msgid "Show More Results"
-msgstr ""
+msgstr "Mostra altri risultati"
 
 #: inc/ajax_actions.php:272 inc/ajax_actions.php:390 inc/ajax_actions.php:527
 #: inc/ajax_actions.php:611
 msgid "Oops! No results matched your search."
-msgstr ""
+msgstr "Nessun risultato corrisponde alla ricerca."
 
 #: inc/ajax_actions.php:273 inc/ajax_actions.php:391 inc/ajax_actions.php:528
 #: inc/ajax_actions.php:612
 msgid "You could search again."
-msgstr ""
+msgstr "Puoi provare con un’altra ricerca."
 
 #: inc/bbpress-config.php:161
 msgid "Select an option"
@@ -1368,11 +1279,11 @@ msgstr "Commenti"
 
 #: inc/classes/Docy_Forum_Class.php:161
 msgid " Open"
-msgstr ""
+msgstr " Aperta"
 
 #: inc/classes/Docy_Forum_Class.php:172
 msgid " Closed"
-msgstr ""
+msgstr " Chiusa"
 
 #: inc/classes/Docy_Forum_Class.php:183
 msgid "Sticky"
@@ -1398,9 +1309,7 @@ msgstr "Il tema %s deve essere registrato. %s Registrati ora%s"
 #: inc/classes/Docy_register_theme.php:93
 #, php-format
 msgid "Purchase code is invalid. Need a license? %sPurchase Now%s"
-msgstr ""
-"Il codice di acquisto non è valido. Hai bisogno di una licenza? %s Acquista "
-"ora%s"
+msgstr "Il codice di acquisto non è valido. Hai bisogno di una licenza? %s Acquista ora%s"
 
 #: inc/classes/Docy_register_theme.php:107
 msgid "Purchase Verified"
@@ -1492,9 +1401,7 @@ msgstr "Reset"
 #: inc/csf/classes/admin-options.class.php:518
 #: inc/csf/classes/admin-options.class.php:641
 msgid "Are you sure you want to reset all settings to default values?"
-msgstr ""
-"Sei sicuro di voler ripristinare i valori predefiniti di tutte le "
-"impostazioni?"
+msgstr "Sei sicuro di voler ripristinare i valori predefiniti di tutte le impostazioni?"
 
 #: inc/csf/classes/admin-options.class.php:616
 #: inc/csf/classes/comment-options.class.php:184
@@ -2263,7 +2170,7 @@ msgstr ""
 
 #: inc/meta/meta-register-login.php:57
 msgid "Create your Account"
-msgstr ""
+msgstr "Crea il tuo account"
 
 #: inc/meta/meta-register-login.php:63 options/opt_404.php:17
 #: options/opt_forum.php:64 options/opt_forum.php:296
@@ -2283,9 +2190,7 @@ msgid "The Shortcode will be rendered between the Login form and Title area."
 msgstr ""
 
 #: inc/meta/meta-register-login.php:72
-msgid ""
-"You can place here any shortcode as like social login shortcode or ther "
-"content"
+msgid "You can place here any shortcode as like social login shortcode or ther content"
 msgstr ""
 
 #: inc/meta/meta-register-login.php:78
@@ -2320,23 +2225,19 @@ msgstr "Etichetta dei termini contrattuali"
 
 #: inc/meta/meta-register-login.php:104
 msgid "I accept the politic of confidentiality"
-msgstr ""
+msgstr "Accetto l’informativa sulla privacy"
 
 #: inc/meta/meta-register-login.php:111
 msgid "Alert Message"
 msgstr "Messaggio di avviso"
 
 #: inc/meta/meta-register-login.php:112
-msgid ""
-"The alert message will throw if the checkbox is not checked before "
-"submitting the form."
+msgid "The alert message will throw if the checkbox is not checked before submitting the form."
 msgstr ""
 
 #: inc/meta/meta-register-login.php:113 inc/reg_process.php:12
-msgid ""
-"Please indicate that you have read and agree to the Terms and Conditions and "
-"Privacy Policy"
-msgstr ""
+msgid "Please indicate that you have read and agree to the Terms and Conditions and Privacy Policy"
+msgstr "Conferma di aver letto e accettato i termini e le condizioni e l’informativa sulla privacy"
 
 #: inc/meta/meta_action_button.php:4 options/opt_header.php:250
 #: options/opt_header.php:258
@@ -2663,7 +2564,7 @@ msgstr "ERRORE"
 
 #: inc/reg_process.php:77
 msgid "No Error"
-msgstr ""
+msgstr "Nessun errore"
 
 #: inc/sidebars.php:6
 msgid "Primary Sidebar"
@@ -2703,7 +2604,7 @@ msgstr "Cerca ..."
 
 #: inc/template-functions.php:162
 msgid "Back to home Page"
-msgstr ""
+msgstr "Torna alla pagina iniziale"
 
 #: inc/template-functions.php:178
 msgid "No Comments"
@@ -2742,7 +2643,7 @@ msgstr "Negozio"
 
 #: inc/template-functions.php:898
 msgid "Search result for: “"
-msgstr ""
+msgstr "Risultati di ricerca per: "
 
 #: inc/tgm/class-tgm-plugin-activation.php:307
 msgid "Install Plugins"
@@ -2777,18 +2678,10 @@ msgstr[1] "Questo tema suggerisce i seguenti plugin: %1$s."
 #. translators: 1: plugin name(s).
 #: inc/tgm/class-tgm-plugin-activation.php:325
 #, php-format
-msgid ""
-"The following plugin needs to be updated to its latest version to ensure "
-"maximum compatibility with this theme: %1$s."
-msgid_plural ""
-"The following plugins need to be updated to their latest version to ensure "
-"maximum compatibility with this theme: %1$s."
-msgstr[0] ""
-"Il seguente plug-in deve essere aggiornato alla versione pi&ugrave; recente "
-"per garantire la massima compatibilit&agrave;  con questo tema: %1$s."
-msgstr[1] ""
-"I seguenti plug-in devono essere aggiornati alla versione più recente per "
-"garantire la massima compatibilità con questo tema: %1$s."
+msgid "The following plugin needs to be updated to its latest version to ensure maximum compatibility with this theme: %1$s."
+msgid_plural "The following plugins need to be updated to their latest version to ensure maximum compatibility with this theme: %1$s."
+msgstr[0] "Il seguente plug-in deve essere aggiornato alla versione pi&ugrave; recente per garantire la massima compatibilit&agrave;  con questo tema: %1$s."
+msgstr[1] "I seguenti plug-in devono essere aggiornati alla versione più recente per garantire la massima compatibilità con questo tema: %1$s."
 
 #. translators: 1: plugin name(s).
 #: inc/tgm/class-tgm-plugin-activation.php:331
@@ -2862,12 +2755,8 @@ msgstr "Nessun cambiamento. Il plug-in %1$s è già attivo."
 #. translators: 1: plugin name.
 #: inc/tgm/class-tgm-plugin-activation.php:370
 #, php-format
-msgid ""
-"Plugin not activated. A higher version of %s is needed for this theme. "
-"Please update the plugin."
-msgstr ""
-"Plugin non attivato. Una versione più aggiornata di %s è necessaria per "
-"questo tema. Aggiorna il plugin."
+msgid "Plugin not activated. A higher version of %s is needed for this theme. Please update the plugin."
+msgstr "Plugin non attivato. Una versione più aggiornata di %s è necessaria per questo tema. Aggiorna il plugin."
 
 #. translators: 1: dashboard link.
 #: inc/tgm/class-tgm-plugin-activation.php:372
@@ -2880,12 +2769,8 @@ msgid "Dismiss this notice"
 msgstr "Rimuovi questa notifica"
 
 #: inc/tgm/class-tgm-plugin-activation.php:374
-msgid ""
-"There are one or more required or recommended plugins to install, update or "
-"activate."
-msgstr ""
-"Ci sono uno o più plugin richiesti o consigliati da installare, aggiornare o "
-"attivare."
+msgid "There are one or more required or recommended plugins to install, update or activate."
+msgstr "Ci sono uno o più plugin richiesti o consigliati da installare, aggiornare o attivare."
 
 #: inc/tgm/class-tgm-plugin-activation.php:375
 msgid "Please contact the administrator of this site for help."
@@ -2893,8 +2778,7 @@ msgstr "Per favore contatta l'amministratore del sito per chiedere aiuto."
 
 #: inc/tgm/class-tgm-plugin-activation.php:584
 msgid "This plugin needs to be updated to be compatible with your theme."
-msgstr ""
-"Questo plugin deve essere aggiornato per essere compatibile con il tuo tema."
+msgstr "Questo plugin deve essere aggiornato per essere compatibile con il tuo tema."
 
 #: inc/tgm/class-tgm-plugin-activation.php:585
 msgid "Update Required"
@@ -2905,29 +2789,17 @@ msgid "Set the parent_slug config variable instead."
 msgstr "Impostare invece la variabile di configurazione parent_slug."
 
 #: inc/tgm/class-tgm-plugin-activation.php:1018
-msgid ""
-"The remote plugin package does not contain a folder with the desired slug "
-"and renaming did not work."
-msgstr ""
-"Il pacchetto remoto del plugin non contiene una cartella con lo slug "
-"desiderato e non è stato possibile rinominarlo."
+msgid "The remote plugin package does not contain a folder with the desired slug and renaming did not work."
+msgstr "Il pacchetto remoto del plugin non contiene una cartella con lo slug desiderato e non è stato possibile rinominarlo."
 
 #: inc/tgm/class-tgm-plugin-activation.php:1019
 #: inc/tgm/class-tgm-plugin-activation.php:1025
-msgid ""
-"Please contact the plugin provider and ask them to package their plugin "
-"according to the WordPress guidelines."
-msgstr ""
-"Contattare il fornitore del plugin per chiedergli di fornirne una versione "
-"che segua le linee guida di WordPress."
+msgid "Please contact the plugin provider and ask them to package their plugin according to the WordPress guidelines."
+msgstr "Contattare il fornitore del plugin per chiedergli di fornirne una versione che segua le linee guida di WordPress."
 
 #: inc/tgm/class-tgm-plugin-activation.php:1024
-msgid ""
-"The remote plugin package consists of more than one file, but the files are "
-"not packaged in a folder."
-msgstr ""
-"Il pacchetto plugin remoto è costituito da più di un file, ma i file non "
-"sono forniti in una cartella."
+msgid "The remote plugin package consists of more than one file, but the files are not packaged in a folder."
+msgstr "Il pacchetto plugin remoto è costituito da più di un file, ma i file non sono forniti in una cartella."
 
 #: inc/tgm/class-tgm-plugin-activation.php:1216
 #: inc/tgm/class-tgm-plugin-activation.php:3097
@@ -3104,15 +2976,11 @@ msgstr "Attiva"
 
 #: inc/tgm/class-tgm-plugin-activation.php:2903
 msgid "No plugins were selected to be installed. No action taken."
-msgstr ""
-"Nessun Plugin è stato selezionato per essere installato. Nessuna azione "
-"intrapresa."
+msgstr "Nessun Plugin è stato selezionato per essere installato. Nessuna azione intrapresa."
 
 #: inc/tgm/class-tgm-plugin-activation.php:2905
 msgid "No plugins were selected to be updated. No action taken."
-msgstr ""
-"Nessun plugin è stato selezionato per essere aggiornato. Nessuna azione "
-"intrapresa."
+msgstr "Nessun plugin è stato selezionato per essere aggiornato. Nessuna azione intrapresa."
 
 #: inc/tgm/class-tgm-plugin-activation.php:2946
 msgid "No plugins are available to be installed at this time."
@@ -3124,9 +2992,7 @@ msgstr "Nessun Plugin è disponibile per essere aggiornato in questo momento."
 
 #: inc/tgm/class-tgm-plugin-activation.php:3054
 msgid "No plugins were selected to be activated. No action taken."
-msgstr ""
-"Nessun plugin è stato selezionato per essere attivato. Nessuna azione "
-"intrapresa."
+msgstr "Nessun plugin è stato selezionato per essere attivato. Nessuna azione intrapresa."
 
 #: inc/tgm/class-tgm-plugin-activation.php:3081
 msgid "No plugins are available to be activated at this time."
@@ -3152,9 +3018,7 @@ msgstr "Aggiornamento Plugin %1$s (%2$d/%3$d)"
 #: inc/tgm/class-tgm-plugin-activation.php:3661
 #, php-format
 msgid "An error occurred while installing %1$s: <strong>%2$s</strong>."
-msgstr ""
-"Si è verificato un errore durante l’installazione di %1$s: <strong>%2$s</"
-"strong>."
+msgstr "Si è verificato un errore durante l’installazione di %1$s: <strong>%2$s</strong>."
 
 #. translators: 1: plugin name.
 #: inc/tgm/class-tgm-plugin-activation.php:3664
@@ -3163,12 +3027,8 @@ msgid "The installation of %1$s failed."
 msgstr "Installazione di %1$s fallita."
 
 #: inc/tgm/class-tgm-plugin-activation.php:3669
-msgid ""
-"The installation and activation process is starting. This process may take a "
-"while on some hosts, so please be patient."
-msgstr ""
-"Il processo di installazione e di attivazione sta iniziando. Questo processo "
-"può durare un po’ di più su alcuni host, si prega di pazientare."
+msgid "The installation and activation process is starting. This process may take a while on some hosts, so please be patient."
+msgstr "Il processo di installazione e di attivazione sta iniziando. Questo processo può durare un po’ di più su alcuni host, si prega di pazientare."
 
 #. translators: 1: plugin name.
 #: inc/tgm/class-tgm-plugin-activation.php:3672
@@ -3197,12 +3057,8 @@ msgid "Installing and Activating Plugin %1$s (%2$d/%3$d)"
 msgstr "Installazione e attivazione Plugin %1$s (%2$d/%3$d)"
 
 #: inc/tgm/class-tgm-plugin-activation.php:3682
-msgid ""
-"The installation process is starting. This process may take a while on some "
-"hosts, so please be patient."
-msgstr ""
-"Il processo di installazione sta iniziando. Questo processo può durare un "
-"po’ di più su alcuni host, si prega di pazientare."
+msgid "The installation process is starting. This process may take a while on some hosts, so please be patient."
+msgstr "Il processo di installazione sta iniziando. Questo processo può durare un po’ di più su alcuni host, si prega di pazientare."
 
 #. translators: 1: plugin name.
 #: inc/tgm/class-tgm-plugin-activation.php:3685
@@ -3265,9 +3121,7 @@ msgid "Smart bbPress nVerify"
 msgstr ""
 
 #: inc/tgm/plugin_activation.php:148
-msgid ""
-"Elementor is a free drag & drop page builder plugin that will help you to "
-"create any layout you can imagine with WordPress."
+msgid "Elementor is a free drag & drop page builder plugin that will help you to create any layout you can imagine with WordPress."
 msgstr ""
 
 #: inc/tgm/plugin_activation.php:154
@@ -3275,9 +3129,7 @@ msgid "Docy Core is a required plugin for Docy theme."
 msgstr ""
 
 #: inc/tgm/plugin_activation.php:159
-msgid ""
-"Advanced Custom Fields Pro is a premium plugin that allows you to add custom "
-"fields to your WordPress edit screens."
+msgid "Advanced Custom Fields Pro is a premium plugin that allows you to add custom fields to your WordPress edit screens."
 msgstr ""
 
 #: inc/tgm/plugin_activation.php:165
@@ -3285,34 +3137,23 @@ msgid "Pro Elements"
 msgstr "Pro Elements"
 
 #: inc/tgm/plugin_activation.php:166
-msgid ""
-"Free WordPress plugin that enables PRO features in the Elementor page "
-"builder. If you have Elementor Pro, no need to install this plugin."
+msgid "Free WordPress plugin that enables PRO features in the Elementor page builder. If you have Elementor Pro, no need to install this plugin."
 msgstr ""
 
 #: inc/tgm/plugin_activation.php:173
-msgid ""
-"EazyDocs is a free WordPress plugin that allows you to create a knowledge "
-"base, documentation, or wiki for your website."
+msgid "EazyDocs is a free WordPress plugin that allows you to create a knowledge base, documentation, or wiki for your website."
 msgstr ""
 
 #: inc/tgm/plugin_activation.php:179
-msgid ""
-"WooCommerce is a free eCommerce plugin that allows you to sell anything. If "
-"you need to sell product, you have to install it. Otherwise, you can skip "
-"this plugin."
+msgid "WooCommerce is a free eCommerce plugin that allows you to sell anything. If you need to sell product, you have to install it. Otherwise, you can skip this plugin."
 msgstr ""
 
 #: inc/tgm/plugin_activation.php:185
-msgid ""
-"bbPress is forum software with a twist from the creators of WordPress. If "
-"you don't want the Forum feature, you can skip installing this plugin."
+msgid "bbPress is forum software with a twist from the creators of WordPress. If you don't want the Forum feature, you can skip installing this plugin."
 msgstr ""
 
 #: inc/tgm/plugin_activation.php:191
-msgid ""
-"BBP Core is a required plugin for bbPress forum. If you don't want the Forum "
-"feature, you can skip installing this plugin."
+msgid "BBP Core is a required plugin for bbPress forum. If you don't want the Forum feature, you can skip installing this plugin."
 msgstr ""
 
 #: inc/tgm/plugin_activation.php:197
@@ -3328,9 +3169,7 @@ msgid "Title Text"
 msgstr "Testo del Titolo"
 
 #: options/opt_404.php:20
-msgid ""
-"Sorry for the inconvenience. Go to our homepage or check out our latest "
-"collections for Fashion, Chair, Decoration..."
+msgid "Sorry for the inconvenience. Go to our homepage or check out our latest collections for Fashion, Chair, Decoration..."
 msgstr ""
 
 #: options/opt_404.php:24
@@ -3382,9 +3221,7 @@ msgid "Blog page Title"
 msgstr ""
 
 #: options/opt_blog.php:27
-msgid ""
-"Controls the title text that displays on the Blog page Titlebar/Search "
-"Banner."
+msgid "Controls the title text that displays on the Blog page Titlebar/Search Banner."
 msgstr ""
 
 #: options/opt_blog.php:34
@@ -3392,9 +3229,7 @@ msgid "Blog page Subtitle"
 msgstr ""
 
 #: options/opt_blog.php:35
-msgid ""
-"Controls the title text that displays on the Blog page Titlebar/Search "
-"Banner.\"."
+msgid "Controls the title text that displays on the Blog page Titlebar/Search Banner.\"."
 msgstr ""
 
 #: options/opt_blog.php:41
@@ -3442,9 +3277,7 @@ msgid "Post Word Excerpt"
 msgstr ""
 
 #: options/opt_blog.php:89
-msgid ""
-"Define the number of words to display for each post on the blog page. If the "
-"post excerpt is empty, the content will be taken from the post content."
+msgid "Define the number of words to display for each post on the blog page. If the post excerpt is empty, the content will be taken from the post content."
 msgstr ""
 
 #: options/opt_blog.php:101
@@ -3558,9 +3391,7 @@ msgid "Apply horizontal padding to reduce text width and enhance readability."
 msgstr ""
 
 #: options/opt_blog.php:354
-msgid ""
-"Horizontal padding to the text post content except images, videos, tables "
-"etc."
+msgid "Horizontal padding to the text post content except images, videos, tables etc."
 msgstr ""
 
 #: options/opt_blog.php:357 options/opt_forum.php:159
@@ -3632,9 +3463,7 @@ msgid "Background Gradient Color"
 msgstr "Colore Sfumatura Sfondo"
 
 #: options/opt_color_scheme.php:44
-msgid ""
-"This color applied to Post Single, Archive (tags, category, author) pages, "
-"Forum pages, Search Results page"
+msgid "This color applied to Post Single, Archive (tags, category, author) pages, Forum pages, Search Results page"
 msgstr ""
 
 #: options/opt_color_scheme.php:59
@@ -3725,9 +3554,7 @@ msgid "Preset Columns"
 msgstr ""
 
 #: options/opt_footer.php:37
-msgid ""
-"If you enable this switcher, the Footer Widget columns will set as preset "
-"(33.33% + 22.22% + 22.22% + 22.22%) on the demo of Docy."
+msgid "If you enable this switcher, the Footer Widget columns will set as preset (33.33% + 22.22% + 22.22% + 22.22%) on the demo of Docy."
 msgstr ""
 
 #: options/opt_footer.php:45
@@ -3755,9 +3582,7 @@ msgid "Ornament Illustration"
 msgstr ""
 
 #: options/opt_footer.php:78
-msgid ""
-"This is for beautiful design purpose. You can replace the default "
-"illustration or delete it from here."
+msgid "This is for beautiful design purpose. You can replace the default illustration or delete it from here."
 msgstr ""
 
 #: options/opt_footer.php:106
@@ -3870,16 +3695,12 @@ msgstr ""
 
 #: options/opt_forum.php:174
 #, php-format
-msgid ""
-"This setting will work if the Membership checkbox is checked from the "
-"general <a href=\"%s\">settings</a>"
+msgid "This setting will work if the Membership checkbox is checked from the general <a href=\"%s\">settings</a>"
 msgstr ""
 
 #: options/opt_forum.php:175
 #, php-format
-msgid ""
-"Use this shortcode to show the bbpress default signup form <b>%s</b> Or skip "
-"the selection if need the wordprss register form"
+msgid "Use this shortcode to show the bbpress default signup form <b>%s</b> Or skip the selection if need the wordprss register form"
 msgstr ""
 
 #: options/opt_forum.php:185
@@ -4020,16 +3841,11 @@ msgid "Login Form Shortcode"
 msgstr "Shortcode Modulo Login"
 
 #: options/opt_forum.php:410
-msgid ""
-"You can replace the default bbPress login form with your own login form "
-"shortcode."
+msgid "You can replace the default bbPress login form with your own login form shortcode."
 msgstr ""
 
 #: options/opt_forum.php:411
-msgid ""
-"You can use the <a href=\"https://t.ly/iyGmC\" target=\"_blank\"> "
-"[docy_login_form] </a> shortcode for the Login form. Leave the field empty "
-"to use the bbPress default login form. "
+msgid "You can use the <a href=\"https://t.ly/iyGmC\" target=\"_blank\"> [docy_login_form] </a> shortcode for the Login form. Leave the field empty to use the bbPress default login form. "
 msgstr ""
 
 #: options/opt_general.php:3
@@ -4053,9 +3869,7 @@ msgid "Gutenberg"
 msgstr "Gutenberg"
 
 #: options/opt_general.php:24
-msgid ""
-"If enabled classic, it will be restored the old Widgets screen and disables "
-"the block editor from managing widgets."
+msgid "If enabled classic, it will be restored the old Widgets screen and disables the block editor from managing widgets."
 msgstr ""
 
 #: options/opt_general.php:30
@@ -4063,9 +3877,7 @@ msgid "Custom Post Types"
 msgstr "Articoli Personalizzati"
 
 #: options/opt_general.php:31
-msgid ""
-"If you disable a post type, all the assets, widgets associated with that "
-"post type will be disabled."
+msgid "If you disable a post type, all the assets, widgets associated with that post type will be disabled."
 msgstr ""
 
 #: options/opt_general.php:35
@@ -4154,8 +3966,7 @@ msgid "The quotes will display randomly under the title."
 msgstr ""
 
 #: options/opt_general.php:189
-msgid ""
-"We design Docy for the readers, optimizing not for page views or engagement"
+msgid "We design Docy for the readers, optimizing not for page views or engagement"
 msgstr ""
 
 #: options/opt_general.php:193
@@ -4215,9 +4026,7 @@ msgid "Ajax Search Result Limit"
 msgstr ""
 
 #: options/opt_general.php:359
-msgid ""
-"This will limit the doc sections and articles in Ajax live search results. "
-"Input -1 for show all results."
+msgid "This will limit the doc sections and articles in Ajax live search results. Input -1 for show all results."
 msgstr ""
 
 #: options/opt_general.php:368
@@ -4245,9 +4054,7 @@ msgid "Select Post Types to Include"
 msgstr ""
 
 #: options/opt_general.php:402
-msgid ""
-"Choose one or more post types (e.g., Pages, Posts, Products) to filter "
-"results."
+msgid "Choose one or more post types (e.g., Pages, Posts, Products) to filter results."
 msgstr ""
 
 #: options/opt_header.php:16
@@ -4263,9 +4070,7 @@ msgid "Header Style"
 msgstr "Stile intestazione"
 
 #: options/opt_header.php:42
-msgid ""
-"Set the default Header width here. It will apply on the theme's Header "
-"globally."
+msgid "Set the default Header width here. It will apply on the theme's Header globally."
 msgstr ""
 
 #: options/opt_header.php:48
@@ -4313,9 +4118,7 @@ msgid "Select the default color for the selected Navbar style."
 msgstr ""
 
 #: options/opt_header.php:104
-msgid ""
-"The selected style would apply main navbar area's elements (logo, menu "
-"items, action button)"
+msgid "The selected style would apply main navbar area's elements (logo, menu items, action button)"
 msgstr ""
 
 #: options/opt_header.php:128
@@ -4327,10 +4130,7 @@ msgid "Logo"
 msgstr "Logo"
 
 #: options/opt_header.php:167
-msgid ""
-"The logo will display in the website’s navigation bar. If you’re uploading "
-"an SVG logo, there’s no need to upload a separate Retina logo, as SVG files "
-"maintain high resolution on all screens."
+msgid "The logo will display in the website’s navigation bar. If you’re uploading an SVG logo, there’s no need to upload a separate Retina logo, as SVG files maintain high resolution on all screens."
 msgstr ""
 
 #: options/opt_header.php:171
@@ -4346,9 +4146,7 @@ msgid "White Logo"
 msgstr "Logo bianco"
 
 #: options/opt_header.php:185
-msgid ""
-"Upload here the white version of your logo. This logo is useful for the Dark "
-"mode."
+msgid "Upload here the white version of your logo. This logo is useful for the Dark mode."
 msgstr ""
 
 #: options/opt_header.php:195
@@ -4372,9 +4170,7 @@ msgid "Set a custom height width for your uploaded logo."
 msgstr ""
 
 #: options/opt_header.php:233
-msgid ""
-"Padding around the logo. Input the padding as clockwise (Top Right Bottom "
-"Left)"
+msgid "Padding around the logo. Input the padding as clockwise (Top Right Bottom Left)"
 msgstr ""
 
 #: options/opt_header.php:273
@@ -4583,9 +4379,7 @@ msgid "Important Note:"
 msgstr "Nota importante:"
 
 #: options/opt_header.php:651
-msgid ""
-"By default, the Search Banner is displays on all pages. You can hide Search "
-"Banner from a specific page from Options :: Page > Banner"
+msgid "By default, the Search Banner is displays on all pages. You can hide Search Banner from a specific page from Options :: Page > Banner"
 msgstr ""
 
 #: options/opt_header.php:667
@@ -4645,9 +4439,7 @@ msgid "Search Banner Design"
 msgstr ""
 
 #: options/opt_header.php:793
-msgid ""
-"Padding around the Search Banner. Input the padding as clockwise (Top Right "
-"Bottom Left)"
+msgid "Padding around the Search Banner. Input the padding as clockwise (Top Right Bottom Left)"
 msgstr ""
 
 #: options/opt_header.php:809
@@ -4679,9 +4471,7 @@ msgid "Background Shape Image"
 msgstr ""
 
 #: options/opt_header.php:916
-msgid ""
-"We used here a transparent image that are containing stars. So you can use "
-"here similar transparent image or any other image."
+msgid "We used here a transparent image that are containing stars. So you can use here similar transparent image or any other image."
 msgstr ""
 
 #: options/opt_header.php:931
@@ -4689,9 +4479,7 @@ msgid "Wave Shape 01"
 msgstr ""
 
 #: options/opt_header.php:932 options/opt_header.php:948
-msgid ""
-"We used here a transparent wave shape image. You can use here similar "
-"transparent shape image or any other image."
+msgid "We used here a transparent wave shape image. You can use here similar transparent shape image or any other image."
 msgstr ""
 
 #: options/opt_header.php:947
@@ -4727,8 +4515,7 @@ msgid "Blur Density"
 msgstr ""
 
 #: options/opt_header.php:1018
-msgid ""
-"Adjust the blur intensity for Post Single, Forum pages, Search Results page"
+msgid "Adjust the blur intensity for Post Single, Forum pages, Search Results page"
 msgstr ""
 
 #: options/opt_header.php:1044
@@ -4744,9 +4531,7 @@ msgid "Focus Search"
 msgstr ""
 
 #: options/opt_header.php:1054
-msgid ""
-"When you enter the cursor in the search field, a transparent overlay color "
-"will appear on other elements of the page."
+msgid "When you enter the cursor in the search field, a transparent overlay color will appear on other elements of the page."
 msgstr ""
 
 #: options/opt_header.php:1069
@@ -4754,9 +4539,7 @@ msgid "Focus Search by /"
 msgstr ""
 
 #: options/opt_header.php:1070
-msgid ""
-"If you enable this setting, your website visitors can focus (enter the mouse "
-"cursor) on the search form by pressing the \"/\" key of the keyboard."
+msgid "If you enable this setting, your website visitors can focus (enter the mouse cursor) on the search form by pressing the \"/\" key of the keyboard."
 msgstr ""
 
 #: options/opt_header.php:1087
@@ -4788,9 +4571,7 @@ msgid "Select your preferred keywords type."
 msgstr ""
 
 #: options/opt_header.php:1139
-msgid ""
-"Static keywords are predefined, while dynamic keywords are generated by "
-"queries from website visitors"
+msgid "Static keywords are predefined, while dynamic keywords are generated by queries from website visitors"
 msgstr ""
 
 #: options/opt_header.php:1142
@@ -4827,9 +4608,7 @@ msgstr "Nota:"
 
 #: options/opt_header.php:1222
 #, php-format
-msgid ""
-"Get the Ajax Search results related settings in %1$s Theme Settings > "
-"General > Ajax Search%2$s Settings page"
+msgid "Get the Ajax Search results related settings in %1$s Theme Settings > General > Ajax Search%2$s Settings page"
 msgstr ""
 
 #: options/opt_header.php:1236 options/opt_header.php:1246
@@ -4837,9 +4616,7 @@ msgid "Breadcrumbs"
 msgstr "Breadcrumbs"
 
 #: options/opt_header.php:1247
-msgid ""
-"Breadcrumbs are a great way to help your visitors navigate your website. The "
-"breadcrumbs displays below to the Search Banner."
+msgid "Breadcrumbs are a great way to help your visitors navigate your website. The breadcrumbs displays below to the Search Banner."
 msgstr ""
 
 #: options/opt_header.php:1253
@@ -4957,9 +4734,7 @@ msgid "Menu item padding"
 msgstr ""
 
 #: options/opt_menu.php:185
-msgid ""
-"Padding around menu item. Default is 37px 0px 37px 0px. You can reduce the "
-"top and bottom padding to make the menu bar height smaller."
+msgid "Padding around menu item. Default is 37px 0px 37px 0px. You can reduce the top and bottom padding to make the menu bar height smaller."
 msgstr ""
 
 #: options/opt_menu.php:195
@@ -4980,9 +4755,7 @@ msgstr "Privacy Bar"
 
 #: options/opt_privacy.php:11
 msgid "Turn on to enable a privacy bar at the bottom of the page."
-msgstr ""
-"Attivare per abilitare una barra della privacy nella parte inferiore della "
-"pagina."
+msgstr "Attivare per abilitare una barra della privacy nella parte inferiore della pagina."
 
 #: options/opt_privacy.php:23
 msgid "Privacy Bar Text"
@@ -5057,9 +4830,7 @@ msgid "Unload WC Gutenberg Assets"
 msgstr ""
 
 #: options/opt_shop.php:88
-msgid ""
-"WC gutenberg assets loads globally. If you don't use wooCommerce gutenberg "
-"blocks, it's recommended to unload the unnecessary assets."
+msgid "WC gutenberg assets loads globally. If you don't use wooCommerce gutenberg blocks, it's recommended to unload the unnecessary assets."
 msgstr ""
 
 #: options/opt_social_links.php:3 options/opt_social_links.php:11
@@ -5099,10 +4870,7 @@ msgid "Typography Settings"
 msgstr "Impostazioni Tipografia"
 
 #: options/opt_typo.php:24 options/opt_typo.php:64
-msgid ""
-"This tab contains general typography options. Additional typography options "
-"for specific areas can be found within other tabs. Example: For menu "
-"typography options go to the Menu Settings tab."
+msgid "This tab contains general typography options. Additional typography options for specific areas can be found within other tabs. Example: For menu typography options go to the Menu Settings tab."
 msgstr ""
 
 #: options/opt_typo.php:30
@@ -5123,17 +4891,14 @@ msgstr "Tipografia Headers H1"
 
 #: options/opt_typo.php:71
 msgid "These settings control the typography for all H1 Headers."
-msgstr ""
-"Queste impostazioni controllano la tipografia per tutte le intestazioni H1."
+msgstr "Queste impostazioni controllano la tipografia per tutte le intestazioni H1."
 
 #: options/opt_typo.php:85
 msgid "H2 Headers Typography"
 msgstr "Tipografia Headers H2"
 
 #: options/opt_typo.php:86
-msgid ""
-"These settings control the typography for all H2 Headers. The h2 title tag "
-"used in the most section title."
+msgid "These settings control the typography for all H2 Headers. The h2 title tag used in the most section title."
 msgstr ""
 
 #: options/opt_typo.php:100
@@ -5142,8 +4907,7 @@ msgstr "Tipografia Headers H3"
 
 #: options/opt_typo.php:101
 msgid "These settings control the typography for all H3 Headers."
-msgstr ""
-"Queste impostazioni controllano la tipografia per tutte le intestazioni H3."
+msgstr "Queste impostazioni controllano la tipografia per tutte le intestazioni H3."
 
 #: options/opt_typo.php:115
 msgid "H4 Headers Typography"
@@ -5151,8 +4915,7 @@ msgstr "Tipografia Headers H4"
 
 #: options/opt_typo.php:116
 msgid "These settings control the typography for all H4 Headers."
-msgstr ""
-"Queste impostazioni controllano la tipografia per tutte le intestazioni H4."
+msgstr "Queste impostazioni controllano la tipografia per tutte le intestazioni H4."
 
 #: options/opt_typo.php:130
 msgid "H5 Headers Typography"
@@ -5160,8 +4923,7 @@ msgstr "Tipografia Headers H5"
 
 #: options/opt_typo.php:138
 msgid "These settings control the typography for all H5 Headers."
-msgstr ""
-"Queste impostazioni controllano la tipografia per tutte le intestazioni H5."
+msgstr "Queste impostazioni controllano la tipografia per tutte le intestazioni H5."
 
 #: options/opt_typo.php:152
 msgid "H6 Headers Typography"
@@ -5169,16 +4931,15 @@ msgstr "Tipografia Headers H6"
 
 #: options/opt_typo.php:153
 msgid "These settings control the typography for all H6 Headers."
-msgstr ""
-"Queste impostazioni controllano la tipografia per tutte le intestazioni H6."
+msgstr "Queste impostazioni controllano la tipografia per tutte le intestazioni H6."
 
 #: page-signin.php:29 page-signup.php:27
 msgid "top ornament"
-msgstr ""
+msgstr "Decorazione superiore"
 
 #: page-signin.php:36 page-signup.php:33
 msgid "bottom ornament"
-msgstr ""
+msgstr "Decorazione inferiore"
 
 #: page-signin.php:43
 msgid "door"
@@ -5198,7 +4959,7 @@ msgstr "Hai effettuato l’accesso"
 
 #: page-signup.php:39
 msgid "man image with lock"
-msgstr ""
+msgstr "Illustrazione di una persona con un lucchetto"
 
 #: page.php:61 single-elementor_library.php:11 single.php:69
 msgid "Pages:"
@@ -5235,26 +4996,16 @@ msgstr "Nessun risultato"
 
 #: template-parts/contents/content-none.php:21
 #, php-format
-msgid ""
-"Ready to publish your first post? <a href=\"%1$s\">Get started here</a>."
-msgstr ""
-"Pronto a pubblicare il tuo primo post? <a href=\"%1$s\">Inizia qui</a>."
+msgid "Ready to publish your first post? <a href=\"%1$s\">Get started here</a>."
+msgstr "Pronto a pubblicare il tuo primo post? <a href=\"%1$s\">Inizia qui</a>."
 
 #: template-parts/contents/content-none.php:25
-msgid ""
-"Sorry, but nothing matched your search terms. Please try again with some "
-"different keywords."
-msgstr ""
-"Ci dispiace, ma non ha trovato i termini di ricerca. Riprova con alcune "
-"parole chiave diverse."
+msgid "Sorry, but nothing matched your search terms. Please try again with some different keywords."
+msgstr "Ci dispiace, ma non ha trovato i termini di ricerca. Riprova con alcune parole chiave diverse."
 
 #: template-parts/contents/content-none.php:29
-msgid ""
-"It seems we can&rsquo;t find what you&rsquo;re looking for. Perhaps "
-"searching can help."
-msgstr ""
-"Sembra che non possiamo trovare quello che stai cercando. Forse la ricerca "
-"pu&ograve; aiutare."
+msgid "It seems we can&rsquo;t find what you&rsquo;re looking for. Perhaps searching can help."
+msgstr "Sembra che non possiamo trovare quello che stai cercando. Forse la ricerca pu&ograve; aiutare."
 
 #: template-parts/contents/content-search.php:5
 #: template-parts/contents/content.php:20
@@ -5268,11 +5019,11 @@ msgstr "Tabella dei Contenuti"
 #: template-parts/contents/mobile-toc-share.php:12
 #: template-parts/contents/mobile-toc-share.php:29
 msgid "Cross icon"
-msgstr ""
+msgstr "Icona di chiusura"
 
 #: template-parts/contents/mobile-toc-share.php:21
 msgid "Share icon"
-msgstr ""
+msgstr "Icona di condivisione"
 
 #: template-parts/contents/mobile-toc-share.php:22
 #: woocommerce/single-product/photoswipe.php:36
@@ -5281,24 +5032,24 @@ msgstr "Condividi"
 
 #: template-parts/contents/mobile-toc-share.php:34
 msgid "Check out this page"
-msgstr ""
+msgstr "Guarda questa pagina"
 
 #: template-parts/footers/footer-normal.php:6
 #: template-parts/footers/footer-normal.php:40
 msgid "© 2021 Spider-Themes. All rights reserved"
-msgstr ""
+msgstr "© 2021 Spider-Themes. Tutti i diritti riservati"
 
 #: template-parts/footers/footer-simple.php:6
 msgid "Leaf Illustration"
-msgstr ""
+msgstr "Illustrazione di una foglia"
 
 #: template-parts/footers/footer-simple.php:12
 msgid "© 2025 Spider-Themes. All rights reserved"
-msgstr ""
+msgstr "© 2025 Spider-Themes. Tutti i diritti riservati"
 
 #: template-parts/header-elements/dark-switcher.php:6
 msgid "Toggle dark mode"
-msgstr ""
+msgstr "Attiva o disattiva la modalità scura"
 
 #: template-parts/header-elements/search-banner/ajax-search-results.php:1
 msgid "No Results Found"
@@ -5331,12 +5082,12 @@ msgstr "caricamento"
 #: template-parts/single-post/banner-colorful.php:14
 #: template-parts/single-post/banner-colorful.php:15
 msgid "banner shape"
-msgstr ""
+msgstr "Decorazione del banner"
 
 #: template-parts/single-post/banner-colorful.php:23
 #: template-parts/single-post/banner-colorful.php:24
 msgid "plus icon"
-msgstr ""
+msgstr "Icona del segno più"
 
 #: template-parts/single-post/banner-curved.php:49
 #: template-parts/single-post/banner-curved.php:50
@@ -5349,7 +5100,7 @@ msgstr "Autore del post "
 
 #: template-parts/single-post/post-meta-bottom.php:23
 msgid " to read this post"
-msgstr ""
+msgstr " per leggere questo articolo"
 
 #: template-parts/single-post/post-meta-bottom.php:33
 msgid " Views"
@@ -5357,7 +5108,7 @@ msgstr " Visualizzazioni"
 
 #: template-parts/single-post/post-meta-top.php:17
 msgid "First published on "
-msgstr ""
+msgstr "Prima pubblicazione: "
 
 #: template-parts/single-post/post-meta-top.php:19
 msgid "Updated on "
@@ -5419,7 +5170,7 @@ msgstr "Aggiorna carrello"
 
 #: woocommerce/cart/cart.php:141
 msgid "Discount Code:"
-msgstr ""
+msgstr "Codice sconto:"
 
 #: woocommerce/cart/cart.php:145
 msgid "Enter your coupon code"
@@ -5503,12 +5254,8 @@ msgid "Click here to login"
 msgstr "Clicca qui per accedere"
 
 #: woocommerce/checkout/form-login.php:38
-msgid ""
-"If you have shopped with us before, please enter your details below. If you "
-"are a new customer, please proceed to the Billing section."
-msgstr ""
-"Se hai effettuato acquisti da noi in passato, inserisci i dati nelle caselle "
-"sottostanti. Se sei un nuovo cliente, procedi alla registrazione."
+msgid "If you have shopped with us before, please enter your details below. If you are a new customer, please proceed to the Billing section."
+msgstr "Se hai effettuato acquisti da noi in passato, inserisci i dati nelle caselle sottostanti. Se sei un nuovo cliente, procedi alla registrazione."
 
 #: woocommerce/checkout/form-shipping.php:26
 msgid "Ship to a different address?"
@@ -5528,45 +5275,26 @@ msgid "Order:"
 msgstr "Ordine:"
 
 #: woocommerce/checkout/payment.php:35
-msgid ""
-"Sorry, it seems that there are no available payment methods. Please contact "
-"us if you require assistance or wish to make alternate arrangements."
-msgstr ""
-"Siamo spiacenti, sembra che non ci siano metodi di pagamento disponibili. "
-"Contattateci se avete bisogno di assistenza o desiderate prendere accordi "
-"alternativi."
+msgid "Sorry, it seems that there are no available payment methods. Please contact us if you require assistance or wish to make alternate arrangements."
+msgstr "Siamo spiacenti, sembra che non ci siano metodi di pagamento disponibili. Contattateci se avete bisogno di assistenza o desiderate prendere accordi alternativi."
 
 #: woocommerce/checkout/payment.php:35
 msgid "Please fill in your details above to see available payment methods."
-msgstr ""
-"Si prega di compilare i dati qui sopra per vedere i metodi di pagamento "
-"disponibili."
+msgstr "Si prega di compilare i dati qui sopra per vedere i metodi di pagamento disponibili."
 
 #. translators: $1 and $2 opening and closing emphasis tags respectively
 #: woocommerce/checkout/payment.php:45
 #, php-format
-msgid ""
-"Since your browser does not support JavaScript, or it is disabled, please "
-"ensure you click the %1$sUpdate Totals%2$s button before placing your order. "
-"You may be charged more than the amount stated above if you fail to do so."
-msgstr ""
-"Dal momento che il tuo browser non supporta JavaScript oppure è "
-"disabilitato, assicurati di fare clic sul pulsante %1$sAggiorna Totale%2$s "
-"prima di effettuare l'ordine. Se non riesci a fare quest'operazione "
-"l'importo addebitato potrebbe risultare più alto."
+msgid "Since your browser does not support JavaScript, or it is disabled, please ensure you click the %1$sUpdate Totals%2$s button before placing your order. You may be charged more than the amount stated above if you fail to do so."
+msgstr "Dal momento che il tuo browser non supporta JavaScript oppure è disabilitato, assicurati di fare clic sul pulsante %1$sAggiorna Totale%2$s prima di effettuare l'ordine. Se non riesci a fare quest'operazione l'importo addebitato potrebbe risultare più alto."
 
 #: woocommerce/checkout/payment.php:51
 msgid "Update totals"
 msgstr "Aggiorna totale"
 
 #: woocommerce/checkout/thankyou.php:33
-msgid ""
-"Unfortunately your order cannot be processed as the originating bank/"
-"merchant has declined your transaction. Please attempt your purchase again."
-msgstr ""
-"Sfortunatamente il tuo ordine non può essere processato in quanto la banca "
-"ha rifiutato la tua transazione. Prova a completare il tuo ordine "
-"diversamente."
+msgid "Unfortunately your order cannot be processed as the originating bank/merchant has declined your transaction. Please attempt your purchase again."
+msgstr "Sfortunatamente il tuo ordine non può essere processato in quanto la banca ha rifiutato la tua transazione. Prova a completare il tuo ordine diversamente."
 
 #: woocommerce/checkout/thankyou.php:36
 msgid "Pay"
@@ -5657,18 +5385,11 @@ msgstr "Accedi"
 
 #: woocommerce/myaccount/form-login.php:119
 msgid "A link to set a new password will be sent to your email address."
-msgstr ""
-"Un link per impostare una nuova password sarà inviato al tuo indirizzo e-"
-"mail."
+msgstr "Un link per impostare una nuova password sarà inviato al tuo indirizzo e-mail."
 
 #: woocommerce/myaccount/form-lost-password.php:25
-msgid ""
-"Lost your password? Please enter your username or email address. You will "
-"receive a link to create a new password via email."
-msgstr ""
-"Hai perso la parola chiave? Inserisci il tuo nome utente o l’indirizzo di "
-"posta elettronica. Riceverai un collegamento per generare una nuova parola "
-"chiave."
+msgid "Lost your password? Please enter your username or email address. You will receive a link to create a new password via email."
+msgstr "Hai perso la parola chiave? Inserisci il tuo nome utente o l’indirizzo di posta elettronica. Riceverai un collegamento per generare una nuova parola chiave."
 
 #: woocommerce/myaccount/form-lost-password.php:38
 #: woocommerce/myaccount/form-lost-password.php:39
@@ -5692,15 +5413,8 @@ msgid "Password reset email has been sent."
 msgstr "L'email per reimpostare la password è stata inviata."
 
 #: woocommerce/myaccount/lost-password-confirmation.php:25
-msgid ""
-"A password reset email has been sent to the email address on file for your "
-"account, but may take several minutes to show up in your inbox. Please wait "
-"at least 10 minutes before attempting another reset."
-msgstr ""
-"﻿Una email di reimpostazione password è stata inviata all'indirizzo di posta "
-"elettronica archiviato nel tuo account, ma possono essere necessari svariati "
-"minuti perché tu possa riceverlo. Si prega di attendere almeno 10 minuti "
-"prima di fare un nuovo tentativo."
+msgid "A password reset email has been sent to the email address on file for your account, but may take several minutes to show up in your inbox. Please wait at least 10 minutes before attempting another reset."
+msgstr "﻿Una email di reimpostazione password è stata inviata all'indirizzo di posta elettronica archiviato nel tuo account, ma possono essere necessari svariati minuti perché tu possa riceverlo. Si prega di attendere almeno 10 minuti prima di fare un nuovo tentativo."
 
 #: woocommerce/order/order-details-customer.php:31
 msgid "Billing address"
@@ -5732,7 +5446,7 @@ msgstr "Azioni"
 #: woocommerce/order/order-details.php:106
 #, php-format
 msgid "%1$s order number %2$s"
-msgstr ""
+msgstr "%1$s ordine numero %2$s"
 
 #. translators: 1: reviews count 2: product name
 #: woocommerce/single-product-reviews.php:31
@@ -5753,7 +5467,7 @@ msgstr "Lascia una risposta a %s"
 
 #: woocommerce/single-product-reviews.php:60
 msgid "Add your Review"
-msgstr ""
+msgstr "Aggiungi una recensione"
 
 #: woocommerce/single-product-reviews.php:60
 #, php-format
@@ -5802,22 +5516,16 @@ msgid "Very poor"
 msgstr "Scarso"
 
 #: woocommerce/single-product-reviews.php:109
-msgid ""
-"Only logged in customers who have purchased this product may leave a review."
-msgstr ""
-"Soltanto i clienti che hanno acquistato questo prodotto possono lasciare una "
-"recensione."
+msgid "Only logged in customers who have purchased this product may leave a review."
+msgstr "Soltanto i clienti che hanno acquistato questo prodotto possono lasciare una recensione."
 
 #: woocommerce/single-product/add-to-cart/variable.php:32
 msgid "This product is currently out of stock and unavailable."
 msgstr "Questo prodotto è attualmente esaurito e non disponibile."
 
 #: woocommerce/single-product/add-to-cart/variation.php:23
-msgid ""
-"Sorry, this product is unavailable. Please choose a different combination."
-msgstr ""
-"Spiacenti, questo prodotto non è disponibile. Per favore scegli una "
-"combinazione diversa."
+msgid "Sorry, this product is unavailable. Please choose a different combination."
+msgstr "Spiacenti, questo prodotto non è disponibile. Per favore scegli una combinazione diversa."
 
 #: woocommerce/single-product/meta.php:36
 msgid "SKU:"
@@ -5837,7 +5545,7 @@ msgstr[1] "Tags: "
 
 #: woocommerce/single-product/meta.php:49
 msgid "Share ON:"
-msgstr ""
+msgstr "Condividi su:"
 
 #: woocommerce/single-product/meta.php:53
 msgid "Pinterest"
@@ -5908,13 +5616,7 @@ msgid "https://wordpress-theme.spider-themes.net/docy/"
 msgstr ""
 
 #. Description of the plugin/theme
-msgid ""
-"Docy is a WordPress theme for documentation and knowledge base with forum. "
-"It is a perfect theme for any kind of documentation, knowledge base, "
-"helpdesk, support center, FAQ, community forum, etc. It is a responsive "
-"theme and looks great on all devices. It is a powerful theme with tons of "
-"features. It has a powerful admin panel with tons of options to customize "
-"the theme."
+msgid "Docy is a WordPress theme for documentation and knowledge base with forum. It is a perfect theme for any kind of documentation, knowledge base, helpdesk, support center, FAQ, community forum, etc. It is a responsive theme and looks great on all devices. It is a powerful theme with tons of features. It has a powerful admin panel with tons of options to customize the theme."
 msgstr ""
 
 #. Author of the plugin/theme
@@ -5927,8 +5629,8 @@ msgstr ""
 
 #. Template Name of the plugin/theme
 msgid "Sign in Page"
-msgstr ""
+msgstr "Pagina di accesso"
 
 #. Template Name of the plugin/theme
 msgid "Sign up Page"
-msgstr ""
+msgstr "Pagina di registrazione"

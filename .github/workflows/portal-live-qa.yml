@@ -1,0 +1,143 @@
+name: Isolated installed-stack and integration QA
+on:
+  workflow_call:
+  push:
+    branches: [fix/portal-audit-20261010]
+    paths:
+      - inc/**
+      - woocommerce/**
+      - template-artist*.php
+      - assets/js/trb-*.js
+      - assets/css/trb-*.css
+      - tools/qa-installed-stack.php
+      - tools/qa-installed-http.php
+      - tools/qa-http-local-browser.php
+      - tools/qa-http-cleanup.php
+      - tools/qa-browser-recipient.pem
+      - tools/signature-compatibility.php
+      - tools/deploy-portal-integrations.php
+      - tools/qa-provider-roundtrip.php
+      - tools/qa-provider-cleanup.php
+      - tools/onboarding-readiness.php
+      - tools/rename-known-audit-account.php
+      - tools/install-log-maintenance.php
+      - tools/install-launch-release-guard.php
+      - integrations/portal-mu-plugins/**
+      - .github/workflows/portal-live-qa.yml
+permissions:
+  contents: read
+concurrency:
+  group: portal-isolated-live-qa
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run synthetic installed-stack QA through the existing hosting connection
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "${HOME}/.ssh" /tmp/trb-live-qa
+          printf '{"stage":"hosting_connection"}\n' > /tmp/trb-live-qa/stage.json
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          for attempt in 1 2 3; do
+            if ssh-keyscan -T 10 -p "${SSH_PORT}" "${SSH_HOST}" > /tmp/trb-live-qa-host-key; then
+              cat /tmp/trb-live-qa-host-key >> "${HOME}/.ssh/known_hosts"
+              break
+            fi
+            sleep 5
+          done
+          test -s "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          qa_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /home/customer/www/artist.trbrec.com/private/portal-stack-qa.XXXXXXXX')
+          [[ "${qa_dir}" =~ ^/home/customer/www/artist\.trbrec\.com/private/portal-stack-qa\.[A-Za-z0-9]{8}$ ]]
+          benefit_run=$(openssl rand -hex 8)
+          cleanup() {
+            for site in artist store; do
+              ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-store-benefits-live.php' cleanup '${benefit_run}' '${site}'" > "/tmp/trb-live-qa/store-cleanup-${site}.txt" 2>/dev/null || true
+            done
+            if ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-installed-stack.php' cleanup '${qa_dir}'" > /tmp/trb-live-qa/cleanup.json 2>/dev/null; then
+              ssh "${ssh_opts[@]}" "${remote}" "rm -rf -- '${qa_dir}'" >/dev/null 2>&1 || true
+            fi
+            ssh-add -D >/dev/null 2>&1 || true
+            rm -f "${HOME}/.ssh/id_ed25519"
+          }
+          trap cleanup EXIT
+          rsync -az --exclude='.git/' --exclude='.github/' -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" ./ "${remote}:${qa_dir}/candidate/"
+          printf '%s\n' "${GITHUB_SHA}" | ssh "${ssh_opts[@]}" "${remote}" "cat > '${qa_dir}/candidate/.trb-deployed-sha'"
+          php_opts='-d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client'
+          ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' cleanup-stale '${qa_dir}'" > /tmp/trb-live-qa/stale-cleanup.json 2>/dev/null
+          printf '{"stage":"prepare"}\n' > /tmp/trb-live-qa/stage.json
+          ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' prepare '${qa_dir}'" > /tmp/trb-live-qa/prepared.json 2>/dev/null
+          printf '{"stage":"install"}\n' > /tmp/trb-live-qa/stage.json
+          ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' install '${qa_dir}'" > /tmp/trb-live-qa/install.json 2>/dev/null
+          printf '{"stage":"verify"}\n' > /tmp/trb-live-qa/stage.json
+          ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' verify '${qa_dir}'" > /tmp/trb-live-qa/verify.json 2>/dev/null
+          # Some vendor activation redirects finish at the next bootstrap.
+          if python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/verify.json"));exit(0 if not d.get("completed") and "active_plugin_count" not in d and "fatal" not in d else 1)'; then
+            ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' verify '${qa_dir}'" > /tmp/trb-live-qa/verify.json 2>/dev/null
+          fi
+          ssh "${ssh_opts[@]}" "${remote}" "TRB_QA_HTTP_BROWSER=1 php '${qa_dir}/candidate/tools/qa-installed-stack.php' http '${qa_dir}'" > /tmp/trb-live-qa/http.json 2>/dev/null || true
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/deploy-portal-integrations.php' preflight '${GITHUB_SHA}'" > /tmp/trb-live-qa/preflight.txt 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/onboarding-readiness.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/onboarding-readiness.json 2>/dev/null || true
+          provider_run=$(openssl rand -hex 8)
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-provider-roundtrip.php' '${provider_run}' no-ai" > /tmp/trb-live-qa/providers.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-store-benefits-live.php' portal '${benefit_run}' ddb" > /tmp/trb-live-qa/store-portal.txt 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-store-benefits-live.php' store '${benefit_run}'" > /tmp/trb-live-qa/store-roundtrip.txt 2>/dev/null
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for phase in ('install', 'verify'):
+              result=json.loads(Path('/tmp/trb-live-qa/'+phase+'.json').read_text())
+              assert result.get('completed') is True, 'Installed-stack '+phase+' incomplete'
+              assert not result.get('fatal'), 'Installed-stack fatal diagnostic'
+          providers=json.loads(Path('/tmp/trb-live-qa/providers.json').read_text())
+          assert providers.get('pcloud') is True, 'Archive round trip incomplete'
+          assert providers.get('pcloud_cleanup') is True, 'Synthetic archive cleanup unconfirmed'
+          assert providers.get('local_fixture_cleanup') is True, 'Synthetic local fixture cleanup unconfirmed'
+          print('Installed plugin parity, synthetic artist authentication and portal initialization verified.')
+          PY
+          validation=unknown
+          if [ "${GITHUB_REF}" = refs/heads/main ]; then validation=success; fi
+          for attempt in $(seq 1 30); do
+            if [ "${validation}" = success ]; then break; fi
+            validation=$(curl --fail --silent --show-error -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${GITHUB_SHA}&per_page=30" | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["workflow_runs"] if x["name"]=="Portal pre-merge checks"]; print(r[0].get("conclusion") or "pending" if r else "pending")')
+            if [ "${validation}" = success ]; then break; fi
+            if [ "${validation}" != pending ]; then exit 1; fi
+            sleep 15
+          done
+          test "${validation}" = success
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/rename-known-audit-account.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/fictional-display.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-release-deploy-guard.php'" > /tmp/trb-live-qa/deploy-guard.txt 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/maintain-portal-log.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/log-maintenance.json 2>/dev/null
+          python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/http.json"));assert d.get("completed") is True and not d.get("fatal"),"Authenticated installed-stack HTTP tests incomplete"'
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-log-maintenance.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/log-schedule.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-launch-release-guard.php' '${GITHUB_SHA}'" > /tmp/trb-live-qa/launch-guard.json 2>/dev/null
+          python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/launch-guard.json"));assert d.get("completed") is True and d.get("file_readback_verified") is True and d.get("native_hooks_verified") is True and d.get("legacy_field_deletion_blocked") is True,"Independent production guards unconfirmed"'
+          python3 -c 'import json;d=json.load(open("/tmp/trb-live-qa/providers.json"));assert d.get("sheets") is True and d.get("sheets_cleanup") is True,"Signed isolated spreadsheet round trip incomplete"'
+          printf '{"stage":"complete"}\n' > /tmp/trb-live-qa/stage.json
+      - name: Preserve sanitized results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-installed-stack-qa
+          path: /tmp/trb-live-qa/
+          retention-days: 7
+          if-no-files-found: error

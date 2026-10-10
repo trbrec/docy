@@ -443,11 +443,8 @@ class Docy_Helper_Class {
 	 * @return void
 	 */
 	public function limit_latter( $string, $limit_length, $suffix = '...' ) {
-		if ( strlen( $string ) > $limit_length ) {
-			echo strip_shortcodes( substr( $string, 0, $limit_length ) . $suffix );
-		} else {
-			echo strip_shortcodes( esc_html( $string ) );
-		}
+		$text = strip_shortcodes( $string );
+		echo esc_html( wp_html_excerpt( $text, max( 0, (int) $limit_length ), $suffix ) );
 	}
 
 	/**

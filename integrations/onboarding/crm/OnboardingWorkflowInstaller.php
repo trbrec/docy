@@ -5,6 +5,30 @@ namespace TrbCrm;
 /** Small, guarded edits to the current production CRM; no repository snapshot replacement. */
 final class OnboardingWorkflowInstaller
 {
+    /** Repeated installations keep one workflow revision in each script URL. */
+    public static function view(string $source): string
+    {
+        $pattern = <<<'REGEX'
+~(<script\b[^>]*\bsrc\s*=\s*)(["'])(/assets/app-[A-Za-z0-9_.-]+\.js[^"']*)\2~i
+REGEX;
+        $updated = preg_replace_callback($pattern, static function (array $match): string {
+            $encoded = str_contains($match[3], '&amp;');
+            $url = str_replace('&amp;', '&', $match[3]);
+            $fragmentAt = strpos($url, '#');
+            $fragment = $fragmentAt === false ? '' : substr($url, $fragmentAt);
+            if ($fragmentAt !== false) $url = substr($url, 0, $fragmentAt);
+            $parts = explode('?', $url, 2);
+            $parameters = array_values(array_filter(explode('&', $parts[1] ?? ''), static function (string $parameter): bool {
+                return $parameter !== '' && rawurldecode(explode('=', $parameter, 2)[0]) !== 'onboardingWorkflow';
+            }));
+            $parameters[] = 'onboardingWorkflow=20261001r3';
+            $url = $parts[0] . '?' . implode($encoded ? '&amp;' : '&', $parameters) . $fragment;
+            return $match[1] . $match[2] . $url . $match[2];
+        }, $source);
+        if ($updated === null) throw new \RuntimeException('CRM script URL normalization failed');
+        return $updated;
+    }
+
     /** Preserve existing enum members and their positions; add the worker's missing state. */
     public static function queueStatusDefinition(array $column): ?string
     {
