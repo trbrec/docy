@@ -28,6 +28,7 @@ jobs:
           SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
           SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
           SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           install -d -m 700 "${HOME}/.ssh" /tmp/trb-live-qa
@@ -92,8 +93,18 @@ jobs:
           providers=json.loads(Path('/tmp/trb-live-qa/providers.json').read_text())
           assert providers.get('pcloud') is True and providers.get('evaluation') is True, 'Provider round trip incomplete'
           assert providers.get('pcloud_cleanup') is True, 'Synthetic archive cleanup unconfirmed'
+          assert providers.get('sheets') is True and providers.get('sheets_cleanup') is True, 'Signed isolated spreadsheet round trip incomplete'
           print('Installed plugin parity, synthetic artist authentication and portal initialization verified.')
           PY
+          validation=unknown
+          for attempt in $(seq 1 30); do
+            validation=$(curl --fail --silent --show-error -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${GITHUB_SHA}&per_page=30" | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["workflow_runs"] if x["name"]=="Portal pre-merge checks"]; print(r[0].get("conclusion") or "pending" if r else "pending")')
+            if [ "${validation}" = success ]; then break; fi
+            if [ "${validation}" != pending ]; then exit 1; fi
+            sleep 15
+          done
+          test "${validation}" = success
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/install-release-deploy-guard.php'" > /tmp/trb-live-qa/deploy-guard.txt 2>/dev/null
           printf '{"stage":"complete"}\n' > /tmp/trb-live-qa/stage.json
       - name: Preserve sanitized results
         if: always()

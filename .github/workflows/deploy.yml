@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   group: deploy-docy-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   validate:
@@ -45,6 +45,7 @@ jobs:
           SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
           DEPLOY_PATH: /home/customer/www/artist.trbrec.com/public_html/wp-content/themes/docy
         run: |
+          set -euo pipefail
           install -d -m 700 "${HOME}/.ssh"
           printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
           chmod 600 "${HOME}/.ssh/id_ed25519"
@@ -58,20 +59,40 @@ jobs:
           ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
           remote="${SSH_USER}@${SSH_HOST}"
           ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
-          rsync -az --checksum \
-            --exclude='.git/' --exclude='.github/' --exclude='.trb-deployed-sha' \
-            -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" \
-            ./ "${remote}:${DEPLOY_PATH}/"
-          printf '%s\n' "${GITHUB_SHA}" | \
-            ssh "${ssh_opts[@]}" "${remote}" "cat > '${DEPLOY_PATH}/.trb-deployed-sha'"
-          deployed_sha=$(ssh "${ssh_opts[@]}" "${remote}" "cat '${DEPLOY_PATH}/.trb-deployed-sha'")
-          test "${deployed_sha}" = "${GITHUB_SHA}"
-          ssh "${ssh_opts[@]}" "${remote}" \
-            "php -l '${DEPLOY_PATH}/functions.php' && php -l '${DEPLOY_PATH}/inc/trb-resource-monitor.php'"
-          echo "Successfully deployed and verified ${deployed_sha}."
-
-          ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/record-ssh-deployment.php' '${GITHUB_SHA}'" >/dev/null 2>&1
-          echo "WordPress deployment safety net aligned with the verified SSH revision."
+          release="/home/customer/www/artist.trbrec.com/private/portal-release-${GITHUB_SHA}"
+          candidate="${release}/candidate"
+          snapshot_ready=0
+          integrations_started=0
+          rollback_release() {
+            result=$?
+            trap - EXIT
+            if [ "${result}" -ne 0 ]; then
+              ssh "${ssh_opts[@]}" "${remote}" "rm -f -- '${release}/complete.json'" >/dev/null 2>&1 || true
+              if [ "${snapshot_ready}" -eq 1 ]; then
+                ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/prepare-portal-release.php' rollback '${GITHUB_SHA}'" >/dev/null 2>&1 || echo "Theme rollback requires investigation."
+              fi
+              if [ "${integrations_started}" -eq 1 ]; then
+                ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/deploy-portal-integrations.php' rollback '${GITHUB_SHA}'" >/dev/null 2>&1 || echo "Integration rollback requires investigation."
+              fi
+              echo "Portal release failed; completion was not acknowledged."
+            fi
+            ssh-add -D >/dev/null 2>&1 || true
+            rm -f "${HOME}/.ssh/id_ed25519"
+            exit "${result}"
+          }
+          trap rollback_release EXIT
+          ssh "${ssh_opts[@]}" "${remote}" "mkdir -p '${candidate}' && chmod 700 '${release}' '${candidate}'"
+          rsync -az --checksum --exclude='.git/' --exclude='.github/' --exclude='.trb-*' \
+            -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" ./ "${remote}:${candidate}/"
+          printf '%s\n' "${GITHUB_SHA}" | ssh "${ssh_opts[@]}" "${remote}" "cat > '${candidate}/.trb-deployed-sha'"
+          ssh "${ssh_opts[@]}" "${remote}" "find '${candidate}' -name '*.php' -print0 | xargs -0 -n1 php -l" >/dev/null 2>&1
+          ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/preflight-portal-release.php'" >/dev/null 2>&1
+          ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/deploy-portal-integrations.php' preflight '${GITHUB_SHA}'" >/dev/null 2>&1
+          ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/prepare-portal-release.php' snapshot '${GITHUB_SHA}'" >/dev/null 2>&1
+          snapshot_ready=1
+          integrations_started=1
+          ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/deploy-portal-integrations.php' apply '${GITHUB_SHA}'" >/dev/null 2>&1
+          ssh "${ssh_opts[@]}" "${remote}" "rsync -a --checksum --exclude='.trb-deployed-sha' '${candidate}/' '${DEPLOY_PATH}/' && cp '${candidate}/.trb-deployed-sha' '${DEPLOY_PATH}/.trb-deployed-sha'" >/dev/null 2>&1
           if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^tools/update-trb-stage-name\.php$' >/dev/null; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/update-trb-stage-name.php' '${GITHUB_SHA}'" >/dev/null 2>&1
             echo "Requested duo stage name verified."
@@ -224,7 +245,7 @@ jobs:
             echo "Historical news expanded with reviewed sources and native revisions."
           fi
 
-          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/(export-site-preview.php|export-news-routes.php|complete-editorial-archive.php|site-preview.test.cjs|sync-site-studio.php|recover-trb-artistic-materials.php|audit-legacy-artist-materials.php)$|^\.github/workflows/deploy.yml$' >/dev/null; then
+          if git diff --name-only "${GITHUB_SHA}^1" "${GITHUB_SHA}" | grep -E '^integrations/site-studio/|^tools/(export-site-preview.php|export-news-routes.php|complete-editorial-archive.php|site-preview.test.cjs|sync-site-studio.php|recover-trb-artistic-materials.php|audit-legacy-artist-materials.php)$' >/dev/null; then
             mkdir -p /tmp/trb-public-preview
             for slug in home artisti demo catalogo news chi-siamo cosa-facciamo booking licenze-audio contatti privacy-policy; do
               route="/${slug}/"
@@ -248,15 +269,17 @@ jobs:
             echo "Anonymous public page snapshots exported for offline responsive layout QA."
           fi
 
-      - name: Verify anonymous page snapshots on desktop, tablet and phone
-        if: ${{ success() }}
-        shell: bash
-        run: |
           if [ -d /tmp/trb-public-preview ]; then
             npm install --prefix /tmp/trb-roster-browser --no-save playwright@1.62.1
             /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
             NODE_PATH=/tmp/trb-roster-browser/node_modules node tools/site-preview.test.cjs /tmp/trb-public-preview /tmp/trb-site-layout-qa
           fi
+          ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/maintain-portal-log.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 45 -H 'Cache-Control: no-cache' 'https://artist.trbrec.com/wp-login.php' >/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/verify-portal-release.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+          ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/record-ssh-deployment.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+          echo "Complete portal release verified: ${GITHUB_SHA}."
+
       - name: Preserve responsive layout screenshots and measurements
         if: always()
         uses: actions/upload-artifact@v4
@@ -279,5 +302,4 @@ jobs:
             -H "Cache-Control: no-cache" \
             -H "User-Agent: TRB-Daily-Site-Health/1.0" \
             "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s)" >/dev/null
-
 

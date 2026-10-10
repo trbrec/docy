@@ -10,6 +10,7 @@ function trb_portal_release_files( $root ) {
         if ( preg_match( '#(^|/)(\.git|\.github)(/|$)#', $relative ) || str_starts_with( $relative, '.trb-' ) && '.trb-deployed-sha' !== $relative ) continue;
         if ( $entry->isLink() ) throw new RuntimeException( 'Release symlinks require review.' );
         if ( ! $entry->isFile() ) continue;
+        if ( ! preg_match( '#^[a-zA-Z0-9_. /@+-]+$#D', $relative ) || preg_match( '#(^|/)\.\.(/|$)#', $relative ) ) throw new RuntimeException( 'Unsafe release path.' );
         $files[$relative] = array( 'sha256' => hash_file( 'sha256', $entry->getPathname() ), 'mode' => $entry->getPerms() & 0777 );
     }
     ksort( $files );
