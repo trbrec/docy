@@ -314,7 +314,7 @@ function docy_scripts() {
 	 * template and submission flow.
 	 */
 	if ( is_singular() && comments_open() && ! is_singular( 'product' ) && function_exists( 'docy_is_ajax_comments_enabled' ) && docy_is_ajax_comments_enabled() ) {
-		wp_enqueue_script( 'docy-comments', DOCY_DIR_JS . '/comments.js', [ 'jquery' ], DOCY_VERSION, true );
+		wp_enqueue_script( 'docy-comments', DOCY_DIR_JS . '/comments.js', [ 'jquery' ], DOCY_VERSION . '.' . substr( md5_file( get_template_directory() . '/assets/js/comments.js' ), 0, 12 ), true );
 
 		wp_localize_script(
 			'docy-comments',
@@ -325,12 +325,12 @@ function docy_scripts() {
 				'editing_enabled' => docy_is_comment_editing_enabled() ? 1 : 0,
 				'is_logged_in'    => is_user_logged_in() ? 1 : 0,
 				'i18n'            => [
-					'posting'        => esc_html__( 'Posting…', 'docy' ),
-					'saving'         => esc_html__( 'Saving…', 'docy' ),
-					'save'           => esc_html__( 'Save', 'docy' ),
-					'cancel'         => esc_html__( 'Cancel', 'docy' ),
-					'empty_comment'  => esc_html__( 'Please enter a comment before submitting.', 'docy' ),
-					'generic_error'  => esc_html__( 'Something went wrong. Please try again.', 'docy' ),
+					'posting'        => esc_html__( 'Pubblicazione…', 'docy' ),
+					'saving'         => esc_html__( 'Salvataggio…', 'docy' ),
+					'save'           => esc_html__( 'Salva', 'docy' ),
+					'cancel'         => esc_html__( 'Annulla', 'docy' ),
+					'empty_comment'  => esc_html__( 'Scrivi un commento prima di inviarlo.', 'docy' ),
+					'generic_error'  => esc_html__( 'Si è verificato un errore. Riprova.', 'docy' ),
 				],
 			]
 		);
