@@ -1,6 +1,39 @@
 <?php
-/** Read-only source inventory. Never bootstraps WordPress or the CRM. */
+/** Read-only source and database metadata inventory; never starts application workers. */
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
+if ( in_array( '--crm-shape', $argv, true ) ) {
+    ini_set( 'display_errors', '0' );
+    try {
+        // Core declares connection helpers only. Do not construct SubmissionRepository:
+        // its constructor runs migrations and may queue production work.
+        require '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';
+        \TrbCrm\Env::load( '/home/customer/www/crm.trbrec.com/public_html/.env' );
+        $db = \TrbCrm\Database::connection();
+        $db->exec( 'SET SESSION TRANSACTION READ ONLY' );
+        $db->beginTransaction();
+        $shape = array( 'read_only' => true, 'table_engines' => array() );
+        foreach ( array( 'contacts', 'submissions', 'contracts', 'onboarding_practices' ) as $table ) {
+            $statement = $db->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?' );
+            $statement->execute( array( $table ) ); $shape['table_engines'][$table] = $statement->fetchColumn() ?: null;
+        }
+        $shape['protected_submission_723_exists'] = 1 === (int) $db->query( 'SELECT COUNT(*) FROM submissions WHERE id=723' )->fetchColumn();
+        $statement = $db->prepare( 'SELECT COUNT(*) FROM contacts WHERE email_normalized=?' );
+        $statement->execute( array( 'a.tognassi@gmail.com' ) );
+        $shape['protected_andrea_contact_exists'] = (int) $statement->fetchColumn() > 0;
+        // Count explicit historical test markers, never infer QA from an artist's name.
+        $testPredicate = "(s.public_id LIKE 'TEST-%' OR s.source_tab='CRM_TEST_PERMANENT')";
+        $shape['marked_test_submissions_excluding_723'] = (int) $db->query( "SELECT COUNT(*) FROM submissions s WHERE {$testPredicate} AND s.id<>723" )->fetchColumn();
+        $shape['marked_test_contracts_excluding_723'] = (int) $db->query( "SELECT COUNT(*) FROM contracts c JOIN submissions s ON s.id=c.submission_id WHERE {$testPredicate} AND s.id<>723" )->fetchColumn();
+        if ( $shape['table_engines']['onboarding_practices'] !== null ) $shape['marked_test_practices_excluding_723'] = (int) $db->query( "SELECT COUNT(*) FROM onboarding_practices p JOIN contracts c ON c.id=p.contract_id JOIN submissions s ON s.id=c.submission_id WHERE {$testPredicate} AND s.id<>723" )->fetchColumn();
+        $db->rollBack();
+        echo json_encode( $shape, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR ) . "\n";
+    } catch ( Throwable $error ) {
+        if ( isset( $db ) && $db->inTransaction() ) $db->rollBack();
+        fwrite( STDERR, "Read-only CRM metadata inventory could not complete.\n" );
+        exit( 1 );
+    }
+    exit;
+}
 if ( in_array( '--database-shape', $argv, true ) ) {
     define( 'SHORTINIT', true );
     define( 'DISABLE_WP_CRON', true );
@@ -9,6 +42,7 @@ if ( in_array( '--database-shape', $argv, true ) ) {
     $shape = array( 'read_only' => true, 'table_engines' => array() );
     foreach ( array( 'usermeta' => $wpdb->usermeta, 'options' => $wpdb->options, 'posts' => $wpdb->posts, 'postmeta' => $wpdb->postmeta ) as $label => $table ) $shape['table_engines'][ $label ] = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $table ) );
     $shape['fixture_198_exists'] = 1 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->users} WHERE ID=198 AND user_login=%s AND user_email=%s", 'trb_audit_20261010', 'portal-audit-20261010@example.invalid' ) );
+    $shape['protected_andrea_account_exists'] = 1 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->users} WHERE user_email=%s", 'a.tognassi@gmail.com' ) );
     $shape['fixture_12351_exists'] = 1 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE ID=12351 AND post_author=198 AND post_type='trb_release' AND post_title=%s", 'AUDIT TEST 20261010 — synthetic release, no distribution' ) );
     echo json_encode( $shape, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR ) . "\n";
     exit;

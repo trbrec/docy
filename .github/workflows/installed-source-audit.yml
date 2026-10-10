@@ -52,6 +52,7 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php'" > /tmp/trb-source-audit/installed-source.json
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/inventory.php' --sources" > /tmp/trb-source-audit/review-sources.json
           ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${qa_dir}/inventory.php' --database-shape" > /tmp/trb-source-audit/database-shape.json
+          ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${qa_dir}/inventory.php' --crm-shape" > /tmp/trb-source-audit/crm-shape.json
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -63,7 +64,9 @@ jobs:
           assert sources['read_only'] is True and len(sources['sources']) >= 39
           shape = json.loads(Path('/tmp/trb-source-audit/database-shape.json').read_text())
           assert shape['read_only'] is True
-          print('Installed source inventory recorded; no application loaded, no database accessed, no mail or external integration called.')
+          crm = json.loads(Path('/tmp/trb-source-audit/crm-shape.json').read_text())
+          assert crm['read_only'] is True
+          print('Installed code and read-only database metadata recorded; no application worker, data writes, mail or external integration calls.')
           PY
       - uses: actions/upload-artifact@v4
         with:
