@@ -70,15 +70,17 @@ jobs:
           TRB_APACHE_BINARY: /usr/sbin/apache2
         run: |
           set -euo pipefail
-          find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+          git ls-files -z '*.php' | xargs -0 -r -n1 php -l
+          git ls-files -z '*.js' '*.cjs' '*.mjs' | xargs -0 -r -n1 node --check
+          while IFS= read -r -d '' script; do
+            node --check --input-type=commonjs < "$script"
+          done < <(git ls-files -z '*.gs')
           for test in tools/test-*.php integrations/site-studio/test-*.php; do
             php "$test"
           done
           for test in tests/*.test.js; do
             node "$test"
           done
-          node --check assets/js/trb-demo-evaluation.js
-          node --check integrations/site-studio/trb-site-studio/editor.js
           python3 tools/portal-audit.py
           python3 tools/test-private-deploy-output.py
 
