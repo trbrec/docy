@@ -3,24 +3,18 @@
 function trb_qa_installed_http( $work ) {
     require_once __DIR__ . '/qa-http-local-browser.php';
     require_once __DIR__ . '/qa-http-cleanup.php';
-    require_once __DIR__ . '/qa-http-loopback.php';
     $root = $work . '/wordpress'; $settings_path = $work . '/qa-settings.json';
     $settings = json_decode( file_get_contents( $settings_path ), true, 16, JSON_THROW_ON_ERROR );
     if ( empty( $settings['artist_password'] ) || empty( $settings['artist_id'] ) ) throw new RuntimeException( 'Artist fixture unavailable.' );
     $site = '/home/customer/www/artist.trbrec.com/public_html';
     $token = bin2hex( random_bytes( 32 ) ); $name = 'trb-audit-http-' . bin2hex( random_bytes( 12 ) );
-    $browser = getenv( 'TRB_QA_HTTP_BROWSER' ) === '1'; $process = null;
-    $port = $browser ? null : trb_qa_loopback_port();
-    $bridge_directory = $browser ? $site . '/' . $name : $work . '/http-loopback';
+    $bridge_directory = $site . '/' . $name;
     $bridge = $bridge_directory . '/index.php';
     if ( file_exists( $bridge_directory ) || is_link( $site ) ) throw new RuntimeException( 'HTTP fixture path collision.' );
-    $base = $browser ? 'https://artist.trbrec.com/' . $name : 'http://127.0.0.1:' . $port;
-    $endpoint = $base . '/index.php';
+    $base = 'https://artist.trbrec.com/' . $name;
     $config = file_get_contents( $root . '/wp-config.php' );
-    $previous_base = var_export( $settings['http_base'] ?? 'http://127.0.0.1', true );
-    if ( substr_count( $config, $previous_base ) !== 2 ) throw new RuntimeException( 'Unexpected isolated HTTP configuration.' );
-    $config = str_replace( $previous_base, var_export( $base, true ), $config );
-    if ( ! str_contains( $config, "define('COOKIEPATH'" ) ) $config = str_replace( "<?php", "<?php\ndefine('COOKIEPATH','/');define('SITECOOKIEPATH','/');define('ADMIN_COOKIE_PATH','/');", $config );
+    $config = str_replace( "'http://127.0.0.1'", var_export( $base, true ), $config );
+    $config = str_replace( "<?php", "<?php\ndefine('COOKIEPATH','/');define('SITECOOKIEPATH','/');define('ADMIN_COOKIE_PATH','/');", $config );
     if ( file_put_contents( $root . '/wp-config.php', $config, LOCK_EX ) !== strlen( $config ) ) throw new RuntimeException( 'HTTP configuration unavailable.' );
     $code = '<?php ini_set("display_errors","0"); ini_set("error_log",' . var_export( $work . '/http-private.log', true ) . '); header("Cache-Control: no-store"); if(time()>' . ( time() + 900 ) . '){http_response_code(404);exit;} ';
     if ( getenv( 'TRB_QA_HTTP_BROWSER' ) === '1' ) $code .= trb_qa_browser_controller_source( $work, $token, $base );
@@ -31,8 +25,7 @@ function trb_qa_installed_http( $work ) {
     $bridge_hash = hash( 'sha256', $code );
     $staged_bridge = $work . '/http-bridge.next';
     if ( file_put_contents( $staged_bridge, $code, LOCK_EX ) !== strlen( $code ) || ! chmod( $staged_bridge, 0644 ) || ! hash_equals( $bridge_hash, hash_file( 'sha256', $staged_bridge ) ) ) throw new RuntimeException( 'HTTP fixture staging failed.' );
-    $settings['http_base'] = $base;
-    if ( $browser ) $settings['http_bridge'] = array( 'name' => $name . '/index.php', 'sha256' => $bridge_hash );
+    $settings['http_bridge'] = array( 'name' => $name . '/index.php', 'sha256' => $bridge_hash );
     $bootstrap = null; $bootstrap_bytes = null;
     if ( getenv( 'TRB_QA_HTTP_BROWSER' ) === '1' ) {
         $revision = trim( file_get_contents( dirname( __DIR__ ) . '/.trb-deployed-sha' ) );
@@ -45,23 +38,23 @@ function trb_qa_installed_http( $work ) {
     }
     $settings_json = json_encode( $settings, JSON_THROW_ON_ERROR );
     if ( file_put_contents( $settings_path, $settings_json, LOCK_EX ) !== strlen( $settings_json ) ) throw new RuntimeException( 'HTTP cleanup manifest unavailable.' );
-    $remove_bridge = static function() use ( $bridge, $bridge_hash, $bridge_directory, $bootstrap, $bootstrap_bytes, $site, $browser ) {
+    $remove_bridge = static function() use ( $bridge, $bridge_hash, $bridge_directory, $bootstrap, $bootstrap_bytes, $site ) {
         if ( null !== $bootstrap && ( is_link( $bootstrap ) || is_file( $bootstrap ) && ( ! hash_equals( hash( 'sha256', $bootstrap_bytes ), hash_file( 'sha256', $bootstrap ) ) || ! unlink( $bootstrap ) ) ) ) return false;
         if ( is_link( $bridge ) || is_link( $bridge_directory ) ) return false;
         if ( is_file( $bridge ) && ( ! hash_equals( $bridge_hash, hash_file( 'sha256', $bridge ) ) || ! unlink( $bridge ) ) ) return false;
         if ( ! is_dir( $bridge_directory ) ) return true;
-        if ( $browser ) trb_qa_archive_http_error_log( $site, dirname( $site ) . '/private/error-log-archive', $bridge_directory );
+        trb_qa_archive_http_error_log( $site, dirname( $site ) . '/private/error-log-archive', $bridge_directory );
         return @rmdir( $bridge_directory );
     };
-    register_shutdown_function( static function() use ( &$process, $remove_bridge ) { trb_qa_loopback_stop( $process ); $remove_bridge(); } );
+    register_shutdown_function( $remove_bridge );
     $cookie = $work . '/http-cookies.txt'; $checks = array();
-    $request = static function( $path, $fields = null, $authenticated = true, $authorized = true ) use ( $endpoint, $cookie, $token, $work ) {
+    $request = static function( $path, $fields = null, $authenticated = true, $authorized = true ) use ( $name, $cookie, $token, $work ) {
         if ( getenv( 'TRB_QA_HTTP_BROWSER' ) === '1' ) {
             $headers = $authorized ? array( 'X-TRB-QA-Token' => $token, 'X-TRB-QA-Route' => $path ) : array();
-            list( $status, $response_headers, $body ) = trb_qa_browser_request( $endpoint, $headers, $fields, $authenticated, $cookie, $work );
+            list( $status, $response_headers, $body ) = trb_qa_browser_request( 'https://artist.trbrec.com/' . $name . '/index.php', $headers, $fields, $authenticated, $cookie, $work );
             $response = $response_headers . $body; $header_size = strlen( $response_headers );
         } else {
-        $curl = curl_init( $endpoint );
+        $curl = curl_init( 'https://artist.trbrec.com/' . $name . '/index.php' );
         curl_setopt_array( $curl, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 30, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_FOLLOWLOCATION => false, CURLOPT_HTTPHEADER => $authorized ? array( 'X-TRB-QA-Token: ' . $token, 'X-TRB-QA-Route: ' . $path ) : array() ) );
         curl_setopt( $curl, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; TRB-Audit/1.0)' );
         if ( $authenticated ) curl_setopt_array( $curl, array( CURLOPT_COOKIEFILE => $cookie, CURLOPT_COOKIEJAR => $cookie ) );
@@ -84,11 +77,10 @@ function trb_qa_installed_http( $work ) {
     $check = static function( $condition, $label ) use ( &$checks ) { $GLOBALS['trb_qa_http_stage'] = $label; if ( ! $condition ) throw new RuntimeException( $label ); $checks[] = $label; };
     try {
         if ( ! mkdir( $bridge_directory, 0755 ) || ! rename( $staged_bridge, $bridge ) ) throw new RuntimeException( 'HTTP fixture unavailable.' );
-        if ( ! $browser ) $process = trb_qa_loopback_start( $work, $root, $bridge, $port );
         if ( null !== $bootstrap && ( file_put_contents( $bootstrap, $bootstrap_bytes, LOCK_EX ) !== strlen( $bootstrap_bytes ) || ! chmod( $bootstrap, 0644 ) ) ) throw new RuntimeException( 'Encrypted browser bootstrap staging failed.' );
         $check( in_array( $request( '/wp-login.php', null, false, false )['status'], array( 403, 404 ), true ), 'temporary_endpoint_requires_private_key' );
         for ( $attempt = 0; $attempt < 30; $attempt++ ) { $login = $request( '/wp-login.php' ); if ( $login['status'] ) break; usleep( 100000 ); }
-        if ( $browser && 200 !== $login['status'] ) {
+        if ( 200 !== $login['status'] ) {
             $probe = curl_init( 'https://artist.trbrec.com/wp-login.php' );
             curl_setopt_array( $probe, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; TRB-Audit/1.0)' ) );
             curl_exec( $probe ); $native_status = (int) curl_getinfo( $probe, CURLINFO_RESPONSE_CODE ); curl_close( $probe );
@@ -98,12 +90,10 @@ function trb_qa_installed_http( $work ) {
         $anonymous = $request( '/wp-admin/admin-post.php', array( 'action' => 'trb_portal_save_artist_profile' ), false );
         $anonymous_redirect = parse_url( $anonymous['location'] );
         parse_str( $anonymous_redirect['query'] ?? '', $anonymous_query );
-        $expected_path = rtrim( (string) parse_url( $base, PHP_URL_PATH ), '/' ) . '/accedi/';
-        $check( 401 === $anonymous['status'] || in_array( $anonymous['status'], array( 302, 303 ), true ) && ( $anonymous_redirect['host'] ?? '' ) === parse_url( $base, PHP_URL_HOST ) && ( $anonymous_redirect['path'] ?? '' ) === $expected_path && ( $anonymous_query['trb_login'] ?? '' ) === 'session_expired', 'anonymous_profile_rejected' );
+        $check( 401 === $anonymous['status'] || in_array( $anonymous['status'], array( 302, 303 ), true ) && ( $anonymous_redirect['host'] ?? '' ) === 'artist.trbrec.com' && ( $anonymous_redirect['path'] ?? '' ) === '/' . $name . '/accedi/' && ( $anonymous_query['trb_login'] ?? '' ) === 'session_expired', 'anonymous_profile_rejected' );
         $login = $request( '/wp-login.php', array( 'log' => 'artista_fittizio_tunisia', 'pwd' => $settings['artist_password'], 'wp-submit' => 'Accedi', 'testcookie' => '1' ) );
         $check( in_array( $login['status'], array( 302, 303 ), true ), 'native_password_login' );
-        define( 'ABSPATH', $root . '/' ); $_SERVER['HTTP_HOST'] = parse_url( $base, PHP_URL_HOST ) . ( $port ? ':' . $port : '' ); $_SERVER['SERVER_NAME'] = parse_url( $base, PHP_URL_HOST ); $_SERVER['REQUEST_URI'] = '/'; $_SERVER['REQUEST_METHOD'] = 'GET'; $_SERVER['PHP_SELF'] = '/index.php';
-        if ( $browser ) $_SERVER['HTTPS'] = 'on'; else unset( $_SERVER['HTTPS'] );
+        define( 'ABSPATH', $root . '/' ); $_SERVER['HTTP_HOST'] = 'artist.trbrec.com'; $_SERVER['SERVER_NAME'] = 'artist.trbrec.com'; $_SERVER['REQUEST_URI'] = '/'; $_SERVER['REQUEST_METHOD'] = 'GET'; $_SERVER['HTTPS'] = 'on'; $_SERVER['PHP_SELF'] = '/index.php';
         $GLOBALS['trb_qa_http_stage'] = 'isolated_wordpress_cli_bootstrap';
         ob_start();
         require $root . '/wp-config.php';
@@ -137,13 +127,12 @@ function trb_qa_installed_http( $work ) {
         clean_user_cache( $user->ID );
         $check( trb_portal_private_profile_files( $user->ID ) === $before && trb_portal_artist_profile_is_complete( $user->ID ), 'previous_profile_preserved_after_failure' );
         if ( getenv( 'TRB_QA_HTTP_BROWSER' ) === '1' ) { file_put_contents( $work . '/browser-finished.json', json_encode( array( 'completed' => true, 'checks' => $checks, 'artist_messages' => 0 ), JSON_THROW_ON_ERROR ), LOCK_EX ); usleep( 1000000 ); }
-        return array( 'completed' => true, 'transport' => $browser ? 'local_browser_to_hosting_php' : 'hosting_native_php_loopback', 'checks' => $checks, 'active_plugins' => count( get_option( 'active_plugins', array() ) ), 'temporary_endpoint_removed' => true, 'artist_messages' => 0 );
+        return array( 'completed' => true, 'checks' => $checks, 'active_plugins' => count( get_option( 'active_plugins', array() ) ), 'temporary_endpoint_removed' => true, 'artist_messages' => 0 );
     } finally {
         if ( getenv( 'TRB_QA_HTTP_BROWSER' ) === '1' && ! is_file( $work . '/browser-finished.json' ) ) {
             file_put_contents( $work . '/browser-finished.json', json_encode( array( 'completed' => false, 'stage' => $GLOBALS['trb_qa_http_stage'] ?? 'bootstrap', 'checks_completed' => count( $checks ), 'artist_messages' => 0 ), JSON_THROW_ON_ERROR ), LOCK_EX );
             usleep( 1000000 );
         }
-        trb_qa_loopback_stop( $process );
         if ( ! $remove_bridge() ) throw new RuntimeException( 'HTTP fixture cleanup unconfirmed.' );
     }
 }
