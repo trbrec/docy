@@ -14,6 +14,11 @@ try {
     if ( ! $first['rotated'] || count( $archives ) !== 1 || file_get_contents( $archives[0] ) !== $bytes || filesize( $root . '/php_errorlog' ) !== 0 ) throw new RuntimeException( 'Rotation did not preserve every original byte.' );
     if ( trb_portal_rotate_error_log( $root, 1024 )['compressed'] !== 0 ) throw new RuntimeException( 'Active writer grace period ignored.' );
     touch( $archives[0], time() - 2 * DAY_IN_SECONDS );
+    mkdir( $archives[0] . '.gz.next' );
+    $failed = false;
+    try { trb_portal_rotate_error_log( $root, 1024 ); } catch ( RuntimeException $expected ) { $failed = true; }
+    if ( ! $failed || file_get_contents( $archives[0] ) !== $bytes ) throw new RuntimeException( 'Failed compression lost the original log.' );
+    rmdir( $archives[0] . '.gz.next' );
     $second = trb_portal_rotate_error_log( $root, 1024 );
     if ( $second['compressed'] !== 1 || $second['bytes_reclaimed'] <= 0 || gzdecode( file_get_contents( $archives[0] . '.gz' ) ) !== $bytes || is_file( $archives[0] ) ) throw new RuntimeException( 'Compression readback or reclamation failed.' );
     file_put_contents( $archive_dir . '/unrelated.txt', 'preserve' );

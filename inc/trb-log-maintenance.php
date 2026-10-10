@@ -39,27 +39,37 @@ function trb_portal_rotate_error_log( $root, $threshold = 20971520 ) {
             if ( $before['mtime'] > time() - DAY_IN_SECONDS ) continue;
             $temporary = $archive . '.gz.next';
             if ( is_link( $temporary ) || is_link( $archive . '.gz' ) ) throw new RuntimeException( 'Unsafe compressed log target.' );
-            $input = fopen( $archive, 'rb' ); $output = gzopen( $temporary, 'wb6' );
-            if ( ! $input || ! $output ) throw new RuntimeException( 'Log compression unavailable.' );
+            $input = null; $output = null; $readback = null;
             $hash = hash_init( 'sha256' );
             try {
+                $input = @fopen( $archive, 'rb' ); $output = @gzopen( $temporary, 'wb6' );
+                if ( ! $input || ! $output ) throw new RuntimeException( 'Log compression unavailable.' );
                 while ( ! feof( $input ) ) {
                     $chunk = fread( $input, 1024 * 1024 );
                     if ( false === $chunk || gzwrite( $output, $chunk ) !== strlen( $chunk ) ) throw new RuntimeException( 'Log compression failed.' );
                     hash_update( $hash, $chunk );
                 }
-            } finally { fclose( $input ); gzclose( $output ); }
+                fclose( $input ); $input = null;
+                if ( ! gzclose( $output ) ) throw new RuntimeException( 'Log compression finalization failed.' );
+                $output = null;
             clearstatcache( true, $archive ); $after = stat( $archive );
             if ( $before['size'] !== $after['size'] || $before['mtime'] !== $after['mtime'] ) { unlink( $temporary ); continue; }
-            $readback = gzopen( $temporary, 'rb' ); $verified = hash_init( 'sha256' );
+            $readback = @gzopen( $temporary, 'rb' ); $verified = hash_init( 'sha256' );
+            if ( ! $readback ) throw new RuntimeException( 'Log readback unavailable.' );
             while ( ! gzeof( $readback ) ) { $chunk = gzread( $readback, 1024 * 1024 ); if ( false === $chunk ) throw new RuntimeException( 'Log readback failed.' ); hash_update( $verified, $chunk ); }
-            gzclose( $readback );
+            gzclose( $readback ); $readback = null;
             if ( ! hash_equals( hash_final( $hash ), hash_final( $verified ) ) ) throw new RuntimeException( 'Compressed log integrity mismatch.' );
             clearstatcache( true, $archive ); $final = stat( $archive );
             if ( $final['size'] !== $after['size'] || $final['mtime'] !== $after['mtime'] ) { unlink( $temporary ); continue; }
-            chmod( $temporary, 0600 );
+            if ( ! chmod( $temporary, 0600 ) ) throw new RuntimeException( 'Compressed log permissions unavailable.' );
             if ( ! rename( $temporary, $archive . '.gz' ) || ! unlink( $archive ) ) throw new RuntimeException( 'Log archive finalization failed.' );
             $result['compressed']++; $result['bytes_reclaimed'] += max( 0, $before['size'] - filesize( $archive . '.gz' ) );
+            } finally {
+                if ( is_resource( $input ) ) fclose( $input );
+                if ( is_resource( $output ) ) gzclose( $output );
+                if ( is_resource( $readback ) ) gzclose( $readback );
+                if ( is_file( $temporary ) && ! unlink( $temporary ) ) throw new RuntimeException( 'Temporary log compression cleanup failed.' );
+            }
         }
         foreach ( glob( $directory . '/portal-*.log.gz' ) as $archive ) {
             if ( ! is_link( $archive ) && preg_match( '/^portal-([0-9]{14})-[a-f0-9]{8}\.log\.gz$/D', basename( $archive ), $date ) ) {
