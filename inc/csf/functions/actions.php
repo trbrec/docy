@@ -128,8 +128,10 @@ if ( ! function_exists( 'csf_import_ajax' ) ) {
       wp_send_json_error( array( 'error' => esc_html__( 'Error: The response is not a valid JSON response.', 'docy' ) ) );
     }
 
-    // Success
     update_option( $unique, $data );
+    if ( get_option( $unique ) !== $data ) {
+      wp_send_json_error( array( 'error' => esc_html__( 'Impossibile salvare le impostazioni. Riprova.', 'docy' ) ) );
+    }
 
     wp_send_json_success();
 
@@ -159,8 +161,21 @@ if ( ! function_exists( 'csf_reset_ajax' ) ) {
       wp_send_json_error( array( 'error' => esc_html__( 'Error: You do not have permission to do that.', 'docy' ) ) );
     }
 
-    // Success
-    delete_option( $unique );
+    if ( empty( $unique ) ) {
+      wp_send_json_error( array( 'error' => esc_html__( 'Error: Invalid key.', 'docy' ) ) );
+    }
+
+    global $wpdb;
+    $missing = new stdClass();
+    $previous = get_option( $unique, $missing );
+    $deleted = delete_option( $unique );
+    // Core invalidates the cache even when the SQL deletion fails.
+    if ( ! $deleted && ( $previous !== $missing || ! empty( $wpdb->last_error ) ) ) {
+      wp_send_json_error( array( 'error' => esc_html__( 'Impossibile ripristinare le impostazioni. Riprova.', 'docy' ) ) );
+    }
+    if ( get_option( $unique, $missing ) !== $missing ) {
+      wp_send_json_error( array( 'error' => esc_html__( 'Impossibile ripristinare le impostazioni. Riprova.', 'docy' ) ) );
+    }
 
     wp_send_json_success();
 

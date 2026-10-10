@@ -13,6 +13,7 @@ if ( ! class_exists( 'CSF_Options' ) ) {
     // constans
     public $unique       = '';
     public $notice       = '';
+    public $save_failed  = false;
     public $abstract     = 'options';
     public $sections     = array();
     public $options      = array();
@@ -203,28 +204,40 @@ if ( ! class_exists( 'CSF_Options' ) ) {
     // set options
     public function set_options( $ajax = false ) {
 
-      // XSS ok.
-      // No worries, This "POST" requests is sanitizing in the below foreach. see #L337 - #L341
-      $response  = ( $ajax && ! empty( $_POST['data'] ) ) ? json_decode( wp_unslash( trim( $_POST['data'] ) ), true ) : $_POST;
+      if ( ! current_user_can( $this->args['menu_capability'] ) ) {
+        return false;
+      }
+
+      $this->save_failed = false;
+      $response = $_POST;
+      if ( $ajax ) {
+        $raw_data = $_POST['data'] ?? '';
+        if ( ! is_string( $raw_data ) ) return false;
+        $response = json_decode( wp_unslash( trim( $raw_data ) ), true );
+      }
+      if ( ! is_array( $response ) ) return false;
 
       // Set variables.
       $data      = array();
       $noncekey  = 'csf_options_nonce'. $this->unique;
       $nonce     = ( ! empty( $response[$noncekey] ) ) ? $response[$noncekey] : '';
-      $options   = ( ! empty( $response[$this->unique] ) ) ? $response[$this->unique] : array();
-      $transient = ( ! empty( $response['csf_transient'] ) ) ? $response['csf_transient'] : array();
+      $options   = array_key_exists( $this->unique, $response ) ? $response[$this->unique] : array();
+      $transient = array_key_exists( 'csf_transient', $response ) ? $response['csf_transient'] : array();
+      if ( ! is_string( $nonce ) || ! is_array( $options ) || ! is_array( $transient ) ) return false;
 
       if ( wp_verify_nonce( $nonce, 'csf_options_nonce' ) ) {
 
+        $this->notice = '';
+        $this->errors = array();
         $importing  = false;
         $section_id = ( ! empty( $transient['section'] ) ) ? $transient['section'] : '';
 
         if ( ! $ajax && ! empty( $response[ 'csf_import_data' ] ) ) {
 
-          // XSS ok.
-          // No worries, This "POST" requests is sanitizing in the below foreach. see #L337 - #L341
+          if ( ! is_string( $response['csf_import_data'] ) ) return false;
           $import_data  = json_decode( wp_unslash( trim( $response[ 'csf_import_data' ] ) ), true );
-          $options      = ( is_array( $import_data ) && ! empty( $import_data ) ) ? $import_data : array();
+          if ( ! is_array( $import_data ) || empty( $import_data ) ) return false;
+          $options      = $import_data;
           $importing    = true;
           $this->notice = esc_html__( 'Settings successfully imported.', 'docy' );
 
@@ -240,7 +253,9 @@ if ( ! class_exists( 'CSF_Options' ) ) {
 
           $this->notice = esc_html__( 'Default settings restored.', 'docy' );
 
-        } else if ( ! empty( $transient['reset_section'] ) && ! empty( $section_id ) ) {
+        } else if ( ! empty( $transient['reset_section'] ) ) {
+
+          if ( ! ( is_int( $section_id ) || is_string( $section_id ) ) || ! ctype_digit( (string) $section_id ) || (int) $section_id < 1 || ! isset( $this->pre_sections[(int) $section_id-1] ) ) return false;
 
           if ( ! empty( $this->pre_sections[$section_id-1]['fields'] ) ) {
 
@@ -318,9 +333,12 @@ if ( ! class_exists( 'CSF_Options' ) ) {
 
         do_action( "csf_{$this->unique}_save_before", $data, $this );
 
+        if ( ! $this->save_options( $data ) ) {
+          $this->save_failed = true;
+          $this->notice = esc_html__( 'Impossibile salvare le impostazioni. Riprova.', 'docy' );
+          return false;
+        }
         $this->options = $data;
-
-        $this->save_options( $data );
 
         do_action( "csf_{$this->unique}_save_after", $data, $this );
 
@@ -341,15 +359,21 @@ if ( ! class_exists( 'CSF_Options' ) ) {
 
       if ( $this->args['database'] === 'transient' ) {
         set_transient( $this->unique, $data, $this->args['transient_time'] );
+        $stored = get_transient( $this->unique );
       } else if ( $this->args['database'] === 'theme_mod' ) {
         set_theme_mod( $this->unique, $data );
+        $stored = get_theme_mod( $this->unique );
       } else if ( $this->args['database'] === 'network' ) {
         update_site_option( $this->unique, $data );
+        $stored = get_site_option( $this->unique );
       } else {
         update_option( $this->unique, $data );
+        $stored = get_option( $this->unique );
       }
+      if ( $stored !== $data ) return false;
 
       do_action( "csf_{$this->unique}_saved", $data, $this );
+      return true;
 
     }
 
@@ -502,6 +526,7 @@ if ( ! class_exists( 'CSF_Options' ) ) {
           echo '<div class="csf-header-right">';
 
             $notice_class = ( ! empty( $this->notice ) ) ? 'csf-form-show' : '';
+            $notice_class .= $this->save_failed ? ' notice notice-error inline' : '';
             $notice_text  = ( ! empty( $this->notice ) ) ? $this->notice : '';
 
             echo '<div class="csf-form-result csf-form-success '. esc_attr( $notice_class ) .'">'. $notice_text .'</div>';

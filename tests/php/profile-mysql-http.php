@@ -35,9 +35,24 @@ require dirname( __DIR__, 2 ) . '/inc/trb-candidate-onboarding.php';
 add_action( 'trb_crm_sync_storage_failure', static function( $scope, $error ) { error_log( 'Synthetic storage fault: ' . get_class( $error ) . ': ' . $error->getMessage() ); }, 10, 2 );
 add_filter( 'template_directory', static function() { return dirname( __DIR__, 2 ); } );
 if ( $qaServing ) {
-    $qaUserId = ( $_SERVER['HTTP_X_TRB_QA_USER'] ?? '' ) === 'anonymous' ? 0 : (int) getenv( 'TRB_QA_USER_ID' );
+    $qaIdentity = $_SERVER['HTTP_X_TRB_QA_USER'] ?? '';
+    $qaUserId = 'anonymous' === $qaIdentity ? 0 : ( 'admin' === $qaIdentity ? get_user_by( 'login', 'qa_admin' )->ID : (int) getenv( 'TRB_QA_USER_ID' ) );
     wp_set_current_user( $qaUserId );
     if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
+        if ( ( $_POST['action'] ?? '' ) === 'qa_csf_save' ) {
+            require dirname( __DIR__, 2 ) . '/inc/csf/classes/abstract.class.php';
+            require dirname( __DIR__, 2 ) . '/inc/csf/classes/admin-options.class.php';
+            $qaSettings = ( new ReflectionClass( CSF_Options::class ) )->newInstanceWithoutConstructor();
+            $qaSettings->unique = 'qa_csf_fixture';
+            $qaSettings->pre_fields = array( array( 'id' => 'fixture' ) );
+            $qaSettings->options = get_option( $qaSettings->unique );
+            $qaSettings->ajax_save();
+        }
+        if ( in_array( $_POST['action'] ?? '', array( 'csf-import', 'csf-reset' ), true ) ) {
+            require dirname( __DIR__, 2 ) . '/inc/csf/functions/actions.php';
+            if ( 'csf-import' === $_POST['action'] ) csf_import_ajax();
+            csf_reset_ajax();
+        }
         if ( ( $_POST['action'] ?? '' ) === 'qa_mu_sync' ) {
             $route = (string) ( $_POST['qa_route'] ?? '' );
             if ( ! preg_match( '#^/(?:entitlement|release/[0-9]+|reconcile|onboarding/private|onboarding/public)$#D', $route ) ) wp_send_json_error( null, 400 );
@@ -79,13 +94,13 @@ if ( $qaServing ) {
         trb_portal_handle_artist_profile();
     }
     header( 'Content-Type: application/json' );
-    echo wp_json_encode( array( 'nonce' => wp_create_nonce( 'trb_portal_save_artist_profile' ), 'demo_nonce' => wp_create_nonce( 'trb_portal_submit_demo' ), 'stage_nonce' => wp_create_nonce( 'trb_portal_stage_release' ), 'user_id' => $qaUserId, 'outbound_disabled' => ! function_exists( 'mail' ) && ! function_exists( 'curl_exec' ) && ! ini_get( 'allow_url_fopen' ), 'complete' => trb_portal_artist_profile_is_complete(), 'completion' => trb_portal_artist_profile_completion(), 'fields' => get_user_meta( $qaUserId ), 'files' => trb_portal_private_profile_files() ) );
+    echo wp_json_encode( array( 'nonce' => wp_create_nonce( 'trb_portal_save_artist_profile' ), 'demo_nonce' => wp_create_nonce( 'trb_portal_submit_demo' ), 'stage_nonce' => wp_create_nonce( 'trb_portal_stage_release' ), 'settings_nonce' => wp_create_nonce( 'csf_backup_nonce' ), 'settings_form_nonce' => wp_create_nonce( 'csf_options_nonce' ), 'user_id' => $qaUserId, 'outbound_disabled' => ! function_exists( 'mail' ) && ! function_exists( 'curl_exec' ) && ! ini_get( 'allow_url_fopen' ), 'complete' => trb_portal_artist_profile_is_complete(), 'completion' => trb_portal_artist_profile_completion(), 'fields' => get_user_meta( $qaUserId ), 'files' => trb_portal_private_profile_files() ) );
     exit;
 }
 function qa_check( $condition, $message ) { if ( ! $condition ) throw new RuntimeException( $message ); $GLOBALS['qa_checks']++; }
-function qa_http( $fields = null, $anonymous = false ) {
+function qa_http( $fields = null, $anonymous = false, $administrator = false ) {
     $qaCurl = curl_init( 'http://' . $GLOBALS['qa_address'] . '/' );
-    curl_setopt_array( $qaCurl, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 20, CURLOPT_HTTPHEADER => array( 'X-TRB-QA-Token: ' . $GLOBALS['qa_http_token'], 'X-TRB-QA-User: ' . ( $anonymous ? 'anonymous' : 'artist' ) ) ) );
+    curl_setopt_array( $qaCurl, array( CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 20, CURLOPT_HTTPHEADER => array( 'X-TRB-QA-Token: ' . $GLOBALS['qa_http_token'], 'X-TRB-QA-User: ' . ( $anonymous ? 'anonymous' : ( $administrator ? 'admin' : 'artist' ) ) ) ) );
     if ( null !== $fields ) curl_setopt_array( $qaCurl, array( CURLOPT_POST => true, CURLOPT_POSTFIELDS => $fields ) );
     $qaResponse = curl_exec( $qaCurl );
     if ( false === $qaResponse ) throw new RuntimeException( 'QA HTTP request failed: ' . curl_error( $qaCurl ) );
@@ -292,6 +307,7 @@ try {
     require __DIR__ . '/demo-worker-mysql-cases.php';
     require __DIR__ . '/mu-sync-mysql-cases.php';
     require __DIR__ . '/onboarding-storage-mysql-cases.php';
+    require __DIR__ . '/theme-settings-mysql-cases.php';
     qa_check( ! preg_match( '/PHP (Warning|Notice|Deprecated|Fatal error|Parse error)/', file_get_contents( $qaRoot . '/qa-http.log' ) ), 'The real HTTP fixture emitted unexpected PHP diagnostics.' );
     echo $GLOBALS['qa_checks'] . " real WordPress/MySQL/HTTP assertions passed; ordinary Tunisia artist, authentication/nonce, metadata, file rollback/retry, process lock and outbox failure.\n";
 } finally {

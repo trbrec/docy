@@ -11,7 +11,7 @@ class Docy_admin_page extends Docy_base {
 
 	/**
      * The slug name for the parent menu.
-     * @var string
+     * @var string|null
      */
     public $parent = null;
 
@@ -35,8 +35,7 @@ class Docy_admin_page extends Docy_base {
     public $position;
 
 	/**
-	 * [__construct description]
-	 * @method __construct
+	 * Register the menu and the save handler for this exact page.
 	 */
 	public function __construct() {
 
@@ -57,9 +56,8 @@ class Docy_admin_page extends Docy_base {
 	}
 
 	/**
-	 * [register_page description]
-	 * @method register_page
-	 * @return [type]        [description]
+	 * Register the theme administration page.
+	 * @return void
 	 */
 	public function register_page() {
 
@@ -87,9 +85,8 @@ class Docy_admin_page extends Docy_base {
 	}
 
 	/**
-	 * [display description]
-	 * @method display
-	 * @return [type]  [description]
+	 * Render the default administration page.
+	 * @return void
 	 */
 	public function display() {
 		echo 'default';

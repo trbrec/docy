@@ -60,10 +60,8 @@ class Docy_register_theme {
 	}
 
 	/**
-	 * [init_hooks description]
-	 * @method init_hooks
-	 *
-	 * @return [type]     [description]
+	 * Register license notices for the current administration page.
+	 * @return void
 	 */
 	public function init_hooks() {
 

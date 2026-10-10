@@ -11,24 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 function docy_fonts_url(): string
 {
-	$fonts_url = '';
-	$fonts     = [];
-	$subsets   = '';
-
-	/* Body font */
-	if ( 'off' !== 'on' ) {
-		$fonts[] = "Roboto:300,400,500,600,700";
-	}
-
-	if ( $fonts ) {
-		$fonts_url = add_query_arg( [
-			'family'  => urlencode( implode( '|', $fonts ) ),
-			'subset'  => urlencode( $subsets ),
-			'display' => 'swap',
-		], "https://fonts.googleapis.com/css" );
-	}
-
-	return $fonts_url;
+	return add_query_arg( [
+		'family'  => urlencode( 'Roboto:300,400,500,600,700' ),
+		'subset'  => '',
+		'display' => 'swap',
+	], 'https://fonts.googleapis.com/css' );
 }
 
 /**
