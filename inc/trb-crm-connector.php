@@ -328,7 +328,11 @@ function trb_crm_connector_table_exists() {
 	return $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
 }
 
+function trb_crm_connector_health_permission() {
+	return current_user_can( 'manage_options' );
+}
+
 function trb_crm_connector_health_route() {
-	register_rest_route( 'trb/v1', '/crm-sync-health', array( 'methods' => WP_REST_Server::READABLE, 'callback' => function() { return rest_ensure_response( trb_crm_connector_health() ); }, 'permission_callback' => '__return_true' ) );
+	register_rest_route( 'trb/v1', '/crm-sync-health', array( 'methods' => WP_REST_Server::READABLE, 'callback' => function() { return rest_ensure_response( trb_crm_connector_health() ); }, 'permission_callback' => 'trb_crm_connector_health_permission' ) );
 }
 add_action( 'rest_api_init', 'trb_crm_connector_health_route' );

@@ -209,6 +209,15 @@ try {
         $wpdb->query( "DROP USER 'qa_schema_readonly'@'%'" );
     }
     qa_check( trb_crm_connector_install(), 'Installation could not retry after denied DDL.' );
+    // Native REST dispatch and real WordPress capabilities protect operational data.
+    $qaPreviousUser = get_current_user_id();
+    try {
+        foreach ( array( array( 0, 401 ), array( $qaUser, 403 ), array( get_user_by( 'login', 'qa_admin' )->ID, 200 ) ) as list( $qaHealthUser, $qaHealthStatus ) ) {
+            wp_set_current_user( $qaHealthUser );
+            $qaHealthResponse = rest_do_request( new WP_REST_Request( 'GET', '/trb/v1/crm-sync-health' ) );
+            qa_check( $qaHealthResponse->get_status() === $qaHealthStatus && ( $qaHealthStatus === 200 || ! isset( $qaHealthResponse->get_data()['queue'] ) ), 'CRM health permissions exposed operational data or denied the administrator.' );
+        }
+    } finally { wp_set_current_user( $qaPreviousUser ); }
     $qaOutbox = trb_crm_connector_table();
     qa_check( trb_crm_connector_queue( 'artist', $qaUser, array( 'name' => 'Fictional QA artist' ) ), 'Native MySQL outbox insert failed.' );
     $qaFirstEvent = $wpdb->get_row( "SELECT id,status FROM {$qaOutbox} ORDER BY id DESC LIMIT 1", ARRAY_A );
