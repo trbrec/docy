@@ -17,6 +17,7 @@ jobs:
       - name: PHP syntax and submission diagnostics
         run: |
           find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+          php tools/test-legacy-inventory-bootstrap.php
           php tools/test-submission-diagnostics.php
           php tools/test-onboarding-entry.php
           php tools/test-onboarding-workflow.php
