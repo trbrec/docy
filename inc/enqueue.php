@@ -100,6 +100,9 @@ function docy_scripts() {
 			$thank_you_text = isset( $opt['article_rating_thank_you'] ) && ! empty( $opt['article_rating_thank_you'] )
 				? $opt['article_rating_thank_you']
 				: esc_html__( 'Grazie per aver votato questo articolo!', 'docy' );
+			if ( ! is_string( $thank_you_text ) || 'Thank you for rating this article!' === $thank_you_text ) {
+				$thank_you_text = esc_html__( 'Grazie per aver votato questo articolo!', 'docy' );
+			}
 
 			$rating_path = get_template_directory() . '/assets/js/article-rating.js';
 			$rating_hash = is_readable( $rating_path ) ? md5_file( $rating_path ) : false;

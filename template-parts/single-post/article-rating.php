@@ -34,6 +34,8 @@ $has_rated   = isset( $_COOKIE[ $cookie_name ] );
 // Get settings for customizable text.
 $rating_title      = docy_opt( 'article_rating_title', esc_html__( 'Valuta l’articolo', 'docy' ) );
 $thank_you_message = docy_opt( 'article_rating_thank_you', esc_html__( 'Grazie per aver votato questo articolo!', 'docy' ) );
+if ( ! is_string( $rating_title ) || 'Rate the article' === $rating_title ) $rating_title = esc_html__( 'Valuta l’articolo', 'docy' );
+if ( ! is_string( $thank_you_message ) || 'Thank you for rating this article!' === $thank_you_message ) $thank_you_message = esc_html__( 'Grazie per aver votato questo articolo!', 'docy' );
 $show_average      = docy_opt( 'is_article_rating_average', '1' );
 $enable_schema     = docy_opt( 'is_article_rating_schema', '1' );
 

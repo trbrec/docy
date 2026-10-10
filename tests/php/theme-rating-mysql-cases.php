@@ -54,6 +54,24 @@ try {
     $qaSettingsFile = 'assets/js/main' . ( CSF_Setup::$premium && SCRIPT_DEBUG ? '' : '.min' ) . '.js';
     qa_check( CSF_Setup::$version . '.' . substr( md5_file( CSF_Setup::$dir . '/' . $qaSettingsFile ), 0, 12 ) === $qaSettingsAsset->ver, 'The actual enqueued settings script does not identify its changed bytes.' );
     qa_check( CSF_Setup::$version === wp_scripts()->registered['csf-plugins']->ver, 'Unchanged settings dependencies changed version unexpectedly.' );
+    require_once dirname( __DIR__, 2 ) . '/inc/template-functions.php';
+    update_option( 'docy_opt', array( 'article_rating_title' => 'Rate the article', 'article_rating_thank_you' => 'Thank you for rating this article!' ) );
+    $qaRatingOldQuery = $GLOBALS['wp_query'];
+    $GLOBALS['wp_query'] = new WP_Query( array( 'p' => $qaRatingPost ) );
+    $GLOBALS['wp_query']->the_post();
+    delete_post_meta( $qaRatingPost, $qaRatingMeta );
+    ob_start();
+    require dirname( __DIR__, 2 ) . '/template-parts/single-post/article-rating.php';
+    $qaRatingMarkup = ob_get_clean();
+    qa_check( str_contains( $qaRatingMarkup, 'Valuta l’articolo' ) && str_contains( $qaRatingMarkup, 'Vota 5 su 5' ) && ! str_contains( $qaRatingMarkup, 'Rate the article' ), 'Legacy English rating defaults were rendered on the Italian site.' );
+    $_COOKIE[ 'docy_article_rated_' . $qaRatingPost ] = '1';
+    ob_start();
+    require dirname( __DIR__, 2 ) . '/template-parts/single-post/article-rating.php';
+    $qaRatingMarkup = ob_get_clean();
+    qa_check( str_contains( $qaRatingMarkup, 'Grazie per aver votato questo articolo!' ) && ! str_contains( $qaRatingMarkup, 'Thank you for rating' ), 'Legacy English confirmation was rendered on the Italian site.' );
+    unset( $_COOKIE[ 'docy_article_rated_' . $qaRatingPost ] );
+    $GLOBALS['wp_query'] = $qaRatingOldQuery;
+    wp_reset_postdata();
 } finally {
     $wpdb->query( 'DROP TRIGGER IF EXISTS qa_reject_rating_insert' );
     $wpdb->query( 'DROP TRIGGER IF EXISTS qa_reject_rating_update' );
