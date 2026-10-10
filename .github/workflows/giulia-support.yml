@@ -33,7 +33,8 @@ jobs:
       - run: |
           php -l integrations/giulia/GiuliaSupport.php
           php -l tools/deploy-giulia-support.php
-          php tools/test-giulia-support.php
+          set -o pipefail
+          php tools/test-giulia-support.php 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
   deploy:
     needs: verify
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -66,3 +67,4 @@ jobs:
           rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes" integrations/giulia/ "${remote}:${stage}/integrations/giulia/"
           rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes" tools/deploy-giulia-support.php "${remote}:${stage}/tools/"
           ssh -p "${SSH_PORT}" -o BatchMode=yes "${remote}" "php '${stage}/tools/deploy-giulia-support.php' '${GITHUB_SHA}'"
+
