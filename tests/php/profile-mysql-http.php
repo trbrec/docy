@@ -335,6 +335,7 @@ try {
     require __DIR__ . '/theme-rating-mysql-cases.php';
     require __DIR__ . '/theme-comments-mysql-cases.php';
     require __DIR__ . '/theme-search-mysql-cases.php';
+    require __DIR__ . '/theme-text-cases.php';
     $qaCartOldUser = get_current_user_id();
     wp_set_current_user( $qaUser );
     $qaCartNonce = wp_create_nonce( 'docy-buy-now-nonce' );
