@@ -1,7 +1,7 @@
 <?php
 /** Exercise the production validators without bootstrapping WordPress or writing user data. */
 $source = file_get_contents( __DIR__ . '/../inc/trb-artist-portal.php' );
-$wanted = array( 'trb_portal_validate_birth_date', 'trb_portal_canonical_account_redirect', 'trb_release_bridge_payload', 'trb_release_bridge_spreadsheet_row', 'trb_portal_country_is_italy', 'trb_portal_validate_international_identifier', 'trb_portal_validate_profile_geography', 'trb_portal_validate_mobile', 'trb_portal_validate_tax_code', 'trb_portal_validate_identity_document_number', 'trb_portal_validate_identity_document_expiry' );
+$wanted = array( 'trb_portal_validate_biography_upload', 'trb_portal_valid_biography_file', 'trb_portal_validate_birth_date', 'trb_portal_canonical_account_redirect', 'trb_release_bridge_payload', 'trb_release_bridge_spreadsheet_row', 'trb_portal_country_is_italy', 'trb_portal_validate_international_identifier', 'trb_portal_validate_profile_geography', 'trb_portal_validate_mobile', 'trb_portal_validate_tax_code', 'trb_portal_validate_identity_document_number', 'trb_portal_validate_identity_document_expiry' );
 $source .= "\n" . preg_replace( '/^<\?php/', '', file_get_contents( __DIR__ . '/../inc/trb-release-spreadsheet-bridge.php' ) );
 $tokens = token_get_all( $source );
 foreach ( $tokens as $i => $token ) {
@@ -54,6 +54,34 @@ check( false === trb_portal_validate_identity_document_expiry( '2000-01-01', 'pa
 check( false === trb_portal_validate_identity_document_expiry( '2030-02-30', 'passport' ), 'Impossible date rejected' );
 echo "International profile server validators verified.\n";
 
+define( 'MB_IN_BYTES', 1024 * 1024 );
+foreach ( array( 'txt', 'docx', 'odt', 'rtf', 'TXT' ) as $extension ) check( '' === trb_portal_validate_biography_upload( array( 'name' => 'test.' . $extension, 'size' => 100, 'error' => UPLOAD_ERR_OK ), false ), 'Supported biography format retained' );
+check( 'bio_required' === trb_portal_validate_biography_upload( array(), false ), 'Missing biography rejected before metadata writes' );
+check( '' === trb_portal_validate_biography_upload( array(), true ), 'Existing biography permits a text-only profile save' );
+foreach ( array( array( 'name' => 'test.pdf', 'size' => 100, 'error' => 0 ), array( 'name' => 'test.txt', 'size' => 0, 'error' => 0 ), array( 'name' => 'test.txt', 'size' => 5 * MB_IN_BYTES + 1, 'error' => 0 ), array( 'name' => 'test.txt', 'size' => 100, 'error' => UPLOAD_ERR_PARTIAL ), array( 'name' => array( 'test.txt' ), 'size' => 100, 'error' => 0 ) ) as $upload ) check( 'bio_invalid' === trb_portal_validate_biography_upload( $upload, true ), 'Invalid replacement rejected even when an older biography exists' );
+function trailingslashit( $path ) { return rtrim( $path, '/\\' ) . '/'; }
+function wp_upload_dir() { return array( 'basedir' => $GLOBALS['biography_fixture_root'] ); }
+function trb_portal_private_profile_file_by_group( $group, $user_id = 0 ) { return $GLOBALS['biography_fixture']; }
+$biography_sandbox = sys_get_temp_dir() . '/trb-biography-audit-' . bin2hex( random_bytes( 8 ) );
+mkdir( $biography_sandbox . '/trb-artist-private', 0700, true );
+$GLOBALS['biography_fixture_root'] = $biography_sandbox;
+try {
+	file_put_contents( $biography_sandbox . '/trb-artist-private/test.txt', 'Synthetic biography' );
+	$GLOBALS['biography_fixture'] = array( 'id' => 'synthetic', 'name' => 'test.txt', 'path' => 'trb-artist-private/test.txt' );
+	check( ! empty( trb_portal_valid_biography_file( 198 ) ), 'Existing private biography accepted' );
+	$GLOBALS['biography_fixture']['path'] = 'trb-artist-private/missing.txt';
+	check( array() === trb_portal_valid_biography_file( 198 ), 'Missing biography bytes cannot satisfy completion' );
+	file_put_contents( $biography_sandbox . '/outside.txt', 'Synthetic outside fixture' );
+	$GLOBALS['biography_fixture']['path'] = 'trb-artist-private/../outside.txt';
+	check( array() === trb_portal_valid_biography_file( 198 ), 'Biography outside the private directory rejected' );
+	file_put_contents( $biography_sandbox . '/trb-artist-private/empty.txt', '' );
+	$GLOBALS['biography_fixture']['path'] = 'trb-artist-private/empty.txt';
+	check( array() === trb_portal_valid_biography_file( 198 ), 'Empty biography cannot satisfy completion' );
+} finally {
+	foreach ( glob( $biography_sandbox . '/trb-artist-private/*' ) as $path ) unlink( $path );
+	if ( is_file( $biography_sandbox . '/outside.txt' ) ) unlink( $biography_sandbox . '/outside.txt' );
+	rmdir( $biography_sandbox . '/trb-artist-private' ); rmdir( $biography_sandbox );
+}
 
 // Calendar validity must be checked by the server, including legacy stored dates.
 foreach ( array( '2030-02-30', '2024-02-30', '0000-01-01', '2030-01-01', '', array( '1990-01-01' ) ) as $input ) check( false === trb_portal_validate_birth_date( $input ), 'Impossible, future or non-scalar birth date rejected' );
