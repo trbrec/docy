@@ -24,4 +24,16 @@ $changes=[$crm.'/app/GiuliaSupport.php'=>(string)file_get_contents($bundle.'/int
 $stage='validate';foreach($changes as $path=>$next){$original[$path]=is_file($path)?file_get_contents($path):null;$staged=$backup.'/'.basename($path).'.next';file_put_contents($staged,$next);exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($staged).' 2>&1',$output,$status);if($status!==0)throw new RuntimeException();if($original[$path]!==null&&!is_file($backup.'/'.basename($path).'.previous'))file_put_contents($backup.'/'.basename($path).'.previous',$original[$path]);}
 $stage='activate';try {foreach($changes as $path=>$next){$temp=$path.'.giulia-next';if(file_put_contents($temp,$next)!==strlen($next)||!rename($temp,$path))throw new RuntimeException();}if(!hash_equals(hash('sha256',$changes[$crm.'/app/GiuliaSupport.php']),hash_file('sha256',$crm.'/app/GiuliaSupport.php')))throw new RuntimeException();}
 catch(Throwable $e){foreach($original as $path=>$content){if($content===null){if(is_file($path))unlink($path);}else file_put_contents($path,$content);}throw $e;}
+try {
+$stage='live-read-check';
+$db=\TrbCrm\Database::connection();$fixture=$db->query("SELECT s.contract_number,COALESCE(si.first_name,c.first_name) first_name,COALESCE(si.last_name,c.last_name) last_name FROM submissions s JOIN contacts c ON c.id=s.contact_id LEFT JOIN submission_identity_snapshots si ON si.submission_id=s.id WHERE s.source_tab='CRM_TEST_PERMANENT' AND s.contract_number='TEST-0001' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+if(!$fixture)throw new RuntimeException();
+$key=json_decode((string)file_get_contents($config),true,16,JSON_THROW_ON_ERROR)['key'];
+$context=['caller_id'=>'giulia_deploy_'.$revision,'conversation_id'=>'conv_deploy_'.$revision,'agent_id'=>\TrbCrm\GiuliaSupport::AGENT,'text_only'=>true];
+$db->beginTransaction();try{$result=(new \TrbCrm\GiuliaSupport($db,$key))->handle($context+$fixture);if(($result['verified']??false)!==true)throw new RuntimeException();}finally{$db->rollBack();}
+$stage='live-http-check';
+$http=stream_context_create(['http'=>['method'=>'POST','header'=>"Content-Type: application/json\r\nX-TRB-Giulia-Key: ".$key."\r\n",'content'=>json_encode($context), 'timeout'=>15,'ignore_errors'=>true]]);
+$response=json_decode((string)file_get_contents('https://crm.trbrec.com/api/giulia/support',false,$http),true);
+if(($response['reason']??'')!=='identity_required')throw new RuntimeException();
+} catch(Throwable $e) {foreach($original as $path=>$content){if($content===null){if(is_file($path))unlink($path);}else file_put_contents($path,$content);}throw $e;}
 file_put_contents($private.'/giulia-deployed-sha',$revision);echo 'GIULIA_DEPLOY_OK revision='.$revision."\n";
