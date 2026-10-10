@@ -3,6 +3,7 @@
 function trb_qa_installed_http( $work ) {
     require_once __DIR__ . '/qa-http-relay.php';
     require_once __DIR__ . '/qa-http-local-browser.php';
+    require_once __DIR__ . '/qa-http-cleanup.php';
     $root = $work . '/wordpress'; $settings_path = $work . '/qa-settings.json';
     $settings = json_decode( file_get_contents( $settings_path ), true, 16, JSON_THROW_ON_ERROR );
     if ( empty( $settings['artist_password'] ) || empty( $settings['artist_id'] ) ) throw new RuntimeException( 'Artist fixture unavailable.' );
@@ -16,7 +17,7 @@ function trb_qa_installed_http( $work ) {
     $config = str_replace( "'http://127.0.0.1'", var_export( $base, true ), $config );
     $config = str_replace( "<?php", "<?php\ndefine('COOKIEPATH','/');define('SITECOOKIEPATH','/');define('ADMIN_COOKIE_PATH','/');", $config );
     if ( file_put_contents( $root . '/wp-config.php', $config, LOCK_EX ) !== strlen( $config ) ) throw new RuntimeException( 'HTTP configuration unavailable.' );
-    $code = '<?php ini_set("display_errors","0"); header("Cache-Control: no-store"); if(time()>' . ( time() + 900 ) . '){http_response_code(404);exit;} ';
+    $code = '<?php ini_set("display_errors","0"); ini_set("error_log",' . var_export( $work . '/http-private.log', true ) . '); header("Cache-Control: no-store"); if(time()>' . ( time() + 900 ) . '){http_response_code(404);exit;} ';
     if ( getenv( 'TRB_QA_HTTP_BROWSER' ) === '1' ) $code .= trb_qa_browser_controller_source( $work, $token, $base );
     $code .= 'if(!hash_equals(' . var_export( $token, true ) . ',(string)($_SERVER["HTTP_X_TRB_QA_TOKEN"]??""))){http_response_code(404);exit;} if(defined("ABSPATH")&&ABSPATH!==' . var_export( $root . '/', true ) . '){http_response_code(409);exit;} if(!defined("ABSPATH"))define("ABSPATH",' . var_export( $root . '/', true ) . '); $path=$_SERVER["HTTP_X_TRB_QA_ROUTE"]??""; $_SERVER["REQUEST_URI"]=$path;';
     // Fixed includes only: a request can never supply an executable path.
@@ -38,11 +39,13 @@ function trb_qa_installed_http( $work ) {
     }
     $settings_json = json_encode( $settings, JSON_THROW_ON_ERROR );
     if ( file_put_contents( $settings_path, $settings_json, LOCK_EX ) !== strlen( $settings_json ) ) throw new RuntimeException( 'HTTP cleanup manifest unavailable.' );
-    $remove_bridge = static function() use ( $bridge, $bridge_hash, $bridge_directory, $bootstrap, $bootstrap_bytes ) {
+    $remove_bridge = static function() use ( $bridge, $bridge_hash, $bridge_directory, $bootstrap, $bootstrap_bytes, $site ) {
         if ( null !== $bootstrap && ( is_link( $bootstrap ) || is_file( $bootstrap ) && ( ! hash_equals( hash( 'sha256', $bootstrap_bytes ), hash_file( 'sha256', $bootstrap ) ) || ! unlink( $bootstrap ) ) ) ) return false;
         if ( is_link( $bridge ) || is_link( $bridge_directory ) ) return false;
         if ( is_file( $bridge ) && ( ! hash_equals( $bridge_hash, hash_file( 'sha256', $bridge ) ) || ! unlink( $bridge ) ) ) return false;
-        return ! is_dir( $bridge_directory ) || rmdir( $bridge_directory );
+        if ( ! is_dir( $bridge_directory ) ) return true;
+        trb_qa_archive_http_error_log( $site, dirname( $site ) . '/private/error-log-archive', $bridge_directory );
+        return @rmdir( $bridge_directory );
     };
     register_shutdown_function( $remove_bridge );
     $cookie = $work . '/http-cookies.txt'; $checks = array();
@@ -88,7 +91,9 @@ function trb_qa_installed_http( $work ) {
         }
         $check( 200 === $login['status'], 'native_login_page' );
         $anonymous = $request( '/wp-admin/admin-post.php', array( 'action' => 'trb_portal_save_artist_profile' ), false );
-        $check( str_contains( $anonymous['location'], 'wp-login.php' ) || 401 === $anonymous['status'], 'anonymous_profile_rejected' );
+        $anonymous_redirect = parse_url( $anonymous['location'] );
+        parse_str( $anonymous_redirect['query'] ?? '', $anonymous_query );
+        $check( 401 === $anonymous['status'] || in_array( $anonymous['status'], array( 302, 303 ), true ) && ( $anonymous_redirect['host'] ?? '' ) === 'artist.trbrec.com' && ( $anonymous_redirect['path'] ?? '' ) === '/' . $name . '/accedi/' && ( $anonymous_query['trb_login'] ?? '' ) === 'session_expired', 'anonymous_profile_rejected' );
         $login = $request( '/wp-login.php', array( 'log' => 'artista_fittizio_tunisia', 'pwd' => $settings['artist_password'], 'wp-submit' => 'Accedi', 'testcookie' => '1' ) );
         $check( in_array( $login['status'], array( 302, 303 ), true ), 'native_password_login' );
         define( 'ABSPATH', $root . '/' ); $_SERVER['HTTP_HOST'] = 'artist.trbrec.com'; $_SERVER['SERVER_NAME'] = 'artist.trbrec.com'; $_SERVER['REQUEST_URI'] = '/'; $_SERVER['REQUEST_METHOD'] = 'GET'; $_SERVER['HTTPS'] = 'on'; $_SERVER['PHP_SELF'] = '/index.php';

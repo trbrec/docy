@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/qa-http-local-browser.php';
+require __DIR__ . '/qa-http-cleanup.php';
 $work = str_replace( '\\', '/', sys_get_temp_dir() ) . '/trb-browser-protocol-' . bin2hex( random_bytes( 8 ) );
 if ( ! mkdir( $work, 0700 ) ) throw new RuntimeException( 'Protocol fixture unavailable.' );
 try {
@@ -25,5 +26,15 @@ PHP;
     $answer = trb_qa_browser_request( 'https://artist.trbrec.com/trb-audit-http-' . str_repeat( 'a', 24 ) . '/index.php', array(), array( 'city' => 'Tunisi' ), true, $work . '/cookies.txt', $work );
     $output = stream_get_contents( $pipes[1] ); $error = stream_get_contents( $pipes[2] ); fclose( $pipes[1] ); fclose( $pipes[2] );
     if ( proc_close( $process ) !== 0 || $answer !== array( 303, "Location: /saved\r\n", 'Synthetic reply' ) || ! is_file( $work . '/cookies.txt' ) ) throw new RuntimeException( 'Browser request/cookie handoff failed.' );
-    echo "Generated browser controller syntax, ephemeral bootstrap encryption and private request/response handoff passed.\n";
+    $public = $work . '/public'; $archive = $work . '/archive'; $endpoint = $public . '/trb-audit-http-' . str_repeat( 'b', 24 );
+    mkdir( $public ); mkdir( $archive ); mkdir( $endpoint );
+    $log = "Synthetic diagnostic bytes\n" . random_bytes( 1024 );
+    file_put_contents( $endpoint . '/php_errorlog', $log );
+    file_put_contents( $endpoint . '/unknown.txt', 'Unowned file must remain.' );
+    if ( ! trb_qa_archive_http_error_log( $public, $archive, $endpoint ) || is_file( $endpoint . '/php_errorlog' ) || ! is_file( $endpoint . '/unknown.txt' ) ) throw new RuntimeException( 'Synthetic log cleanup changed an unrelated file.' );
+    $saved = glob( $archive . '/portal-*.log' );
+    if ( count( $saved ) !== 1 || file_get_contents( $saved[0] ) !== $log || trb_qa_archive_http_error_log( $public, $archive, $endpoint ) !== false ) throw new RuntimeException( 'Synthetic log archive did not preserve bytes or retry safely.' );
+    try { trb_qa_archive_http_error_log( $public, $archive, $public ); throw new LogicException( 'Unowned directory accepted.' ); } catch ( RuntimeException $expected ) {}
+    unlink( $saved[0] ); unlink( $endpoint . '/unknown.txt' ); rmdir( $endpoint ); rmdir( $public ); rmdir( $archive );
+    echo "Browser controller syntax, ephemeral encryption, private request/response handoff and byte-preserving synthetic log cleanup passed.\n";
 } finally { foreach ( glob( $work . '/*' ) as $path ) if ( is_file( $path ) ) unlink( $path ); rmdir( $work ); }

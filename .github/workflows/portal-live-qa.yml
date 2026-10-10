@@ -9,6 +9,7 @@ on:
       - tools/qa-http-relay.php
       - tools/qa-http-browser-relay.cjs
       - tools/qa-http-local-browser.php
+      - tools/qa-http-cleanup.php
       - tools/qa-browser-recipient.pem
       - tools/signature-compatibility.php
       - tools/deploy-portal-integrations.php
