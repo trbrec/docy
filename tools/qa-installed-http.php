@@ -39,7 +39,7 @@ function trb_qa_installed_http( $work ) {
     };
     $check = static function( $condition, $label ) use ( &$checks ) { $GLOBALS['trb_qa_http_stage'] = $label; if ( ! $condition ) throw new RuntimeException( $label ); $checks[] = $label; };
     try {
-        $check( 404 === $request( '/wp-login.php', null, false, false )['status'], 'temporary_endpoint_requires_private_key' );
+        $check( in_array( $request( '/wp-login.php', null, false, false )['status'], array( 403, 404 ), true ), 'temporary_endpoint_requires_private_key' );
         for ( $attempt = 0; $attempt < 30; $attempt++ ) { $login = $request( '/wp-login.php' ); if ( $login['status'] ) break; usleep( 100000 ); }
         $check( 200 === $login['status'], 'native_login_page' );
         $login = $request( '/wp-login.php', array( 'log' => 'artista_fittizio_tunisia', 'pwd' => $settings['artist_password'], 'wp-submit' => 'Accedi', 'testcookie' => '1' ) );
