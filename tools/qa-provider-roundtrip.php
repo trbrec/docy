@@ -52,11 +52,15 @@ try {
     // isolated protocol after its read-only endpoint has identified itself.
     if ( is_array( $health ) && ( $health['protocol'] ?? '' ) === 'trb-demo-sheet-v2' && ( $health['isolated_qa'] ?? false ) === true ) {
         $row = array( 'informazioni_cronologiche' => gmdate( 'd/m/Y H:i' ), 'nome' => 'Artista', 'cognome' => 'Fittizio', 'nome_arte' => 'Artista Fittizio Tunisia', 'email' => 'qa-' . $run . '@example.invalid', 'titolo' => '=Collaudo l’onda تونس', 'link_provino' => 'https://example.invalid/qa/' . $run, 'request_id' => 'QA-AUDIT-' . $run, 'qa_run' => $run );
-        $call_sheet = static function( $action, $valid = true ) use ( $row, $settings ) {
+        $call_sheet = static function( $action, $valid = true ) use ( $row, $settings, &$result ) {
             $json = wp_json_encode( array_merge( $row, array( 'qa_action' => $action ) ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
             $envelope = array( 'payload_base64' => base64_encode( $json ), 'signature' => $valid ? hash_hmac( 'sha256', $json, $settings['sheet_webhook_secret'] ) : str_repeat( '0', 64 ) );
             $response = trb_demo_post_sheet_webhook( $settings['sheet_webhook_url'], $envelope );
-            return is_wp_error( $response ) ? null : json_decode( wp_remote_retrieve_body( $response ), true );
+            $decoded = is_wp_error( $response ) ? null : json_decode( wp_remote_retrieve_body( $response ), true );
+            $key = $action . ( $valid ? '' : '_invalid_signature' );
+            $error = is_array( $decoded ) && isset( $decoded['error'] ) ? (string) $decoded['error'] : '';
+            $result['sheets_diagnostics'][$key] = array( 'http_status' => is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response ), 'json' => is_array( $decoded ), 'success' => ( $decoded['success'] ?? false ) === true, 'unauthorized' => $error === 'unauthorized', 'headers_mismatch' => str_contains( $error, 'Intestazioni' ), 'readback_unconfirmed' => str_contains( $error, 'Rilettura' ), 'values_count' => isset( $decoded['values'] ) && is_array( $decoded['values'] ) ? count( $decoded['values'] ) : 0 );
+            return $decoded;
         };
         try {
             $invalid = $call_sheet( 'write', false );

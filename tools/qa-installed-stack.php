@@ -9,8 +9,9 @@ set_exception_handler( static function( $error ) use ( $phase ) {
     else echo json_encode( array( 'phase' => $phase, 'completed' => false, 'fatal' => $detail ) ) . "\n";
     exit( 1 );
 } );
-if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'cleanup', 'cleanup-stale' ), true ) || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
+if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'http', 'cleanup', 'cleanup-stale' ), true ) || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
 $root = $work . '/wordpress'; $settings_file = $work . '/qa-settings.json';
+if ( 'http' === $phase ) { require __DIR__ . '/qa-installed-http.php'; echo json_encode( trb_qa_installed_http( $work ) ) . "\n"; exit; }
 if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase ) {
     define( 'SHORTINIT', true );
     require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
@@ -169,6 +170,8 @@ if ( 'install' === $phase ) {
     $password = wp_generate_password( 32 ); $id = wp_insert_user( array( 'user_login' => 'artista_fittizio_tunisia', 'user_email' => 'qa-tunisia@example.invalid', 'user_pass' => $password, 'display_name' => 'Artista Fittizio Tunisia', 'role' => $role ) );
     if ( is_wp_error( $id ) ) throw new RuntimeException( 'Synthetic artist creation failed.' );
     if ( function_exists( 'pw_new_user_approve' ) ) pw_new_user_approve()->update_user_status( $id, 'approve' );
+    $settings['artist_id'] = $id; $settings['artist_password'] = $password;
+    file_put_contents( $settings_file, json_encode( $settings, JSON_THROW_ON_ERROR ), LOCK_EX ); chmod( $settings_file, 0600 );
     $result['artist_password_authentication'] = wp_authenticate( 'artista_fittizio_tunisia', $password ) instanceof WP_User;
     wp_set_current_user( $id );
     $result['ordinary_artist'] = ! user_can( $id, 'manage_options' ) && ! trb_portal_is_release_qa_account( get_userdata( $id ) );
