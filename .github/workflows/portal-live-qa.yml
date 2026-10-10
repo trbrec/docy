@@ -6,6 +6,7 @@ on:
       - tools/qa-installed-stack.php
       - tools/signature-compatibility.php
       - tools/deploy-portal-integrations.php
+      - tools/qa-provider-roundtrip.php
       - integrations/portal-mu-plugins/**
       - .github/workflows/portal-live-qa.yml
 permissions:
@@ -30,6 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           install -d -m 700 "${HOME}/.ssh" /tmp/trb-live-qa
+          printf '{"stage":"hosting_connection"}\n' > /tmp/trb-live-qa/stage.json
           printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
           chmod 600 "${HOME}/.ssh/id_ed25519"
           askpass=$(mktemp)
@@ -38,7 +40,14 @@ jobs:
           eval "$(ssh-agent -s)"
           SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
           rm -f "${askpass}"
-          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          for attempt in 1 2 3; do
+            if ssh-keyscan -T 10 -p "${SSH_PORT}" "${SSH_HOST}" > /tmp/trb-live-qa-host-key; then
+              cat /tmp/trb-live-qa-host-key >> "${HOME}/.ssh/known_hosts"
+              break
+            fi
+            sleep 5
+          done
+          test -s "${HOME}/.ssh/known_hosts"
           remote="${SSH_USER}@${SSH_HOST}"
           ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
           qa_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /tmp/trb-portal-stack.XXXXXXXX')
@@ -53,10 +62,15 @@ jobs:
           trap cleanup EXIT
           rsync -az --exclude='.git/' --exclude='.github/' -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" ./ "${remote}:${qa_dir}/candidate/"
           php_opts='-d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client'
+          printf '{"stage":"prepare"}\n' > /tmp/trb-live-qa/stage.json
           ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' prepare '${qa_dir}'" > /tmp/trb-live-qa/prepared.json 2>/dev/null
+          printf '{"stage":"install"}\n' > /tmp/trb-live-qa/stage.json
           ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' install '${qa_dir}'" > /tmp/trb-live-qa/install.json 2>/dev/null
+          printf '{"stage":"verify"}\n' > /tmp/trb-live-qa/stage.json
           ssh "${ssh_opts[@]}" "${remote}" "php ${php_opts} '${qa_dir}/candidate/tools/qa-installed-stack.php' verify '${qa_dir}'" > /tmp/trb-live-qa/verify.json 2>/dev/null
           ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/deploy-portal-integrations.php' preflight '${GITHUB_SHA}'" > /tmp/trb-live-qa/preflight.txt 2>/dev/null
+          provider_run=$(openssl rand -hex 8)
+          ssh "${ssh_opts[@]}" "${remote}" "php '${qa_dir}/candidate/tools/qa-provider-roundtrip.php' '${provider_run}'" > /tmp/trb-live-qa/providers.json 2>/dev/null
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -66,6 +80,7 @@ jobs:
               assert not result.get('fatal'), 'Installed-stack fatal diagnostic'
           print('Installed plugin parity, synthetic artist authentication and portal initialization verified.')
           PY
+          printf '{"stage":"complete"}\n' > /tmp/trb-live-qa/stage.json
       - name: Preserve sanitized results
         if: always()
         uses: actions/upload-artifact@v4

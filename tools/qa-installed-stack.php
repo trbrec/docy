@@ -3,6 +3,12 @@
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
 ini_set( 'display_errors', '0' );
 $phase = $argv[1] ?? ''; $work = $argv[2] ?? '';
+set_exception_handler( static function( $error ) use ( $phase ) {
+    $detail = array( 'class' => get_class( $error ), 'file' => basename( $error->getFile() ), 'line' => $error->getLine() );
+    if ( isset( $GLOBALS['qa_stack_result'] ) ) $GLOBALS['qa_stack_result']['fatal'] = $detail;
+    else echo json_encode( array( 'phase' => $phase, 'completed' => false, 'fatal' => $detail ) ) . "\n";
+    exit( 1 );
+} );
 if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'cleanup' ), true ) || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
 $root = $work . '/wordpress'; $settings_file = $work . '/qa-settings.json';
 if ( 'prepare' === $phase || 'cleanup' === $phase ) {
@@ -70,6 +76,7 @@ PHP;
     exit;
 }
 $result = array( 'phase' => $phase, 'completed' => false, 'diagnostics' => array() ); $buffer = ob_get_level(); ob_start();
+$GLOBALS['qa_stack_result'] =& $result;
 register_shutdown_function( static function() use ( &$result, $buffer, $phase ) {
     $error = error_get_last();
     if ( $error && in_array( $error['type'], array( E_ERROR, E_PARSE, E_COMPILE_ERROR ), true ) ) $result['fatal'] = array( 'file' => basename( $error['file'] ), 'line' => $error['line'] );
