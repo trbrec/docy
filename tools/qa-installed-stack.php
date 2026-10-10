@@ -3,7 +3,7 @@
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
 ini_set( 'display_errors', '0' );
 $phase = $argv[1] ?? ''; $work = $argv[2] ?? '';
-if ( ! in_array( $phase, array( 'prepare', 'install', 'verify', 'cleanup' ), true ) || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
+if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'cleanup' ), true ) || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
 $root = $work . '/wordpress'; $settings_file = $work . '/qa-settings.json';
 if ( 'prepare' === $phase || 'cleanup' === $phase ) {
     define( 'SHORTINIT', true );
@@ -70,9 +70,10 @@ PHP;
     exit;
 }
 $result = array( 'phase' => $phase, 'completed' => false, 'diagnostics' => array() ); $buffer = ob_get_level(); ob_start();
-register_shutdown_function( static function() use ( &$result, $buffer ) {
+register_shutdown_function( static function() use ( &$result, $buffer, $phase ) {
     $error = error_get_last();
     if ( $error && in_array( $error['type'], array( E_ERROR, E_PARSE, E_COMPILE_ERROR ), true ) ) $result['fatal'] = array( 'file' => basename( $error['file'] ), 'line' => $error['line'] );
+    if ( 'activate' === $phase && isset( $result['activating_plugin'] ) && ! isset( $result['fatal'] ) ) $result['completed'] = in_array( $result['activating_plugin'], get_option( 'active_plugins', array() ), true );
     while ( ob_get_level() > $buffer ) ob_end_clean();
     echo json_encode( $result, JSON_UNESCAPED_SLASHES ) . "\n";
 } );
@@ -94,10 +95,24 @@ if ( 'install' === $phase ) {
     update_option( 'template', 'docy' ); update_option( 'stylesheet', 'docy' );
     wp_set_current_user( 1 ); $result['plugins_activated'] = array();
     foreach ( $settings['plugins'] as $plugin ) {
-        $activated = activate_plugin( $plugin );
-        $result['plugins_activated'][$plugin] = ! is_wp_error( $activated );
+        // Activation callbacks may redirect and exit; isolate each lifecycle.
+        $command = array( PHP_BINARY, '-d', 'display_errors=0', '-d', 'allow_url_fopen=0', '-d', 'disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client', __FILE__, 'activate', $work, $plugin );
+        $process = proc_open( $command, array( 0 => array( 'pipe', 'r' ), 1 => array( 'pipe', 'w' ), 2 => array( 'file', $work . '/activation-private.log', 'a' ) ), $pipes );
+        if ( ! is_resource( $process ) ) throw new RuntimeException( 'Plugin activation process unavailable.' );
+        fclose( $pipes[0] ); $reply = stream_get_contents( $pipes[1] ); fclose( $pipes[1] ); $status = proc_close( $process );
+        $activated = json_decode( $reply, true );
+        $result['plugins_activated'][$plugin] = 0 === $status && true === ( $activated['completed'] ?? false );
+        if ( ! $result['plugins_activated'][$plugin] ) $result['activation_details'][$plugin] = is_array( $activated ) ? $activated : array( 'response_unconfirmed' => true );
     }
     $result['completed'] = ! in_array( false, $result['plugins_activated'], true );
+} elseif ( 'activate' === $phase ) {
+    $plugin = $argv[3] ?? '';
+    if ( ! in_array( $plugin, $settings['plugins'], true ) ) throw new RuntimeException( 'Unexpected activation target.' );
+    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    wp_set_current_user( 1 );
+    $result['activating_plugin'] = $plugin;
+    $activated = activate_plugin( $plugin );
+    $result['completed'] = ! is_wp_error( $activated );
 } else {
     $result['active_plugin_count'] = count( get_option( 'active_plugins', array() ) );
     $profiles = trb_portal_profiles(); $role = $profiles['trb']['role'];
