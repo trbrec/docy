@@ -13,8 +13,9 @@ try {
     $bytes = 'Synthetic real multipart payload'; file_put_contents( $work . '/fixture.txt', $bytes );
     curl_setopt_array( $curl, array( CURLOPT_HTTPHEADER => array( 'X-TRB-QA-Token: synthetic' ), CURLOPT_POST => true, CURLOPT_POSTFIELDS => array( 'fixture' => new CURLFile( $work . '/fixture.txt', 'text/plain', 'fixture.txt' ) ) ) );
     if ( curl_exec( $curl ) !== $bytes || curl_getinfo( $curl, CURLINFO_RESPONSE_CODE ) !== 200 ) throw new RuntimeException( 'Loopback native multipart failed.' );
-    curl_close( $curl );
+    curl_close( $curl ); $curl = null;
     trb_qa_loopback_stop( $process );
+    $curl = null;
     if ( is_resource( $process ) || @stream_socket_client( 'tcp://127.0.0.1:' . $port, $number, $error, 0.1 ) ) throw new RuntimeException( 'Loopback process cleanup unconfirmed.' );
     echo "Private loopback readiness, native multipart, token rejection and process termination passed.\n";
 } finally {
