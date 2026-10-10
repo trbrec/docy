@@ -24,8 +24,14 @@ jobs:
     if: github.event_name == 'push'
     uses: ./.github/workflows/submission-checks.yml
 
-  deploy:
+  validate-installed:
     needs: validate
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/portal-live-qa.yml
+    secrets: inherit
+
+  deploy:
+    needs: [validate, validate-installed]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -87,6 +93,8 @@ jobs:
           printf '%s\n' "${GITHUB_SHA}" | ssh "${ssh_opts[@]}" "${remote}" "cat > '${candidate}/.trb-deployed-sha'"
           ssh "${ssh_opts[@]}" "${remote}" "find '${candidate}' -name '*.php' -print0 | xargs -0 -n1 php -l" >/dev/null 2>&1
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/preflight-portal-release.php'" >/dev/null 2>&1
+          readiness=$(ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/onboarding-readiness.php' '${GITHUB_SHA}'" 2>/dev/null)
+          printf '%s' "${readiness}" | python3 -c 'import json,sys;d=json.load(sys.stdin);keys=("revision","archive_connection","portal_secret","identity_key","signature_secret","invitation_key","signature_adapter","mail_adapter","contract_sources","portal_adapter","portal_loaded","portal_route_loaded","portal_key_matches","portal_store_configured","portal_approval_plugin");assert all(d.get(k) is True for k in keys),"Required onboarding providers or portal prerequisites unconfirmed"'
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/deploy-portal-integrations.php' preflight '${GITHUB_SHA}'" >/dev/null 2>&1
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/prepare-portal-release.php' snapshot '${GITHUB_SHA}'" >/dev/null 2>&1
           snapshot_ready=1
@@ -152,7 +160,8 @@ jobs:
               exit 1
             fi
             if printf '%s' "${onboarding_readiness}" | python3 -c 'import sys,json;sys.exit(0 if json.load(sys.stdin).get("archive_connection") is False else 1)' 2>/dev/null; then
-              echo "Onboarding activation pending: private Google Drive archive verification is required. Existing features continue to deploy."
+              echo "Private Drive archive verification failed; release stopped."
+              exit 1
             else
               if ! ssh "${ssh_opts[@]}" "${remote}" "php -l '${DEPLOY_PATH}/tools/deploy-onboarding.php' && php -l '${DEPLOY_PATH}/tools/onboarding-deploy-status.php'" >/dev/null 2>&1; then
                 echo "Onboarding installer failed its server syntax check."
@@ -274,6 +283,7 @@ jobs:
             /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
             NODE_PATH=/tmp/trb-roster-browser/node_modules node tools/site-preview.test.cjs /tmp/trb-public-preview /tmp/trb-site-layout-qa
           fi
+          ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/deploy-giulia-support.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/maintain-portal-log.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           curl --fail --silent --show-error --connect-timeout 10 --max-time 45 -H 'Cache-Control: no-cache' 'https://artist.trbrec.com/wp-login.php' >/dev/null
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/verify-portal-release.php' '${GITHUB_SHA}'" >/dev/null 2>&1
@@ -302,4 +312,3 @@ jobs:
             -H "Cache-Control: no-cache" \
             -H "User-Agent: TRB-Daily-Site-Health/1.0" \
             "https://artist.trbrec.com/wp-cron.php?doing_wp_cron=$(date +%s)" >/dev/null
-

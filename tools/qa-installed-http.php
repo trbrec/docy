@@ -14,7 +14,8 @@ function trb_qa_installed_http( $work ) {
     $config = str_replace( "<?php", "<?php\ndefine('COOKIEPATH','/');define('SITECOOKIEPATH','/');define('ADMIN_COOKIE_PATH','/');", $config );
     file_put_contents( $root . '/wp-config.php', $config, LOCK_EX );
     $code = '<?php ini_set("display_errors","0"); header("Cache-Control: no-store"); if(time()>' . ( time() + 900 ) . '||!hash_equals(' . var_export( $token, true ) . ',(string)($_SERVER["HTTP_X_TRB_QA_TOKEN"]??""))){http_response_code(404);exit;} define("ABSPATH",' . var_export( $root . '/', true ) . '); $path=$_GET["qa_route"]??""; if(!in_array($path,["/wp-login.php","/wp-admin/admin-post.php","/"],true)){http_response_code(404);exit;} $_SERVER["REQUEST_URI"]=$path; require ABSPATH.ltrim($path==="/"?"/index.php":$path,"/");';
-    if ( file_put_contents( $bridge, $code, LOCK_EX ) !== strlen( $code ) || ! chmod( $bridge, 0600 ) ) throw new RuntimeException( 'HTTP fixture unavailable.' );
+    // Match ordinary public PHP entry points; the token gates execution before WordPress boots.
+    if ( file_put_contents( $bridge, $code, LOCK_EX ) !== strlen( $code ) || ! chmod( $bridge, 0644 ) ) throw new RuntimeException( 'HTTP fixture unavailable.' );
     $bridge_hash = hash( 'sha256', $code );
     $settings['http_bridge'] = array( 'name' => basename( $bridge ), 'sha256' => $bridge_hash );
     file_put_contents( $settings_path, json_encode( $settings, JSON_THROW_ON_ERROR ), LOCK_EX );
