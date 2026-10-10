@@ -7,12 +7,23 @@ set_exception_handler( static function( $error ) use ( $phase ) {
     $detail = array( 'class' => get_class( $error ), 'file' => basename( $error->getFile() ), 'line' => $error->getLine() );
     if ( 'http' === $phase ) { $detail['stage'] = $GLOBALS['trb_qa_http_stage'] ?? 'bootstrap'; $detail['http_statuses'] = $GLOBALS['trb_qa_http_statuses'] ?? array(); $detail['response_flags'] = $GLOBALS['trb_qa_http_responses'] ?? array(); }
     if ( isset( $GLOBALS['qa_stack_result'] ) ) $GLOBALS['qa_stack_result']['fatal'] = $detail;
+    elseif ( 'http' === $phase ) $GLOBALS['trb_qa_http_result'] = array( 'phase' => $phase, 'completed' => false, 'fatal' => $detail );
     else echo json_encode( array( 'phase' => $phase, 'completed' => false, 'fatal' => $detail ) ) . "\n";
     exit( 1 );
 } );
-if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'http', 'cleanup', 'cleanup-stale' ), true ) || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
+if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'http', 'cleanup', 'cleanup-stale' ), true ) || ! preg_match( '#^(?:/tmp/trb-portal-stack|/home/customer/www/artist\.trbrec\.com/private/portal-stack-qa)\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
 $root = $work . '/wordpress'; $settings_file = $work . '/qa-settings.json';
-if ( 'http' === $phase ) { require __DIR__ . '/qa-installed-http.php'; echo json_encode( trb_qa_installed_http( $work ) ) . "\n"; exit; }
+if ( 'http' === $phase ) {
+    $http_buffer = ob_get_level();
+    register_shutdown_function( static function() use ( $http_buffer ) {
+        while ( ob_get_level() > $http_buffer ) ob_end_clean();
+        $result = $GLOBALS['trb_qa_http_result'] ?? array( 'phase' => 'http', 'completed' => false, 'fatal' => array( 'stage' => $GLOBALS['trb_qa_http_stage'] ?? 'bootstrap', 'reason' => 'unexpected_process_exit', 'http_statuses' => $GLOBALS['trb_qa_http_statuses'] ?? array(), 'response_flags' => $GLOBALS['trb_qa_http_responses'] ?? array() ) );
+        echo json_encode( $result, JSON_UNESCAPED_SLASHES ) . "\n";
+    } );
+    require __DIR__ . '/qa-installed-http.php';
+    $GLOBALS['trb_qa_http_result'] = trb_qa_installed_http( $work );
+    exit;
+}
 if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase ) {
     define( 'SHORTINIT', true );
     require '/home/customer/www/artist.trbrec.com/public_html/wp-load.php';
@@ -55,8 +66,8 @@ if ( 'prepare' === $phase || 'cleanup' === $phase || 'cleanup-stale' === $phase 
     }
     if ( 'cleanup-stale' === $phase ) {
         $removed = 0; $table_count = 0;
-        foreach ( glob( '/tmp/trb-portal-stack.*', GLOB_ONLYDIR ) as $stale ) {
-            if ( $stale === $work || ! preg_match( '#^/tmp/trb-portal-stack\.[a-zA-Z0-9]{8}$#D', $stale ) || realpath( $stale ) !== $stale || is_link( $stale ) || filemtime( $stale ) > time() - 600 ) continue;
+        foreach ( array_merge( glob( '/tmp/trb-portal-stack.*', GLOB_ONLYDIR ), glob( '/home/customer/www/artist.trbrec.com/private/portal-stack-qa.*', GLOB_ONLYDIR ) ) as $stale ) {
+            if ( $stale === $work || ! preg_match( '#^(?:/tmp/trb-portal-stack|/home/customer/www/artist\.trbrec\.com/private/portal-stack-qa)\.[a-zA-Z0-9]{8}$#D', $stale ) || realpath( $stale ) !== $stale || is_link( $stale ) || filemtime( $stale ) > time() - 600 ) continue;
             if ( function_exists( 'posix_geteuid' ) && fileowner( $stale ) !== posix_geteuid() ) continue;
             if ( ! is_file( $stale . '/qa-settings.json' ) || ! is_file( $stale . '/candidate/tools/qa-installed-stack.php' ) ) continue;
             $table_count += $cleanup_fixture( $stale . '/qa-settings.json' );

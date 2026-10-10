@@ -91,8 +91,11 @@ function trb_qa_installed_http( $work ) {
         $check( str_contains( $anonymous['location'], 'wp-login.php' ) || 401 === $anonymous['status'], 'anonymous_profile_rejected' );
         $login = $request( '/wp-login.php', array( 'log' => 'artista_fittizio_tunisia', 'pwd' => $settings['artist_password'], 'wp-submit' => 'Accedi', 'testcookie' => '1' ) );
         $check( in_array( $login['status'], array( 302, 303 ), true ), 'native_password_login' );
-        define( 'ABSPATH', $root . '/' ); $_SERVER['HTTP_HOST'] = 'artist.trbrec.com'; $_SERVER['REQUEST_URI'] = '/';
+        define( 'ABSPATH', $root . '/' ); $_SERVER['HTTP_HOST'] = 'artist.trbrec.com'; $_SERVER['SERVER_NAME'] = 'artist.trbrec.com'; $_SERVER['REQUEST_URI'] = '/'; $_SERVER['REQUEST_METHOD'] = 'GET'; $_SERVER['HTTPS'] = 'on'; $_SERVER['PHP_SELF'] = '/index.php';
+        $GLOBALS['trb_qa_http_stage'] = 'isolated_wordpress_cli_bootstrap';
+        ob_start();
         require $root . '/wp-config.php';
+        ob_end_clean();
         global $wpdb;
         $check( $wpdb->prefix === $settings['prefix'] && str_starts_with( $wpdb->prefix, 'trbqa_' ), 'isolated_database_prefix' );
         $user = get_user_by( 'id', $settings['artist_id'] );

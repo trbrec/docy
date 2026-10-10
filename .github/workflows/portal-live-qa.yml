@@ -59,8 +59,8 @@ jobs:
           test -s "${HOME}/.ssh/known_hosts"
           remote="${SSH_USER}@${SSH_HOST}"
           ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
-          qa_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /tmp/trb-portal-stack.XXXXXXXX')
-          [[ "${qa_dir}" =~ ^/tmp/trb-portal-stack\.[A-Za-z0-9]{8}$ ]]
+          qa_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /home/customer/www/artist.trbrec.com/private/portal-stack-qa.XXXXXXXX')
+          [[ "${qa_dir}" =~ ^/home/customer/www/artist\.trbrec\.com/private/portal-stack-qa\.[A-Za-z0-9]{8}$ ]]
           benefit_run=$(openssl rand -hex 8)
           cleanup() {
             for site in artist store; do
