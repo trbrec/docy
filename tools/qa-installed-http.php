@@ -20,7 +20,7 @@ function trb_qa_installed_http( $work ) {
     if ( getenv( 'TRB_QA_HTTP_BROWSER' ) === '1' ) $code .= trb_qa_browser_controller_source( $work, $token, $base );
     $code .= 'if(!hash_equals(' . var_export( $token, true ) . ',(string)($_SERVER["HTTP_X_TRB_QA_TOKEN"]??""))){http_response_code(404);exit;} if(defined("ABSPATH")&&ABSPATH!==' . var_export( $root . '/', true ) . '){http_response_code(409);exit;} if(!defined("ABSPATH"))define("ABSPATH",' . var_export( $root . '/', true ) . '); $path=$_SERVER["HTTP_X_TRB_QA_ROUTE"]??""; $_SERVER["REQUEST_URI"]=$path; $_SERVER["SCRIPT_NAME"]=$path; $_SERVER["PHP_SELF"]=$path;';
     // Fixed includes only: a request can never supply an executable path.
-    $code .= 'switch($path){case "/wp-login.php":require ' . var_export( $root . '/wp-login.php', true ) . ';break;case "/wp-admin/admin-post.php":require ' . var_export( $root . '/wp-admin/admin-post.php', true ) . ';break;case "/":require ' . var_export( $root . '/index.php', true ) . ';break;default:http_response_code(404);exit;}';
+    $code .= 'switch($path){case "/wp-login.php":require ' . var_export( $root . '/wp-login.php', true ) . ';break;case "/wp-admin/admin-post.php":require ' . var_export( $root . '/wp-admin/admin-post.php', true ) . ';break;case "/accedi/":$_GET["pagename"]="accedi";case "/area-artisti/":if($path==="/area-artisti/")$_GET["pagename"]="area-artisti";case "/":$_SERVER["REQUEST_URI"]=' . var_export( parse_url( $base, PHP_URL_PATH ), true ) . '.$path;require ' . var_export( $root . '/index.php', true ) . ';break;default:http_response_code(404);exit;}';
     $code = str_replace( 'header("Cache-Control: no-store");', 'header("Cache-Control: no-store");header("X-TRB-QA-Entry: 1");', $code );
     $bridge_hash = hash( 'sha256', $code );
     $staged_bridge = $work . '/http-bridge.next';
@@ -87,6 +87,10 @@ function trb_qa_installed_http( $work ) {
             $GLOBALS['trb_qa_http_responses'][] = array( 'native_wp_login_status' => $native_status, 'fixture_owner_matches_core' => fileowner( $bridge ) === fileowner( $site . '/wp-login.php' ), 'fixture_group_matches_core' => filegroup( $bridge ) === filegroup( $site . '/wp-login.php' ) );
         }
         $check( 200 === $login['status'], 'native_login_page' );
+        $landing = $request( '/', null, false );
+        $check( 200 === $landing['status'] && str_contains( $landing['body'], '<h1>Il punto di riferimento per gli artisti TRB rec' ) && str_contains( $landing['body'], 'Centro risorse esclusivo' ) && ! str_contains( $landing['body'], 'Knowledge Hub' ), 'italian_public_landing_rendered' );
+        $entry = $request( '/accedi/', null, false );
+        $check( 200 === $entry['status'] && str_contains( $entry['body'], 'Accedi al tuo spazio riservato.' ) && str_contains( $entry['body'], 'Procedure, Centro risorse' ) && ! str_contains( $entry['body'], 'Knowledge Hub' ), 'italian_branded_login_rendered' );
         $anonymous = $request( '/wp-admin/admin-post.php', array( 'action' => 'trb_portal_save_artist_profile' ), false );
         $anonymous_redirect = parse_url( $anonymous['location'] );
         parse_str( $anonymous_redirect['query'] ?? '', $anonymous_query );
@@ -126,6 +130,8 @@ function trb_qa_installed_http( $work ) {
         clean_user_cache( $user->ID );
         $before = trb_portal_private_profile_files( $user->ID );
         $check( trb_portal_artist_profile_is_complete( $user->ID ) && count( $before ) === 4, 'ordinary_foreign_profile_complete' );
+        $dashboard = $request( '/area-artisti/' );
+        $check( 200 === $dashboard['status'] && str_contains( $dashboard['body'], 'Artista Fittizio Tunisia' ) && str_contains( $dashboard['body'], 'Centro risorse' ) && str_contains( $dashboard['body'], 'value="+21620123456"' ) && ! str_contains( $dashboard['body'], 'Knowledge Hub' ), 'italian_authenticated_dashboard_rendered' );
         $failure = array( 'action' => $fields['action'], 'trb_portal_profile_nonce' => $nonce, 'trb_artist_identity_section' => '1', 'trb_artist_bio_file' => new CURLFile( $biography, 'text/plain', 'nuova-biografia.txt' ), 'trb_artist_id_front' => new CURLFile( $forged, 'image/png', 'falso.png' ) );
         $check( ! str_contains( $request( '/wp-admin/admin-post.php', $failure )['location'], 'trb_profile=saved' ), 'forged_png_rejected' );
         clean_user_cache( $user->ID );
