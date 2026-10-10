@@ -1,0 +1,70 @@
+name: Giulia support integration
+on:
+  pull_request:
+    paths: ['integrations/giulia/**', 'tools/*giulia-support.php', '.github/workflows/giulia-support.yml']
+  push:
+    branches: [main]
+    paths: ['integrations/giulia/**', 'tools/*giulia-support.php', '.github/workflows/giulia-support.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: giulia-support-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: giulia_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, mbstring
+      - run: |
+          php -l integrations/giulia/GiuliaSupport.php
+          php -l tools/deploy-giulia-support.php
+          set -o pipefail
+          php tools/test-giulia-support.php 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+  deploy:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the scoped CRM extension
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          install -d -m 700 "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          stage="/home/customer/www/crm.trbrec.com/private/giulia-stage-${GITHUB_SHA}"
+          ssh -p "${SSH_PORT}" -o BatchMode=yes "${remote}" "mkdir -p '${stage}/integrations/giulia' '${stage}/tools' && chmod 700 '${stage}'"
+          rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes" integrations/giulia/ "${remote}:${stage}/integrations/giulia/"
+          rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes" tools/deploy-giulia-support.php "${remote}:${stage}/tools/"
+          ssh -p "${SSH_PORT}" -o BatchMode=yes "${remote}" "php '${stage}/tools/deploy-giulia-support.php' '${GITHUB_SHA}'"
+
