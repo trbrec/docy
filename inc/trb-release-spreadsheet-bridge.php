@@ -1186,8 +1186,6 @@ function trb_release_bridge_apply_callback( $payload ) {
     if ( $stored_dossier && ! hash_equals( $stored_dossier, $dossier_id ) ) return new WP_Error( 'dossier_mismatch', 'Il dossier OTP non corrisponde alla pratica.', array( 'status' => 409 ) );
     if ( ! $stored_dossier ) update_post_meta( $release_id, '_trb_otp_dossier_id', $dossier_id );
 
-    $status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
-    if ( ! in_array( $status, array( 'completed', 'contract_sent' ), true ) ) return new WP_Error( 'status_invalid', 'Stato firma non valido.', array( 'status' => 400 ) );
     if ( 'completed' !== $status ) {
         if ( 'signed' !== get_post_meta( $release_id, '_trb_contract_state', true ) ) update_post_meta( $release_id, '_trb_contract_state', 'contract_sent' );
         return array( 'success' => true, 'state' => get_post_meta( $release_id, '_trb_contract_state', true ) );
