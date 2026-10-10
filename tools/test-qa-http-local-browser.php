@@ -37,4 +37,8 @@ PHP;
     try { trb_qa_archive_http_error_log( $public, $archive, $public ); throw new LogicException( 'Unowned directory accepted.' ); } catch ( RuntimeException $expected ) {}
     unlink( $saved[0] ); unlink( $endpoint . '/unknown.txt' ); rmdir( $endpoint ); rmdir( $public ); rmdir( $archive );
     echo "Browser controller syntax, ephemeral encryption, private request/response handoff and byte-preserving synthetic log cleanup passed.\n";
-} finally { foreach ( glob( $work . '/*' ) as $path ) if ( is_file( $path ) ) unlink( $path ); rmdir( $work ); }
+} finally {
+    $entries = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $work, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
+    foreach ( $entries as $entry ) { if ( $entry->isDir() && ! $entry->isLink() ) rmdir( $entry->getPathname() ); else unlink( $entry->getPathname() ); }
+    rmdir( $work );
+}
