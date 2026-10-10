@@ -20,6 +20,8 @@ $_SERVER['HTTP_HOST'] = 'artist.trbrec.com'; $_SERVER['REQUEST_URI'] = '/'; $_SE
 ob_start(); require $site . '/public_html/wp-load.php';
 if ( realpath( get_template_directory() ) !== $theme || ! trb_docy_deployment_is_ssh_only() ) throw new RuntimeException( 'Theme activation mismatch.' );
 foreach ( array( 'trb_webdav_request', 'trb_portal_handle_artist_profile', 'trb_crm_sync_atomic', 'trb_portal_maintain_error_log' ) as $function ) if ( ! function_exists( $function ) ) throw new RuntimeException( 'Portal component missing.' );
+$log_event = wp_get_scheduled_event( 'trb_portal_daily_log_maintenance' );
+if ( ! $log_event || $log_event->schedule !== 'daily' || ! has_action( 'trb_portal_daily_log_maintenance', 'trb_portal_maintain_error_log' ) ) throw new RuntimeException( 'Daily log maintenance unconfirmed.' );
 global $wpdb;
 foreach ( array( $wpdb->users, $wpdb->usermeta, $wpdb->posts, $wpdb->postmeta, $wpdb->options ) as $table ) {
     $engine = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $table ) );
