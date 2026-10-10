@@ -17,10 +17,9 @@ if(!is_dir($backup)&&!mkdir($backup,0700,true))throw new RuntimeException('Backu
 $lock=fopen($private.'/onboarding-deploy.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Busy');
 onboarding_stage('crm-source-guard');
 require_once __DIR__.'/crm-module-source-guard.php';
-$crmSources=[];
-foreach(glob($theme.'/integrations/onboarding/crm/*.php') as $file)$crmSources[$crm.'/app/'.basename($file)]=$file;
-$crmSources[$crm.'/assets/onboarding.css']=$theme.'/integrations/onboarding/crm/onboarding.css';
-trb_crm_module_source_guard($crmSources);
+$crmModules=['assets/onboarding.css'];
+foreach(glob($theme.'/integrations/onboarding/crm/*.php') as $file)$crmModules[]='app/'.basename($file);
+trb_crm_module_source_guard($crm,dirname($crm).'/private/canonical-release.json',$crmModules);
 function onboarding_wp(string $root,string $code): array{
     $script='define("WP_USE_THEMES",false);define("DISABLE_WP_CRON",true);require '.var_export($root.'/wp-load.php',true).';'.$code;
     exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($script).' 2>/dev/null',$out,$status);

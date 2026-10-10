@@ -10,7 +10,7 @@ if(!preg_match('/^[a-f0-9]{40}$/D',$revision)||trim((string)@file_get_contents($
 $crm='/home/customer/www/crm.trbrec.com/public_html';
 $stage='crm-source-guard';
 require_once __DIR__.'/crm-module-source-guard.php';
-trb_crm_module_source_guard([$crm.'/app/GiuliaSupport.php'=>$bundle.'/integrations/giulia/GiuliaSupport.php']);
+trb_crm_module_source_guard($crm,dirname($crm).'/private/canonical-release.json',['app/GiuliaSupport.php']);
 require_once $crm.'/app/GiuliaSupport.php';
 $stage='existing-configuration';
 $config=dirname($crm).'/private/giulia-support.json';

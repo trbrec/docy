@@ -53,3 +53,7 @@ jobs:
           # Inspect the receipt on hosting. No paths, hashes, tables, logs or cron metadata leave it.
           ssh "${ssh_opts[@]}" "${remote}" "php -r '\$d=json_decode(file_get_contents(\$argv[1]),true); exit((\$d[\"success\"]??false)===true&&(\$d[\"read_only\"]??false)===true?0:1);' '${inventory}/inventory.json'" >/dev/null 2>&1
           echo "Read-only CRM inventory completed; its report remains in private hosting storage."
+          scp -q -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-crm-private-source-access.php "${remote}:${inventory}/private-source-access.php"
+          ssh "${ssh_opts[@]}" "${remote}" "chmod 600 '${inventory}/private-source-access.php' && php -l '${inventory}/private-source-access.php'" >/dev/null 2>&1
+          ssh "${ssh_opts[@]}" "${remote}" "umask 077; php '${inventory}/private-source-access.php' > '${inventory}/private-source-access.json'" >/dev/null 2>&1
+          echo "Existing private Git source access verified without transferring source code."
