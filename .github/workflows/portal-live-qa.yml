@@ -6,8 +6,6 @@ on:
     paths:
       - tools/qa-installed-stack.php
       - tools/qa-installed-http.php
-      - tools/qa-http-relay.php
-      - tools/qa-http-browser-relay.cjs
       - tools/qa-http-local-browser.php
       - tools/qa-http-cleanup.php
       - tools/qa-browser-recipient.pem

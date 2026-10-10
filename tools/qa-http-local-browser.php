@@ -11,7 +11,10 @@ if($browser_mode!==''){
  header('Cache-Control: no-store');
  if($browser_mode==='poll'){
   header('Content-Type: application/json');
-  if(is_file($browser_work.'/browser-finished.json')){echo file_get_contents($browser_work.'/browser-finished.json');exit;}
+  if(is_file($browser_work.'/browser-finished.json')){
+   foreach(['wordpress_logged_in_','wordpress_','wordpress_sec_']as$prefix)setcookie($prefix.md5($browser_base),'',['expires'=>time()-3600,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
+   echo file_get_contents($browser_work.'/browser-finished.json');exit;
+  }
   if(is_file($browser_work.'/browser-request.json')){echo file_get_contents($browser_work.'/browser-request.json');exit;}
   echo json_encode(['waiting'=>true,'fixture_visible'=>is_dir($browser_work)]);exit;
  }
