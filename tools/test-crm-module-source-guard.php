@@ -18,7 +18,11 @@ try {
     }
     foreach ( array( 'deploy-onboarding.php', 'deploy-giulia-support.php' ) as $installer ) {
         $source = file_get_contents( __DIR__ . '/' . $installer );
-        if ( ! str_contains( $source, 'trb_crm_module_source_guard(' ) || strpos( $source, 'trb_crm_module_source_guard(' ) > strpos( $source, "\$stage='database'" ) && $installer === 'deploy-giulia-support.php' ) throw new RuntimeException( 'Installer mutates the database before checking canonical source.' );
+        if ( ! str_contains( $source, 'trb_crm_module_source_guard(' ) ) throw new RuntimeException( 'Canonical source guard missing.' );
+        $forbidden = $installer === 'deploy-giulia-support.php'
+            ? array( 'Database::connection', '::install(', 'file_put_contents(', 'bin2hex(random_bytes', 'SELECT ' )
+            : array( 'OnboardingWorkflowInstaller::', '$ledger->install()', '$stage($indexPath', '$stage($viewPath', '$stage($repositoryPath', 'onboarding-enabled.json' );
+        foreach ( $forbidden as $operation ) if ( str_contains( $source, $operation ) ) throw new RuntimeException( 'Portal release may mutate the separately owned CRM runtime.' );
     }
     echo "PASS {$checks} native CRM module source checks; divergent/newer runtime is preserved.\n";
 } finally { foreach ( array( $installed, $candidate ) as $file ) if ( is_file( $file ) ) unlink( $file ); rmdir( $directory ); }
