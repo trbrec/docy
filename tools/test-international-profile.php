@@ -1,7 +1,7 @@
 <?php
 /** Exercise the production validators without bootstrapping WordPress or writing user data. */
 $source = file_get_contents( __DIR__ . '/../inc/trb-artist-portal.php' );
-$wanted = array( 'trb_portal_validate_biography_upload', 'trb_portal_valid_biography_file', 'trb_portal_validate_birth_date', 'trb_portal_canonical_account_redirect', 'trb_release_bridge_payload', 'trb_release_bridge_spreadsheet_row', 'trb_portal_country_is_italy', 'trb_portal_validate_international_identifier', 'trb_portal_validate_profile_geography', 'trb_portal_validate_mobile', 'trb_portal_validate_tax_code', 'trb_portal_validate_identity_document_number', 'trb_portal_validate_identity_document_expiry' );
+$wanted = array( 'trb_portal_download_manager_login_compat', 'trb_portal_register_download_manager_login_compat', 'trb_portal_validate_biography_upload', 'trb_portal_valid_biography_file', 'trb_portal_validate_birth_date', 'trb_portal_canonical_account_redirect', 'trb_release_bridge_payload', 'trb_release_bridge_spreadsheet_row', 'trb_portal_country_is_italy', 'trb_portal_validate_international_identifier', 'trb_portal_validate_profile_geography', 'trb_portal_validate_mobile', 'trb_portal_validate_tax_code', 'trb_portal_validate_identity_document_number', 'trb_portal_validate_identity_document_expiry' );
 $source .= "\n" . preg_replace( '/^<\?php/', '', file_get_contents( __DIR__ . '/../inc/trb-release-spreadsheet-bridge.php' ) );
 $tokens = token_get_all( $source );
 foreach ( $tokens as $i => $token ) {
@@ -108,6 +108,25 @@ class WP_Error {
 	public function __construct( $code, $message = '' ) { $this->code = $code; }
 	public function get_error_code() { return $this->code; }
 }
+function has_filter( $hook, $callback ) { return $GLOBALS['auth_original_attached'] ?? false; }
+function remove_filter( $hook, $callback, $priority ) { $GLOBALS['auth_original_attached'] = false; return true; }
+function add_filter( $hook, $callback, $priority = 10, $args = 1 ) { $GLOBALS['auth_compat_hooks'][] = array( $hook, $callback, $priority, $args ); }
+$GLOBALS['auth_compat_hooks'] = array();
+trb_portal_register_download_manager_login_compat();
+check( array() === $GLOBALS['auth_compat_hooks'], 'No dependency or new login hooks when Download Manager is absent' );
+eval( 'namespace WPDM\\User; class Login { private static $instance; public $calls=0; public static function getInstance(){return self::$instance ?? (self::$instance=new self);} public function verifyLoginEmail($user,$login,$password){++$this->calls;if($user instanceof \\WP_Error)throw new \\RuntimeException("Plugin received a previous authentication error");return !empty($user->blocked)?new \\WP_Error("blocked_email"):$user;} }' );
+$original_error = new WP_Error( 'incorrect_password' );
+check( $original_error === trb_portal_download_manager_login_compat( $original_error, 'synthetic', 'not-a-password' ), 'Authentication error object is preserved exactly' );
+check( 0 === \WPDM\User\Login::getInstance()->calls, 'Failed authentication does not reach the incompatible plugin check' );
+$valid_user = (object) array( 'ID' => 198 );
+check( $valid_user === trb_portal_download_manager_login_compat( $valid_user, 'synthetic', 'not-a-password' ), 'Valid login still reaches the original email verification' );
+$blocked_user = (object) array( 'ID' => 198, 'blocked' => true );
+$blocked = trb_portal_download_manager_login_compat( $blocked_user, 'synthetic', 'not-a-password' );
+check( $blocked instanceof WP_Error && 'blocked_email' === $blocked->get_error_code(), 'Plugin email rejection remains enforced' );
+$GLOBALS['auth_original_attached'] = 999998;
+trb_portal_register_download_manager_login_compat();
+trb_portal_register_download_manager_login_compat();
+check( 1 === count( $GLOBALS['auth_compat_hooks'] ) && array( 'authenticate', 'trb_portal_download_manager_login_compat', 999998, 3 ) === $GLOBALS['auth_compat_hooks'][0], 'Compatibility hook retains priority and arguments and registers once' );
 function get_post( $id ) { return (object) array( 'post_type' => 'trb_release', 'post_author' => 198, 'post_title' => 'SYNTHETIC AUDIT RELEASE' ); }
 function get_userdata( $id ) { return (object) array( 'first_name' => 'Artista', 'last_name' => 'Fittizio', 'user_email' => 'test@example.invalid' ); }
 function trb_portal_user_profile( $user ) { return 'trb'; }
