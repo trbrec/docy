@@ -59,7 +59,8 @@ function trb_qa_installed_document_access( $artist_id, $work ) {
                 $render = json_decode( $reply, true );
                 if ( 0 !== $status || ! is_array( $render ) || true !== ( $render['completed'] ?? false ) || isset( $render['fatal'] ) ) $GLOBALS['qa_stack_result']['document_template_failure'] = array( 'rule' => $rule, 'viewer' => $viewer, 'status' => $status, 'diagnostics' => $render['diagnostics'] ?? array(), 'fatal' => $render['fatal'] ?? null, 'stage' => $render['document_template_stage'] ?? 'bootstrap' );
                 $check( 0 === $status && is_array( $render ) && true === ( $render['completed'] ?? false ) && ! isset( $render['fatal'] ), 'The complete document template failed.' );
-                $result['full_template_cases'][] = array( 'rule' => $rule, 'viewer' => $viewer, 'checks' => $render['document_template']['checks'], 'content_visible' => $render['document_template']['content_visible'], 'theme_diagnostics' => $render['document_template']['theme_diagnostics'] );
+                $result['full_template_cases'][] = array( 'rule' => $rule, 'viewer' => $viewer, 'checks' => $render['document_template']['checks'], 'content_visible' => $render['document_template']['content_visible'], 'theme_diagnostics' => $render['document_template']['theme_diagnostics'], 'diagnostics' => $render['diagnostics'], 'diagnostic_frames' => $render['diagnostic_frames'] ?? array() );
+                $GLOBALS['qa_stack_result']['document_template_cases'] = $result['full_template_cases'];
             }
         }
         wp_set_current_user( $artist_id );
@@ -102,14 +103,14 @@ function trb_qa_installed_document_template( $artist_id, $doc_id, $rule, $viewer
     $check( str_contains( $html, 'id="sticky_doc"' ) && str_contains( $html, '</html>' ) );
     $check( str_contains( $html, $document->post_content ) === $expected );
     $check( substr_count( $html, '<main ' ) === 1 && substr_count( $html, '</main>' ) === 1 );
-    $check( strpos( $html, '</main>' ) < strpos( $html, '<footer' ) );
+    $site_footer = strpos( $html, '<footer class="doc_footer_area ' );
+    $check( false !== $site_footer && strpos( $html, '</main>' ) < $site_footer );
     $check( get_option( 'eazydocs_settings', null ) === $prior_options );
     $theme_diagnostics = 0;
     foreach ( $GLOBALS['qa_stack_result']['diagnostics'] ?? array() as $key => $count ) {
         if ( $count <= ( $diagnostics_before[$key] ?? 0 ) ) continue;
-        foreach ( $GLOBALS['qa_stack_result']['diagnostic_frames'][$key] ?? array() as $frame ) {
-            if ( in_array( $frame['file'], array( 'single-docs.php', 'header.php', 'footer.php', 'Docy_helper.php' ), true ) ) { ++$theme_diagnostics; break; }
-        }
+        $origin = explode( ':', $key )[1] ?? '';
+        if ( in_array( $origin, array( 'single-docs.php', 'header.php', 'footer.php', 'Docy_helper.php' ), true ) ) ++$theme_diagnostics;
     }
     return array( 'checks' => $checks, 'content_visible' => $expected, 'theme_diagnostics' => $theme_diagnostics, 'native_plugins' => true, 'license_scope' => 'isolated installation; native licensed APIs qualified separately' );
 }

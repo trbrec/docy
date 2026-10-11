@@ -177,7 +177,7 @@ set_error_handler( static function( $severity, $message, $file, $line ) use ( &$
 } );
 define( 'ABSPATH', $root . '/' );
 if ( defined( 'WFWAF_LOG_PATH' ) && rtrim( WFWAF_LOG_PATH, '/' ) !== $root . '/wp-content/wflogs' ) throw new RuntimeException( 'Unexpected preloaded WAF storage.' );
-$_SERVER['HTTP_HOST'] = '127.0.0.1'; $_SERVER['REQUEST_URI'] = '/'; $_SERVER['REQUEST_METHOD'] = 'GET';
+$_SERVER['HTTP_HOST'] = '127.0.0.1'; $_SERVER['SERVER_NAME'] = '127.0.0.1'; $_SERVER['REQUEST_URI'] = '/'; $_SERVER['REQUEST_METHOD'] = 'GET';
 if ( 'install' === $phase ) define( 'WP_INSTALLING', true );
 require $root . '/wp-config.php';
 if ( defined( 'WFWAF_LOG_PATH' ) ) {
