@@ -11,7 +11,7 @@ set_exception_handler( static function( $error ) use ( $phase ) {
     else echo json_encode( array( 'phase' => $phase, 'completed' => false, 'fatal' => $detail ) ) . "\n";
     exit( 1 );
 } );
-if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'http', 'cleanup', 'cleanup-stale' ), true ) || ! preg_match( '#^(?:/tmp/trb-portal-stack|/home/customer/www/artist\.trbrec\.com/private/portal-stack-qa)\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
+if ( ! in_array( $phase, array( 'prepare', 'install', 'activate', 'verify', 'document-template', 'http', 'cleanup', 'cleanup-stale' ), true ) || ! preg_match( '#^(?:/tmp/trb-portal-stack|/home/customer/www/artist\.trbrec\.com/private/portal-stack-qa)\.[a-zA-Z0-9]{8}$#D', $work ) || realpath( $work ) !== $work || is_link( $work ) ) exit( 2 );
 $root = $work . '/wordpress'; $settings_file = $work . '/qa-settings.json';
 if ( 'http' === $phase ) {
     $http_buffer = ob_get_level();
@@ -217,6 +217,10 @@ if ( 'install' === $phase ) {
     $result['activating_plugin'] = $plugin;
     $activated = activate_plugin( $plugin );
     $result['completed'] = ! is_wp_error( $activated );
+} elseif ( 'document-template' === $phase ) {
+    require_once __DIR__ . '/qa-installed-document-access.php';
+    $result['document_template'] = trb_qa_installed_document_template( (int) ( $settings['artist_id'] ?? 0 ), (int) ( $argv[3] ?? 0 ), $argv[4] ?? '', $argv[5] ?? '' );
+    $result['completed'] = true;
 } else {
     $result['active_plugin_count'] = count( get_option( 'active_plugins', array() ) );
     $result['legacy_acf_deletion_disabled'] = false === has_action( 'init', 'docy_remove_acf_fields_if_exists_in_codestar' ) && ! function_exists( 'docy_remove_acf_fields_if_exists_in_codestar' );
@@ -250,7 +254,7 @@ if ( 'install' === $phase ) {
     $result['ordinary_artist'] = ! user_can( $id, 'manage_options' ) && ! trb_portal_is_release_qa_account( get_userdata( $id ) );
     $result['profile_completion_available'] = is_array( trb_portal_artist_profile_completion() );
     require_once __DIR__ . '/qa-installed-document-access.php';
-    $result['document_access'] = trb_qa_installed_document_access( $id );
+    $result['document_access'] = trb_qa_installed_document_access( $id, $work );
     if ( function_exists( 'WP_E_Sig' ) ) {
         $result['signature_models'] = false;
         $model = new WP_E_Esigrole(); $signature = new WP_E_Signature();

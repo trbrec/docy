@@ -1,7 +1,7 @@
 <?php
 /** Actual installed document/membership APIs against exclusively synthetic rows. */
 if ( PHP_SAPI !== 'cli' || ! defined( 'ABSPATH' ) ) exit;
-function trb_qa_installed_document_access( $artist_id ) {
+function trb_qa_installed_document_access( $artist_id, $work ) {
     global $wpdb, $wp_query, $post;
     if ( wp_get_environment_type() !== 'local' || ! preg_match( '/^trbqa_[a-f0-9]{16}_$/D', $wpdb->prefix ) ) throw new RuntimeException( 'Document qualification requires the isolated database.' );
     if ( ! function_exists( 'ezd_internal_doc_security' ) || ! function_exists( 'ezd_get_opt' ) || ! post_type_exists( 'docs' ) ) throw new RuntimeException( 'Actual installed document APIs unavailable.' );
@@ -47,6 +47,21 @@ function trb_qa_installed_document_access( $artist_id ) {
         wp_set_current_user( 0 );
         $public_query = new WP_Query( array( 'post_type' => 'docs', 'p' => $doc ) );
         $check( ! $public_query->have_posts(), 'Native anonymous queries exposed the private document.' );
+        // Each complete template needs a fresh WordPress process: get_header()
+        // and get_footer() intentionally require their files only once.
+        $result['full_template_cases'] = array();
+        foreach ( array( 'allowed-role', 'other-role' ) as $rule ) {
+            foreach ( array( 'anonymous', 'artist', 'administrator' ) as $viewer ) {
+                $command = array( PHP_BINARY, '-d', 'display_errors=0', '-d', 'allow_url_fopen=0', '-d', 'disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client', __DIR__ . '/qa-installed-stack.php', 'document-template', $work, (string) $doc, $rule, $viewer );
+                $process = proc_open( $command, array( 0 => array( 'pipe', 'r' ), 1 => array( 'pipe', 'w' ), 2 => array( 'file', $work . '/document-template-private.log', 'a' ) ), $pipes );
+                if ( ! is_resource( $process ) ) throw new RuntimeException( 'Document template process unavailable.' );
+                fclose( $pipes[0] ); $reply = stream_get_contents( $pipes[1] ); fclose( $pipes[1] ); $status = proc_close( $process );
+                $render = json_decode( $reply, true );
+                if ( 0 !== $status || ! is_array( $render ) || true !== ( $render['completed'] ?? false ) || isset( $render['fatal'] ) ) $GLOBALS['qa_stack_result']['document_template_failure'] = array( 'rule' => $rule, 'viewer' => $viewer, 'status' => $status, 'diagnostics' => $render['diagnostics'] ?? array(), 'fatal' => $render['fatal'] ?? null, 'stage' => $render['document_template_stage'] ?? 'bootstrap' );
+                $check( 0 === $status && is_array( $render ) && true === ( $render['completed'] ?? false ) && ! isset( $render['fatal'] ), 'The complete document template failed.' );
+                $result['full_template_cases'][] = array( 'rule' => $rule, 'viewer' => $viewer, 'checks' => $render['document_template']['checks'], 'content_visible' => $render['document_template']['content_visible'], 'theme_diagnostics' => $render['document_template']['theme_diagnostics'] );
+            }
+        }
         wp_set_current_user( $artist_id );
         $check( ! current_user_can( 'manage_options' ), 'Document qualification changed artist privileges.' );
         $result['completed'] = true;
@@ -59,4 +74,42 @@ function trb_qa_installed_document_access( $artist_id ) {
     $result['synthetic_rows_removed'] = true;
     $result['full_premium_membership_paths_qualified'] = false;
     return $result;
+}
+
+/** One complete render in the exclusively synthetic database, with actual plugins. */
+function trb_qa_installed_document_template( $artist_id, $doc_id, $rule, $viewer ) {
+    global $wpdb, $wp_query, $post;
+    if ( wp_get_environment_type() !== 'local' || ! preg_match( '/^trbqa_[a-f0-9]{16}_$/D', $wpdb->prefix ) || ! in_array( $rule, array( 'allowed-role', 'other-role' ), true ) || ! in_array( $viewer, array( 'anonymous', 'artist', 'administrator' ), true ) ) throw new RuntimeException( 'Unsafe document render context.' );
+    $artist = get_userdata( $artist_id ); $document = get_post( $doc_id );
+    if ( ! $artist || ! str_ends_with( $artist->user_email, '@example.invalid' ) || $artist->has_cap( 'manage_options' ) || ! $document || $document->post_type !== 'docs' || $document->post_status !== 'private' || (int) $document->post_author !== (int) $artist_id || ! preg_match( '/^QA_PRIVATE_DOC_[a-f0-9]{24}$/D', $document->post_content ) ) throw new RuntimeException( 'Owned synthetic document required.' );
+    $admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+    if ( count( $admins ) !== 1 ) throw new RuntimeException( 'Synthetic administrator required.' );
+    $roles = $rule === 'allowed-role' ? array( $artist->roles[0] ) : array( 'editor' );
+    $options = array( 'private_doc_access_type' => 'specific_roles', 'private_doc_allowed_roles' => $roles );
+    $prior_options = get_option( 'eazydocs_settings', null );
+    $option_filter = static function() use ( $options ) { return $options; };
+    add_filter( 'pre_option_eazydocs_settings', $option_filter, PHP_INT_MAX );
+    wp_set_current_user( (int) $admins[0] );
+    $wp_query = new WP_Query( array( 'post_type' => 'docs', 'p' => $doc_id, 'post_status' => 'private' ) );
+    if ( ! $wp_query->have_posts() ) throw new RuntimeException( 'Synthetic document query failed.' );
+    wp_set_current_user( $viewer === 'administrator' ? (int) $admins[0] : ( $viewer === 'artist' ? $artist_id : 0 ) );
+    $diagnostics_before = $GLOBALS['qa_stack_result']['diagnostics'] ?? array();
+    ob_start();
+    try { load_template( get_template_directory() . '/eazydocs/single-docs.php', false ); } finally { $html = ob_get_clean(); remove_filter( 'pre_option_eazydocs_settings', $option_filter, PHP_INT_MAX ); }
+    $expected = $viewer === 'administrator' || ( $viewer === 'artist' && $rule === 'allowed-role' );
+    $checks = 0;
+    $check = static function( $condition ) use ( &$checks ) { $GLOBALS['qa_stack_result']['document_template_stage'] = 'render_assertion_' . ( $checks + 1 ); if ( ! $condition ) throw new RuntimeException( 'Complete document render assertion failed.' ); ++$checks; };
+    $check( str_contains( $html, 'id="sticky_doc"' ) && str_contains( $html, '</html>' ) );
+    $check( str_contains( $html, $document->post_content ) === $expected );
+    $check( substr_count( $html, '<main ' ) === 1 && substr_count( $html, '</main>' ) === 1 );
+    $check( strpos( $html, '</main>' ) < strpos( $html, '<footer' ) );
+    $check( get_option( 'eazydocs_settings', null ) === $prior_options );
+    $theme_diagnostics = 0;
+    foreach ( $GLOBALS['qa_stack_result']['diagnostics'] ?? array() as $key => $count ) {
+        if ( $count <= ( $diagnostics_before[$key] ?? 0 ) ) continue;
+        foreach ( $GLOBALS['qa_stack_result']['diagnostic_frames'][$key] ?? array() as $frame ) {
+            if ( in_array( $frame['file'], array( 'single-docs.php', 'header.php', 'footer.php', 'Docy_helper.php' ), true ) ) { ++$theme_diagnostics; break; }
+        }
+    }
+    return array( 'checks' => $checks, 'content_visible' => $expected, 'theme_diagnostics' => $theme_diagnostics, 'native_plugins' => true, 'license_scope' => 'isolated installation; native licensed APIs qualified separately' );
 }

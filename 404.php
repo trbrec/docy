@@ -64,6 +64,6 @@ $error_shape_3  = docy_opt('error_shape_3', DOCY_DIR_IMG . '/404/shape_3.png' );
         </div>
     </div>
 </section>
-
+</main>
 <?php
 get_footer( 'empty' );

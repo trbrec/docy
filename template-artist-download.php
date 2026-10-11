@@ -17,7 +17,7 @@ while ( have_posts() ) :
 			<div class="trb-portal-topbar__actions"><a class="trb-portal-topbar__support" href="<?php echo esc_url( home_url( '/segnalazione/' ) ); ?>">Apri una segnalazione</a><a class="trb-portal-topbar__back" href="<?php echo esc_url( home_url( '/area-artisti/#download' ) ); ?>">← Torna alla Library</a></div>
 		</div>
 	</header>
-	<main class="trb-download-page">
+	<div class="trb-download-page">
 		<article class="trb-download-resource">
 			<p class="trb-portal__eyebrow">LIBRARY E DOWNLOAD</p>
 			<h1><?php echo esc_html( preg_replace( '/^\[[^\]]+\]\s*/', '', get_the_title() ) ); ?></h1>
@@ -25,7 +25,7 @@ while ( have_posts() ) :
 			<div class="trb-download-resource__actions"><?php echo do_shortcode( '[wpdm_package id="' . absint( get_the_ID() ) . '"]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
 			<?php if ( ! empty( $profiles ) ) : ?><p class="trb-download-resource__access">Materiale riservato al tuo profilo contrattuale.</p><?php endif; ?>
 		</article>
-	</main>
+	</div>
 	<?php
 endwhile;
 

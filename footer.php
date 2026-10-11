@@ -10,6 +10,9 @@
  */
 
 defined( 'ABSPATH' ) || exit;
+?>
+</main>
+<?php
 
 /**
  * Theme Options
