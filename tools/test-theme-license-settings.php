@@ -27,5 +27,20 @@ foreach ( array(
     if ( sanitize_option( 'docy_purchase_code', $input ) !== $expected ) throw new RuntimeException( 'Native settings sanitization failed.' );
     ++$checks;
 }
+// Exercise the real HTTP-argument filter, including input shaped by other filters.
+add_filter( 'pre_option_template', static function() { return 'docy'; } );
+add_filter( 'pre_option_stylesheet', static function() { return 'docy-child'; } );
+$url = 'https://api.wordpress.org/themes/update-check/1.1/';
+foreach ( array( array(), array( 'body' => 'serialized-body' ), array( 'body' => array() ), array( 'body' => array( 'themes' => array() ) ), array( 'body' => array( 'themes' => 'invalid-json' ) ), array( 'body' => array( 'themes' => '{"themes":[]}' ) ) ) as $request ) {
+    if ( apply_filters( 'http_request_args', $request, $url ) !== $request ) throw new RuntimeException( 'Malformed or unsupported update metadata must remain untouched.' );
+    ++$checks;
+}
+$request = array( 'body' => array( 'themes' => '{"themes":{"docy":{"Version":"1"},"docy-child":{"Version":"1"},"other":{"Version":"2"}},"active":"docy-child"}', 'locale' => 'it_IT' ), 'timeout' => 10 );
+$filtered = apply_filters( 'http_request_args', $request, $url );
+$metadata = json_decode( $filtered['body']['themes'] );
+if ( isset( $metadata->themes->docy ) || isset( $metadata->themes->{'docy-child'} ) || $metadata->themes->other->Version !== '2' || $metadata->active !== 'docy-child' || $filtered['body']['locale'] !== 'it_IT' || $filtered['timeout'] !== 10 ) throw new RuntimeException( 'Valid update filtering changed unrelated metadata or request arguments.' );
+++$checks;
+if ( apply_filters( 'http_request_args', $request, 'https://example.invalid/unrelated' ) !== $request ) throw new RuntimeException( 'Unrelated requests must remain untouched.' );
+++$checks;
 restore_error_handler();
 echo "Theme license settings: {$checks} native WordPress registration and sanitization assertions passed; no license activation or network requests.\n";

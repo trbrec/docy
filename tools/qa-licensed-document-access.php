@@ -33,7 +33,10 @@ $cleanup = static function() use ( $slug, $canary, $artist, &$result ) {
     $rows = $wpdb->get_results( $wpdb->prepare( "SELECT ID, post_author, post_content, post_status FROM {$wpdb->posts} WHERE post_type='docs' AND post_name=%s", $slug ) );
     foreach ( $rows as $row ) {
         if ( (int) $row->post_author !== (int) $artist->ID || $row->post_content !== $canary || ! in_array( $row->post_status, array( 'private', 'trash' ), true ) ) throw new RuntimeException( 'Unexpected document ownership.' );
-        if ( ! wp_delete_post( $row->ID, true ) || get_post( $row->ID ) ) throw new RuntimeException( 'Owned document removal failed.' );
+        // This canary was seeded directly, without save/delete hooks or revisions.
+        // Avoid purging the production host cache for an exclusively private fixture.
+        if ( false === $wpdb->delete( $wpdb->postmeta, array( 'post_id' => $row->ID ) ) || 1 !== $wpdb->delete( $wpdb->posts, array( 'ID' => $row->ID, 'post_name' => $slug, 'post_content' => $canary ) ) ) throw new RuntimeException( 'Owned document removal failed.' );
+        wp_cache_delete( $row->ID, 'posts' ); wp_cache_delete( $row->ID, 'post_meta' );
     }
     $result['cleanup_confirmed'] = 0 === (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type='docs' AND post_name=%s", $slug ) );
     if ( ! $result['cleanup_confirmed'] ) throw new RuntimeException( 'Document cleanup unconfirmed.' );
@@ -44,9 +47,11 @@ $prior_options = get_option( 'eazydocs_settings', null );
 $check = static function( $condition ) use ( &$result ) { if ( ! $condition ) throw new RuntimeException( 'Licensed document assertion failed.' ); ++$result['checks']; };
 wp_set_current_user( $artist->ID );
 $result['stage'] = 'create_owned_document';
-$doc = wp_insert_post( array( 'post_type' => 'docs', 'post_status' => 'private', 'post_name' => $slug, 'post_title' => 'Collaudo riservato temporaneo', 'post_content' => $canary, 'post_author' => $artist->ID, 'comment_status' => 'closed', 'ping_status' => 'closed' ), true );
-if ( is_wp_error( $doc ) ) $result['insert_error_code'] = sanitize_key( $doc->get_error_code() );
-$check( ! is_wp_error( $doc ) && $doc > 0 );
+// Seed only test data. Native document APIs below remain unmodified; save hooks
+// would unnecessarily purge the production Site Tools cache for this canary.
+$seeded = $wpdb->insert( $wpdb->posts, array( 'post_type' => 'docs', 'post_status' => 'private', 'post_name' => $slug, 'post_title' => 'Collaudo riservato temporaneo', 'post_content' => $canary, 'post_author' => $artist->ID, 'comment_status' => 'closed', 'ping_status' => 'closed', 'post_date' => current_time( 'mysql' ), 'post_date_gmt' => current_time( 'mysql', true ), 'post_modified' => current_time( 'mysql' ), 'post_modified_gmt' => current_time( 'mysql', true ) ) );
+$doc = (int) $wpdb->insert_id;
+$check( 1 === $seeded && $doc > 0 && get_post( $doc )->post_content === $canary );
 $admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
 $check( count( $admins ) === 1 );
 wp_set_current_user( (int) $admins[0] );

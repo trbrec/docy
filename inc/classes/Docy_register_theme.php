@@ -171,7 +171,13 @@ class Docy_register_theme {
 		}
 
 		// Decode the JSON response
+		if ( ! isset( $r['body'] ) || ! is_array( $r['body'] ) || ! isset( $r['body']['themes'] ) || ! is_string( $r['body']['themes'] ) ) {
+			return $r;
+		}
 		$themes = json_decode( $r['body']['themes'] );
+		if ( ! is_object( $themes ) || ! isset( $themes->themes ) || ! is_object( $themes->themes ) ) {
+			return $r;
+		}
 		// Remove the active parent and child themes from the check
 		$parent = get_option( 'template' );
 		$child  = get_option( 'stylesheet' );
