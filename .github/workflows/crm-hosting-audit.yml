@@ -57,3 +57,12 @@ jobs:
           ssh "${ssh_opts[@]}" "${remote}" "chmod 600 '${inventory}/private-source-access.php' && php -l '${inventory}/private-source-access.php'" >/dev/null 2>&1
           ssh "${ssh_opts[@]}" "${remote}" "umask 077; php '${inventory}/private-source-access.php' > '${inventory}/private-source-access.json'" >/dev/null 2>&1
           echo "Existing private Git source access verified without transferring source code."
+          scp -q -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-crm-onboarding-inventory.php "${remote}:${inventory}/onboarding-inventory.php"
+          ssh "${ssh_opts[@]}" "${remote}" "php '${inventory}/onboarding-inventory.php'" > /tmp/onboarding-compatibility.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "rm -f -- '${inventory}/onboarding-inventory.php'"
+      - name: Preserve only aggregate onboarding compatibility classifications
+        uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-compatibility
+          path: /tmp/onboarding-compatibility.json
+          retention-days: 7

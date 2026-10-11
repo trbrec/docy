@@ -7,13 +7,14 @@ require $root.'/app/Core.php';\TrbCrm\Env::load($root.'/.env');
 require $root.'/app/OnboardingContractCatalog.php';
 $db=\TrbCrm\Database::connection();
 $exists=$db->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='onboarding_practices'")->fetchColumn();
-$states=[];$snapshots=0;$catalogMismatch=0;
+$states=[];$snapshots=0;$catalogMismatch=0;$pending=[];
 if((int)$exists===1){
     foreach($db->query('SELECT state,COUNT(*) AS total FROM onboarding_practices GROUP BY state')->fetchAll(PDO::FETCH_ASSOC) as $row)$states[(string)$row['state']]=(int)$row['total'];
     foreach($db->query("SELECT snapshot FROM onboarding_practices WHERE state NOT IN ('active','cancelled','expired')")->fetchAll(PDO::FETCH_COLUMN) as $raw){
         $snapshot=json_decode($raw,true,32,JSON_THROW_ON_ERROR);$snapshots++;$matched=false;
         foreach(\TrbCrm\OnboardingContractCatalog::all() as $model)if(($snapshot['template_key']??'')===$model['template_key']&&($snapshot['source_sha256']??'')===$model['source_sha256'])$matched=true;
         if(!$matched)$catalogMismatch++;
+        $pending[]=['template_key'=>(string)($snapshot['template_key']??''),'source_sha256'=>(string)($snapshot['source_sha256']??''),'qa_flag'=>($snapshot['qa']??false)===true,'test_number_prefix'=>str_starts_with((string)($snapshot['contract_number']??''),'QA-'),'owner_test_recipient'=>strcasecmp((string)($snapshot['email']??''),'a.tognassi@gmail.com')===0];
     }
 }
-echo json_encode(['read_only'=>true,'practice_states'=>$states,'pending_snapshots'=>$snapshots,'pending_source_hash_mismatches'=>$catalogMismatch,'personal_data_exported'=>false],JSON_THROW_ON_ERROR);
+echo json_encode(['read_only'=>true,'practice_states'=>$states,'pending_snapshots'=>$snapshots,'pending_source_hash_mismatches'=>$catalogMismatch,'pending_classifications'=>$pending,'personal_data_exported'=>false],JSON_THROW_ON_ERROR);
