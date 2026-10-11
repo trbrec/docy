@@ -52,7 +52,15 @@ check(count(TRB\Studio\editable_items('<!-- wp:html --><p>Same</p><p>Same</p><!-
 $users=[1=>(object)['ID'=>1,'profile'=>'trb','approval'=>'approved','qa'=>false,'meta'=>[]],2=>(object)['ID'=>2,'profile'=>'ddb','approval'=>'approved','meta'=>[]],3=>(object)['ID'=>3,'profile'=>'trb','approval'=>'pending','meta'=>[]],4=>(object)['ID'=>4,'profile'=>'trb','approval'=>'approved','qa'=>true,'meta'=>[]]];
 check(TRB\Studio\portal_artist_allowed($users[1]),'Approved TRB artist included');check(!TRB\Studio\portal_artist_allowed($users[2]),'DDB excluded');check(!TRB\Studio\portal_artist_allowed($users[3]),'Pending signup excluded');check(!TRB\Studio\portal_artist_allowed($users[4]),'QA account excluded');
 $posts=[10=>(object)['ID'=>10,'post_author'=>1,'post_type'=>'trb_release','post_status'=>'private','post_content'=>$raw,'meta'=>['_trb_contract_state'=>'signed','_trb_release_intake_phase'=>'complete','_trb_crm_workflow_status'=>'ready','_trb_release_pipeline_status'=>'approved']]];
+$ordinaryFixture=(object)['ID'=>5,'user_login'=>'trb_audit_20261010','profile'=>'trb','approval'=>'approved','qa'=>false,'meta'=>[]];
+check(!TRB\Studio\portal_artist_allowed($ordinaryFixture),'An approved ordinary-account audit fixture cannot enter the public roster');
+$realArtist=(object)['ID'=>6,'user_login'=>'auditore','profile'=>'trb','approval'=>'approved','qa'=>false,'meta'=>[]];
+$users[6]=$realArtist;
+check(TRB\Studio\portal_artist_allowed($realArtist),'A real artist with a similar login remains eligible');
+$users[5]=$ordinaryFixture;
+$fixtureRelease=(object)['ID'=>11,'post_author'=>5,'post_type'=>'trb_release','post_status'=>'publish','meta'=>['_trb_contract_state'=>'signed','_trb_crm_workflow_status'=>'distributed']];
 $options=['trb_studio_distribution_states'=>['distributed']];
+check(!TRB\Studio\portal_release_allowed($fixtureRelease),'Signed and distributed fixture releases cannot enter the public catalog');
 check(!TRB\Studio\portal_release_allowed($posts[10]),'Technical approval and commercial ready do not publish');$posts[10]->meta['_trb_crm_workflow_status']='distributed';check(TRB\Studio\portal_release_allowed($posts[10]),'Only configured distribution state publishes');$posts[10]->meta['inactive']=true;check(!TRB\Studio\portal_release_allowed($posts[10]),'Cancelled release excluded');unset($posts[10]->meta['inactive']);
 check(TRB\Studio\valid_date('2028-02-29')&&!TRB\Studio\valid_date('2026-02-29'),'Calendar dates validated including leap years');
 $s=['schema'=>1,'source'=>'artist.trbrec.com','complete'=>true,'artists'=>[['id'=>1,'name'=>'Artist','bio'=>'Bio','links'=>[]]],'releases'=>[['id'=>10,'artist_id'=>1,'title'=>'Release','date'=>'2026-11-01','presentation'=>'Story']]];
