@@ -15,6 +15,7 @@ on:
       - footer*.php
       - '404.php'
       - eazydocs/**
+      - languages/**
       - tools/qa-licensed-document-access.php
       - tools/qa-installed-http.php
       - tools/qa-http-local-browser.php

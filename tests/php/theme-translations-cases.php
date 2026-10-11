@@ -24,6 +24,13 @@ foreach ( $qaCatalog->entries as $qaMessageKey => $qaEntry ) {
 qa_check( ! $qaCatalogMismatches, 'The compiled Italian catalog differs from its maintained source.' );
 qa_check( ! $qaCatalogEmpty, 'The maintained Italian catalog still contains untranslated entries.' );
 qa_check( ! $qaPlaceholderMismatches, 'Italian format placeholders differ from the singular or plural source.' );
+require_once dirname( __DIR__, 2 ) . '/tools/extract-theme-gettext.php';
+$qaRuntimeMessages = trb_theme_gettext_messages( dirname( __DIR__, 2 ) );
+$qaRuntimeMissing = array();
+foreach ( $qaRuntimeMessages['messages'] as $qaMessageKey => $qaMessage ) {
+    if ( ! array_filter( $qaCompiled->entries[$qaMessageKey]->translations ?? array() ) ) $qaRuntimeMissing[] = $qaMessageKey;
+}
+qa_check( ! $qaRuntimeMissing && ! $qaRuntimeMessages['dynamic_calls'], 'Runtime theme messages are missing from the maintained Italian catalog.' );
 $qaItalian = qa_http( array( 'action' => 'qa_theme_language', 'qa_locale' => 'it_IT' ), true );
 qa_check( 200 === $qaItalian['status'] && true === $qaItalian['data']['success'], 'The Italian translation HTTP response failed.' );
 foreach ( array(
@@ -40,9 +47,14 @@ foreach ( array(
     'forum_login' => 'Devi effettuare l’accesso per iscriverti a questa discussione.',
     'search_focus' => 'Cerca (premi «/» per attivare la ricerca)',
     'reply_format' => 'Risposta n. 123 in Prova',
+    'skip_content' => 'Vai al contenuto',
+    'copy_toast' => 'Collegamento copiato negli appunti!',
+    'buy_now' => 'Acquista ora',
+    'share_email_tab' => 'Condividi via email (si apre in una nuova scheda)',
+    'sort_by' => 'Ordina per:',
 ) as $qaKey => $qaExpected ) {
     qa_check( $qaExpected === $qaItalian['data']['data'][$qaKey], 'A standard Italian theme message failed native WordPress catalog/context/placeholder loading: ' . $qaKey );
 }
 $qaEnglish = qa_http( array( 'action' => 'qa_theme_language', 'qa_locale' => 'en_US' ), true );
 qa_check( 200 === $qaEnglish['status'] && 'Search' === $qaEnglish['data']['data']['search'] && 'Registered: 2026' === $qaEnglish['data']['data']['registered'], 'The Italian catalog changed another locale.' );
-echo "Nineteen native WordPress Italian catalog, completeness, context, placeholder and locale assertions passed.\n";
+echo "Twenty-five native WordPress Italian catalog, runtime coverage, context, placeholder and locale assertions passed.\n";

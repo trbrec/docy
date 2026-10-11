@@ -5634,3 +5634,1183 @@ msgstr "Pagina di accesso"
 #. Template Name of the plugin/theme
 msgid "Sign up Page"
 msgstr "Pagina di registrazione"
+
+#: comments.php
+msgid "No comments yet — be the first to share your thoughts."
+msgstr "Non ci sono ancora commenti: condividi per primo la tua opinione."
+
+#: comments.php
+msgid "Comment *"
+msgstr "Commento *"
+
+#: functions.php
+msgid "🚨 CRITICAL: Immediate Action Required!"
+msgstr "🚨 CRITICO: è necessario intervenire subito!"
+
+#: functions.php
+msgid "Your site may break or malfunction!"
+msgstr "Il sito potrebbe smettere di funzionare correttamente!"
+
+#: functions.php
+msgid "Your %1$s is outdated (version %2$s). Please update to version %3$s or higher to avoid compatibility issues. We have made significant changes to the plugin architecture, and using an outdated version will cause compatibility issues and may break your website functionality."
+msgstr "%1$s non è aggiornato (versione %2$s). Aggiorna alla versione %3$s o successiva per evitare problemi di compatibilità. L’architettura del plugin è stata modificata in modo significativo: usare una versione precedente può causare incompatibilità e compromettere il funzionamento del sito."
+
+#: functions.php
+msgid "Forumax Plugin"
+msgstr "Plugin Forumax"
+
+#: functions.php
+msgid "⚡ What has changed:"
+msgstr "⚡ Cosa è cambiato:"
+
+#: functions.php
+msgid "We have completely restructured the plugin with new features, improved performance, enhanced security, and better compatibility. The old version is no longer compatible with the latest theme updates."
+msgstr "Il plugin è stato ristrutturato con nuove funzionalità, prestazioni migliori, maggiore sicurezza e compatibilità. La versione precedente non è più compatibile con gli ultimi aggiornamenti del tema."
+
+#: functions.php
+msgid "🔄 Update Forumax Plugin Now"
+msgstr "🔄 Aggiorna ora il plugin Forumax"
+
+#: functions.php
+msgid "This update is mandatory for your site to function properly."
+msgstr "Questo aggiornamento è necessario per il corretto funzionamento del sito."
+
+#: header.php
+msgid "Skip to content"
+msgstr "Vai al contenuto"
+
+#: inc/admin/notices/pro-elements-conflict.php
+msgid "PRO Elements has been automatically deactivated because Elementor Pro is now active. Your site design and content are fully intact."
+msgstr "PRO Elements è stato disattivato automaticamente perché Elementor Pro è ora attivo. L’aspetto e i contenuti del sito sono rimasti intatti."
+
+#: inc/admin/notices/welcome-notice.php inc/admin/templates/welcome-page.php
+msgid "Theme Activated"
+msgstr "Tema attivato"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Thank you for choosing Docy – the perfect documentation theme for WordPress. Follow the setup steps below to get your site ready."
+msgstr "Grazie per aver scelto Docy, il tema WordPress per la documentazione. Segui i passaggi di configurazione qui sotto per preparare il sito."
+
+#: inc/admin/notices/welcome-notice.php
+msgid "WordPress"
+msgstr "WordPress"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "PHP"
+msgstr "PHP"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Theme"
+msgstr "Tema"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Setup Progress"
+msgstr "Avanzamento della configurazione"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "completed"
+msgstr "completato"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Quick Setup Guide"
+msgstr "Guida rapida alla configurazione"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Register & Verify"
+msgstr "Registra e verifica"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Activate your license to unlock all features"
+msgstr "Attiva la licenza per sbloccare tutte le funzionalità"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Install and activate recommended plugins"
+msgstr "Installa e attiva i plugin consigliati"
+
+#: inc/admin/notices/welcome-notice.php inc/admin/templates/welcome-page.php
+msgid "Import Demo Content"
+msgstr "Importa i contenuti dimostrativi"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Get started with ready-made templates"
+msgstr "Inizia con i modelli già pronti"
+
+#: inc/admin/notices/welcome-notice.php inc/admin/templates/welcome-page.php
+msgid "Configure Theme Settings"
+msgstr "Configura le impostazioni del tema"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Customize theme options to match your brand"
+msgstr "Personalizza le opzioni del tema secondo la tua identità visiva"
+
+#: inc/admin/notices/welcome-notice.php inc/admin/templates/welcome-page.php
+msgid "Quick Actions"
+msgstr "Azioni rapide"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Menus"
+msgstr "Menu"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Widgets"
+msgstr "Widgets"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "View Site"
+msgstr "Visualizza il sito"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Resources & Support"
+msgstr "Risorse e assistenza"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Read full theme documentation"
+msgstr "Leggi la documentazione completa del tema"
+
+#: inc/admin/notices/welcome-notice.php inc/admin/templates/register-verify-page.php inc/admin/templates/welcome-page.php
+msgid "Video Tutorials"
+msgstr "Videoguide"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Watch step-by-step guides"
+msgstr "Guarda le guide passo passo"
+
+#: inc/admin/notices/welcome-notice.php inc/admin/templates/welcome-page.php
+msgid "Get Support"
+msgstr "Richiedi assistenza"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Submit a support ticket"
+msgstr "Invia una richiesta di assistenza"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "See what's new in this version"
+msgstr "Scopri le novità di questa versione"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Return to Dashboard"
+msgstr "Torna alla bacheca"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Don't show this notice again"
+msgstr "Non mostrare più questo avviso"
+
+#: inc/admin/notices/welcome-notice.php
+msgid "Start Setup"
+msgstr "Avvia la configurazione"
+
+#: inc/admin/templates/register-verify-page.php inc/verify/class.verify-purchase.php
+msgid "License Verified"
+msgstr "Licenza verificata"
+
+#: inc/admin/templates/register-verify-page.php inc/verify/class.verify-purchase.php
+msgid "License Invalid"
+msgstr "Licenza non valida"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Awaiting Verification"
+msgstr "In attesa di verifica"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Import beautiful pre-built layouts instantly to kickstart your website design."
+msgstr "Importa subito modelli già pronti per iniziare a creare il sito."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Premium Plugins Included"
+msgstr "Plugin premium inclusi"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Get access to premium and exclusive plugins bundled with your purchase."
+msgstr "Accedi ai plugin premium ed esclusivi inclusi nel tuo acquisto."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Automatic Updates"
+msgstr "Aggiornamenti automatici"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Receive seamless theme updates with new features, improvements, and security patches."
+msgstr "Ricevi gli aggiornamenti del tema con nuove funzionalità, miglioramenti e correzioni di sicurezza."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Priority Support"
+msgstr "Assistenza prioritaria"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Get fast, dedicated support from our expert team when you need help."
+msgstr "Ricevi assistenza rapida e dedicata dal nostro gruppo di esperti quando ne hai bisogno."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Step-by-step guides and tutorials"
+msgstr "Guide e istruzioni passo passo"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Learn with visual walkthroughs"
+msgstr "Impara con le guide illustrate"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Get help from our team"
+msgstr "Ricevi aiuto dal nostro gruppo di assistenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "License Management"
+msgstr "Gestione della licenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Register Your License"
+msgstr "Registra la tua licenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Activate your Docy theme to unlock premium features, automatic updates, and dedicated support. Bought on ThemeForest? Use your purchase code. Bought on spider-themes.net? Use your license key."
+msgstr "Attiva il tema Docy per sbloccare le funzionalità premium, gli aggiornamenti automatici e l’assistenza dedicata. Hai acquistato su ThemeForest? Usa il codice di acquisto. Hai acquistato su spider-themes.net? Usa la chiave di licenza."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "License Verification"
+msgstr "Verifica della licenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Your license is active and verified"
+msgstr "La tua licenza è attiva e verificata"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "License Source"
+msgstr "Origine della licenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "ThemeForest (Envato)"
+msgstr "ThemeForest (Envato)"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Purchase Code"
+msgstr "Codice di acquisto"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Copy to clipboard"
+msgstr "Copia negli appunti"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Licensed To"
+msgstr "Licenza intestata a"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "spider-themes.net"
+msgstr "spider-themes.net"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Plan"
+msgstr "Piano"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Theme Version"
+msgstr "Versione del tema"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Deactivate License"
+msgstr "Disattiva la licenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Manage License"
+msgstr "Gestisci la licenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Select where you purchased Docy, then activate to unlock all premium features."
+msgstr "Seleziona dove hai acquistato Docy, quindi attiva la licenza per sbloccare tutte le funzionalità premium."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "ThemeForest"
+msgstr "ThemeForest"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Verify Purchase Code"
+msgstr "Verifica il codice di acquisto"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Where can I find my purchase code?"
+msgstr "Dove trovo il codice di acquisto?"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "License Key"
+msgstr "Chiave di licenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Enter your license key"
+msgstr "Inserisci la chiave di licenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Activate License Key"
+msgstr "Attiva la chiave di licenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Where can I find my license key?"
+msgstr "Dove trovo la chiave di licenza?"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Premium Features Included"
+msgstr "Funzionalità premium incluse"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Quick Resources"
+msgstr "Risorse rapide"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Common Questions"
+msgstr "Domande frequenti"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Where do I find my purchase code?"
+msgstr "Dove trovo il mio codice di acquisto?"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Log in to your ThemeForest account, go to Downloads, find Docy theme, and click \"License certificate & purchase code\". Your purchase code will be displayed there."
+msgstr "Accedi al tuo account ThemeForest, vai ai download, trova il tema Docy e seleziona «License certificate & purchase code». Il codice di acquisto sarà mostrato in quella pagina."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "I bought on spider-themes.net — what do I use?"
+msgstr "Ho acquistato su spider-themes.net: cosa devo usare?"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Use the \"spider-themes.net\" tab and enter your license key. You can find it in the order confirmation email or under your account on spider-themes.net. Both purchase sources unlock the exact same premium features."
+msgstr "Usa la scheda «spider-themes.net» e inserisci la chiave di licenza. La trovi nell’email di conferma dell’ordine o nel tuo account su spider-themes.net. Entrambe le modalità di acquisto sbloccano le stesse funzionalità premium."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Can I use one license on multiple sites?"
+msgstr "Posso usare una licenza su più siti?"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Each Regular License is valid for a single end product (one website). For multiple sites, you need to purchase additional licenses."
+msgstr "Ogni licenza Regular è valida per un solo prodotto finale, cioè un sito web. Per più siti occorre acquistare altre licenze."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "What if verification fails?"
+msgstr "Cosa succede se la verifica non riesce?"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Double-check your purchase code for typos. If issues persist, contact our support team with your purchase details, and we'll help resolve it."
+msgstr "Controlla che il codice di acquisto non contenga errori di digitazione. Se il problema persiste, contatta l’assistenza indicando i dettagli dell’acquisto per ricevere aiuto."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "How do I transfer my license?"
+msgstr "Come trasferisco la licenza?"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "First, deactivate the license on the current site. Then activate it on your new site using the same purchase code. Your license remains valid for the new domain."
+msgstr "Disattiva prima la licenza sul sito attuale, poi attivala sul nuovo sito usando lo stesso codice di acquisto. La licenza resta valida per il nuovo dominio."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Need More Help?"
+msgstr "Hai bisogno di altro aiuto?"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Our dedicated support team is here to help you succeed with your documentation site."
+msgstr "Il nostro gruppo di assistenza dedicato ti aiuta a realizzare il tuo sito di documentazione."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Contact Support"
+msgstr "Contatta l’assistenza"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Response Time"
+msgstr "Tempo di risposta"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Support Rating"
+msgstr "Valutazione dell’assistenza"
+
+#: inc/admin/templates/register-verify-page.php inc/admin/templates/welcome-page.php
+msgid "Docy Theme"
+msgstr "Tema Docy"
+
+#: inc/admin/templates/register-verify-page.php inc/admin/templates/welcome-page.php
+msgid "by"
+msgstr "di"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Deactivate License?"
+msgstr "Disattivare la licenza?"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Are you sure you want to deactivate this license? You will lose access to:"
+msgstr "Confermi la disattivazione della licenza? Perderai l’accesso a:"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "One-click demo imports"
+msgstr "Importazione dei contenuti dimostrativi con un clic"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Automatic theme updates"
+msgstr "Aggiornamenti automatici del tema"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Premium plugin access"
+msgstr "Accesso ai plugin premium"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Priority support"
+msgstr "Assistenza prioritaria"
+
+#: inc/admin/templates/register-verify-page.php
+msgid "You can re-activate later using your purchase code."
+msgstr "Potrai riattivarla in seguito usando il codice di acquisto."
+
+#: inc/admin/templates/register-verify-page.php
+msgid "Yes, Deactivate"
+msgstr "Sì, disattiva"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Import demo content to get started quickly."
+msgstr "Importa i contenuti dimostrativi per iniziare rapidamente."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Install and activate One Click Demo Import, then import a demo."
+msgstr "Installa e attiva One Click Demo Import, poi importa un modello dimostrativo."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Docy theme is active and running."
+msgstr "Il tema Docy è attivo e funzionante."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Install Docy Core and other required plugins."
+msgstr "Installa Docy Core e gli altri plugin necessari."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Customize your theme appearance and options."
+msgstr "Personalizza l’aspetto e le opzioni del tema."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Create Documentation"
+msgstr "Crea la documentazione"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Start adding your documentation articles."
+msgstr "Inizia ad aggiungere gli articoli di documentazione."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Customize"
+msgstr "Personalizza"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Plugins"
+msgstr "Plugin"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Docs"
+msgstr "Documentazione"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Tutorials"
+msgstr "Guide"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Complete guides, tutorials, and best practices."
+msgstr "Guide complete, istruzioni e buone pratiche."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Read Docs"
+msgstr "Leggi la documentazione"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Step-by-step video guides for all features."
+msgstr "Videoguide passo passo per tutte le funzionalità."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Watch Videos"
+msgstr "Guarda i video"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Premium Support"
+msgstr "Assistenza premium"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Get help from our dedicated support team."
+msgstr "Ricevi aiuto dal nostro gruppo di assistenza dedicato."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Rate & Review"
+msgstr "Valuta e recensisci"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Love Docy? Share your experience with others!"
+msgstr "Ti piace Docy? Condividi la tua esperienza con gli altri!"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Leave Review"
+msgstr "Scrivi una recensione"
+
+#: inc/admin/templates/welcome-page.php
+msgid "PHP Version"
+msgstr "Versione PHP"
+
+#: inc/admin/templates/welcome-page.php
+msgid "WordPress Version"
+msgstr "Versione WordPress"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Memory Limit"
+msgstr "Limite di memoria"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Premium Theme"
+msgstr "Tema premium"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Welcome to Docy"
+msgstr "Benvenuto in Docy"
+
+#: inc/admin/templates/welcome-page.php
+msgid "The ultimate WordPress theme for creating stunning documentation, knowledge bases, and helpdesk websites. Packed with powerful features and seamless plugin integrations."
+msgstr "Il tema WordPress per creare siti di documentazione, raccolte di informazioni e centri di assistenza. Include numerose funzionalità e integrazioni con i plugin."
+
+#: inc/admin/templates/welcome-page.php
+msgid "Pages"
+msgstr "Pagine"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Getting Started"
+msgstr "Primi passi"
+
+#: inc/admin/templates/welcome-page.php
+msgid "%1$d of %2$d steps completed"
+msgstr "%1$d passaggi completati su %2$d"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Setup Checklist"
+msgstr "Elenco di configurazione"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Getting Started Video"
+msgstr "Video introduttivo"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Docy Theme Tutorial"
+msgstr "Guida al tema Docy"
+
+#: inc/admin/templates/welcome-page.php
+msgid "View All Tutorials"
+msgstr "Visualizza tutte le guide"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Resources"
+msgstr "Risorse"
+
+#: inc/admin/templates/welcome-page.php
+msgid "System Status"
+msgstr "Stato del sistema"
+
+#: inc/admin/templates/welcome-page.php
+msgid "(Required: %s+)"
+msgstr "(Richiesto: %s+)"
+
+#: inc/admin/templates/welcome-page.php
+msgid "Our Website"
+msgstr "Il nostro sito"
+
+#: inc/ajax_actions.php
+msgid "Mostra altri risultati"
+msgstr "Mostra altri risultati"
+
+#: inc/ajax_actions.php inc/woo_config.php
+msgid "Controllo di sicurezza fallito. Ricarica la pagina e riprova."
+msgstr "Controllo di sicurezza fallito. Ricarica la pagina e riprova."
+
+#: inc/ajax_actions.php
+msgid "Articolo non disponibile."
+msgstr "Articolo non disponibile."
+
+#: inc/ajax_actions.php
+msgid "Seleziona un voto da 1 a 5."
+msgstr "Seleziona un voto da 1 a 5."
+
+#: inc/ajax_actions.php
+msgid "Hai già votato questo articolo."
+msgstr "Hai già votato questo articolo."
+
+#: inc/ajax_actions.php inc/enqueue.php
+msgid "Impossibile salvare il voto. Riprova."
+msgstr "Impossibile salvare il voto. Riprova."
+
+#: inc/ajax_actions.php inc/enqueue.php options/opt_blog.php template-parts/single-post/article-rating.php
+msgid "Grazie per aver votato questo articolo!"
+msgstr "Grazie per aver votato questo articolo!"
+
+#: inc/comment-functions.php
+msgid "Rispondi"
+msgstr "Rispondi"
+
+#: inc/comment-functions.php
+msgid "Il tuo commento è in attesa di moderazione."
+msgstr "Il tuo commento è in attesa di moderazione."
+
+#: inc/comment-functions.php
+msgid "Modifica"
+msgstr "Modifica"
+
+#: inc/comment-functions.php
+msgid "I commenti non sono disponibili al momento."
+msgstr "I commenti non sono disponibili al momento."
+
+#: inc/comment-functions.php
+msgid "Verifica di sicurezza non riuscita. Ricarica la pagina e riprova."
+msgstr "Verifica di sicurezza non riuscita. Ricarica la pagina e riprova."
+
+#: inc/comment-functions.php
+msgid "Impossibile pubblicare il commento. Riprova."
+msgstr "Impossibile pubblicare il commento. Riprova."
+
+#: inc/comment-functions.php
+msgid "Il tuo commento è stato pubblicato."
+msgstr "Il tuo commento è stato pubblicato."
+
+#: inc/comment-functions.php
+msgid "Grazie! Il tuo commento è in attesa di moderazione."
+msgstr "Grazie! Il tuo commento è in attesa di moderazione."
+
+#: inc/comment-functions.php
+msgid "Commento non trovato."
+msgstr "Commento non trovato."
+
+#: inc/comment-functions.php
+msgid "Non puoi modificare questo commento."
+msgstr "Non puoi modificare questo commento."
+
+#: inc/comment-functions.php
+msgid "Il commento non può essere vuoto."
+msgstr "Il commento non può essere vuoto."
+
+#: inc/comment-functions.php
+msgid "Impossibile aggiornare il commento. Riprova."
+msgstr "Impossibile aggiornare il commento. Riprova."
+
+#: inc/comment-functions.php
+msgid "Impossibile verificare il commento aggiornato. Ricarica la pagina prima di riprovare."
+msgstr "Impossibile verificare il commento aggiornato. Ricarica la pagina prima di riprovare."
+
+#: inc/comment-functions.php
+msgid "Commento aggiornato."
+msgstr "Commento aggiornato."
+
+#: inc/csf/classes/admin-options.class.php inc/csf/functions/actions.php
+msgid "Impossibile salvare le impostazioni. Riprova."
+msgstr "Impossibile salvare le impostazioni. Riprova."
+
+#: inc/csf/functions/actions.php
+msgid "Impossibile ripristinare le impostazioni. Riprova."
+msgstr "Impossibile ripristinare le impostazioni. Riprova."
+
+#: inc/demo_config.php
+msgid "Docy Career"
+msgstr "Docy Career"
+
+#: inc/enqueue.php
+msgid "Invio del voto…"
+msgstr "Invio del voto…"
+
+#: inc/enqueue.php
+msgid "Pubblicazione…"
+msgstr "Pubblicazione…"
+
+#: inc/enqueue.php
+msgid "Salvataggio…"
+msgstr "Salvataggio…"
+
+#: inc/enqueue.php
+msgid "Salva"
+msgstr "Salva"
+
+#: inc/enqueue.php
+msgid "Annulla"
+msgstr "Annulla"
+
+#: inc/enqueue.php
+msgid "Scrivi un commento prima di inviarlo."
+msgstr "Scrivi un commento prima di inviarlo."
+
+#: inc/enqueue.php
+msgid "Si è verificato un errore. Riprova."
+msgstr "Si è verificato un errore. Riprova."
+
+#: inc/reg_process.php
+msgid "Dati di registrazione non validi."
+msgstr "Dati di registrazione non validi."
+
+#: inc/reg_process.php
+msgid "Verifica di sicurezza non riuscita."
+msgstr "Verifica di sicurezza non riuscita."
+
+#: inc/reg_process.php
+msgid "Registrazione non riuscita. Riprova."
+msgstr "Registrazione non riuscita. Riprova."
+
+#: inc/reg_process.php
+msgid "Registrazione completata."
+msgstr "Registrazione completata."
+
+#: inc/template-functions.php
+msgid "%s Comments"
+msgstr "%s commenti"
+
+#: inc/template-functions.php options/opt_shop.php
+msgid "2 Columns"
+msgstr "2 colonne"
+
+#: inc/template-functions.php options/opt_shop.php
+msgid "3 Columns"
+msgstr "3 colonne"
+
+#: inc/template-functions.php options/opt_shop.php
+msgid "4 Columns"
+msgstr "4 colonne"
+
+#: inc/template-functions.php
+msgid "Menu Columns"
+msgstr "Colonne del menu"
+
+#: inc/template-functions.php
+msgid "”"
+msgstr "”"
+
+#: inc/template-functions.php
+msgid "Loading..."
+msgstr "Caricamento…"
+
+#: inc/tgm/class-tgm-plugin-activation.php
+msgid "Updating Plugin: %s"
+msgstr "Aggiornamento del plugin: %s"
+
+#: inc/tgm/plugin_activation.php
+msgid "Jobus"
+msgstr "Jobus"
+
+#: inc/tgm/plugin_activation.php
+msgid "A powerful recruitment and job listing plugin that seamlessly connects jobseekers with employers, enabling businesses to find the best talent quickly and efficiently."
+msgstr "Un plugin per il reclutamento e le offerte di lavoro che mette in contatto candidati e datori di lavoro, aiutando le aziende a trovare le persone più adatte."
+
+#: inc/tgm/plugin_activation.php
+msgid "Forumax "
+msgstr "Forumax "
+
+#: inc/tgm/plugin_activation.php
+msgid "Forumax is a required plugin for forums management. If you don't want the Forum feature, you can skip installing this plugin."
+msgstr "Forumax è necessario per gestire i forum. Se non desideri usare il forum, puoi evitare di installare questo plugin."
+
+#: inc/tgm/plugin_activation.php
+msgid "Antimanual – The Ultimate AI Solution for Your Site"
+msgstr "Antimanual – La soluzione di intelligenza artificiale per il tuo sito"
+
+#: inc/trb-demo-automation.php
+msgid "Non sei autorizzato ad accedere a questa pagina."
+msgstr "Non sei autorizzato ad accedere a questa pagina."
+
+#: inc/verify/class.verify-purchase.php
+msgid "Cheatin&#8217; huh?"
+msgstr "Operazione non consentita."
+
+#: inc/verify/class.verify-purchase.php
+msgid "License system is unavailable. Please contact support."
+msgstr "Il sistema delle licenze non è disponibile. Contatta l’assistenza."
+
+#: inc/verify/class.verify-purchase.php
+msgid "Please enter your license key."
+msgstr "Inserisci la chiave di licenza."
+
+#: inc/verify/class.verify-purchase.php
+msgid "License activation failed. Please check your key and try again."
+msgstr "Attivazione della licenza non riuscita. Controlla la chiave e riprova."
+
+#: inc/verify/class.verify-purchase.php
+msgid "License could not be activated. Please verify your key or contact support."
+msgstr "Impossibile attivare la licenza. Verifica la chiave o contatta l’assistenza."
+
+#: inc/verify/class.verify-purchase.php
+msgid "License activated successfully!"
+msgstr "Licenza attivata correttamente!"
+
+#: inc/woo_config.php
+msgid "Prodotto o quantità non validi."
+msgstr "Prodotto o quantità non validi."
+
+#: inc/woo_config.php
+msgid "Variante del prodotto non valida."
+msgstr "Variante del prodotto non valida."
+
+#: inc/woo_config.php
+msgid "Carrello non disponibile. Riprova più tardi."
+msgstr "Carrello non disponibile. Riprova più tardi."
+
+#: inc/woo_config.php
+msgid "Prodotto aggiunto al carrello."
+msgstr "Prodotto aggiunto al carrello."
+
+#: inc/woo_config.php
+msgid "Impossibile aggiungere il prodotto al carrello. Riprova."
+msgstr "Impossibile aggiungere il prodotto al carrello. Riprova."
+
+#: options/opt_blog.php
+msgid "Show or hide the featured image in the main post content area."
+msgstr "Mostra o nascondi l’immagine in evidenza nel contenuto principale dell’articolo."
+
+#: options/opt_blog.php
+msgid "Article Rating"
+msgstr "Valutazione degli articoli"
+
+#: options/opt_blog.php
+msgid "Allow visitors to rate your blog articles with a 5-star rating system."
+msgstr "Consenti ai visitatori di valutare gli articoli del blog con un voto da 1 a 5 stelle."
+
+#: options/opt_blog.php
+msgid "Rating Box Title"
+msgstr "Titolo del riquadro di valutazione"
+
+#: options/opt_blog.php
+msgid "The title text displayed in the rating box."
+msgstr "Il titolo mostrato nel riquadro di valutazione."
+
+#: options/opt_blog.php template-parts/single-post/article-rating.php
+msgid "Valuta l’articolo"
+msgstr "Valuta l’articolo"
+
+#: options/opt_blog.php
+msgid "Thank You Message"
+msgstr "Messaggio di ringraziamento"
+
+#: options/opt_blog.php
+msgid "The message displayed after a user submits their rating."
+msgstr "Il messaggio mostrato dopo l’invio di una valutazione."
+
+#: options/opt_blog.php
+msgid "Show Average Rating"
+msgstr "Mostra la valutazione media"
+
+#: options/opt_blog.php
+msgid "Display the average rating score next to the title."
+msgstr "Mostra il punteggio medio accanto al titolo."
+
+#: options/opt_blog.php
+msgid "SEO Schema Markup"
+msgstr "Dati strutturati per i motori di ricerca"
+
+#: options/opt_blog.php
+msgid "Enable Schema.org structured data for rich snippets in search results."
+msgstr "Attiva i dati strutturati Schema.org per i risultati avanzati nei motori di ricerca."
+
+#: options/opt_blog.php
+msgid "When enabled, search engines may display star ratings alongside your articles in search results."
+msgstr "Quando l’opzione è attiva, i motori di ricerca possono mostrare le stelle di valutazione accanto agli articoli nei risultati."
+
+#: options/opt_blog.php
+msgid "Related posts"
+msgstr "Articoli correlati"
+
+#: options/opt_color_scheme.php
+msgid "Design"
+msgstr "Aspetto"
+
+#: options/opt_color_scheme.php
+msgid "Colors"
+msgstr "Colori"
+
+#: options/opt_color_scheme.php
+msgid "Brand Colors"
+msgstr "Colori del marchio"
+
+#: options/opt_color_scheme.php
+msgid "Tip: Keep a strong contrast between your colors and their backgrounds. Aim for a contrast ratio of at least 4.5:1 for body text to keep your documentation readable and accessible (WCAG AA)."
+msgstr "Suggerimento: mantieni un contrasto marcato tra i colori e gli sfondi. Per il testo, punta a un rapporto di contrasto di almeno 4,5:1 per mantenere la documentazione leggibile e accessibile secondo le WCAG AA."
+
+#: options/opt_color_scheme.php options/opt_dark.php
+msgid "Note: Dark mode color switching may not work if you change/update the colors. It is recommended to not use dark mode if you customize the colors."
+msgstr "Nota: il cambio dei colori in modalità scura potrebbe non funzionare dopo una modifica dei colori. Se personalizzi i colori, è consigliabile non usare la modalità scura."
+
+#: options/opt_color_scheme.php
+msgid "Preview in Customizer"
+msgstr "Anteprima nella personalizzazione"
+
+#: options/opt_color_scheme.php
+msgid "Used for links, buttons, and primary highlights across the site."
+msgstr "Usato per collegamenti, pulsanti ed elementi principali in evidenza nel sito."
+
+#: options/opt_color_scheme.php
+msgid "Backgrounds & Effects"
+msgstr "Sfondi ed effetti"
+
+#: options/opt_color_scheme.php
+msgid "Adds a soft shadow around content containers on Post Single, Forum, and Search Results pages."
+msgstr "Aggiunge un’ombra leggera ai contenitori degli articoli, dei forum e dei risultati di ricerca."
+
+#: options/opt_dark.php
+msgid "The Dark Mode Switcher is hidden, so visitors cannot toggle it themselves. Enable \"Active Dark Mode\" above to serve a dark theme by default — otherwise the site stays in light mode for everyone."
+msgstr "Il selettore della modalità scura è nascosto, quindi i visitatori non possono cambiarla. Attiva «Modalità scura attiva» qui sopra per usare un tema scuro come impostazione predefinita; altrimenti il sito resterà chiaro per tutti."
+
+#: options/opt_footer.php
+msgid "To create a new footer template, click %shere%s. Make sure Elementor plugin is activated and the template is published."
+msgstr "Per creare un nuovo modello del piè di pagina, fai clic %squi%s. Assicurati che Elementor sia attivo e che il modello sia pubblicato."
+
+#: options/opt_forum.php
+msgid "<strong>Forum Settings Moved!</strong><br><br>All forum settings have been moved to the <strong>Forumax</strong> plugin for a more user-friendly and modern experience.<br><br>Please go to <a href=\"%s\" class=\"button button-primary\">Forumax Settings</a> to configure your forum options."
+msgstr "<strong>Le impostazioni del forum sono state spostate!</strong><br><br>Tutte le impostazioni del forum sono ora nel plugin <strong>Forumax</strong>, con un’interfaccia più semplice e moderna.<br><br>Vai alle <a href=\"%s\" class=\"button button-primary\">impostazioni di Forumax</a> per configurare il forum."
+
+#: options/opt_general.php
+msgid "Set the margin to adjust the button in pixel."
+msgstr "Imposta il margine in pixel per regolare il pulsante."
+
+#: options/opt_general.php
+msgid "Search Result"
+msgstr "Risultato di ricerca"
+
+#: options/opt_general.php
+msgid "Search Result Limit"
+msgstr "Limite dei risultati di ricerca"
+
+#: options/opt_general.php
+msgid "This will limit the doc sections and articles in Ajax live search results. Input -1 to show all results."
+msgstr "Limita il numero di sezioni e articoli della documentazione nei risultati della ricerca istantanea. Inserisci -1 per mostrare tutti i risultati."
+
+#: options/opt_header.php
+msgid "Docs Page Navbar Color"
+msgstr "Colore della barra di navigazione delle pagine di documentazione"
+
+#: options/opt_header.php
+msgid "Select a navbar color for single Docs pages."
+msgstr "Seleziona un colore della barra di navigazione per le singole pagine di documentazione."
+
+#: options/opt_header.php
+msgid "Multi Logo"
+msgstr "Loghi multipli"
+
+#: options/opt_header.php
+msgid "Create a dropdown menu of multiple site logos with individual URLs. Perfect for network sites or multi-brand navigation."
+msgstr "Crea un menu a discesa con i loghi di più siti e i rispettivi indirizzi. Adatto a reti di siti o alla navigazione tra più marchi."
+
+#: options/opt_header.php
+msgid "Enable Multi Logo"
+msgstr "Attiva i loghi multipli"
+
+#: options/opt_header.php
+msgid "Enable to display a dropdown with multiple site logos beside the main logo."
+msgstr "Mostra un menu a discesa con più loghi accanto al logo principale."
+
+#: options/opt_header.php
+msgid "See All Link"
+msgstr "Collegamento «Vedi tutti»"
+
+#: options/opt_header.php
+msgid "Optional \"See All\" link text and URL at the bottom of the dropdown."
+msgstr "Testo e indirizzo facoltativi per il collegamento «Vedi tutti» in fondo al menu a discesa."
+
+#: options/opt_header.php
+msgid "Link Text"
+msgstr "Testo del collegamento"
+
+#: options/opt_header.php
+msgid "See All Sites"
+msgstr "Vedi tutti i siti"
+
+#: options/opt_header.php
+msgid "Link URL"
+msgstr "Indirizzo del collegamento"
+
+#: options/opt_header.php
+msgid "Site Logos"
+msgstr "Loghi dei siti"
+
+#: options/opt_header.php
+msgid "Add multiple sites with their logos and URLs. First item will be highlighted as the current site."
+msgstr "Aggiungi più siti con i rispettivi loghi e indirizzi. Il primo elemento sarà evidenziato come sito attuale."
+
+#: options/opt_header.php
+msgid "Add Site"
+msgstr "Aggiungi un sito"
+
+#: options/opt_header.php
+msgid "Site Name"
+msgstr "Nome del sito"
+
+#: options/opt_header.php
+msgid "Site Logo"
+msgstr "Logo del sito"
+
+#: options/opt_header.php
+msgid "Site URL"
+msgstr "Indirizzo del sito"
+
+#: options/opt_header.php
+msgid "Is Active"
+msgstr "Attivo"
+
+#: options/opt_header.php
+msgid "Font color on hover state."
+msgstr "Colore del testo al passaggio del puntatore."
+
+#: options/opt_header.php
+msgid "Border color on hover state."
+msgstr "Colore del bordo al passaggio del puntatore."
+
+#: options/opt_header.php
+msgid "Background color on hover state."
+msgstr "Colore dello sfondo al passaggio del puntatore."
+
+#: options/opt_header.php
+msgid "Background hover color on Header sticky mode."
+msgstr "Colore dello sfondo al passaggio del puntatore quando l’intestazione resta fissa."
+
+#: options/opt_header.php
+msgid "Documentation Banner"
+msgstr "Banner della documentazione"
+
+#: options/opt_header.php
+msgid "Choose which banner to show on single doc pages when EazyDocs plugin is active. EazyDocs Banner is the default."
+msgstr "Scegli il banner delle singole pagine di documentazione quando EazyDocs è attivo. Il banner EazyDocs è quello predefinito."
+
+#: options/opt_header.php
+msgid "EazyDocs Banner"
+msgstr "Banner EazyDocs"
+
+#: options/opt_header.php
+msgid "Docy Banner"
+msgstr "Banner Docy"
+
+#: options/opt_header.php
+msgid "Get the Ajax Search results related settings in %1$s Theme Settings > General > Search Results%2$s Settings page"
+msgstr "Le opzioni dei risultati della ricerca istantanea si trovano in %1$sImpostazioni del tema > Generali > Risultati di ricerca%2$s"
+
+#: options/opt_menu.php
+msgid "Navbar Menu Alignment"
+msgstr "Allineamento del menu di navigazione"
+
+#: options/opt_shop.php
+msgid "Product Archive"
+msgstr "Archivio dei prodotti"
+
+#: options/opt_shop.php
+msgid "Shop Layout"
+msgstr "Disposizione del negozio"
+
+#: options/opt_shop.php
+msgid "Select the default layout for shop products"
+msgstr "Seleziona la disposizione predefinita dei prodotti del negozio"
+
+#: options/opt_shop.php
+msgid "Grid"
+msgstr "Griglia"
+
+#: options/opt_shop.php
+msgid "List"
+msgstr "Elenco"
+
+#: options/opt_shop.php
+msgid "Product Columns (Grid Layout)"
+msgstr "Colonne dei prodotti nella griglia"
+
+#: options/opt_shop.php
+msgid "Number of columns for grid layout"
+msgstr "Numero di colonne della griglia"
+
+#: options/opt_social_links.php template-parts/contents/mobile-toc-share.php woocommerce/single-product/meta.php
+msgid "Twitter (X)"
+msgstr "Twitter (X)"
+
+#: options/opt_typo.php
+msgid "Default Body Font"
+msgstr "Carattere predefinito del testo"
+
+#: search.php
+msgid "Sort by:"
+msgstr "Ordina per:"
+
+#: template-parts/contents/mobile-toc-share.php
+msgid "Close share modal"
+msgstr "Chiudi la finestra di condivisione"
+
+#: template-parts/contents/mobile-toc-share.php
+msgid "Share by email"
+msgstr "Condividi via email"
+
+#: template-parts/contents/mobile-toc-share.php
+msgid "Share by email (opens in a new tab)"
+msgstr "Condividi via email (si apre in una nuova scheda)"
+
+#: template-parts/contents/mobile-toc-share.php
+msgid "Share on Facebook"
+msgstr "Condividi su Facebook"
+
+#: template-parts/contents/mobile-toc-share.php woocommerce/single-product/meta.php
+msgid "Share on Facebook (opens in a new tab)"
+msgstr "Condividi su Facebook (si apre in una nuova scheda)"
+
+#: template-parts/contents/mobile-toc-share.php
+msgid "Share on LinkedIn"
+msgstr "Condividi su LinkedIn"
+
+#: template-parts/contents/mobile-toc-share.php woocommerce/single-product/meta.php
+msgid "Share on LinkedIn (opens in a new tab)"
+msgstr "Condividi su LinkedIn (si apre in una nuova scheda)"
+
+#: template-parts/contents/mobile-toc-share.php
+msgid "Share on Twitter (X)"
+msgstr "Condividi su Twitter (X)"
+
+#: template-parts/contents/mobile-toc-share.php woocommerce/single-product/meta.php
+msgid "Share on Twitter (X) (opens in a new tab)"
+msgstr "Condividi su Twitter (X) (si apre in una nuova scheda)"
+
+#: template-parts/contents/mobile-toc-share.php
+msgid "Copy link icon"
+msgstr "Icona per copiare il collegamento"
+
+#: template-parts/header/multi-logo-dropdown.php
+msgid "Toggle site switcher"
+msgstr "Apri o chiudi il selettore dei siti"
+
+#: template-parts/header-elements/action-button.php
+msgid "Toggle search"
+msgstr "Apri o chiudi la ricerca"
+
+#: template-parts/header-elements/mobile-menu.php
+msgid "Mobile menu"
+msgstr "Menu per dispositivi mobili"
+
+#: template-parts/header-elements/mobile-menu.php
+msgid "Close navigation"
+msgstr "Chiudi la navigazione"
+
+#: template-parts/header-elements/mobile-menu.php
+msgid "Mobile Navigation"
+msgstr "Navigazione per dispositivi mobili"
+
+#: template-parts/header-elements/search-banner/breadcrumb.php
+msgid "Published on: %s"
+msgstr "Pubblicato il: %s"
+
+#: template-parts/header-elements/search-banner/featured-video.php
+msgid "Link copied to clipboard!"
+msgstr "Collegamento copiato negli appunti!"
+
+#: template-parts/single-post/article-rating.php
+msgid "Vota %d su 5"
+msgstr "Vota %d su 5"
+
+#: template-parts/single-post/article-rating.php
+msgid "Voto medio: %1$s su 5, basato su %2$s voti."
+msgstr "Voto medio: %1$s su 5, basato su %2$s voti."
+
+#: woocommerce/global/quantity-input.php
+msgid "Quantità"
+msgstr "Quantità"
+
+#: woocommerce/global/quantity-input.php
+msgid "Aumenta la quantità"
+msgstr "Aumenta la quantità"
+
+#: woocommerce/global/quantity-input.php
+msgid "Diminuisci la quantità"
+msgstr "Diminuisci la quantità"
+
+#: woocommerce/single-product/add-to-cart/simple.php woocommerce/single-product/add-to-cart/variation-add-to-cart-button.php
+msgid "Buy Now"
+msgstr "Acquista ora"
+
+#: woocommerce/single-product/meta.php
+msgid "Share on Pinterest (opens in a new tab)"
+msgstr "Condividi su Pinterest (si apre in una nuova scheda)"
+
+#: eazydocs/single-docs.php
+msgid "Powered By %1$s EazyDocs %2$s"
+msgstr "Realizzato con %1$s EazyDocs %2$s"

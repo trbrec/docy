@@ -106,6 +106,7 @@ function trb_qa_installed_document_template( $artist_id, $doc_id, $rule, $viewer
     $site_footer = strpos( $html, '<footer class="doc_footer_area ' );
     $check( false !== $site_footer && strpos( $html, '</main>' ) < $site_footer );
     $check( get_option( 'eazydocs_settings', null ) === $prior_options );
+    $check( str_contains( $html, 'Realizzato con' ) && ! str_contains( $html, 'Powered By' ) );
     $theme_diagnostics = 0;
     foreach ( $GLOBALS['qa_stack_result']['diagnostics'] ?? array() as $key => $count ) {
         if ( $count <= ( $diagnostics_before[$key] ?? 0 ) ) continue;

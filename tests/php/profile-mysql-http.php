@@ -57,6 +57,11 @@ if ( $qaServing ) {
                 'forum_login' => __( 'You must be logged in to subscribe to this topic.', 'docy' ),
                 'search_focus' => __( 'Search ("/" to focus)', 'docy' ),
                 'reply_format' => sprintf( __( 'Reply #%1$s in %2$s', 'docy' ), 123, 'Prova' ),
+                'skip_content' => __( 'Skip to content', 'docy' ),
+                'copy_toast' => __( 'Link copied to clipboard!', 'docy' ),
+                'buy_now' => __( 'Buy Now', 'docy' ),
+                'share_email_tab' => __( 'Share by email (opens in a new tab)', 'docy' ),
+                'sort_by' => __( 'Sort by:', 'docy' ),
             ) );
         }
         if ( ( $_POST['action'] ?? '' ) === 'qa_public_search' ) {
