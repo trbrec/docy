@@ -18,7 +18,7 @@ $stage = 'preflight';
 $source = dirname(__DIR__) . '/integrations/site-studio/trb-site-studio';
 $destination = $root . '/wp-content/plugins/trb-site-studio';
 if (!is_file($root . '/wp-load.php') || !is_dir($root . '/wp-content/plugins')) throw new RuntimeException('WordPress path guard');
-$files = ['trb-site-studio.php', 'editor.php', 'portal.php', 'directory.php', 'editor.js', 'editor.css', 'directory.css', 'readme.txt', 'bundle.php', 'artist-pages.php'];
+$files = ['trb-site-studio.php', 'editor.php', 'portal.php', 'directory.php', 'editor.js', 'editor.css', 'directory.css', 'readme.txt', 'bundle.php', 'artist-pages.php', 'editorial.php'];
 foreach ($files as $file) {
     if (!is_file($source . '/' . $file)) throw new RuntimeException('source package incomplete');
     if (str_ends_with($file, '.php')) {
@@ -56,6 +56,10 @@ $approvedPackages[] = json_decode('{"artist-pages.php":"fb85ab33c3b7f72b26fa14d8
 $approvedPackages[] = json_decode('{"trb-site-studio.php":"96bed3d69b8ac086cd9b4b9b7def1c22ab682ce3226e9df6067ba45735591f4b","editor.php":"5dc28ce04edeabcdd704631fc7f744631cfb4c5e1aca5365ae1853383469baa3","portal.php":"0fd9eb98f0abed913efd6f0e4bc988739d0a6f9d2d4007e30a95f747d0a010f7","directory.php":"43ea4bb03d178c0f51234b8fc2fc1ad7a939a8f540a86d0bcb344725946cb23f","editor.js":"787c1521142b72b705429b2d94f827d80d56050d315a269652b1786b2504f596","editor.css":"a1c2ecdbfc619cff5e942bfec378310c5e407a3c96767529fa28c688817a3f62","directory.css":"3310e41e6ed69b0ee70a022c37124ee8f2f278038712a643d1069e04aa1ae99f","readme.txt":"e2d7b845c7bea00a3ea66145ce459eae927988a651601f559bbbbf9cae4ad338","bundle.php":"97365c8c48f5cde6f37943b46b5175804a291b5b52370b4eb5e29964ae862d15","artist-pages.php":"fb85ab33c3b7f72b26fa14d8995b10c543a586da1e7b2b7f4152f9c6d99d08e2"}', true);
 // Exact package installed and verified by deployment 50b8831daad5b52747f40027aa0a949b20febb50.
 $approvedPackages[] = json_decode('{"artist-pages.php":"fb85ab33c3b7f72b26fa14d8995b10c543a586da1e7b2b7f4152f9c6d99d08e2","bundle.php":"97365c8c48f5cde6f37943b46b5175804a291b5b52370b4eb5e29964ae862d15","directory.css":"3310e41e6ed69b0ee70a022c37124ee8f2f278038712a643d1069e04aa1ae99f","directory.php":"72d38383b4e2c6225450b83ac53fde4f5b6b32f27a51bb15544d2ee6431aab8e","editor.css":"a1c2ecdbfc619cff5e942bfec378310c5e407a3c96767529fa28c688817a3f62","editor.js":"787c1521142b72b705429b2d94f827d80d56050d315a269652b1786b2504f596","editor.php":"5dc28ce04edeabcdd704631fc7f744631cfb4c5e1aca5365ae1853383469baa3","portal.php":"0fd9eb98f0abed913efd6f0e4bc988739d0a6f9d2d4007e30a95f747d0a010f7","readme.txt":"e2d7b845c7bea00a3ea66145ce459eae927988a651601f559bbbbf9cae4ad338","trb-site-studio.php":"96bed3d69b8ac086cd9b4b9b7def1c22ab682ce3226e9df6067ba45735591f4b"}', true);
+// Reserved-audit exclusion package (0.1.10).
+$approvedPackages[] = json_decode('{"trb-site-studio.php":"96bed3d69b8ac086cd9b4b9b7def1c22ab682ce3226e9df6067ba45735591f4b","editor.php":"215b4ffb9809446f104c542a09367f29f2f5fe1d36d7075ae09e1c238897e093","portal.php":"37f328e917f84f2f2d2c21f28692db7232c7c9cf84b22ad070599b6a4df69b40","directory.php":"72d38383b4e2c6225450b83ac53fde4f5b6b32f27a51bb15544d2ee6431aab8e","editor.js":"787c1521142b72b705429b2d94f827d80d56050d315a269652b1786b2504f596","editor.css":"a1c2ecdbfc619cff5e942bfec378310c5e407a3c96767529fa28c688817a3f62","directory.css":"3310e41e6ed69b0ee70a022c37124ee8f2f278038712a643d1069e04aa1ae99f","readme.txt":"e2d7b845c7bea00a3ea66145ce459eae927988a651601f559bbbbf9cae4ad338","bundle.php":"97365c8c48f5cde6f37943b46b5175804a291b5b52370b4eb5e29964ae862d15","artist-pages.php":"fb85ab33c3b7f72b26fa14d8995b10c543a586da1e7b2b7f4152f9c6d99d08e2"}', true);
+// Verified local editorial roster package (0.1.12).
+$approvedPackages[] = json_decode('{"artist-pages.php":"bca4528e0425df71d0e96403579953d4dec718575410d6a3f8e25929d29255cd","bundle.php":"97365c8c48f5cde6f37943b46b5175804a291b5b52370b4eb5e29964ae862d15","directory.css":"3310e41e6ed69b0ee70a022c37124ee8f2f278038712a643d1069e04aa1ae99f","directory.php":"ddaa1f31d679c8f6c21ac34584886e8eaf5f60d051d72d0537a7a5a0afcc5096","editor.css":"a1c2ecdbfc619cff5e942bfec378310c5e407a3c96767529fa28c688817a3f62","editor.js":"787c1521142b72b705429b2d94f827d80d56050d315a269652b1786b2504f596","editor.php":"23fecf763681651d161626d6093adc672145dc2b185aab5f7a4bc7a09b5e271b","editorial.php":"ada4ffab1fcbb5b82c4a6545effdd9c582f38ee098d314a5b2a1791f9699fb3c","portal.php":"37f328e917f84f2f2d2c21f28692db7232c7c9cf84b22ad070599b6a4df69b40","readme.txt":"e2d7b845c7bea00a3ea66145ce459eae927988a651601f559bbbbf9cae4ad338","trb-site-studio.php":"409f6ba1999663abb9d9116c55e654714bc649d8fcc77e6def6255e78fce4f10"}', true);
 $stage = 'copy';
 if (is_dir($destination)) {
     $same = true;
@@ -114,7 +118,7 @@ if (!$already) {
 if (!is_plugin_active($slug)) throw new RuntimeException('plugin activation unconfirmed');
 $stage = 'load-plugin';
 if (!function_exists('TRB\\Studio\\editor_apply')) require_once $destination . '/trb-site-studio.php';
-if (\TRB\Studio\VERSION !== '0.1.10') throw new RuntimeException('version check');
+if (\TRB\Studio\VERSION !== '0.1.12') throw new RuntimeException('version check');
 $stage = 'verification';
 if ($site === 'new1.trbrec.com') {
     $profiles=\TRB\Studio\sync_artist_pages(\TRB\Studio\directory_data());if(is_wp_error($profiles))throw new RuntimeException('artist pages installation');
@@ -158,6 +162,5 @@ if ($site === 'new1.trbrec.com') {
 echo 'Automatic sync enabled=' . (get_option('trb_studio_enabled') ? 'yes' : 'no') . ".\n";
 
 $stage = 'complete';
-
 
 

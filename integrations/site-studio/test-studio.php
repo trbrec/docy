@@ -165,3 +165,24 @@ $large=new class {public $args;function get_size(){return ['width'=>600,'height'
 check(TRB\Studio\public_image_resize($large)===true&&$large->args===[1200,1200,false],'Oversized portrait photographs still scale proportionally within the public limit');
 $failed=new class {function get_size(){return ['width'=>2400,'height'=>1800];}function resize(...$a){return new WP_Error('resize_failed');}};
 check(is_wp_error(TRB\Studio\public_image_resize($failed)),'Genuine resize failures are preserved rather than silently ignored');
+
+require __DIR__.'/trb-site-studio/editorial.php';
+$profile=['name'=>'Sara Rigo','bio'=>'Biografia pubblica verificata','links'=>[],'image_id'=>501,'basis'=>'explicit','source'=>'Sito ufficiale'];
+$curated=TRB\Studio\editorial_validate([$profile]);
+check(!is_wp_error($curated)&&array_values($curated)[0]['id']===1000000001,'Explicit editorial inclusion uses a separate stable identity and does not create a portal account');
+check(count(TRB\Studio\editorial_validate([$profile],$curated))===1,'Re-importing the same editorial artist is idempotent');
+$options['trb_studio_editorial_artists']=$curated;
+$merged=TRB\Studio\editorial_directory(['artists'=>[['id'=>151,'name'=>'Sara Rigo','bio'=>'','links'=>[]]],'releases'=>[['artist_id'=>151,'title'=>'Pubblicazione']]]);
+check(count($merged['artists'])===1&&$merged['artists'][0]['id']===1000000001&&$merged['releases'][0]['artist_id']===1000000001,'A later portal registration does not duplicate or change the editorial public identity and keeps release associations');
+$again=TRB\Studio\editorial_directory($merged);
+check($again===$merged,'Directory completion remains idempotent during repeated page synchronization');
+check(count(TRB\Studio\editorial_directory(['artists'=>[],'releases'=>[]])['artists'])===1,'A new empty portal generation cannot remove a curated public artist');
+$recent=array_merge($profile,['name'=>'Artista recente','basis'=>'recent','last_work'=>(new DateTimeImmutable('today',new DateTimeZone('Europe/Rome')))->modify('-2 years')->format('Y-m-d')]);
+check(!is_wp_error(TRB\Studio\editorial_validate([$recent])),'A documented collaboration on the two-year cutoff is eligible');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($recent,['last_work'=>'2020-01-01'])])),'Older non-TRB collaborations are not imported as recent');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['name'=>'Altro artista'])])),'The explicit Sara Rigo exception cannot import unrelated DDB accounts');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['name'=>'trb_audit_20261011'])])),'Audit and placeholder names cannot enter editorial publication');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['image_id'=>99])])),'Invalid public photography blocks editorial publication');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['bio'=>''])])),'An incomplete biography blocks editorial publication');
+unset($options['trb_studio_editorial_artists']);
+echo "EDITORIAL ROSTER TOTAL: $count passed\n";

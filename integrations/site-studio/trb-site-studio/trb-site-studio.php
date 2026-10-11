@@ -2,17 +2,18 @@
 /**
  * Plugin Name: TRB Site Studio
  * Description: Editor visuale amministratore e directory pubblica collegata al Portale Artisti.
- * Version: 0.1.10
+ * Version: 0.1.12
  * Requires PHP: 8.1
  */
 namespace TRB\Studio;
 if (!defined('ABSPATH')) exit;
-const VERSION = '0.1.10';
+const VERSION = '0.1.12';
 require_once __DIR__.'/editor.php';
 require_once __DIR__.'/portal.php';
 require_once __DIR__.'/bundle.php';
 require_once __DIR__.'/directory.php';
 require_once __DIR__.'/artist-pages.php';
+require_once __DIR__.'/editorial.php';
 function source_site() { return strtolower((string)wp_parse_url(home_url(), PHP_URL_HOST)) === 'artist.trbrec.com'; }
 function destination_site() { return strtolower((string)wp_parse_url(home_url(), PHP_URL_HOST)) === 'new1.trbrec.com'; }
 function admin_permission() { return current_user_can('manage_options'); }
@@ -87,4 +88,3 @@ function settings_page(){
  if(destination_site()) submit_button('Sincronizza adesso','secondary','trb_studio_sync_now');
  echo '</form></div>';
 }
-
