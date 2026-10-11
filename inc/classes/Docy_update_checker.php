@@ -170,8 +170,8 @@ if ( !class_exists('ThemeUpdateChecker') ):
         /**
          * Insert the latest update (if any) into the update list maintained by WP.
          *
-         * @param StdClass $updates Update list.
-         * @return array Modified update list.
+         * @param mixed $updates Site transient value; false when no value is stored.
+         * @return mixed The update list, or the original non-object transient value.
          */
         public function injectUpdate($updates){
             $state = get_option($this->optionName);
@@ -262,7 +262,7 @@ if ( !class_exists('ThemeUpdate') ):
          * Create a new instance of ThemeUpdate from its JSON-encoded representation.
          *
          * @param string $json Valid JSON string representing a theme information object.
-         * @return ThemeUpdate New instance of ThemeUpdate, or NULL on error.
+         * @return ThemeUpdate|null New instance of ThemeUpdate, or NULL on error.
          */
         public static function fromJson($json){
             $apiResponse = json_decode($json);

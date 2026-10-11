@@ -689,7 +689,7 @@ function docy_render_main_menu( string $extra_classes = '', string $walker_class
 /**
  * Get the available submenu column choices for menu items.
  *
- * @return array<string, string>
+ * @return array<int|string, string>
  */
 function docy_get_menu_item_column_options(): array {
 	return [

@@ -16,7 +16,7 @@ class Docy_Mobile_Nav_Walker extends Walker_Nav_Menu {
 	 *
 	 * @param mixed $output Passed by reference. Used to append additional content.
 	 * @param int   $depth  (default: 0) Depth of page. Used for padding.
-	 * @param array $args   (default: array()) Arguments.
+	 * @param stdClass|null $args Menu arguments supplied by WordPress.
 	 *
 	 * @return void
 	 * @see    Walker::start_lvl()
@@ -24,22 +24,9 @@ class Docy_Mobile_Nav_Walker extends Walker_Nav_Menu {
 	 *
 	 * @access public
 	 */
-	public function start_lvl( &$output, $depth = 0, $args = [] ) {
+	public function start_lvl( &$output, $depth = 0, $args = null ) {
 		$indent = str_repeat( "\t", $depth );
-		if ( 0 === $depth ) {
-			$output .= '<i class="arrow_carrot-down_alt2 mobile_dropdown_icon"></i> </div>';
-			$output .= "\n$indent<ul class=\" dropdown-menu\" >\n";
-		}
-		if ( 1 === $depth ) {
-			$output .= '<i class="arrow_carrot-down_alt2 mobile_dropdown_icon"></i> </div>';
-			$output .= '' . "\n$indent<ul class=\" dropdown-menu\" >\n";
-		}
-		if ( 2 === $depth ) {
-			$output .= "\n$indent<ul class=\" dropdown-menu\" >\n";
-		}
-		if ( 3 === $depth ) {
-			$output .= "\n$indent<ul class=\" dropdown-menu\" >\n";
-		}
+		$output .= "\n$indent<ul class=\" dropdown-menu\" >\n";
 	}
 
 	/**
@@ -48,7 +35,7 @@ class Docy_Mobile_Nav_Walker extends Walker_Nav_Menu {
 	 * @param mixed $output Passed by reference. Used to append additional content.
 	 * @param mixed $item   Menu item data object.
 	 * @param int   $depth  (default: 0) Depth of menu item. Used for padding.
-	 * @param array $args   (default: array()) Arguments.
+	 * @param stdClass|null $args Menu arguments supplied by WordPress.
 	 * @param int   $id     (default: 0) Menu item ID.
 	 *
 	 * @return void
@@ -57,7 +44,7 @@ class Docy_Mobile_Nav_Walker extends Walker_Nav_Menu {
 	 *
 	 * @access public
 	 */
-	public function start_el( &$output, $item, $depth = 0, $args = [], $id = 0 ) {
+	public function start_el( &$output, $item, $depth = 0, $args = null, $id = 0 ) {
 		$menu_description = '';
 		$is_description   = '';
 
@@ -75,9 +62,6 @@ class Docy_Mobile_Nav_Walker extends Walker_Nav_Menu {
 				$menu_image = '<img src="' . esc_url( $image_url ) . '" alt="' . esc_attr( $item->title ) . '" class="menu-item-image" />';
 			}
 		}
-
-		$url      = $item->url;
-		$url_hash = strpos( $url, '#' );
 
 		$indent      = ( $depth ) ? str_repeat( "\t", $depth ) : '';
 		$value       = '';
@@ -114,14 +98,8 @@ class Docy_Mobile_Nav_Walker extends Walker_Nav_Menu {
 		}
 		$atts['target'] = ! empty( $item->target ) ? $item->target : '';
 		$atts['rel']    = ! empty( $item->xfn ) ? $item->xfn : '';
-		// If item has_children add atts to a.
-		if ( $args->has_children && 0 === $depth || $args->has_children && 1 === $depth ) {
-			$atts['class'] = 'nav-link';
-			$atts['href']  = ! empty( $item->url ) ? $item->url : '';
-		} else {
-			$atts['class'] = 'nav-link';
-			$atts['href']  = ! empty( $item->url ) ? $item->url : '';
-		}
+		$atts['class'] = 'nav-link';
+		$atts['href']  = ! empty( $item->url ) ? $item->url : '';
 		$atts       = apply_filters( 'nav_menu_link_attributes', $atts, $item, $args );
 		$attributes = '';
 		foreach ( $atts as $attr => $value ) {
@@ -131,19 +109,7 @@ class Docy_Mobile_Nav_Walker extends Walker_Nav_Menu {
 			}
 		}
 		$item_output = $args->before;
-		/*
-		 * Glyphicons/Font-Awesome
-		 * ===========
-		 * Since the the menu item is NOT a Divider or Header we check the see
-		 * if there is a value in the attr_title property. If the attr_title
-		 * property is NOT null we apply it as the class name for the glyphicon.
-		 */
-
-		if ( ! empty( $item->attr_title ) ) {
-			$item_output .= '<div class="nav-link-wrap"> <a' . $attributes . '>';
-		} else {
-			$item_output .= '<div class="nav-link-wrap"> <a' . $attributes . '>';
-		}
+		$item_output .= '<div class="nav-link-wrap"> <a' . $attributes . '>';
 
 		// Output image if exists
 		$item_output .= $menu_image;
@@ -160,7 +126,11 @@ class Docy_Mobile_Nav_Walker extends Walker_Nav_Menu {
 			$item_output .= '</span>';
 		}
 
-		$item_output .= ( $args->has_children && 1 === $depth ) ? '</a>' : esc_attr( $item->attr_title ) . '</a>';
+		$item_output .= '</a>';
+		if ( $args->has_children && ( empty( $args->depth ) || $depth + 1 < $args->depth ) ) {
+			$item_output .= '<i class="arrow_carrot-down_alt2 mobile_dropdown_icon"></i>';
+		}
+		$item_output .= '</div>';
 		$item_output .= $args->after;
 		$output      .= apply_filters( 'walker_nav_menu_start_el', $item_output, $item, $depth, $args );
 	}
@@ -181,7 +151,7 @@ class Docy_Mobile_Nav_Walker extends Walker_Nav_Menu {
 	 * @param mixed $args              Arguments.
 	 * @param mixed $output            Passed by reference. Used to append additional content.
 	 *
-	 * @return null Null on failure with no changes to parameters.
+	 * @return void
 	 * @since  2.5.0
 	 *
 	 * @access public

@@ -30,7 +30,7 @@ class Docy_admin_page extends Docy_base {
 	/**
      * The position in the menu order this menu should appear.
      *
-     * @var string
+     * @var int
      */
     public $position;
 

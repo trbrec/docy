@@ -151,5 +151,6 @@ $qa_attributes = qa_woo_template( 'single-product/product-attributes.php', array
 qa_woo_check( str_contains( $qa_attributes, '<strong>sicura</strong>' ) && ! str_contains( $qa_attributes, '<script>' ), 'Prepared native attributes must retain permitted HTML and remove scripts.' );
 qa_woo_check( 0 === count( wc_get_orders( array( 'limit' => 1, 'return' => 'ids' ) ) ) && 0 === $qa_order->get_id(), 'This qualification must not create an order or invoke a payment.' );
 qa_woo_check( is_wp_error( wp_remote_get( 'https://example.invalid/' ) ) && true === wp_mail( 'qa@example.invalid', 'Blocked', 'Blocked' ), 'Outbound HTTP and email must remain blocked.' );
+require __DIR__ . '/theme-menu-cases.php';
 restore_error_handler();
-echo wp_json_encode( array( 'passed' => true, 'checks' => $qa_checks, 'woocommerce' => WC_VERSION, 'wordpress' => get_bloginfo( 'version' ), 'theme_warnings' => 0, 'external_notices' => $qa_errors, 'orders_created' => 0, 'payments_invoked' => 0, 'outbound_blocked' => true ), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n";
+echo wp_json_encode( array( 'passed' => true, 'checks' => $qa_checks, 'woocommerce_checks' => 21, 'menu_checks' => 24, 'woocommerce' => WC_VERSION, 'wordpress' => get_bloginfo( 'version' ), 'theme_warnings' => 0, 'external_notices' => $qa_errors, 'orders_created' => 0, 'payments_invoked' => 0, 'outbound_blocked' => true ), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n";
