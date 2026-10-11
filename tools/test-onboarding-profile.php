@@ -15,7 +15,7 @@ function load_function(string $source,string $name){if(!preg_match('/^function '
 $portal=file_get_contents(__DIR__.'/../inc/trb-artist-portal.php');
 foreach(['trb_portal_lookup_postcode','trb_portal_territorial_archive','trb_portal_find_municipalities','trb_portal_find_municipality_exact','trb_portal_validate_mobile','trb_portal_validate_tax_code','trb_portal_validate_identity_document_number','trb_portal_validate_identity_document_expiry'] as $name)load_function($portal,$name);
 $candidate=file_get_contents(__DIR__.'/../inc/trb-candidate-onboarding.php');
-foreach(['trb_onboarding_schedule_identity_response','trb_onboarding_public'] as $name)load_function($candidate,$name);
+foreach(['trb_onboarding_schedule_identity_response','trb_onboarding_public_payload','trb_onboarding_public'] as $name)load_function($candidate,$name);
 class ProfileRequest{public function __construct(private array $data){}public function get_json_params(){return $this->data;}}
 check_profile(is_wp_error(trb_onboarding_public(new ProfileRequest(['action'=>'postcode','postcode'=>'25038']))),'Lookups require a verified candidate session');
 $GLOBALS['browser']=['session'=>str_repeat('a',64)];

@@ -29,7 +29,7 @@ jobs:
           import json,re
           d=json.load(open('tools/demo-key-request.json'))
           assert set(d)=={'tag','phase','scope'} and re.fullmatch('[a-f0-9]{16}',d['tag'])
-          assert d['phase'] in ('prepare','apply','rollback') and d['scope']=='existing_demo_sheet_only'
+          assert d['phase'] in ('prepare','status','apply','rollback') and d['scope']=='existing_demo_sheet_only'
           PY
           tag=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json"))["tag"])')
           phase=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json"))["phase"])')

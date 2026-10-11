@@ -125,7 +125,7 @@ function trb_onboarding_private($request){
 }
 
 function trb_onboarding_browser_key(){
-    $nonce=(string)($_COOKIE['__Host-trb_onboarding']??'');return preg_match('/^[a-f0-9]{64}$/D',$nonce)?'trb_onboarding_browser_'.hash('sha256',$nonce):'';
+    $nonce=$_COOKIE['__Host-trb_onboarding']??'';return is_string($nonce)&&preg_match('/^[a-f0-9]{64}$/D',$nonce)?'trb_onboarding_browser_'.hash('sha256',$nonce):'';
 }
 function trb_onboarding_csrf($nonce){$time=(string)time();return $time.'.'.hash_hmac('sha256','onboarding-browser-v1|'.$time.'|'.$nonce,wp_salt('auth'));}
 function trb_onboarding_public_permission($request){
@@ -133,12 +133,31 @@ function trb_onboarding_public_permission($request){
     if(stripos((string)$request->get_header('content-type'),'application/json')!==0)return new WP_Error('onboarding_body','Sono ammesse soltanto richieste JSON.',array('status'=>415));
     if(strlen($request->get_body())>20000)return new WP_Error('onboarding_body','Richiesta troppo grande.',array('status'=>413));
     $origin=(string)$request->get_header('origin');if($origin!==''&&$origin!==rtrim(home_url(),'/'))return new WP_Error('onboarding_origin','Richiesta non autorizzata.',array('status'=>403));
-    $nonce=(string)($_COOKIE['__Host-trb_onboarding']??'');$parts=explode('.',(string)$request->get_header('x-trb-onboarding-csrf'));
+    $nonce=$_COOKIE['__Host-trb_onboarding']??'';$parts=explode('.',(string)$request->get_header('x-trb-onboarding-csrf'));
     if(!trb_onboarding_browser_key()||count($parts)!==2||!ctype_digit($parts[0])||time()-(int)$parts[0]<0||time()-(int)$parts[0]>28800||!hash_equals(hash_hmac('sha256','onboarding-browser-v1|'.$parts[0].'|'.$nonce,wp_salt('auth')),$parts[1]))return new WP_Error('onboarding_csrf','Aggiorna la pagina per continuare.',array('status'=>403));
     return true;
 }
+function trb_onboarding_public_payload($request){
+    $payload=$request->get_json_params();
+    $invalid=static fn()=>new WP_Error('onboarding_body','Richiesta non valida. Controlla i dati e riprova.',array('status'=>422));
+    if(!is_array($payload)||array_is_list($payload))return $invalid();
+    foreach(array('action','token','code','slot','password','repeat_password','postcode','search','plan_key','proposal_sha256') as $field){
+        if(array_key_exists($field,$payload)&&!is_string($payload[$field]))return $invalid();
+    }
+    foreach(array('billing','profile','invoice','file') as $section){
+        if(!array_key_exists($section,$payload))continue;
+        if(!is_array($payload[$section])||($payload[$section]!==array()&&array_is_list($payload[$section])))return $invalid();
+        if($section!=='file')foreach($payload[$section] as $value)if(!is_string($value))return $invalid();
+    }
+    if(($payload['action']??'')==='upload'){
+        $file=$payload['file']??array();
+        if(!is_string($file['name']??null)||!preg_match('/^[-_A-Za-z0-9. ]{1,160}\.(pdf|png|jpe?g)$/iD',$file['name'])||!is_string($file['mime']??null)||!in_array($file['mime'],array('application/pdf','image/png','image/jpeg'),true)||!is_int($file['size']??null)||$file['size']<1||$file['size']>10485760)return $invalid();
+    }
+    return $payload;
+}
 function trb_onboarding_public($request){
-    $p=$request->get_json_params();$action=$p['action']??'';$key=trb_onboarding_browser_key();$browser=(array)get_transient($key);
+    $p=trb_onboarding_public_payload($request);if(is_wp_error($p))return $p;
+    $action=$p['action']??'';$key=trb_onboarding_browser_key();$browser=(array)get_transient($key);
     if($action==='browser_status')return array('challenge_pending'=>!empty($browser['invite'])&&!empty($browser['salt']));
     if($action==='challenge'){
         $token=(string)($p['token']??$browser['invite']??'');if(!preg_match('/^[a-f0-9]{64}$/D',$token))return new WP_Error('onboarding_invite','Collegamento personale non valido.',array('status'=>422));

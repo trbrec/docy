@@ -23,7 +23,6 @@ global $product;
 if ( empty( $product ) || ! $product->is_visible() ) {
 	return;
 }
-$short_description = apply_filters( 'woocommerce_short_description', $post->post_excerpt );
 $opt = get_option( 'docy_opt' );
 $shop_layout = !empty($opt['shop_layout']) ? $opt['shop_layout'] : 'shop_grid';
 ?>

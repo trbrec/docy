@@ -4,6 +4,8 @@ if ( 'cli' !== PHP_SAPI ) { http_response_code( 404 ); exit; }
 $qa_root = str_replace( '\\', '/', (string) getenv( 'TRB_WP_MYSQL_ROOT' ) );
 $qa_tmp = str_replace( '\\', '/', realpath( sys_get_temp_dir() ) ?: '' );
 $qa_database = (string) getenv( 'TRB_QA_MYSQL_DATABASE' );
+$qa_mysql_port = (string) ( getenv( 'TRB_QA_MYSQL_PORT' ) ?: '3307' );
+if ( ! ctype_digit( $qa_mysql_port ) || (int) $qa_mysql_port < 1024 || (int) $qa_mysql_port > 65535 ) throw new RuntimeException( 'A valid local fixture MySQL port is required.' );
 if ( ! $qa_tmp || dirname( dirname( $qa_root ) ) !== $qa_tmp || ! preg_match( '~^trb-wp-mysql-qa-[0-9]+$~D', basename( dirname( $qa_root ) ) ) || 'wordpress' !== basename( $qa_root ) || ! is_file( $qa_root . '/wp-load.php' ) || is_link( $qa_root ) || is_link( dirname( $qa_root ) ) || ! preg_match( '/^trb_wp_qa_[0-9]+$/D', $qa_database ) ) {
     throw new RuntimeException( 'An exclusively disposable official WordPress fixture is required.' );
 }
@@ -18,7 +20,7 @@ $_SERVER['SERVER_PORT'] = '80';
 $_SERVER['REQUEST_URI'] = '/';
 if ( $qa_install ) {
     if ( is_file( $qa_root . '/wp-config.php' ) ) throw new RuntimeException( 'Refusing an existing WordPress configuration.' );
-    $qa_config = "<?php\ndefine('DB_NAME','" . $qa_database . "');\ndefine('DB_USER','root');\ndefine('DB_PASSWORD','qa_ci');\ndefine('DB_HOST','127.0.0.1:3307');\ndefine('DB_CHARSET','utf8mb4');\ndefine('DB_COLLATE','');\ndefine('DISABLE_WP_CRON',true);\ndefine('DISALLOW_FILE_MODS',true);\ndefine('AUTOMATIC_UPDATER_DISABLED',true);\ndefine('WP_DEBUG',true);\ndefine('WP_DEBUG_DISPLAY',false);\ndefine('WP_DISABLE_FATAL_ERROR_HANDLER',true);\ndefine('WP_ENVIRONMENT_TYPE','local');\n\$table_prefix='qa_';\n";
+    $qa_config = "<?php\ndefine('DB_NAME','" . $qa_database . "');\ndefine('DB_USER','root');\ndefine('DB_PASSWORD','qa_ci');\ndefine('DB_HOST','127.0.0.1:" . $qa_mysql_port . "');\ndefine('DB_CHARSET','utf8mb4');\ndefine('DB_COLLATE','');\ndefine('DISABLE_WP_CRON',true);\ndefine('DISALLOW_FILE_MODS',true);\ndefine('AUTOMATIC_UPDATER_DISABLED',true);\ndefine('WP_DEBUG',true);\ndefine('WP_DEBUG_DISPLAY',false);\ndefine('WP_DISABLE_FATAL_ERROR_HANDLER',true);\ndefine('WP_ENVIRONMENT_TYPE','local');\n\$table_prefix='qa_';\n";
     foreach ( array( 'AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT', 'LOGGED_IN_SALT', 'NONCE_SALT' ) as $qa_key ) $qa_config .= "define('" . $qa_key . "','" . bin2hex( random_bytes( 32 ) ) . "');\n";
     $qa_config .= "if(!defined('ABSPATH'))define('ABSPATH',__DIR__.'/');\nrequire_once ABSPATH.'wp-settings.php';\n";
     file_put_contents( $qa_root . '/wp-config.php', $qa_config );
@@ -153,5 +155,7 @@ qa_woo_check( 0 === count( wc_get_orders( array( 'limit' => 1, 'return' => 'ids'
 qa_woo_check( is_wp_error( wp_remote_get( 'https://example.invalid/' ) ) && true === wp_mail( 'qa@example.invalid', 'Blocked', 'Blocked' ), 'Outbound HTTP and email must remain blocked.' );
 require __DIR__ . '/theme-menu-cases.php';
 require __DIR__ . '/demo-key-native-cases.php';
+require __DIR__ . '/woo-template-contract-cases.php';
+require __DIR__ . '/onboarding-payload-native-cases.php';
 restore_error_handler();
-echo wp_json_encode( array( 'passed' => true, 'checks' => $qa_checks, 'woocommerce_checks' => 21, 'menu_checks' => 24, 'demo_key_checks' => 5, 'woocommerce' => WC_VERSION, 'wordpress' => get_bloginfo( 'version' ), 'theme_warnings' => 0, 'external_notices' => $qa_errors, 'orders_created' => 0, 'payments_invoked' => 0, 'outbound_blocked' => true ), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n";
+echo wp_json_encode( array( 'passed' => true, 'checks' => $qa_checks, 'woocommerce_checks' => 21, 'menu_checks' => 24, 'demo_key_checks' => 5, 'template_contract_checks' => $qa_template_contract_checks, 'template_paths_observed' => $qa_template_contract_paths, 'onboarding_payload_checks' => $qa_onboarding_payload_checks, 'woocommerce' => WC_VERSION, 'wordpress' => get_bloginfo( 'version' ), 'theme_warnings' => 0, 'external_notices' => $qa_errors, 'orders_created' => 0, 'payments_invoked' => 0, 'outbound_blocked' => true ), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n";

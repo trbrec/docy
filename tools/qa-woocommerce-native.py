@@ -17,11 +17,14 @@ TMP = Path(tempfile.gettempdir()).resolve()
 STAMP = str(time.time_ns() // 1_000_000)
 FIXTURE = TMP / ('trb-wp-mysql-qa-' + STAMP)
 DATABASE = 'trb_wp_qa_' + STAMP
+MYSQL_PORT = os.environ.get('TRB_QA_MYSQL_PORT', '3307')
+if not MYSQL_PORT.isdigit() or not 1024 <= int(MYSQL_PORT) <= 65535:
+    raise RuntimeError('A valid local fixture MySQL port is required')
 
 
 def query(sql):
     # This is the dedicated local/CI MySQL service, never a production connection.
-    code = '$db=new mysqli("127.0.0.1","root","qa_ci","",3307);$db->query(' + json.dumps(sql) + ');'
+    code = '$db=new mysqli("127.0.0.1","root","qa_ci","",' + MYSQL_PORT + ');$db->query(' + json.dumps(sql) + ');'
     subprocess.run([PHP, '-r', code], check=True, capture_output=True, text=True, timeout=30)
 
 
@@ -54,11 +57,13 @@ def main():
         extract('TRB_QA_WOOCOMMERCE_ZIP', 'https://downloads.wordpress.org/plugin/woocommerce.11.2.1.zip', FIXTURE / 'wordpress/wp-content/plugins')
         query('CREATE DATABASE ' + DATABASE + ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
         database_created = True
-        environment = dict(os.environ, TRB_WP_MYSQL_ROOT=str(FIXTURE / 'wordpress'), TRB_QA_MYSQL_DATABASE=DATABASE)
+        environment = dict(os.environ, TRB_WP_MYSQL_ROOT=str(FIXTURE / 'wordpress'), TRB_QA_MYSQL_DATABASE=DATABASE, TRB_QA_MYSQL_PORT=MYSQL_PORT)
         for mode in ('install', 'verify'):
             subprocess.run([PHP, str(ROOT / 'tests/php/woocommerce-native.php'), mode], cwd=ROOT, env=environment, check=True, timeout=180)
             if mode == 'install':
                 environment['TRB_QA_CONFIG_SHA256'] = hashlib.sha256((FIXTURE / 'wordpress/wp-config.php').read_bytes()).hexdigest()
+        subprocess.run([PHP, str(ROOT / 'tests/php/extension-native.php')], cwd=ROOT, env=environment, check=True, timeout=180)
+        subprocess.run([PHP, str(ROOT / 'tests/php/extension-native.php'), 'empty'], cwd=ROOT, env=environment, check=True, timeout=180)
     finally:
         try:
             if database_created:

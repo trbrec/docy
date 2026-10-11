@@ -35,12 +35,17 @@ function trb_demo_key_prepare( $directory, $settings, $recipient ) {
     if ( ! hash_equals( hash( 'sha256', $bytes ), hash_file( 'sha256', $path ) ) ) throw new RuntimeException( 'Private rollback backup readback failed.' );
     return array( 'prepared' => true, 'existing_credential_changed' => false, 'previous_credential_exported' => false, 'sealed_new_key' => base64_encode( $sealed ) );
 }
+function trb_demo_key_pending_status( $settings, $plan, $now ) {
+    trb_demo_key_settings( serialize( $settings ) );
+    if ( $settings['sheet_webhook_secret'] !== $plan['previous'] || $settings['sheet_webhook_url'] !== $plan['url'] || $now > $plan['prepared_at'] + 86400 ) throw new RuntimeException( 'Pending key not ready for entry.' );
+    return array( 'completed' => true, 'phase' => 'status', 'readback_verified' => true, 'pending_key_ready' => true, 'pending_key_expires_at' => $plan['prepared_at'] + 86400, 'new_key_sha256' => hash( 'sha256', $plan['next'] ), 'existing_credential_changed' => false, 'previous_credential_exported' => false );
+}
 if ( defined( 'TRB_DEMO_KEY_LIBRARY_ONLY' ) ) return;
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
 ini_set( 'display_errors', '0' ); $buffer = ob_get_level(); ob_start();
 set_exception_handler( static function() use ( $buffer ) { while ( ob_get_level() > $buffer ) ob_end_clean(); fwrite( STDERR, "Demo key operation unconfirmed. No credential exported.\n" ); exit( 1 ); } );
 $phase = $argv[1] ?? ''; $tag = $argv[2] ?? '';
-if ( ! in_array( $phase, array( 'prepare', 'apply', 'rollback' ), true ) || ! preg_match( '/^[a-f0-9]{16}$/D', $tag ) || isset( $argv[3] ) ) exit( 2 );
+if ( ! in_array( $phase, array( 'prepare', 'status', 'apply', 'rollback' ), true ) || ! preg_match( '/^[a-f0-9]{16}$/D', $tag ) || isset( $argv[3] ) ) exit( 2 );
 $site = '/home/customer/www/artist.trbrec.com'; $private = $site . '/private';
 if ( is_link( $private ) || realpath( $private ) !== $private ) throw new RuntimeException( 'Unsafe private hosting.' );
 $directory = $private . '/demo-key-alignment-' . $tag;
@@ -56,7 +61,10 @@ if ( 'prepare' === $phase ) {
     $plan = json_decode( file_get_contents( $path ), true, 8, JSON_THROW_ON_ERROR );
     if ( ! is_array( $plan ) || ! is_string( $plan['previous'] ?? null ) || ! preg_match( '/^[a-f0-9]{64}$/D', $plan['next'] ?? '' ) || ! is_int( $plan['prepared_at'] ?? null ) ) throw new RuntimeException( 'Invalid pending key.' );
     if ( 'apply' === $phase && time() > $plan['prepared_at'] + 86400 ) throw new RuntimeException( 'Pending key expired.' );
-    trb_demo_key_cas( $plan, 'rollback' === $phase );
-    $result = array( 'completed' => true, 'phase' => $phase, 'only_demo_sheet_key_changed' => true, 'readback_verified' => true, 'previous_credential_exported' => false, 'artist_messages' => 0 );
+    if ( 'status' === $phase ) $result = trb_demo_key_pending_status( get_option( 'trb_demo_automation_settings', array() ), $plan, time() );
+    else {
+        trb_demo_key_cas( $plan, 'rollback' === $phase );
+        $result = array( 'completed' => true, 'phase' => $phase, 'only_demo_sheet_key_changed' => true, 'readback_verified' => true, 'previous_credential_exported' => false, 'artist_messages' => 0 );
+    }
 }
 while ( ob_get_level() > $buffer ) ob_end_clean(); echo json_encode( $result, JSON_THROW_ON_ERROR ) . "\n";

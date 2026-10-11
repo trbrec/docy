@@ -9,6 +9,11 @@ try {
     $result = trb_demo_key_prepare( $root . '/pending', $settings, openssl_pkey_get_details( $key )['key'] );
     if ( ! openssl_private_decrypt( base64_decode( $result['sealed_new_key'], true ), $plain, $key, OPENSSL_PKCS1_OAEP_PADDING ) || ! preg_match( '/^[a-f0-9]{64}$/D', $plain ) || str_contains( json_encode( $result ), $settings['sheet_webhook_secret'] ) ) throw new RuntimeException( 'Encrypted pending key or previous-key privacy failed.' );
     $plan = json_decode( file_get_contents( $root . '/pending/rollback-and-pending.json' ), true );
+    $status = trb_demo_key_pending_status( $settings, $plan, $plan['prepared_at'] + 1 );
+    if ( ! $status['pending_key_ready'] || $status['new_key_sha256'] !== hash( 'sha256', $plain ) || $status['pending_key_expires_at'] !== $plan['prepared_at'] + 86400 || str_contains( json_encode( $status ), $plain ) || str_contains( json_encode( $status ), $settings['sheet_webhook_secret'] ) ) throw new RuntimeException( 'Read-only pending-key readiness or privacy failed.' );
+    foreach ( array( array( $settings, $plan['prepared_at'] + 86401 ), array( array_replace( $settings, array( 'sheet_webhook_secret' => 'concurrent key' ) ), $plan['prepared_at'] ), array( array_replace( $settings, array( 'sheet_webhook_url' => 'https://script.google.com/macros/s/changed/exec' ) ), $plan['prepared_at'] ) ) as [ $current, $now ] ) {
+        try { trb_demo_key_pending_status( $current, $plan, $now ); throw new LogicException( 'Unsafe pending entry accepted.' ); } catch ( RuntimeException $expected ) {}
+    }
     $changed = unserialize( trb_demo_key_next_raw( serialize( $settings ), $plan, false ) );
     if ( $changed !== array_replace( $settings, array( 'sheet_webhook_secret' => $plain ) ) ) throw new RuntimeException( 'Another setting changed.' );
     $changed['other_service'] = 'concurrent unrelated change';
