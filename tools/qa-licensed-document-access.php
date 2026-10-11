@@ -26,6 +26,7 @@ $artist = get_user_by( 'login', 'trb_audit_20261010' );
 if ( ! $artist || ! str_starts_with( $artist->user_registered, '2026-10-10 ' ) || user_can( $artist, 'manage_options' ) || empty( $artist->roles ) ) throw new RuntimeException( 'Known ordinary fictional artist required.' );
 if ( ! function_exists( 'ezd_is_premium' ) || ! ezd_is_premium() || ! function_exists( 'ezd_internal_doc_security' ) || ! is_callable( array( '\eazyDocsPro\Frontend\Login_Popup', 'locked_block_html' ) ) ) throw new RuntimeException( 'Native licensed document APIs required.' );
 $result['native_premium_license_active'] = true;
+$result['ordinary_artist_can_read_private_docs'] = user_can( $artist, 'read_private_docs' );
 $slug = 'trb-audit-doc-' . $run; $canary = 'TRB_PRIVATE_CANARY_' . $run;
 $cleanup = static function() use ( $slug, $canary, $artist, &$result ) {
     global $wpdb;
@@ -86,12 +87,15 @@ try {
     $options = array( 'protected_doc_form' => 'eazydocs-form', 'protected_form_title' => 'Accesso riservato di prova', 'protected_form_subtitle' => 'Documento temporaneo di collaudo' );
     $form = ezd_password_form( '', get_post( $doc ) );
     $check( str_contains( $form, 'Accesso riservato di prova' ) && str_contains( $form, 'Documento temporaneo di collaudo' ) && ! str_contains( $form, $canary ) );
-    wp_set_current_user( $artist->ID ); $GLOBALS['wp_query'] = clone $context; $GLOBALS['wp_query']->rewind_posts(); $GLOBALS['wp_query']->the_post();
+    // The login gate applies to anonymous viewers. The actual artist may
+    // legitimately hold read_private_docs; its role restrictions were tested above.
+    wp_set_current_user( 0 ); $GLOBALS['wp_query'] = clone $context; $GLOBALS['wp_query']->rewind_posts(); $GLOBALS['wp_query']->the_post();
     $options = array( 'private_doc_mode' => 'login' );
     $result['stage'] = 'premium_private_gate';
     $check( ! current_user_can( 'read_private_docs' ) );
     ob_start(); try { ezd_private_docs_access(); } finally { $gate = ob_get_clean(); }
     $check( ! str_contains( $gate, $canary ) );
+    wp_set_current_user( $artist->ID );
     $check( ezd_is_premium() && ! current_user_can( 'manage_options' ) );
 } finally {
     remove_filter( 'pre_option_eazydocs_settings', $option_filter, PHP_INT_MAX );
