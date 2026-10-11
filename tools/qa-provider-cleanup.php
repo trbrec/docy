@@ -27,6 +27,21 @@ function trb_qa_provider_resource_absent( $path, &$status = null ) {
     return in_array( $status, array( 404, 410 ), true );
 }
 
+/** A provider may acknowledge DELETE before its DAV collection disappears. */
+function trb_qa_provider_await_resource_absent( $path, &$status = null, &$observations = null, $pause = null ) {
+    $observations = array();
+    foreach ( array( 0, 1, 2, 4, 8 ) as $delay ) {
+        if ( $delay ) { if ( null === $pause ) sleep( $delay ); else $pause( $delay ); }
+        $absent = trb_qa_provider_resource_absent( $path, $status );
+        $observations[] = $status;
+        if ( $absent ) return true;
+        // Retry only a resource that is still present. Authentication, transport
+        // and other ambiguous failures must remain failures, never absence.
+        if ( 207 !== $status ) return false;
+    }
+    return false;
+}
+
 /** Retain member status codes, never provider paths or response bodies, for ambiguous DELETEs. */
 function trb_qa_provider_multistatus_codes( $response ) {
     if ( is_wp_error( $response ) || 207 !== (int) wp_remote_retrieve_response_code( $response ) ) return array();
@@ -83,7 +98,7 @@ function trb_qa_provider_cleanup_stale( $bytes ) {
             trb_webdav_request( trb_demo_settings(), 'DELETE', $file );
         } elseif ( ! in_array( $status, array( 404, 410 ), true ) ) throw new RuntimeException( 'QA readback unavailable.' );
         trb_webdav_request( trb_demo_settings(), 'DELETE', $folder . '/' );
-        if ( ! trb_qa_provider_resource_absent( $folder . '/' ) ) throw new RuntimeException( 'Stale QA archive cleanup unconfirmed.' );
+        if ( ! trb_qa_provider_await_resource_absent( $folder . '/' ) ) throw new RuntimeException( 'Stale QA archive cleanup unconfirmed.' );
         $removed++;
     }
     return $removed;

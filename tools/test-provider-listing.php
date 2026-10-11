@@ -2,7 +2,7 @@
 /** Real DAV XML can consist entirely of namespaced children. */
 require __DIR__ . '/qa-provider-cleanup.php';
 function trb_demo_settings() { return array(); }
-function trb_webdav_request( ...$args ) { $GLOBALS['last_request'] = $args; return $GLOBALS['response']; }
+function trb_webdav_request( ...$args ) { $GLOBALS['last_request'] = $args; return ! empty( $GLOBALS['response_queue'] ) ? array_shift( $GLOBALS['response_queue'] ) : $GLOBALS['response']; }
 function is_wp_error( $value ) { return $value instanceof RuntimeException; }
 function wp_remote_retrieve_response_code( $value ) { return $value['status']; }
 function wp_remote_retrieve_body( $value ) { return $value['body']; }
@@ -24,6 +24,16 @@ foreach ( array( 404, 410 ) as $code ) {
 $GLOBALS['response'] = new RuntimeException( 'Synthetic transport failure' );
 if ( trb_qa_provider_resource_absent( '/Cartella prova/QA-AUDIT-0123456789abcdef/', $status ) || 0 !== $status ) throw new RuntimeException( 'Transport failure treated as absence.' );
 if ( $GLOBALS['last_request'][1] !== 'PROPFIND' || $GLOBALS['last_request'][4] !== array( 'Depth' => '0', 'Cache-Control' => 'no-cache' ) ) throw new RuntimeException( 'Collection absence relies on an ordinary GET.' );
+$pauses = array();
+$pause = static function( $seconds ) use ( &$pauses ) { $pauses[] = $seconds; };
+$GLOBALS['response_queue'] = array_map( static fn( $code ) => array( 'status' => $code, 'body' => '' ), array( 207, 207, 404 ) );
+if ( ! trb_qa_provider_await_resource_absent( '/owned-test/', $status, $observations, $pause ) || $observations !== array( 207, 207, 404 ) || $pauses !== array( 1, 2 ) ) throw new RuntimeException( 'Delayed native absence must be independently observed.' );
+$pauses = array(); $GLOBALS['response'] = array( 'status' => 207, 'body' => '' );
+if ( trb_qa_provider_await_resource_absent( '/owned-test/', $status, $observations, $pause ) || $observations !== array_fill( 0, 5, 207 ) || $pauses !== array( 1, 2, 4, 8 ) ) throw new RuntimeException( 'Persistent collection must fail after bounded read-only checks.' );
+foreach ( array( 0, 200, 204, 301, 401, 403, 423, 500 ) as $code ) {
+    $pauses = array(); $GLOBALS['response'] = array( 'status' => $code, 'body' => '' );
+    if ( trb_qa_provider_await_resource_absent( '/owned-test/', $status, $observations, $pause ) || $observations !== array( $code ) || $pauses ) throw new RuntimeException( 'Ambiguous or denied absence must fail without retry.' );
+}
 $multi = array( 'status' => 207, 'body' => '<D:multistatus xmlns:D="DAV:"><D:response><D:href>/private-provider-path</D:href><D:status>HTTP/1.1 403 Forbidden</D:status></D:response><D:response><D:status>HTTP/1.1 423 Locked</D:status></D:response></D:multistatus>' );
 if ( trb_qa_provider_multistatus_codes( $multi ) !== array( 403, 423 ) ) throw new RuntimeException( 'Member failures must remain visible without exporting provider paths.' );
 foreach ( array( '<broken', '<!DOCTYPE x [<!ENTITY e SYSTEM "file:///unreadable">]><multistatus>&e;</multistatus>', str_repeat( 'x', 1048577 ) ) as $body ) {

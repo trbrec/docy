@@ -88,7 +88,8 @@ try {
         $result['pcloud_folder_delete_member_statuses'] = trb_qa_provider_multistatus_codes( $folder_deleted );
         $absent = trb_webdav_request( trb_demo_settings(), 'GET', $remote, null, array( 'Cache-Control' => 'no-cache' ) );
         $file_resource_absent = trb_qa_provider_resource_absent( $remote, $file_resource_status );
-        $folder_resource_absent = trb_qa_provider_resource_absent( $folder . '/', $folder_resource_status );
+        $folder_resource_absent = trb_qa_provider_await_resource_absent( $folder . '/', $folder_resource_status, $folder_observations );
+        $result['pcloud_folder_absence_observations'] = $folder_observations;
         $result['pcloud_cleanup_http'] = array( is_wp_error( $file_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $file_deleted ), is_wp_error( $folder_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $folder_deleted ), is_wp_error( $absent ) ? 0 : (int) wp_remote_retrieve_response_code( $absent ) );
         $result['pcloud_file_absence_http'] = $file_resource_status;
         $result['pcloud_folder_absence_http'] = $folder_resource_status;
