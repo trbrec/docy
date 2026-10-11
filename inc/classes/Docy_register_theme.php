@@ -127,16 +127,6 @@ class Docy_register_theme {
 	 * since 1.0.0
 	 */
 	function form() {
-		$purchase_code_status = trim( get_option( 'docy_purchase_code_status' ) );
-		$strings              = $this->strings;
-		if ( $purchase_code_status == 'valid' ) {
-			$type = 'password';
-		} else {
-			$type = 'text';
-		}
-		$license = trim( get_option( $this->theme_slug . '_purchase_code' ) );
-		$email   = get_option( $this->theme_slug . '_register_email', false );
-		$status  = get_option( $this->theme_slug . '_purchase_code_status', false );
 		$purchase_code_status = get_option('docy_purchase_code_status');
 		$license = get_option('docy_purchase_code');
 		$button_text = ($purchase_code_status === 'valid') ? 'Reset License' : 'Verify License';
@@ -161,7 +151,7 @@ class Docy_register_theme {
 		register_setting(
 			$this->theme_slug . '-license',
 			$this->theme_slug . '_purchase_code',
-			array( $this, 'sanitize_license' )
+			array( 'sanitize_callback' => 'sanitize_text_field' )
 		);
 		register_setting(
 			$this->theme_slug . '-license',
