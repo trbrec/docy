@@ -20,6 +20,30 @@ function trb_qa_provider_remove_local_fixture( $fixture ) {
     return unlink( $path );
 }
 
+/** Collection GET may fail even when the collection exists; inspect its DAV resource. */
+function trb_qa_provider_resource_absent( $path, &$status = null ) {
+    $response = trb_webdav_request( trb_demo_settings(), 'PROPFIND', $path, '', array( 'Depth' => '0', 'Cache-Control' => 'no-cache' ) );
+    $status = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+    return in_array( $status, array( 404, 410 ), true );
+}
+
+/** Retain member status codes, never provider paths or response bodies, for ambiguous DELETEs. */
+function trb_qa_provider_multistatus_codes( $response ) {
+    if ( is_wp_error( $response ) || 207 !== (int) wp_remote_retrieve_response_code( $response ) ) return array();
+    $body = wp_remote_retrieve_body( $response );
+    if ( ! is_string( $body ) || strlen( $body ) > 1048576 || preg_match( '/<!DOCTYPE|<!ENTITY/i', $body ) ) return null;
+    $previous = libxml_use_internal_errors( true );
+    try { $xml = simplexml_load_string( $body, 'SimpleXMLElement', LIBXML_NONET ); }
+    finally { libxml_clear_errors(); libxml_use_internal_errors( $previous ); }
+    if ( false === $xml || 'multistatus' !== $xml->getName() ) return null;
+    $codes = array();
+    foreach ( $xml->xpath( '//*[local-name()="status"]' ) as $entry ) {
+        if ( ! preg_match( '~^HTTP/[0-9]+(?:\.[0-9]+)? ([1-5][0-9]{2})(?: |$)~D', trim( (string) $entry ), $match ) ) return null;
+        $codes[] = (int) $match[1];
+    }
+    return array_values( array_unique( $codes ) );
+}
+
 /** Remove only identifiable, old QA folders containing our exact synthetic bytes. */
 function trb_qa_provider_listing( $folder ) {
     $response = trb_webdav_request( trb_demo_settings(), 'PROPFIND', $folder . '/', '', array( 'Depth' => '1' ) );
@@ -59,8 +83,7 @@ function trb_qa_provider_cleanup_stale( $bytes ) {
             trb_webdav_request( trb_demo_settings(), 'DELETE', $file );
         } elseif ( ! in_array( $status, array( 404, 410 ), true ) ) throw new RuntimeException( 'QA readback unavailable.' );
         trb_webdav_request( trb_demo_settings(), 'DELETE', $folder . '/' );
-        $absent = trb_webdav_request( trb_demo_settings(), 'GET', $folder . '/', null, array( 'Cache-Control' => 'no-cache' ) );
-        if ( is_wp_error( $absent ) || ! in_array( (int) wp_remote_retrieve_response_code( $absent ), array( 404, 410 ), true ) ) throw new RuntimeException( 'Stale QA archive cleanup unconfirmed.' );
+        if ( ! trb_qa_provider_resource_absent( $folder . '/' ) ) throw new RuntimeException( 'Stale QA archive cleanup unconfirmed.' );
         $removed++;
     }
     return $removed;

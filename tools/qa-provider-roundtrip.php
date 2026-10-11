@@ -84,10 +84,16 @@ try {
     if ( $made ) {
         $file_deleted = trb_webdav_request( trb_demo_settings(), 'DELETE', $remote );
         $folder_deleted = trb_webdav_request( trb_demo_settings(), 'DELETE', $folder . '/' );
+        $result['pcloud_folder_delete_member_statuses'] = trb_qa_provider_multistatus_codes( $folder_deleted );
         $absent = trb_webdav_request( trb_demo_settings(), 'GET', $remote, null, array( 'Cache-Control' => 'no-cache' ) );
-        $folder_absent = trb_webdav_request( trb_demo_settings(), 'GET', $folder . '/', null, array( 'Cache-Control' => 'no-cache' ) );
+        $file_resource_absent = trb_qa_provider_resource_absent( $remote, $file_resource_status );
+        $folder_resource_absent = trb_qa_provider_resource_absent( $folder . '/', $folder_resource_status );
         $result['pcloud_cleanup_http'] = array( is_wp_error( $file_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $file_deleted ), is_wp_error( $folder_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $folder_deleted ), is_wp_error( $absent ) ? 0 : (int) wp_remote_retrieve_response_code( $absent ) );
-        $result['pcloud_folder_absence_http'] = is_wp_error( $folder_absent ) ? 0 : (int) wp_remote_retrieve_response_code( $folder_absent );
-        $result['pcloud_cleanup'] = in_array( $result['pcloud_cleanup_http'][0], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][1], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][2], array( 404, 410 ), true ) && in_array( $result['pcloud_folder_absence_http'], array( 404, 410 ), true );
+        $result['pcloud_file_absence_http'] = $file_resource_status;
+        $result['pcloud_folder_absence_http'] = $folder_resource_status;
+        $result['pcloud_absence_protocol'] = 'PROPFIND_Depth_0';
+        $result['pcloud_delete_acknowledged'] = in_array( $result['pcloud_cleanup_http'][0], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][1], array( 200, 204, 404, 410 ), true );
+        // Preserve ambiguous DELETE statuses; only independent file AND collection absence confirms cleanup.
+        $result['pcloud_cleanup'] = $file_resource_absent && $folder_resource_absent && in_array( $result['pcloud_cleanup_http'][2], array( 404, 410 ), true );
     }
 }

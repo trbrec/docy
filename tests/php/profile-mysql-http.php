@@ -52,6 +52,11 @@ if ( $qaServing ) {
                 'dark_mode' => __( 'Toggle dark mode', 'docy' ),
                 'registered' => sprintf( __( 'Registered: %s', 'docy' ), '2026' ),
                 'quantity' => _x( 'Qty', 'Product quantity input tooltip', 'docy' ),
+                'invalid_nonce' => __( 'Error: Invalid nonce verification.', 'docy' ),
+                'unsaved_changes' => __( 'You have unsaved changes, save your changes!', 'docy' ),
+                'forum_login' => __( 'You must be logged in to subscribe to this topic.', 'docy' ),
+                'search_focus' => __( 'Search ("/" to focus)', 'docy' ),
+                'reply_format' => sprintf( __( 'Reply #%1$s in %2$s', 'docy' ), 123, 'Prova' ),
             ) );
         }
         if ( ( $_POST['action'] ?? '' ) === 'qa_public_search' ) {
