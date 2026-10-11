@@ -133,6 +133,10 @@ if ( $qaServing ) {
             wp_send_json( $response->get_data(), $response->get_status() );
         }
         if ( ( $_POST['action'] ?? '' ) === 'qa_demo_worker' ) require __DIR__ . '/demo-worker-http.php';
+        if ( ( $_POST['action'] ?? '' ) === 'trb_release_contract_callback' ) {
+            require dirname( __DIR__, 2 ) . '/inc/trb-release-spreadsheet-bridge.php';
+            trb_release_bridge_public_callback();
+        }
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_stage_release_chunk' ) trb_portal_stage_release_chunk();
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_submit_demo' ) {
             require dirname( __DIR__, 2 ) . '/inc/trb-crm-connector.php';
@@ -363,6 +367,7 @@ try {
     require __DIR__ . '/theme-text-cases.php';
     require __DIR__ . '/theme-translations-cases.php';
     require __DIR__ . '/theme-license-settings-cases.php';
+    require __DIR__ . '/release-callback-mysql-cases.php';
     $qaCartOldUser = get_current_user_id();
     wp_set_current_user( $qaUser );
     $qaCartNonce = wp_create_nonce( 'docy-buy-now-nonce' );
