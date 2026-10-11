@@ -32,6 +32,8 @@ jobs:
           tar -xzf /tmp/trb-qa-core.tar.gz -C "/tmp/trb-wp-mysql-qa-${GITHUB_RUN_ID}"
       - name: Verify ordinary artist profile using real WordPress, MySQL and HTTP uploads
         run: TRB_WP_MYSQL_ROOT="/tmp/trb-wp-mysql-qa-${GITHUB_RUN_ID}/wordpress" php tests/php/profile-mysql-http.php
+      - name: Verify native WooCommerce cart and international checkout rendering
+        run: python3 tools/qa-woocommerce-native.py
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15

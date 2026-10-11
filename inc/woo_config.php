@@ -101,13 +101,10 @@ function docy_disable_checkout_fields( $fields ) {
 		}
 	}
 
-	// if the last name is unset then the first name will be full width
-	if ( isset( $fields['billing']['billing_last_name'] ) ) {
-		$fields['billing']['billing_first_name']['class']   = [ 'col-md-6' ];
-		$fields['shipping']['shipping_first_name']['class'] = [ 'col-md-6' ];
-	} else {
-		$fields['billing']['billing_first_name']['class']   = [ 'col-md-12' ];
-		$fields['shipping']['shipping_first_name']['class'] = [ 'col-md-12' ];
+	foreach ( array( 'billing', 'shipping' ) as $section ) {
+		if ( isset( $fields[ $section ][ $section . '_first_name' ] ) ) {
+			$fields[ $section ][ $section . '_first_name' ]['class'] = isset( $fields[ $section ][ $section . '_last_name' ] ) ? [ 'col-md-6' ] : [ 'col-md-12' ];
+		}
 	}
 	return $fields;
 }

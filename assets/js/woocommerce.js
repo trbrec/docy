@@ -120,35 +120,24 @@
          * Increment and decrement quantity in product single page and cart page
          */
         
-        // Increase quantity
-        if ($(".ar_top").length) {
-            $(".ar_top").on("click", function () {
-                var getID = $(this).next().attr("id");
-                var result = document.getElementById(getID);
-                var qty = result.value;
-                $(".woocommerce-cart .update-cart").removeAttr("disabled");
-                if (!isNaN(qty)) {
-                    result.value++;
-                    $(".cart_btn.ajax_add_to_cart").attr("data-quantity", result.value);
-                } else {
-                    return false;
-                }
-            });
-
-            // Decrease quantity
-            $(".ar_down").on("click", function () {
-                var getID = $(this).prev().attr("id");
-                var result = document.getElementById(getID);
-                var qty = result.value;
-                $(".woocommerce-cart .update-cart").removeAttr("disabled");
-                if (!isNaN(qty) && qty > 0) {
-                    result.value--;
-                    $(".cart_btn.ajax_add_to_cart").attr("data-quantity", result.value);
-                } else {
-                    return false;
-                }
-            });
-        }
+        $(document).on('click', '.ar_top, .ar_down', function () {
+            var input = $(this).closest('.product-qty').find('input.qty')[0];
+            if (!input || input.disabled || input.readOnly || input.type === 'hidden') return;
+            var previous = input.value;
+            var increasing = $(this).hasClass('ar_top');
+            if (input.type === 'number' && input.step !== 'any') {
+                try { increasing ? input.stepUp() : input.stepDown(); } catch (error) { return; }
+            } else {
+                var value = Number(input.value);
+                var step = Number(input.step) || 1;
+                if (!Number.isFinite(value) || step <= 0) return;
+                var next = Number((value + (increasing ? step : -step)).toFixed(10));
+                if (input.min !== '') next = Math.max(next, Number(input.min));
+                if (input.max !== '') next = Math.min(next, Number(input.max));
+                input.value = String(next);
+            }
+            if (input.value !== previous) $(input).trigger('input').trigger('change');
+        });
         
     });
     
