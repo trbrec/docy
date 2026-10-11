@@ -17,6 +17,7 @@ CSF::createOptions( $prefix, array(
     'menu_hidden' => false,
     'menu_parent' => 'docy_template',
     'menu_capability' => 'manage_options',
+    'footer_text' => '',
 ));
 
 require get_template_directory() . '/options/opt_general.php';
