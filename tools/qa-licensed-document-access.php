@@ -12,7 +12,10 @@ register_shutdown_function( static function() use ( &$result, &$cleanup, &$reser
     while ( ob_get_level() > $buffer ) ob_end_clean();
     echo json_encode( $result ) . "\n";
 } );
-set_exception_handler( static function() { exit( 1 ); } );
+set_exception_handler( static function( $error ) use ( &$result ) {
+    $result['failure'] = array( 'class' => get_class( $error ), 'file' => basename( $error->getFile() ), 'line' => $error->getLine() );
+    exit( 1 );
+} );
 define( 'DISABLE_WP_CRON', true ); define( 'WP_USE_THEMES', false );
 $_SERVER['HTTP_HOST'] = 'artist.trbrec.com'; $_SERVER['REQUEST_URI'] = '/'; $_SERVER['HTTPS'] = 'on';
 // WordPress supports preinitialized hooks: block delivery before plugin bootstrap.
@@ -40,7 +43,9 @@ $cleanup();
 $prior_options = get_option( 'eazydocs_settings', null );
 $check = static function( $condition ) use ( &$result ) { if ( ! $condition ) throw new RuntimeException( 'Licensed document assertion failed.' ); ++$result['checks']; };
 wp_set_current_user( $artist->ID );
+$result['stage'] = 'create_owned_document';
 $doc = wp_insert_post( array( 'post_type' => 'docs', 'post_status' => 'private', 'post_name' => $slug, 'post_title' => 'Collaudo riservato temporaneo', 'post_content' => $canary, 'post_author' => $artist->ID, 'comment_status' => 'closed', 'ping_status' => 'closed' ), true );
+if ( is_wp_error( $doc ) ) $result['insert_error_code'] = sanitize_key( $doc->get_error_code() );
 $check( ! is_wp_error( $doc ) && $doc > 0 );
 $admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
 $check( count( $admins ) === 1 );
@@ -51,6 +56,7 @@ $options = array();
 $option_filter = static function() use ( &$options ) { return $options; };
 add_filter( 'pre_option_eazydocs_settings', $option_filter, PHP_INT_MAX );
 try {
+    $result['stage'] = 'licensed_role_matrix';
     $role = $artist->roles[0];
     foreach ( array(
         array( array( 'private_doc_access_type' => 'all_users' ), array( false, true, true ) ),
@@ -71,11 +77,13 @@ try {
     wp_set_current_user( 0 ); $public_query = new WP_Query( array( 'post_type' => 'docs', 'p' => $doc ) );
     $check( ! $public_query->have_posts() );
     // Exercise premium-only password form customization with synthetic labels.
+    $result['stage'] = 'premium_password_form';
     $options = array( 'protected_doc_form' => 'eazydocs-form', 'protected_form_title' => 'Accesso riservato di prova', 'protected_form_subtitle' => 'Documento temporaneo di collaudo' );
     $form = ezd_password_form( '', get_post( $doc ) );
     $check( str_contains( $form, 'Accesso riservato di prova' ) && str_contains( $form, 'Documento temporaneo di collaudo' ) && ! str_contains( $form, $canary ) );
     wp_set_current_user( $artist->ID ); $GLOBALS['wp_query'] = clone $context; $GLOBALS['wp_query']->rewind_posts(); $GLOBALS['wp_query']->the_post();
     $options = array( 'private_doc_mode' => 'login' );
+    $result['stage'] = 'premium_private_gate';
     $check( ! current_user_can( 'read_private_docs' ) );
     ob_start(); try { ezd_private_docs_access(); } finally { $gate = ob_get_clean(); }
     $check( ! str_contains( $gate, $canary ) );
@@ -86,4 +94,5 @@ try {
     $cleanup();
 }
 $result['completed'] = true;
+$result['stage'] = 'complete';
 $result['scope'] = 'Native licensed APIs, five role configurations, denial renderer, premium password form and login gate. Synthetic settings are process-local filters; no persistent settings or license changes.';
