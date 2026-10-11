@@ -27,9 +27,9 @@ if ( $GLOBALS['last_request'][1] !== 'PROPFIND' || $GLOBALS['last_request'][4] !
 $pauses = array();
 $pause = static function( $seconds ) use ( &$pauses ) { $pauses[] = $seconds; };
 $GLOBALS['response_queue'] = array_map( static fn( $code ) => array( 'status' => $code, 'body' => '' ), array( 207, 207, 404 ) );
-if ( ! trb_qa_provider_await_resource_absent( '/owned-test/', $status, $observations, $pause ) || $observations !== array( 207, 207, 404 ) || $pauses !== array( 1, 2 ) ) throw new RuntimeException( 'Delayed native absence must be independently observed.' );
+if ( ! trb_qa_provider_await_resource_absent( '/owned-test/', $status, $observations, $pause ) || $observations !== array( 207, 207, 404 ) || $pauses !== array( 2, 5 ) ) throw new RuntimeException( 'Delayed native absence must be independently observed.' );
 $pauses = array(); $GLOBALS['response'] = array( 'status' => 207, 'body' => '' );
-if ( trb_qa_provider_await_resource_absent( '/owned-test/', $status, $observations, $pause ) || $observations !== array_fill( 0, 5, 207 ) || $pauses !== array( 1, 2, 4, 8 ) ) throw new RuntimeException( 'Persistent collection must fail after bounded read-only checks.' );
+if ( trb_qa_provider_await_resource_absent( '/owned-test/', $status, $observations, $pause ) || $observations !== array_fill( 0, 6, 207 ) || $pauses !== array( 2, 5, 10, 20, 30 ) ) throw new RuntimeException( 'Persistent collection must fail after bounded read-only checks.' );
 foreach ( array( 0, 200, 204, 301, 401, 403, 423, 500 ) as $code ) {
     $pauses = array(); $GLOBALS['response'] = array( 'status' => $code, 'body' => '' );
     if ( trb_qa_provider_await_resource_absent( '/owned-test/', $status, $observations, $pause ) || $observations !== array( $code ) || $pauses ) throw new RuntimeException( 'Ambiguous or denied absence must fail without retry.' );

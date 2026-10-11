@@ -30,7 +30,7 @@ function trb_qa_provider_resource_absent( $path, &$status = null ) {
 /** A provider may acknowledge DELETE before its DAV collection disappears. */
 function trb_qa_provider_await_resource_absent( $path, &$status = null, &$observations = null, $pause = null ) {
     $observations = array();
-    foreach ( array( 0, 1, 2, 4, 8 ) as $delay ) {
+    foreach ( array( 0, 2, 5, 10, 20, 30 ) as $delay ) {
         if ( $delay ) { if ( null === $pause ) sleep( $delay ); else $pause( $delay ); }
         $absent = trb_qa_provider_resource_absent( $path, $status );
         $observations[] = $status;
