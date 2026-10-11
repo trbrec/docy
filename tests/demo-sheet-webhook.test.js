@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
 const secret = 's'.repeat(64);
+const hmacCharsets = [];
 class Range {
   constructor(sheet, row, column, rows, columns) { Object.assign(this, { sheet, row, column, rows, columns }); }
   getDisplayValues() { return Array.from({length: this.rows}, (_,r) => Array.from({length: this.columns}, (_,c) => String(this.sheet.cells[this.row-1+r]?.[this.column-1+c] ?? ''))); }
@@ -33,12 +34,13 @@ const book = {getSheetByName: name => sheets.get(name) ?? null, insertSheet(name
 const context = vm.createContext({
   console: {error() {},log() {}},
   PropertiesService: {getScriptProperties: () => ({getProperty: () => secret})},
-  Utilities: {Charset:{UTF_8:'UTF-8'},base64Encode:text=>Buffer.from(text).toString('base64'),base64Decode: text => Buffer.from(text,'base64'), newBlob: bytes => ({getDataAsString: () => bytes.toString('utf8')}), computeHmacSha256Signature: (text,key) => [...crypto.createHmac('sha256',key).update(text).digest()]},
+  Utilities: {Charset:{UTF_8:'UTF-8'},base64Encode:text=>Buffer.from(text).toString('base64'),base64Decode: text => Buffer.from(text,'base64'), newBlob: bytes => ({getDataAsString: () => bytes.toString('utf8')}), computeHmacSha256Signature: (text,key,charset) => {hmacCharsets.push(charset); return [...crypto.createHmac('sha256',key).update(text,'utf8').digest()];}},
   LockService: {getScriptLock: () => ({waitLock() {},releaseLock() {}})},
   SpreadsheetApp: {openById: () => book, flush() {}},
   ContentService: {MimeType: {JSON:'json'}, createTextOutput: text => ({text,getContent(){return text;},setMimeType() { return this; }})}
 });
 vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../integrations/google-apps-script/demo-sheet-webhook.gs'),'utf8'),context);
+assert.equal(context.hmacHex_('Collaudo l’onda تونس','TRB_TEST_ONLY_UTF8_VECTOR'),'9a8b7785362baea3e9c698df91cd4f104a6d30c5f6712299b0293611c461e36c','Independent Python/PHP-compatible UTF-8 vector');
 function post(data, valid = true) {
   const payload = JSON.stringify(data);
   const envelope = {payload_base64: Buffer.from(payload).toString('base64'), signature: crypto.createHmac('sha256',secret).update(payload).digest('hex')};
@@ -80,4 +82,5 @@ sheets.get('2026 NEW').failWrite=false;
 assert.equal(post(production).success,true);
 assert.equal(post(production).duplicate,true);
 assert.equal(sheets.get('2026 NEW').cells[1][3],row.nome_arte);
+assert.ok(hmacCharsets.length>0 && hmacCharsets.every(charset=>charset==='UTF-8'),'Application signatures must explicitly select UTF-8; a UTF-8-only test double must not conceal an omitted charset');
 console.log('Signed Sheets writes, literal formula-like text, readback, idempotency and isolated QA cleanup verified.');

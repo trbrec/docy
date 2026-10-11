@@ -179,7 +179,7 @@ function ensureHeaders_(sheet) {
 }
 
 function hmacHex_(text, secret) {
-  return Utilities.computeHmacSha256Signature(text, secret)
+  return Utilities.computeHmacSha256Signature(text, secret, Utilities.Charset.UTF_8)
     .map(function (value) {
       const byte = value < 0 ? value + 256 : value;
       return ('0' + byte.toString(16)).slice(-2);
@@ -204,4 +204,15 @@ function json_(payload) {
   return ContentService
     .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Public synthetic vector: no account credential or spreadsheet access. */
+function testUtf8SignatureCompatibility() {
+  const text = "Collaudo l’onda تونس";
+  const key = "TRB_TEST_ONLY_UTF8_VECTOR";
+  const expected = "9a8b7785362baea3e9c698df91cd4f104a6d30c5f6712299b0293611c461e36c";
+  const hex = bytes => bytes.map(value => ("0" + ((value + 256) % 256).toString(16)).slice(-2)).join("");
+  const result = { default_utf8_compatible: hex(Utilities.computeHmacSha256Signature(text, key)) === expected, explicit_utf8_compatible: hex(Utilities.computeHmacSha256Signature(text, key, Utilities.Charset.UTF_8)) === expected };
+  console.log(JSON.stringify(result));
+  return result;
 }
