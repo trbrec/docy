@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+if(PHP_SAPI!=='cli')exit(1);
 require_once __DIR__.'/../integrations/onboarding/crm/OnboardingService.php';
 use TrbCrm\OnboardingLedger;use TrbCrm\OnboardingService;use TrbCrm\OnboardingContractCatalog;
 function service_check(bool $condition,string $name):void{if(!$condition)throw new RuntimeException($name);}
@@ -8,11 +9,11 @@ $db=new PDO('sqlite::memory:');$db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_
 $snapshot=OnboardingContractCatalog::model('ddb_ccad_600')+['unsigned_document_sha256'=>str_repeat('a',64),'first_name'=>'Mario','last_name'=>'Rossi','artist_name'=>'Artista di collaudo','email'=>'test@example.invalid','artist_folder_id'=>'drive-owner-333','contract_number'=>'TEST-1234'];
 $created=$ledger->create(123,$snapshot,gmdate('c',time()+86400));$id=$created['id'];
 $archive=new class{public int $sequence=0;public bool $auditFailure=true;public function artistFolder($group,$folder){return [];}public function url($file,$folder,$hash){return 'https://files.pcloud.com/example';}public function createUpload($folder,$id,$slot){return ['folder_id'=>'drive-folder-'.(++$this->sequence),'upload_link_id'=>$this->sequence,'expires_at'=>gmdate('c',time()+7200),'slot'=>$slot];}public function verifyArtifact($grant,$sha,$folder){if($grant['slot']==='signature_audit'&&$this->auditFailure){$this->auditFailure=false;throw new RuntimeException('synthetic archive response lost');}return ['file_id'=>'drive-file-'.$grant['upload_link_id'],'folder_id'=>$grant['folder_id'],'hash'=>'remote-hash','sha256'=>$sha,'artist_folder_id'=>$folder,'name'=>$grant['slot'].'.pdf','size'=>200];}};
-$reader=new class{public function extract($docs){service_check(array_column($docs,'slot')===['identity_front','tax_front'],'only the two labeled fronts reach the reader');return ['identity_document'=>true,'tax_document'=>true,'legible'=>true,'first_name'=>'Mario Antonio','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_legible'=>true,'tax_first_name'=>'Mario Antonio','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W'];}};
-$order=null;$status='pending';$badEmail=false;$activationCalls=0;
-$portal=function($payload)use(&$order,&$status,&$badEmail,&$activationCalls,$snapshot,$id){
+$reader=new class{public function extract($docs){service_check(array_column($docs,'slot')===['identity_front','identity_back','tax_front','tax_back'],'all four labeled document sides reach the reader');return ['identity_back_document'=>true,'identity_sides_consistent'=>true,'tax_back_document'=>true,'tax_sides_consistent'=>true,'identity_document'=>true,'tax_document'=>true,'legible'=>true,'first_name'=>'Mario Antonio','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_legible'=>true,'tax_first_name'=>'Mario Antonio','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W'];}};
+$order=null;$status='pending';$badEmail=false;$activationCalls=0;$badCheckout=[];
+$portal=function($payload)use(&$order,&$status,&$badEmail,&$activationCalls,&$badCheckout,$snapshot,$id){
  if($payload['action']==='activate_account'){$activationCalls++;return ['activated'=>true,'practice_id'=>$id,'portal_user_id'=>$payload['portal_user_id']];}
- if($payload['action']==='store_order'){$order=$payload;return ['order_id'=>101,'checkout_url'=>'https://store.trbrec.com/checkout/order-pay/101/','paid'=>false];}
+ if($payload['action']==='store_order'){$order=$payload;return array_replace(['order_id'=>101,'checkout_url'=>'https://store.trbrec.com/checkout/order-pay/101/','paid'=>false],$badCheckout);}
  if($payload['action']==='store_status')return ['practice_id'=>$id,'number'=>1,'snapshot_sha256'=>$order['snapshot_sha256'],'email'=>$badEmail?'other@example.invalid':$snapshot['email'],'provider'=>'woocommerce','transaction_id'=>'order:101:provider-proof','amount_cents'=>$order['amount_cents'],'currency'=>'EUR','paid_on'=>(new DateTimeImmutable('now',new DateTimeZone('Europe/Rome')))->format('Y-m-d'),'status'=>$status,'captured'=>$status==='confirmed'];
  throw new RuntimeException('unexpected portal action');
 };
@@ -29,7 +30,7 @@ $script=function($payload)use(&$dispatches,&$dispatchResponseLost,&$completed,&$
 $service=new OnboardingService($ledger,$archive,$reader,$portal,$script);
 $presented=$service->view($ledger->practice($id));
 service_check($presented['nominal_cents']===60000,'Original DDB quota remains 600 euros');
-foreach(['C'=>['Opzione A – Unica soluzione',54000,6000],'B'=>['Opzione B – Due versamenti',28500,3000],'A'=>['Opzione C – Rate mensili senza interessi',15000,0]] as $key=>[$label,$first,$saving]){
+foreach(['C'=>['Unica soluzione',54000,6000],'B'=>['Due versamenti mensili',28500,3000],'A'=>['Rate mensili senza interessi',15000,0]] as $key=>[$label,$first,$saving]){
  service_check($presented['plans'][$key]['display_label']===$label&&$presented['plans'][$key]['amounts_cents'][0]===$first,'Visible alternative retains its exact first payment');
  service_check($presented['nominal_cents']-$presented['plans'][$key]['total_cents']===$saving,'Exact saving is derived from the original fee');
 }
@@ -37,13 +38,8 @@ service_check($ledger->practice($id)['snapshot']['plans']===$snapshot['plans'],'
 $details=['privacy_acknowledged'=>true,'billing'=>['address_1'=>'Via collaudo 11/A','street'=>'Via collaudo','street_number'=>'11/A','city'=>'Roma','postcode'=>'00100','country'=>'IT','phone'=>'+393330000000'],'tax_code'=>'RSSMRA90A01H501W'];
 $details['profile']=['birth_date'=>'1990-01-01','birth_place'=>'Roma','birth_province'=>'RM','document_number'=>'CA12345AB','document_expiry'=>'2090-01-01'];
 $service->details($ledger->practice($id),$details);
-foreach(['+216 20 000 000','00216 20 000 000'] as $phone){
- $international=$details;$international['billing']['phone']=$phone;$service->details($ledger->practice($id),$international);
- service_check($ledger->details($id)['billing']['phone']==='+21620000000','International number survives administrative storage');
-}
-$service->details($ledger->practice($id),$details);
 service_check($ledger->details($id)['billing']['street_number']==='11/A'&&$ledger->details($id)['profile']['document_number']==='CA12345AB','structured portal fields survive CRM storage');
-foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>10+$i,'folder_id'=>333,'hash'=>'h'.$i,'name'=>$slot.'.pdf']);
+foreach(['identity_front','identity_back','tax_front','tax_back'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>10+$i,'folder_id'=>333,'hash'=>'h'.$i,'name'=>$slot.'.pdf']);
 $mismatch=$details;$mismatch['profile']['birth_date']='1991-01-01';$service->details($ledger->practice($id),$mismatch);$service->identity($ledger->practice($id));$service->processIdentity($id);service_check($service->view($ledger->practice($id))['state']==='identity_review','declared birth date cannot contradict the documents');$service->details($ledger->practice($id),$details);$service->identity($ledger->practice($id));$service->processIdentity($id);
 $service_reject=fn()=>null;
 service_reject(fn()=>$service->choose($ledger->practice($id),'C',str_repeat('a',64),false),'proposal acknowledgement necessary');
@@ -52,6 +48,12 @@ service_check($service->view($ledger->practice($id))['can_change_plan'],'Formula
 $service->choose($ledger->practice($id),'A',str_repeat('a',64),true);service_check($service->view($ledger->practice($id))['selected_plan']['amounts_cents'][0]===15000,'Monthly alternative replaces the single payment before checkout');
 $service->choose($ledger->practice($id),'B',str_repeat('a',64),true);service_check($service->view($ledger->practice($id))['selected_plan']['amounts_cents'][0]===28500,'Two-payment alternative uses the exact first amount');
 $service->choose($ledger->practice($id),'C',str_repeat('a',64),true);service_check($ledger->details($id)['plan_key']==='C','Accepted replacement updates its acknowledgement atomically');
+foreach([['checkout_url'=>[]],['checkout_url'=>null],['checkout_url'=>''],['checkout_url'=>'http://store.trbrec.com/checkout'],['checkout_url'=>'https://other.example.invalid/checkout'],['checkout_url'=>'https://user:pass@store.trbrec.com/checkout'],['checkout_url'=>'https://store.trbrec.com:444/checkout'],['checkout_url'=>"https://store.trbrec.com/checkout\n"],['checkout_url'=>'https://store.trbrec.com/checkout#fragment'],['paid'=>'true'],['paid'=>null],['paid'=>1],['paid'=>true,'checkout_url'=>'']] as $badCheckout){
+    $rejected=false;try{$service->checkout($ledger->practice($id));}catch(RuntimeException){$rejected=true;}
+    service_check($rejected&&$ledger->practice($id)['first_payment_date']===null,'Malformed checkout or unconfirmed paid flag cannot confirm a payment');
+    service_check($ledger->orders($id)[0]['order_id']==101,'Known merchant order remains recoverable after a malformed response');
+}
+$badCheckout=[];
 $service->checkout($ledger->practice($id));service_check($order['amount_cents']===54000,'exact contract price sent to Store');service_check(!$service->view($ledger->practice($id))['can_change_plan'],'Opening checkout locks the formula');service_reject(fn()=>$service->choose($ledger->practice($id),'A',str_repeat('a',64),true),'An opened checkout cannot be reassigned to another formula');
 $owner=['id'=>1,'role'=>'admin','email'=>'owner@example.invalid'];$today=(new DateTimeImmutable('now',new DateTimeZone('Europe/Rome')))->format('Y-m-d');
 service_reject(fn()=>$ledger->approve($id,$owner,$owner['email'],$today),'pending checkout does not permit approval');
@@ -88,9 +90,21 @@ $ledger->cancel($id,$owner);service_check(!$ledger->access($id,$today)['allowed'
 $freeSnapshot=OnboardingContractCatalog::model('trb_ccde')+['unsigned_document_sha256'=>str_repeat('b',64),'first_name'=>'Mario','last_name'=>'Rossi','email'=>'free@example.invalid','artist_folder_id'=>'drive-owner-free','contract_number'=>'QA-TRB'];
 $free=$ledger->create(124,$freeSnapshot,gmdate('c',time()+86400));$freeId=$free['id'];$service->details($ledger->practice($freeId),$details);
 service_check(!$ledger->reserveWelcome($freeId),'unsigned candidate cannot receive a welcome');
-foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($freeId,$slot,['file_id'=>30+$i,'folder_id'=>333,'hash'=>'free-h'.$i,'name'=>$slot.'.pdf']);
+foreach(['identity_front','identity_back','tax_front','tax_back'] as $i=>$slot)$ledger->recordFile($freeId,$slot,['file_id'=>30+$i,'folder_id'=>333,'hash'=>'free-h'.$i,'name'=>$slot.'.pdf']);
 $service->identity($ledger->practice($freeId));$service->processIdentity($freeId);$freeResult=$service->view($ledger->practice($freeId));service_check($freeResult['state']==='owner_review'&&$freeResult['selected_plan']['kind']==='free','TRB proceeds without asking for a commercial choice');
 service_check(empty($ledger->details($freeId)['proposal_read_at']),'automatic TRB routing is not consent or signature');service_reject(fn()=>$service->checkout($ledger->practice($freeId)),'TRB cannot create payment orders');
 service_reject(fn()=>$service->dispatchSignature($ledger->practice($freeId)),'owner approval still precedes the chargeable signature dossier');
 $service->view($ledger->practice($freeId));service_check($ledger->practice($freeId)['state']==='owner_review','TRB refresh is idempotent');
+$instant=$ledger->create(125,$snapshot,gmdate('c',time()+86400));$instantId=$instant['id'];$instantOrder=null;
+$instantMerchant=function($payload)use(&$instantOrder,$instantId,$today,$snapshot):array{
+    if($payload['action']==='store_order'){$instantOrder=$payload;return ['order_id'=>102,'checkout_url'=>'','paid'=>true];}
+    if($payload['action']==='store_status')return ['practice_id'=>$instantId,'number'=>1,'snapshot_sha256'=>$instantOrder['snapshot_sha256'],'email'=>$snapshot['email'],'provider'=>'woocommerce','transaction_id'=>'order:102:instant-proof','amount_cents'=>$instantOrder['amount_cents'],'currency'=>'EUR','paid_on'=>$today,'status'=>'confirmed','captured'=>true];
+    throw new RuntimeException('Unexpected instant checkout action');
+};
+$instantService=new OnboardingService($ledger,$archive,$reader,$instantMerchant,$script);$instantService->details($ledger->practice($instantId),$details);
+foreach(['identity_front','identity_back','tax_front','tax_back'] as $i=>$slot)$ledger->recordFile($instantId,$slot,['file_id'=>50+$i,'folder_id'=>333,'hash'=>'instant-h'.$i,'name'=>$slot.'.pdf']);
+$instantService->identity($ledger->practice($instantId));$instantService->processIdentity($instantId);$instantService->choose($ledger->practice($instantId),'C',str_repeat('a',64),true);
+$instantResult=$instantService->checkout($ledger->practice($instantId));
+service_check($instantResult['paid']===true&&$ledger->practice($instantId)['first_payment_date']===$today,'Immediate paid flag is returned only after verified capture is recorded');
+service_check((int)$ledger->installments($instantId)[0]['confirmed_cents']===54000,'Immediate payment preserves exact contractual cents');
 echo "Onboarding orchestration, trusted receipts, one dossier, both signatures, archive and account binding verified.\n";

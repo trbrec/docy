@@ -63,5 +63,30 @@ namespace {
     $before=count($reader_payloads);reader_reject(fn()=>$reader->extract([$documents[0],$documents[0]]),'Duplicated front labels are rejected');reader_check(count($reader_payloads)===$before,'Invalid labels never issue a provider request');
     reader_reject(fn()=>$reader->extract([['slot'=>'tax_front','url'=>'https://untrusted.invalid/card.jpg','name'=>'card.jpg']]),'Untrusted document host is blocked');
     $single=$reader->extract([$documents[0]]);reader_check($single['tax_document']===false&&$single['tax_code']==='','Missing fiscal document cannot be inferred from the identity front');
-    echo "Isolated parallel reader verified: independent images, strict schemas, mismatched tax identity, unrelated screenshots, partial failures and cleanup.\n";
+    $reader_fixture['identity_front']['identity_document']=true;
+    $reader_fixture['tax_front']['tax_first_name']='Mario';
+    $reader_fixture['identity_front']+=['identity_back_document'=>true,'identity_sides_consistent'=>true];
+    $reader_fixture['tax_front']+=['tax_back_document'=>true,'tax_sides_consistent'=>true];
+    $four=[$documents[0],['slot'=>'identity_back','mime'=>'image/png','data'=>base64_encode('synthetic-back-identity')],$documents[1],['slot'=>'tax_back','mime'=>'image/png','data'=>base64_encode('synthetic-back-tax')]];
+    $reader_payloads=[];$reader_batches=[];$fields=$reader->extract(array_reverse($four));
+    reader_check($reader_batches===[2]&&count($reader_payloads)===2,'Four sides still use two independent document requests');
+    foreach($reader_payloads as $payload){
+        $parts=$payload['input'][0]['content'];$images=array_values(array_filter($parts,fn($p)=>$p['type']==='input_image'));
+        reader_check(count($images)===2,'Only the front and back of one document share a request');
+        $identity=isset($payload['text']['format']['schema']['properties']['first_name']);
+        $expected=$identity?[$four[0],$four[1]]:[$four[2],$four[3]];
+        reader_check(array_map(fn($p)=>substr($p['image_url'],strpos($p['image_url'],',')+1),$images)===array_column($expected,'data'),'Reversed input never swaps sides or mixes identity and tax images');
+        reader_check($parts[1]['text']==='FRONTE'&&$parts[3]['text']==='RETRO','Each side has its explicit label');
+        reader_check(isset($payload['text']['format']['schema']['properties'][($identity?'identity':'tax').'_back_document']),'Back recognition is a strict required boolean');
+    }
+    $contract=['first_name'=>'Mario','last_name'=>'Rossi','identity_document_sides'=>'front_back'];
+    reader_check(\TrbCrm\OnboardingPolicy::documents($contract,$fields,'RSSMRA90A01H501W','2026-10-03')['status']==='matched','Four recognized coherent sides pass deterministic identity checks');
+    foreach(['identity_back_document'=>'identity_back_required','tax_back_document'=>'tax_back_required','identity_sides_consistent'=>'identity_sides_mismatch','tax_sides_consistent'=>'tax_sides_mismatch'] as $flag=>$reason){
+        reader_check(\TrbCrm\OnboardingPolicy::documents($contract,array_replace($fields,[$flag=>false]),'RSSMRA90A01H501W','2026-10-03')['reason']===$reason,'Missing or conflicting side cannot be approved: '.$flag);
+    }
+    unset($reader_fixture['identity_front']['identity_back_document']);
+    reader_reject(fn()=>$reader->extract($four),'Missing back classification cannot become a successful partial response');
+    reader_reject(fn()=>$reader->extract([$four[1]]),'An isolated back cannot replace its missing front');
+    reader_reject(fn()=>$reader->extract([$four[0],$four[1],$four[1]]),'Duplicated back labels are rejected before dispatch');
+    echo "Isolated parallel reader verified: independent documents and four labeled sides, strict schemas, conflicting sides, missing classifications, partial failures and cleanup.\n";
 }

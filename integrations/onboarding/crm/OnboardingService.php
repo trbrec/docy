@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace TrbCrm;
 require_once __DIR__.'/OnboardingLedger.php';
 require_once __DIR__.'/OnboardingContractCatalog.php';
+require_once __DIR__.'/OnboardingRequest.php';
 
 /** Adapters are injected so the complete orchestration can run with synthetic data. */
 final class OnboardingService
@@ -22,16 +23,16 @@ final class OnboardingService
         $signature=$this->ledger->signature($p['id']);$signatureEmail=null;
         // A reservation or an uncertain provider response is not an email receipt.
         if($signature&&$signature['state']==='dispatched'&&preg_match('/^[0-9]+$/D',(string)$signature['dossier_id']))$signatureEmail=['sender'=>'OTP service <please-do-not-reply@otpservice.io>','subject'=>'Il documento '.$signature['dossier_id'].' da firmare per TRB rec di Andrea Tognassi - Music Publishing'];
-        return ['identity_verification'=>$this->ledger->identityVerification($p['id']),'signature_email'=>$signatureEmail,'automatic_signature'=>$this->ledger->automaticSignatureOwner($p['id'])!==null,'id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'nominal_cents'=>(int)($p['snapshot']['nominal_cents']??0),'plans'=>$displayPlans,'selected_plan'=>$selected,'selected_plan_key'=>$selectedKey,'can_change_plan'=>$this->ledger->canChangePlan($p),'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
+        return ['required_identity_slots'=>OnboardingPolicy::requiredIdentitySlots($p['snapshot']),'identity_verification'=>$this->ledger->identityVerification($p['id']),'signature_email'=>$signatureEmail,'automatic_signature'=>$this->ledger->automaticSignatureOwner($p['id'])!==null,'id'=>$p['id'],'state'=>$p['state'],'version'=>$p['onboarding_version'],'first_name'=>$p['snapshot']['first_name'],'last_name'=>$p['snapshot']['last_name'],'artist_name'=>$p['snapshot']['artist_name']??'','email'=>$p['email'],'group_code'=>$p['snapshot']['group_code'],'contract_number'=>$p['snapshot']['contract_number']??'','proposal_sha256'=>$p['snapshot']['unsigned_document_sha256'],'nominal_cents'=>(int)($p['snapshot']['nominal_cents']??0),'plans'=>$displayPlans,'selected_plan'=>$selected,'selected_plan_key'=>$selectedKey,'can_change_plan'=>$this->ledger->canChangePlan($p),'files'=>$files,'details'=>$this->ledger->details($p['id']),'installments'=>$this->ledger->installments($p['id']),'access'=>$this->ledger->access($p['id'],$this->today())];
     }
     public function upload(array $p,string $slot,array $fileInfo=[]): array
     {
         if(!in_array($slot,['identity_front','identity_back','tax_front','tax_back'],true)||!in_array($p['state'],['invited','identity_review'],true))throw new \RuntimeException('Caricamento documenti non disponibile');
+        $fileInfo=OnboardingRequest::uploadFile($fileInfo);
         $details=$this->ledger->details($p['id']);if(empty($details['privacy_acknowledged_at']))throw new \RuntimeException('Leggi prima le informazioni sul trattamento dei documenti');
-        $this->archive->artistFolder($p['snapshot']['group_code'],$p['snapshot']['artist_folder_id']);
         $grant=$this->ledger->upload($p['id'],$slot);
         $files=$this->ledger->files($p['id']);$completed=$grant&&isset($files[$slot])&&(string)$files[$slot]['folder_id']===(string)$grant['folder_id'];
-        if(!$grant||$completed||strtotime($grant['expires_at'])<=time()||($grant['file']??null)!==$fileInfo){$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],$slot,$fileInfo);$grant['file']=$fileInfo;$this->ledger->saveUpload($p['id'],$slot,$grant);}
+        if(!$grant||$completed||strtotime($grant['expires_at'])<=time()||($grant['file']??null)!==$fileInfo){$this->archive->artistFolder($p['snapshot']['group_code'],$p['snapshot']['artist_folder_id']);$grant=$this->archive->createUpload($p['snapshot']['artist_folder_id'],$p['id'],$slot,$fileInfo);$grant['file']=$fileInfo;$this->ledger->saveUpload($p['id'],$slot,$grant);}
         return array_intersect_key($grant,array_flip(['provider','code','upload_endpoint','upload_method','expires_at','max_bytes']));
     }
     public function uploaded(array $p,string $slot): array
@@ -46,23 +47,37 @@ final class OnboardingService
     public function details(array $p,array $input): array
     {
         if(($input['privacy_acknowledged']??false)!==true)throw new \RuntimeException('Informazioni sul trattamento dei documenti da leggere');
-        $billing=[];foreach(['address_1','address_2','street','street_number','city','postcode','country','state','phone'] as $field){$value=trim((string)($input['billing'][$field]??''));if(mb_strlen($value)>200||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dati amministrativi non validi');$billing[$field]=$value;}
+        $billingInput=self::objectField($input,'billing');$profileInput=self::objectField($input,'profile');$invoiceInput=self::objectField($input,'invoice');
+        $billing=[];foreach(['address_1','address_2','street','street_number','city','postcode','country','state','phone'] as $field)$billing[$field]=self::textField($billingInput,$field);
         foreach(['address_1','city','postcode','country','phone'] as $required)if($billing[$required]==='')throw new \RuntimeException('Completa domicilio, paese e telefono');
         $billing['country']=strtoupper($billing['country']);if(!preg_match('/^[A-Z]{2}$/D',$billing['country']))throw new \RuntimeException('Paese non valido');
-        $phone=preg_replace('/[\s.()\-]+/','',$billing['phone']);if(str_starts_with($phone,'00'))$phone='+'.substr($phone,2);
-        if(preg_match('/^3\d{9}$/D',$phone))$phone='+39'.$phone;
-        if(!preg_match('/^\+[1-9]\d{6,14}$/D',$phone)||(str_starts_with($phone,'+39')&&!preg_match('/^\+393\d{9}$/D',$phone)))throw new \RuntimeException('Inserisci un cellulare SMS valido con prefisso internazionale');$billing['phone']=$phone;
+        $phone=preg_replace('/[\s.()\-]+/u','',$billing['phone']);if(str_starts_with($phone,'00'))$phone='+'.substr($phone,2);
+        if($billing['country']==='IT'&&preg_match('/^3\d{9}$/D',$phone))$phone='+39'.$phone;
+        if(!preg_match('/^\+[1-9]\d{5,14}$/D',$phone)||(str_starts_with($phone,'+39')&&!preg_match('/^\+393\d{9}$/D',$phone)))throw new \RuntimeException('Inserisci il cellulare con prefisso internazionale, ad esempio +39 per Italia o +216 per Tunisia');$billing['phone']=$phone;
         $billing['first_name']=$p['snapshot']['first_name'];$billing['last_name']=$p['snapshot']['last_name'];
-        $tax=mb_strtoupper(trim((string)($input['tax_code']??'')));if(!preg_match('/^[A-Z0-9 -]{3,32}$/D',$tax))throw new \RuntimeException('Identificativo fiscale non valido');
-        $invoice=[];foreach(['company_name','company_address','vat_number','sdi_code','pec'] as $field)$invoice[$field]=trim((string)($input['invoice'][$field]??''));
+        $tax=mb_strtoupper(self::textField($input,'tax_code',32));if(!preg_match('/^[A-Z0-9 -]{3,32}$/D',$tax))throw new \RuntimeException('Identificativo fiscale non valido');
+        $invoice=[];foreach(['company_name','company_address','vat_number','sdi_code','pec'] as $field)$invoice[$field]=self::textField($invoiceInput,$field,255);
         if($invoice['sdi_code']!==''&&!preg_match('/^[A-Za-z0-9]{7}$/D',$invoice['sdi_code']))throw new \RuntimeException('Il codice SDI deve contenere sette caratteri');
         if($invoice['pec']!==''&&!filter_var($invoice['pec'],FILTER_VALIDATE_EMAIL))throw new \RuntimeException('PEC non valida');
-        foreach($invoice as $value)if(mb_strlen($value)>255||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dato fiscale troppo lungo');
-        $profile=[];foreach(['birth_date','birth_place','birth_province','document_number','document_expiry'] as $field){$value=trim((string)($input['profile'][$field]??''));if(mb_strlen($value)>200||preg_match('/[\x00-\x1f]/',$value))throw new \RuntimeException('Dati anagrafici non validi');$profile[$field]=$value;}
+        $profile=[];foreach(['birth_date','birth_place','birth_province','document_number','document_expiry'] as $field)$profile[$field]=self::textField($profileInput,$field);
         $privacyVersion='2026.2-documents-20261002c';$existing=$this->ledger->details($p['id']);
         $acknowledgedAt=($existing['privacy_version']??'')===$privacyVersion&&is_string($existing['privacy_acknowledged_at']??null)?$existing['privacy_acknowledged_at']:gmdate('c');
         $details=['billing'=>$billing,'profile'=>$profile,'tax_code'=>$tax,'invoice'=>$invoice,'privacy_acknowledged_at'=>$acknowledgedAt,'privacy_version'=>$privacyVersion];
         $this->ledger->saveDetails($p['id'],$details);return $this->view($this->ledger->practice($p['id']));
+    }
+    private static function objectField(array $input,string $field): array
+    {
+        $value=$input[$field]??[];
+        if(!is_array($value)||($value!==[]&&array_is_list($value)))throw new \RuntimeException('Sezione dei dati non valida: '.$field);
+        return $value;
+    }
+    private static function textField(array $input,string $field,int $maximum=200): string
+    {
+        $value=$input[$field]??'';
+        if(!is_string($value))throw new \RuntimeException('Campo di testo non valido: '.$field);
+        $value=trim($value);
+        if(!mb_check_encoding($value,'UTF-8')||mb_strlen($value)>$maximum||preg_match('/[\x00-\x1f\x7f]/',$value))throw new \RuntimeException('Dato non valido o troppo lungo: '.$field);
+        return $value;
     }
     public function identity(array $p,bool $retry=false): array
     {
@@ -74,10 +89,11 @@ final class OnboardingService
     {
         $claim=$this->ledger->claimIdentity($practiceId);$id=$claim['practice_id']??$practiceId;
         if($claim){try{
-                $documents=[];foreach(['identity_front','tax_front'] as $slot){$file=$claim['files'][$slot];$documents[]=['slot'=>$slot]+(method_exists($this->archive,'identityDocument')?$this->archive->identityDocument($file):['url'=>$this->archive->url($file['file_id'],$file['folder_id'],(string)$file['hash']),'name'=>$file['name']]);}
+                $documents=[];foreach($claim['required_identity_slots'] as $slot){$file=$claim['files'][$slot];$documents[]=['slot'=>$slot]+(method_exists($this->archive,'identityDocument')?$this->archive->identityDocument($file):['url'=>$this->archive->url($file['file_id'],$file['folder_id'],(string)$file['hash']),'name'=>$file['name']]);}
                 $fields=$this->reader->extract($documents);
                 foreach(['legible','tax_legible','identity_document','tax_document'] as $key)if(!array_key_exists($key,$fields)||!is_bool($fields[$key]))throw new \RuntimeException('Lettura documento incompleta');
                 foreach(['first_name','last_name','birth_date','expiry_date','tax_first_name','tax_last_name','tax_birth_date','tax_code'] as $key)if(!array_key_exists($key,$fields)||!is_string($fields[$key])||mb_strlen($fields[$key])>200)throw new \RuntimeException('Lettura documento incompleta');
+                if(count($claim['required_identity_slots'])===4)foreach(['identity_back_document','identity_sides_consistent','tax_back_document','tax_sides_consistent'] as $key)if(!array_key_exists($key,$fields)||!is_bool($fields[$key]))throw new \RuntimeException('Lettura fronte e retro incompleta');
                 $this->ledger->finishIdentity($claim,$fields,$this->today());
             }catch(\Throwable $e){$this->ledger->failIdentity($claim);}
         }
@@ -114,9 +130,19 @@ final class OnboardingService
         $this->ledger->recordEvent($p['id'],'checkout_started',['number'=>(int)$due['number'],'amount_cents'=>$payload['amount_cents']]);
         $order=($this->portal)($payload);if(!is_int($order['order_id']??null)||$order['order_id']<1)throw new \RuntimeException('Ordine non confermato');
         $this->ledger->rememberOrder($p['id'],(int)$due['number'],$order['order_id']);
-        $url=$order['checkout_url']??'';if($url!==''&&(parse_url($url,PHP_URL_SCHEME)!=='https'||parse_url($url,PHP_URL_HOST)!=='store.trbrec.com'))throw new \RuntimeException('Collegamento pagamento non valido');
-        if($order['paid']??false)$this->refreshPayments($p['id']);
-        return ['checkout_url'=>$url,'paid'=>(bool)($order['paid']??false),'practice'=>$this->view($this->ledger->practice($p['id']))];
+        $paid=array_key_exists('paid',$order)?$order['paid']:false;$url=array_key_exists('checkout_url',$order)?$order['checkout_url']:'';
+        if(!is_bool($paid)||!is_string($url))throw new \RuntimeException('Risposta del pagamento incompleta: verifica la pratica prima di riprovare');
+        if($url!==''){
+            if(strlen($url)>4096||preg_match('/[\x00-\x20\x7f\\\\]/',$url))throw new \RuntimeException('Collegamento pagamento non valido');
+            $parts=parse_url($url);
+            if(!is_array($parts)||strtolower($parts['scheme']??'')!=='https'||strtolower($parts['host']??'')!=='store.trbrec.com'||isset($parts['user'])||isset($parts['pass'])||isset($parts['fragment'])||(isset($parts['port'])&&$parts['port']!==443))throw new \RuntimeException('Collegamento pagamento non valido');
+        }elseif(!$paid)throw new \RuntimeException('Collegamento pagamento non confermato: ricarica la pratica prima di riprovare');
+        if($paid){
+            $this->refreshPayments($p['id']);$recorded=false;
+            foreach($this->ledger->installments($p['id']) as $row)if((int)$row['number']===(int)$due['number']&&(int)$row['confirmed_cents']>=(int)$row['amount_cents']){$recorded=true;break;}
+            if(!$recorded){$this->ledger->paymentHold($p['id'],'order:'.$order['order_id'],true);throw new \RuntimeException('Il versamento risulta ancora da verificare. Non effettuare un secondo pagamento.');}
+        }
+        return ['checkout_url'=>$url,'paid'=>$paid,'practice'=>$this->view($this->ledger->practice($p['id']))];
     }
     public function refreshPayments(?string $id=null): array
     {

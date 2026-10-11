@@ -11,6 +11,14 @@ final class OnboardingPolicy
 {
     public const VERSION = '2026.2';
 
+    /** Existing issued snapshots retain their original two-front requirements. */
+    public static function requiredIdentitySlots(array $snapshot): array
+    {
+        if (!array_key_exists('identity_document_sides', $snapshot)) return ['identity_front','tax_front'];
+        if ($snapshot['identity_document_sides'] !== 'front_back') throw new InvalidArgumentException('Requisiti documentali non validi');
+        return ['identity_front','identity_back','tax_front','tax_back'];
+    }
+
     public static function date(string $value): DateTimeImmutable
     {
         $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value, new DateTimeZone('Europe/Rome'));
@@ -49,6 +57,12 @@ final class OnboardingPolicy
         if(($document['identity_document']??true)!==true&&($document['tax_document']??true)!==true)return ['status'=>'review','reason'=>'documents_required'];
         if(($document['identity_document']??true)!==true)return ['status'=>'review','reason'=>'identity_document_required'];
         if(($document['tax_document']??true)!==true)return ['status'=>'review','reason'=>'tax_document_required'];
+        if (count(self::requiredIdentitySlots($contract)) === 4) {
+            foreach (['identity','tax'] as $kind) {
+                if (($document[$kind.'_back_document'] ?? false) !== true) return ['status'=>'review','reason'=>$kind.'_back_required'];
+                if (($document[$kind.'_sides_consistent'] ?? false) !== true) return ['status'=>'review','reason'=>$kind.'_sides_mismatch'];
+            }
+        }
         $identity=self::identity($contract,$document,$today);
         if($identity['status']!=='matched')return $identity;
         try{$expiry=self::date((string)($document['expiry_date']??''));}

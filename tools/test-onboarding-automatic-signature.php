@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+if(PHP_SAPI!=='cli')exit(1);
 require_once __DIR__.'/../integrations/onboarding/crm/OnboardingService.php';
 use TrbCrm\OnboardingLedger;use TrbCrm\OnboardingService;use TrbCrm\OnboardingContractCatalog;use TrbCrm\OnboardingPolicy;
 function auto_check(bool $ok,string $name):void{if(!$ok)throw new RuntimeException($name);}
@@ -7,29 +8,30 @@ function auto_reject(callable $call,string $name):void{try{$call();}catch(Throwa
 function auto_json(array $a):string{return json_encode($a,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}
 $today=(new DateTimeImmutable('today',new DateTimeZone('Europe/Rome')))->format('Y-m-d');$flows=0;$paidFlows=0;
 foreach(OnboardingContractCatalog::all() as $model)foreach($model['plans'] as $key=>$plan){
+    $international=in_array($model['group_code'],['TRB','DDS'],true);$expectedPhone=$international?'+21620123456':'+393330000000';
     $db=new PDO('sqlite::memory:');$db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$ledger=new OnboardingLedger($db);$ledger->install();
     $db->exec("CREATE TABLE users(id INTEGER PRIMARY KEY,role TEXT,email TEXT,is_active INTEGER); INSERT INTO users VALUES(1,'admin','andrea.tognassi@trbrec.com',1)");
     $snapshot=$model+['unsigned_document_sha256'=>str_repeat('a',64),'first_name'=>'Mario','last_name'=>'Rossi','artist_name'=>'Synthetic artist','email'=>'artist@example.invalid','artist_folder_id'=>'synthetic-private-drive','contract_number'=>'SYNTHETIC-ONLY'];
     $proposal=['file_id'=>'synthetic-proposal','folder_id'=>'synthetic-private-drive','artist_folder_id'=>'synthetic-private-drive','sha256'=>str_repeat('a',64),'hash'=>'synthetic-proof'];
     $created=$ledger->create(1,$snapshot,gmdate('c',time()+86400),null,null,$proposal);$id=$created['id'];$order=null;$paid=false;$captured=true;$badProof=[];$dossiers=0;$loseReply=false;$complete=false;$company=false;$archiveFailure=false;$archiveCalls=0;
     $archive=new class{public int $sequence=0;public bool $failAudit=false;public function createUpload($folder,$id,$slot){return ['folder_id'=>'synthetic-slot-'.(++$this->sequence),'upload_link_id'=>$this->sequence,'slot'=>$slot,'expires_at'=>gmdate('c',time()+3600)];}public function verifyArtifact($grant,$sha,$folder){if($grant['slot']==='signature_audit'&&$this->failAudit){$this->failAudit=false;throw new RuntimeException('Synthetic archive interruption');}return ['file_id'=>'synthetic-file-'.$grant['upload_link_id'],'folder_id'=>$grant['folder_id'],'artist_folder_id'=>$folder,'sha256'=>$sha,'hash'=>'synthetic-hash'];}public function url($file,$folder,$hash){return 'https://example.invalid/synthetic-document';}};
-    $reader=new class{public function extract($docs){auto_check(array_column($docs,'slot')===['identity_front','tax_front'],'Only two document fronts verified');return ['identity_document'=>true,'tax_document'=>true,'legible'=>true,'first_name'=>'Mario','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_legible'=>true,'tax_first_name'=>'Mario','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W'];}};
-    $portal=function($p)use(&$order,&$paid,&$captured,&$badProof,$snapshot,$id,$today){
-        if($p['action']==='store_order'){$order=$p;return ['order_id'=>101,'checkout_url'=>'https://store.trbrec.com/checkout/order-pay/101/','paid'=>false];}
+    $reader=new class{public function extract($docs){auto_check(array_column($docs,'slot')===['identity_front','identity_back','tax_front','tax_back'],'All four required document sides verified');return ['identity_back_document'=>true,'identity_sides_consistent'=>true,'tax_back_document'=>true,'tax_sides_consistent'=>true,'identity_document'=>true,'tax_document'=>true,'legible'=>true,'first_name'=>'Mario','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_legible'=>true,'tax_first_name'=>'Mario','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W'];}};
+    $portal=function($p)use(&$order,&$paid,&$captured,&$badProof,$snapshot,$id,$today,$expectedPhone){
+        if($p['action']==='store_order'){auto_check($p['billing']['phone']===$expectedPhone,'Merchant receives the complete international phone');$order=$p;return ['order_id'=>101,'checkout_url'=>'https://store.trbrec.com/checkout/order-pay/101/','paid'=>false];}
         if($p['action']==='store_status')return array_replace(['practice_id'=>$id,'number'=>1,'snapshot_sha256'=>$order['snapshot_sha256'],'email'=>$snapshot['email'],'provider'=>'woocommerce','transaction_id'=>'order:101:synthetic-capture','amount_cents'=>$order['amount_cents'],'currency'=>'EUR','paid_on'=>$today,'status'=>$paid?'confirmed':'pending','captured'=>$captured&&$paid],$badProof);
-        if($p['action']==='activate_account')return ['activated'=>true,'practice_id'=>$id,'portal_user_id'=>$p['portal_user_id']];
+        if($p['action']==='activate_account'){auto_check($p['details']['billing']['phone']===$expectedPhone,'Account activation retains the international phone');return ['activated'=>true,'practice_id'=>$id,'portal_user_id'=>$p['portal_user_id']];}
         throw new RuntimeException('Unexpected synthetic portal action');
     };
-    $script=function($p)use(&$dossiers,&$loseReply,&$complete,&$company,&$archiveCalls,$plan,$today,$id){
+    $script=function($p)use(&$dossiers,&$loseReply,&$complete,&$company,&$archiveCalls,$plan,$today,$id,$expectedPhone){
         switch($p['action']){
             case 'crm_onboarding_document':auto_check($p['phase']==='final'&&array_replace($p['appendix']['plan'],['label'=>$plan['label']])===$plan,'Final PDF retains selected contractual formula');auto_check($p['appendix']['plan']['label']===OnboardingContractCatalog::planPresentation($plan)['display_name'],'Signed appendix identifies the chosen method without legacy option letters');auto_check($p['appendix']['first_payment_date']===($plan['kind']==='free'?null:$today),'Calendar is anchored to confirmed first payment');auto_check($p['appendix']['schedule']===($plan['kind']==='free'?[]:OnboardingPolicy::schedule($plan,$today)),'Every contracted installment reaches final PDF');return ['sha256'=>str_repeat('b',64),'drive_pdf_id'=>'synthetic-final'];
-            case 'crm_onboarding_signature':$dossiers++;auto_check($p['owner_approved']===true&&$p['document_sha256']===str_repeat('b',64),'Signature uses approved verified final PDF');if($loseReply){$loseReply=false;throw new RuntimeException('Synthetic provider reply lost after dossier creation');}return ['dossier_id'=>'123456'];
+            case 'crm_onboarding_signature':$dossiers++;auto_check($p['details']['billing']['phone']===$expectedPhone,'Signature request retains the complete international phone');auto_check($p['owner_approved']===true&&$p['document_sha256']===str_repeat('b',64),'Signature uses approved verified final PDF');if($loseReply){$loseReply=false;throw new RuntimeException('Synthetic provider reply lost after dossier creation');}return ['dossier_id'=>'123456'];
             case 'crm_onboarding_signature_status':return ['dossier_id'=>'123456','status'=>$complete?'completed':'pending','artist_signed'=>$complete,'company_signed'=>$company];
             case 'crm_onboarding_signed_archive':$archiveCalls++;return ['signed_pdf_sha256'=>str_repeat('c',64),'signature_audit_sha256'=>str_repeat('d',64)];
         }throw new RuntimeException('Unexpected synthetic signature action');
     };
     $service=new OnboardingService($ledger,$archive,$reader,$portal,$script);
-    $presented=$service->view($ledger->practice($id));$expectedLabel=match($plan['kind']){'single'=>'Opzione A – Unica soluzione','two_installments'=>'Opzione B – Due versamenti','monthly'=>'Opzione C – Rate mensili senza interessi',default=>$plan['label']};
+    $presented=$service->view($ledger->practice($id));$expectedLabel=match($plan['kind']){'single'=>'Unica soluzione','two_installments'=>'Due versamenti mensili','monthly'=>'Rate mensili senza interessi',default=>$plan['label']};
     auto_check($presented['nominal_cents']===$model['nominal_cents']&&$presented['plans'][$key]['display_label']===$expectedLabel,'Every contract presents the correct original quota and visible alternative');
     auto_check($presented['plans'][$key]['amounts_cents']===$plan['amounts_cents']&&$presented['plans'][$key]['total_cents']===$plan['total_cents'],'Presentation preserves every installment and total');
     auto_check($ledger->practice($id)['snapshot']===$snapshot,'Rendering leaves the immutable contract snapshot unchanged');
@@ -43,8 +45,8 @@ foreach(OnboardingContractCatalog::all() as $model)foreach($model['plans'] as $k
     $db->exec('UPDATE users SET is_active=0');auto_check($ledger->automaticSignatureOwner($id)===null,'Disabled owner cannot authorize automatic dispatch');$db->exec("UPDATE users SET is_active=1,role='operator'");auto_check($ledger->automaticSignatureOwner($id)===null,'Operator cannot authorize dispatch');$db->exec("UPDATE users SET role='admin'");
     auto_check($ledger->automaticSignatureOwner($id)!==null,'Confirmed reviewed owner delivery binds exact proposal and snapshot');
     $service->advanceSignature($ledger->practice($id));auto_check($dossiers===0,'Identity review precedes automatic signature');
-    $service->details($ledger->practice($id),['privacy_acknowledged'=>true,'billing'=>['address_1'=>'Via synthetic 1','street'=>'Via synthetic','street_number'=>'1','city'=>'Roma','postcode'=>'00100','country'=>'IT','phone'=>'+393330000000'],'tax_code'=>'RSSMRA90A01H501W']);
-    foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>10+$i,'folder_id'=>33,'hash'=>'synthetic-'.$i,'name'=>$slot.'.pdf']);
+    $service->details($ledger->practice($id),['privacy_acknowledged'=>true,'billing'=>['address_1'=>'Via synthetic 1','street'=>'Via synthetic','street_number'=>'1','city'=>'Roma','postcode'=>'00100','country'=>$international?'TN':'IT','phone'=>$international?'00216 20 123456':$expectedPhone],'tax_code'=>'RSSMRA90A01H501W']);
+    foreach(['identity_front','identity_back','tax_front','tax_back'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>10+$i,'folder_id'=>33,'hash'=>'synthetic-'.$i,'name'=>$slot.'.pdf']);
     $service->identity($ledger->practice($id));$service->processIdentity($id);$service->view($ledger->practice($id));
     if($plan['kind']!=='free'){
         $service->advanceSignature($ledger->practice($id));auto_check($dossiers===0,'Candidate must choose the formula before dispatch');
@@ -70,4 +72,3 @@ foreach(OnboardingContractCatalog::all() as $model)foreach($model['plans'] as $k
 }
 auto_check($flows===26&&$paidFlows===25,'Every plan of all ten contract models exercised');
 echo "All 26 contractual flows (25 paid) verified: reviewed owner delivery, exact capture, automatic one-time signature, two signatures, partial archive recovery, welcome and account activation.\n";
-

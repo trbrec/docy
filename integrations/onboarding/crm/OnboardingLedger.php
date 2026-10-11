@@ -15,7 +15,8 @@ final class OnboardingLedger
 
     public function install(): void
     {
-        foreach ([
+        $mysql=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql';
+        $statements=[
             'CREATE TABLE IF NOT EXISTS onboarding_practices (id VARCHAR(64) PRIMARY KEY, contract_id BIGINT NOT NULL UNIQUE, onboarding_version VARCHAR(16) NOT NULL, email VARCHAR(255) NOT NULL, snapshot TEXT NOT NULL, state VARCHAR(40) NOT NULL, token_hash VARCHAR(64) NOT NULL UNIQUE, expires_at VARCHAR(32) NOT NULL, selected_plan TEXT NULL, first_payment_date VARCHAR(10) NULL, owner_approved_at VARCHAR(32) NULL, signed_at VARCHAR(32) NULL, signed_pcloud_file_id VARCHAR(128) NULL, portal_activated_at VARCHAR(32) NULL, cancelled_at VARCHAR(32) NULL, created_at VARCHAR(32) NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_installments (practice_id VARCHAR(64) NOT NULL, number INT NOT NULL, due_date VARCHAR(10) NOT NULL, amount_cents BIGINT NOT NULL, PRIMARY KEY(practice_id,number))',
             'CREATE TABLE IF NOT EXISTS onboarding_payments (provider VARCHAR(32) NOT NULL, transaction_id VARCHAR(128) NOT NULL, practice_id VARCHAR(64) NOT NULL, installment_number INT NOT NULL, amount_cents BIGINT NOT NULL, refunded_cents BIGINT NOT NULL DEFAULT 0, currency VARCHAR(3) NOT NULL, status VARCHAR(24) NOT NULL, confirmed_at VARCHAR(32) NOT NULL, PRIMARY KEY(provider,transaction_id))',
@@ -35,8 +36,14 @@ final class OnboardingLedger
             'CREATE TABLE IF NOT EXISTS onboarding_preparations (contract_id BIGINT PRIMARY KEY, metadata TEXT NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_worker_checks (practice_id VARCHAR(64) PRIMARY KEY, checked_at VARCHAR(32) NOT NULL)',
             'CREATE TABLE IF NOT EXISTS onboarding_welcomes (practice_id VARCHAR(64) PRIMARY KEY, state VARCHAR(24) NOT NULL, created_at VARCHAR(32) NOT NULL, sent_at VARCHAR(32) NULL, gmail_message_id VARCHAR(128) NULL)',
-        ] as $sql) $this->db->exec($sql);
-        if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'){
+        ];
+        foreach($statements as $sql)$this->db->exec($sql.($mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':''));
+        if($mysql){
+            foreach($statements as $sql){
+                preg_match('/CREATE TABLE IF NOT EXISTS ([a-z_]+) /D',$sql,$match);
+                $engine=$this->query('SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',[$match[1]])->fetchColumn();
+                if(strcasecmp((string)$engine,'InnoDB')!==0)throw new RuntimeException('Archivio adesioni non transazionale: verifica necessaria prima di abilitarlo');
+            }
             foreach(['onboarding_practices'=>['signed_pcloud_file_id'],'onboarding_files'=>['folder_id','pcloud_file_id','upload_link_id']] as $table=>$columns)foreach($columns as $column){
                 $info=$this->db->query("SHOW COLUMNS FROM `{$table}` LIKE '{$column}'")->fetch(PDO::FETCH_ASSOC);
                 if(!str_starts_with(strtolower($info['Type']??''),'varchar'))$this->db->exec("ALTER TABLE `{$table}` MODIFY `{$column}` VARCHAR(128) ".($column==='folder_id'?'NOT NULL':'NULL'));
@@ -121,11 +128,11 @@ final class OnboardingLedger
     {
         $raw=$this->query('SELECT result FROM onboarding_identity_checks WHERE practice_id=?',[$id])->fetchColumn();return $raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):[];
     }
-    /** Bound to immutable contract, the two actual fronts and declared identity fields. */
+    /** Bound to the immutable contract, all required document sides and declared identity fields. */
     private function identityFingerprint(string $id): string
     {
         $p=$this->practice($id);$details=$this->details($id);$files=$this->files($id);$fronts=[];
-        foreach(['identity_front','tax_front'] as $slot){$f=$files[$slot]??[];$fronts[$slot]=['file_id'=>(string)($f['file_id']??''),'folder_id'=>(string)($f['folder_id']??''),'hash'=>(string)($f['hash']??'')];}
+        foreach(OnboardingPolicy::requiredIdentitySlots($p['snapshot']) as $slot){$f=$files[$slot]??[];$fronts[$slot]=['file_id'=>(string)($f['file_id']??''),'folder_id'=>(string)($f['folder_id']??''),'hash'=>(string)($f['hash']??'')];}
         return hash('sha256',$this->json(['reader'=>self::IDENTITY_READER_VERSION,'contract'=>$p['snapshot'],'fronts'=>$fronts,'tax_code'=>$details['tax_code']??'','birth_date'=>$details['profile']['birth_date']??'','document_expiry'=>$details['profile']['document_expiry']??'']));
     }
     private function identityJob(string $id): ?array
@@ -137,7 +144,7 @@ final class OnboardingLedger
     {
         $now??=time();return $this->locked(function()use($id,$retry,$now){$p=$this->practice($id,true);$this->open($p);
             if(!in_array($p['state'],['invited','identity_review','identity_matched','minor_blocked'],true))return $this->identityVerification($id,$now);
-            $files=$this->files($id);foreach(['identity_front','tax_front'] as $slot)if(empty($files[$slot]))throw new RuntimeException('Carica il fronte della carta d’identità e della tessera sanitaria o codice fiscale');
+            $files=$this->files($id);foreach(OnboardingPolicy::requiredIdentitySlots($p['snapshot']) as $slot)if(empty($files[$slot]))throw new RuntimeException('Carica tutte le immagini dei documenti richieste dalla tua proposta');
             $details=$this->details($id);if(empty($details['privacy_acknowledged_at']))throw new RuntimeException('Completa prima i dati e le informazioni sul trattamento');
             if(in_array($p['state'],['identity_matched','minor_blocked'],true))return $this->identityVerification($id,$now);
             $fingerprint=$this->identityFingerprint($id);$job=$this->identityJob($id);
@@ -178,6 +185,10 @@ final class OnboardingLedger
             'tax_code_mismatch'=>'Il codice fiscale inserito non coincide con quello del documento. Controlla il dato nel modulo e il fronte del documento fiscale caricato.',
             'declared_birth_date_mismatch'=>'La data di nascita inserita non coincide con quella della carta d’identità. Correggila nel modulo e continua.',
             'declared_document_expiry_mismatch'=>'La scadenza inserita non coincide con quella della carta d’identità. Correggila nel modulo e continua.',
+            'identity_back_required'=>'Il retro della carta d’identità non è riconoscibile. Carica una foto completa e nitida del retro dello stesso documento.',
+            'tax_back_required'=>'Il retro del documento fiscale non è riconoscibile. Carica una foto completa e nitida del retro della stessa tessera.',
+            'identity_sides_mismatch'=>'Il fronte e il retro della carta d’identità non risultano coerenti. Controlla di aver caricato entrambi i lati dello stesso documento.',
+            'tax_sides_mismatch'=>'Il fronte e il retro del documento fiscale non risultano coerenti. Controlla di aver caricato entrambi i lati della stessa tessera.',
             'minor'=>'La sottoscrizione di questo contratto è riservata ai maggiorenni. Per assistenza, rispondi all’email di TRB rec.',
             'verification_unavailable'=>'La verifica non è riuscita per un problema temporaneo. I dati e i documenti caricati sono conservati.',
             'proposal_expired'=>'La proposta è scaduta. Per ricevere una nuova proposta, rispondi all’email di TRB rec. I dati e i documenti già caricati restano conservati.',
@@ -185,6 +196,10 @@ final class OnboardingLedger
         if(in_array($reason,['identity_document_required','document_unreadable','birth_date_unreadable','birth_date_invalid','identity_expiry_unreadable','identity_expired','name_mismatch'],true))$replace=['identity_front'];
         if(in_array($reason,['tax_document_required','tax_document_unreadable','tax_identity_mismatch','tax_code_mismatch'],true))$replace=['tax_front'];
         if($reason==='documents_required')$replace=['identity_front','tax_front'];
+        if($reason==='identity_back_required')$replace=['identity_back'];
+        if($reason==='tax_back_required')$replace=['tax_back'];
+        if($reason==='identity_sides_mismatch')$replace=['identity_front','identity_back'];
+        if($reason==='tax_sides_mismatch')$replace=['tax_front','tax_back'];
         $message=$messages[$reason]??'Controlla i dati e i documenti richiesti per continuare.';
         if($state==='queued')$message='Documenti ricevuti. La verifica inizierà tra pochi istanti: non occorre inviarli di nuovo.';
         if($state==='processing')$message='Stiamo verificando che i dati dei documenti coincidano con quelli della proposta. Puoi attendere qui; dati e documenti sono già salvati.';
@@ -206,7 +221,7 @@ final class OnboardingLedger
                 if(!$due||!hash_equals($job['input_fingerprint'],$this->identityFingerprint($id)))return null;
                 if((int)$job['attempts']>=3&&$job['state']==='processing'){$this->query("UPDATE onboarding_identity_jobs SET state='error',reason='verification_unavailable',claim_token=NULL,lease_until=0,next_retry_at=? WHERE practice_id=?",[$now+60,$id]);return null;}
                 $token=bin2hex(random_bytes(32));$this->query("UPDATE onboarding_identity_jobs SET state='processing',attempts=attempts+1,claim_token=?,lease_until=?,next_retry_at=0,started_at=?,finished_at=NULL WHERE practice_id=?",[$token,$now+240,gmdate('c',$now),$id]);
-                return ['practice_id'=>$id,'claim_token'=>$token,'input_fingerprint'=>$job['input_fingerprint'],'files'=>$this->files($id)];
+                return ['practice_id'=>$id,'claim_token'=>$token,'input_fingerprint'=>$job['input_fingerprint'],'files'=>$this->files($id),'required_identity_slots'=>OnboardingPolicy::requiredIdentitySlots($p['snapshot'])];
             });if($claimed)return $claimed;
         }return null;
     }
@@ -275,6 +290,7 @@ final class OnboardingLedger
     {
         if ($contractId<1 || ($snapshot['onboarding_version']??'')!==OnboardingPolicy::VERSION || !preg_match('/^[a-f0-9]{64}$/D',(string)($snapshot['unsigned_document_sha256']??'')) || empty($snapshot['first_name']) || empty($snapshot['last_name']) || !filter_var($snapshot['email']??'',FILTER_VALIDATE_EMAIL) || !preg_match('/^[A-Za-z0-9_-]{1,128}$/D',(string)($snapshot['artist_folder_id']??''))) throw new RuntimeException('Proposta incompleta');
         if (!in_array($snapshot['group_code']??'', ['DDS','DDB','DDB12','DDB-TRB','TRB'], true)) throw new RuntimeException('Tipologia contratto non valida');
+        OnboardingPolicy::requiredIdentitySlots($snapshot);
         foreach($snapshot['plans']??[] as $plan) OnboardingPolicy::validatePlan($plan);
         if(empty($snapshot['plans'])) throw new RuntimeException('Formule di versamento mancanti');
         if(strtotime($expiresAt)===false||strtotime($expiresAt)<=time()) throw new RuntimeException('Scadenza proposta non valida');
@@ -302,7 +318,7 @@ final class OnboardingLedger
     public function challenge(string $token): array
     {
         $p=$this->fromToken($token);
-        return $this->locked(function()use($p){$this->practice($p['id'],true);
+        return $this->locked(function()use($p){$p=$this->practice($p['id'],true);$this->open($p);
             $old=$this->query('SELECT issued_at FROM onboarding_email_challenges WHERE practice_id=?',[$p['id']])->fetchColumn();
             if($old!==false && (int)$old>time()-120)throw new RuntimeException('Attendi prima di richiedere un nuovo codice');
             $code=(string)random_int(100000,999999);$salt=bin2hex(random_bytes(16));
@@ -315,7 +331,7 @@ final class OnboardingLedger
     public function verifyEmail(string $token,string $code,string $salt): string
     {
         $p=$this->fromToken($token);
-        $session=$this->locked(function()use($p,$code,$salt){$this->practice($p['id'],true);
+        $session=$this->locked(function()use($p,$code,$salt){$p=$this->practice($p['id'],true);$this->open($p);
             $row=$this->query('SELECT * FROM onboarding_email_challenges WHERE practice_id=?',[$p['id']])->fetch(PDO::FETCH_ASSOC);
             if(!$row || (int)$row['expires_at']<time() || (int)$row['attempts']>=5)return null;
             $this->query('UPDATE onboarding_email_challenges SET attempts=attempts+1 WHERE practice_id=?',[$p['id']]);
@@ -342,7 +358,7 @@ final class OnboardingLedger
             $previous=$this->files($id)[$slot]??null;
             $this->query('DELETE FROM onboarding_files WHERE practice_id=? AND slot=?',[$id,$slot]);
             $this->query('INSERT INTO onboarding_files(practice_id,slot,folder_id,pcloud_file_id,metadata) VALUES(?,?,?,?,?)',[$id,$slot,$file['folder_id'],$file['file_id'],$this->json($file)]);
-            if(in_array($slot,['identity_front','tax_front'],true)&&(!$previous||(string)$previous['file_id']!==(string)$file['file_id']||(string)$previous['folder_id']!==(string)$file['folder_id']||(string)$previous['hash']!==(string)$file['hash']))$this->invalidateIdentity($id);
+            if(in_array($slot,OnboardingPolicy::requiredIdentitySlots($p['snapshot']),true)&&(!$previous||(string)$previous['file_id']!==(string)$file['file_id']||(string)$previous['folder_id']!==(string)$file['folder_id']||(string)$previous['hash']!==(string)$file['hash']))$this->invalidateIdentity($id);
         });
     }
     public function files(string $id): array
@@ -421,7 +437,7 @@ final class OnboardingLedger
     {
             $id=$p['id'];$this->open($p);
             if(!in_array($p['state'],['invited','identity_review'],true))throw new RuntimeException('Verifica documenti non disponibile');
-            $files=$this->files($id);foreach(['identity_front','tax_front'] as $slot)if(empty($files[$slot]))throw new RuntimeException('Completa il fronte della carta d’identità e della tessera sanitaria o codice fiscale');
+            $files=$this->files($id);foreach(OnboardingPolicy::requiredIdentitySlots($p['snapshot']) as $slot)if(empty($files[$slot]))throw new RuntimeException('Completa tutte le immagini dei documenti richieste dalla tua proposta');
             $details=$this->details($id);if(empty($details['privacy_acknowledged_at']))throw new RuntimeException('Completa prima i dati e le informazioni sul trattamento');
             $result=OnboardingPolicy::documents($p['snapshot'],$fields,(string)($details['tax_code']??''),$today);
             if($result['status']==='matched')foreach(['birth_date'=>'birth_date','document_expiry'=>'expiry_date'] as $declared=>$read){
@@ -502,6 +518,11 @@ final class OnboardingLedger
     {
         $this->locked(function()use($provider,$transactionId,$cumulativeRefundCents){$payment=$this->query('SELECT * FROM onboarding_payments WHERE provider=? AND transaction_id=?',[$provider,$transactionId])->fetch(PDO::FETCH_ASSOC);
             if(!$payment)throw new RuntimeException('Pagamento non presente');$this->practice($payment['practice_id'],true);
+            // The preliminary read can precede a competing refund. Read the current
+            // payment after the practice lock, including under REPEATABLE READ.
+            $suffix=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)!=='sqlite'?' FOR UPDATE':'';
+            $payment=$this->query('SELECT * FROM onboarding_payments WHERE provider=? AND transaction_id=?'.$suffix,[$provider,$transactionId])->fetch(PDO::FETCH_ASSOC);
+            if(!$payment)throw new RuntimeException('Pagamento non presente');
             $refund=$cumulativeRefundCents??(int)$payment['amount_cents'];
             if($refund<1 || $refund>(int)$payment['amount_cents'] || $refund<(int)$payment['refunded_cents'])throw new RuntimeException('Storno incoerente con il pagamento');
             $this->query('UPDATE onboarding_payments SET status=?,refunded_cents=? WHERE provider=? AND transaction_id=?',[$refund===(int)$payment['amount_cents']?'reversed':'partially_refunded',$refund,$provider,$transactionId]);
