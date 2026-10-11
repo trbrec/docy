@@ -30,11 +30,14 @@ jobs:
           python3 - <<'PY'
           import json,re
           d=json.load(open('tools/demo-key-request.json'))
-          assert set(d)=={'tag','phase','scope'} and re.fullmatch('[a-f0-9]{16}',d['tag'])
+          assert set(d) in ({'tag','phase','scope'},{'tag','phase','scope','previous_qa_run'}) and re.fullmatch('[a-f0-9]{16}',d['tag'])
           assert d['phase'] in ('prepare','status','apply','rollback','diagnose') and d['scope']=='existing_demo_sheet_only'
+          if 'previous_qa_run' in d:
+              assert d['phase']=='apply' and re.fullmatch('[a-f0-9]{16}',d['previous_qa_run'])
           PY
           tag=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json"))["tag"])')
           phase=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json"))["phase"])')
+          previous_qa=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json")).get("previous_qa_run",""))')
           install -d -m 700 "${HOME}/.ssh" /tmp/trb-demo-key-status
           printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
           chmod 600 "${HOME}/.ssh/id_ed25519"
@@ -72,8 +75,15 @@ jobs:
           fi
           if [ "${phase}" = apply ]; then
             run=$(openssl rand -hex 8)
-            ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-provider-roundtrip.php' '${run}' no-ai" > /tmp/trb-demo-key-status/providers.json 2>/dev/null
+            if [ -n "${previous_qa}" ]; then
+              ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-provider-roundtrip.php' '${run}' no-ai '${previous_qa}'" > /tmp/trb-demo-key-status/providers.json 2>/dev/null
+            else
+              ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-provider-roundtrip.php' '${run}' no-ai" > /tmp/trb-demo-key-status/providers.json 2>/dev/null
+            fi
             python3 -c 'import json;d=json.load(open("/tmp/trb-demo-key-status/providers.json"));assert all(d.get(k) is True for k in ("sheets","sheets_cleanup","pcloud","pcloud_cleanup","local_fixture_cleanup")),"Signed provider round trip incomplete"'
+            if [ -n "${previous_qa}" ]; then
+              python3 -c 'import json;d=json.load(open("/tmp/trb-demo-key-status/providers.json"));assert d.get("pcloud_prior_fixture_absent") is True,"Previous owned QA collection absence unconfirmed"'
+            fi
           fi
           verified=true
       - name: Preserve generic results and the encrypted new key only

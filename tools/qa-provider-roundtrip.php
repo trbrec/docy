@@ -4,7 +4,8 @@ if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
 ini_set( 'display_errors', '0' );
 $run = $argv[1] ?? '';
 $mode = $argv[2] ?? 'full';
-if ( ! preg_match( '/^[a-f0-9]{16}$/D', $run ) || ! in_array( $mode, array( 'full', 'no-ai' ), true ) ) exit( 2 );
+$prior_run = $argv[3] ?? null;
+if ( ! preg_match( '/^[a-f0-9]{16}$/D', $run ) || ! in_array( $mode, array( 'full', 'no-ai' ), true ) || ( null !== $prior_run && ! preg_match( '/^[a-f0-9]{16}$/D', $prior_run ) ) || isset( $argv[4] ) ) exit( 2 );
 $result = array( 'pcloud' => false, 'pcloud_cleanup' => false, 'evaluation' => false, 'sheets' => false, 'artist_messages' => 0 );
 $buffer = ob_get_level(); ob_start();
 register_shutdown_function( static function() use ( &$result, $buffer ) { while ( ob_get_level() > $buffer ) ob_end_clean(); echo json_encode( $result, JSON_UNESCAPED_SLASHES ) . "\n"; } );
@@ -95,5 +96,12 @@ try {
         $result['pcloud_delete_acknowledged'] = in_array( $result['pcloud_cleanup_http'][0], array( 200, 204, 404, 410 ), true ) && in_array( $result['pcloud_cleanup_http'][1], array( 200, 204, 404, 410 ), true );
         // Preserve ambiguous DELETE statuses; only independent file AND collection absence confirms cleanup.
         $result['pcloud_cleanup'] = $file_resource_absent && $folder_resource_absent && in_array( $result['pcloud_cleanup_http'][2], array( 404, 410 ), true );
+    }
+    if ( null !== $prior_run && function_exists( 'trb_qa_provider_resource_absent' ) ) {
+        // An earlier DELETE acknowledgement is not proof of eventual absence.
+        // Probe only the explicitly identified synthetic collection; do not erase it.
+        $result['pcloud_prior_fixture'] = 'QA-AUDIT-' . $prior_run;
+        $result['pcloud_prior_fixture_absent'] = trb_qa_provider_resource_absent( '/Upload files - TRB rec/Audio/Demo files/QA-AUDIT-' . $prior_run . '/', $prior_status );
+        $result['pcloud_prior_fixture_absence_http'] = $prior_status;
     }
 }

@@ -1,5 +1,6 @@
 {
   "tag": "84d9a6ef81fc2d70",
-  "phase": "diagnose",
-  "scope": "existing_demo_sheet_only"
+  "phase": "apply",
+  "scope": "existing_demo_sheet_only",
+  "previous_qa_run": "5e2ed4333f52a6c4"
 }
