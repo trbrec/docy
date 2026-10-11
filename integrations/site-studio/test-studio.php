@@ -167,20 +167,29 @@ $failed=new class {function get_size(){return ['width'=>2400,'height'=>1800];}fu
 check(is_wp_error(TRB\Studio\public_image_resize($failed)),'Genuine resize failures are preserved rather than silently ignored');
 
 require __DIR__.'/trb-site-studio/editorial.php';
-$profile=['name'=>'Sara Rigo','bio'=>'Biografia pubblica verificata','links'=>[],'image_id'=>501,'basis'=>'explicit','source'=>'Sito ufficiale'];
+function get_term($id,$taxonomy){return $id===7?(object)['name'=>'Luca Gaiero']:false;}
+function get_posts($args){return ($args['tax_query'][0]['terms'][0]??0)===7?[10]:[];}
+class TRB_Promo_Ecosystem {const LABELS=['TRB rec'];static function data($id){return ['state'=>'published','label'=>$GLOBALS['fixture_catalog_label']??'TRB rec','upc'=>'888608943925'];}}
+$profile=['name'=>'Luca Gaiero','bio'=>'Biografia pubblica verificata','links'=>[],'image_id'=>501,'basis'=>'trb','catalog_term_id'=>7,'source'=>'Archivio ufficiale'];
 $curated=TRB\Studio\editorial_validate([$profile]);
-check(!is_wp_error($curated)&&array_values($curated)[0]['id']===1000000001,'Explicit editorial inclusion uses a separate stable identity and does not create a portal account');
+check(!is_wp_error($curated)&&array_values($curated)[0]['id']===1000000001,'A verified TRB editorial profile uses a stable public identity without creating a portal account');
 check(count(TRB\Studio\editorial_validate([$profile],$curated))===1,'Re-importing the same editorial artist is idempotent');
 $options['trb_studio_editorial_artists']=$curated;
-$merged=TRB\Studio\editorial_directory(['artists'=>[['id'=>151,'name'=>'Sara Rigo','bio'=>'','links'=>[]]],'releases'=>[['artist_id'=>151,'title'=>'Pubblicazione']]]);
+$merged=TRB\Studio\editorial_directory(['artists'=>[['id'=>151,'name'=>'Luca Gaiero','bio'=>'','links'=>[]]],'releases'=>[['artist_id'=>151,'title'=>'Pubblicazione']]]);
 check(count($merged['artists'])===1&&$merged['artists'][0]['id']===1000000001&&$merged['releases'][0]['artist_id']===1000000001,'A later portal registration does not duplicate or change the editorial public identity and keeps release associations');
 $again=TRB\Studio\editorial_directory($merged);
 check($again===$merged,'Directory completion remains idempotent during repeated page synchronization');
 check(count(TRB\Studio\editorial_directory(['artists'=>[],'releases'=>[]])['artists'])===1,'A new empty portal generation cannot remove a curated public artist');
 $recent=array_merge($profile,['name'=>'Artista recente','basis'=>'recent','last_work'=>(new DateTimeImmutable('today',new DateTimeZone('Europe/Rome')))->modify('-2 years')->format('Y-m-d')]);
-check(!is_wp_error(TRB\Studio\editorial_validate([$recent])),'A documented collaboration on the two-year cutoff is eligible');
+check(is_wp_error(TRB\Studio\editorial_validate([$recent])),'Recent collaboration alone never admits a DDB artist');
 check(is_wp_error(TRB\Studio\editorial_validate([array_merge($recent,['last_work'=>'2020-01-01'])])),'Older non-TRB collaborations are not imported as recent');
-check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['name'=>'Altro artista'])])),'The explicit Sara Rigo exception cannot import unrelated DDB accounts');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['name'=>'Sara Rigo','basis'=>'explicit'])])),'The withdrawn Sara Rigo exception is rejected');
+$options['trb_studio_editorial_artists']=$curated+[1000000002=>array_merge($profile,['id'=>1000000002,'name'=>'Sara Rigo','basis'=>'explicit']),1000000003=>array_merge($recent,['id'=>1000000003])];
+$restricted=TRB\Studio\editorial_directory(['artists'=>[],'releases'=>[]]);
+check(count($restricted['artists'])===1&&$restricted['artists'][0]['name']==='Luca Gaiero','Previously saved DDB and Sara profiles cannot return through synchronization');
+$fixture_catalog_label='Digital Distribution Bundle';
+check(is_wp_error(TRB\Studio\editorial_validate([$profile])),'Calling a DDB release TRB cannot bypass the active-label check');
+unset($fixture_catalog_label);
 check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['name'=>'trb_audit_20261011'])])),'Audit and placeholder names cannot enter editorial publication');
 check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['image_id'=>99])])),'Invalid public photography blocks editorial publication');
 check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['bio'=>''])])),'An incomplete biography blocks editorial publication');

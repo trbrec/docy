@@ -97,7 +97,7 @@ if($mode==='export'){
 }
 if(in_array($mode,['import','report'],true)){
  require '/home/customer/www/new1.trbrec.com/public_html/wp-load.php';
- if(!\TRB\Studio\destination_site()||!in_array(\TRB\Studio\VERSION,['0.1.10','0.1.12'],true))exit(11);
+ if(!\TRB\Studio\destination_site()||!in_array(\TRB\Studio\VERSION,['0.1.10','0.1.12','0.1.13'],true))exit(11);
  $d=json_decode((string)file_get_contents($report),true);
  update_option('trb_studio_transfer_report',is_array($d)?$d:['ok'=>false,'code'=>'report_invalid'],false);
  if($mode==='report')exit;
@@ -108,3 +108,4 @@ if(in_array($mode,['import','report'],true)){
  $phase='complete';exit;
 }
 exit(13);
+

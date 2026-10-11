@@ -118,7 +118,7 @@ if (!$already) {
 if (!is_plugin_active($slug)) throw new RuntimeException('plugin activation unconfirmed');
 $stage = 'load-plugin';
 if (!function_exists('TRB\\Studio\\editor_apply')) require_once $destination . '/trb-site-studio.php';
-if (\TRB\Studio\VERSION !== '0.1.12') throw new RuntimeException('version check');
+if (\TRB\Studio\VERSION !== '0.1.13') throw new RuntimeException('version check');
 $stage = 'verification';
 if ($site === 'new1.trbrec.com') {
     $profiles=\TRB\Studio\sync_artist_pages(\TRB\Studio\directory_data());if(is_wp_error($profiles))throw new RuntimeException('artist pages installation');
@@ -162,5 +162,4 @@ if ($site === 'new1.trbrec.com') {
 echo 'Automatic sync enabled=' . (get_option('trb_studio_enabled') ? 'yes' : 'no') . ".\n";
 
 $stage = 'complete';
-
 

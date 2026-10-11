@@ -3,9 +3,11 @@ namespace TRB\Studio;
 if (!defined('ABSPATH')) exit;
 
 /** Public editorial profiles are independent from portal login/contract entitlements. */
+function editorial_entry_allowed($entry){return ($entry['basis']??'')==='trb';}
 function editorial_artists($artists){
  $extra=(array)get_option('trb_studio_editorial_artists',[]);
  foreach($extra as $entry){
+  if(!editorial_entry_allowed($entry))continue;
   $found=false;
   foreach($artists as &$artist){
    if((int)$artist['id']===(int)$entry['id']||catalog_name_key($artist['name'])===catalog_name_key($entry['name'])){
@@ -30,7 +32,7 @@ function editorial_directory($data){
 }
 function editorial_validate($data,$existing=[]){
  if(!is_array($data)||count($data)>100)return new \WP_Error('editorial_invalid','Importa al massimo 100 schede alla volta.');
- $out=$existing;$today=new \DateTimeImmutable('today',new \DateTimeZone('Europe/Rome'));$cutoff=$today->modify('-2 years')->format('Y-m-d');
+ $out=array_filter($existing,__NAMESPACE__.'\\editorial_entry_allowed');
  foreach($data as $entry){
   if(!is_array($entry))return new \WP_Error('editorial_invalid','Scheda non valida.');
   $name=trim((string)($entry['name']??''));$key=catalog_name_key($name);
@@ -39,9 +41,7 @@ function editorial_validate($data,$existing=[]){
   if(is_wp_error($patch))return $patch;
   if(empty($patch['bio'])||empty($patch['image_id']))return new \WP_Error('editorial_materials','Ogni scheda deve avere biografia e fotografia verificate: '.$name.'.');
   $basis=$entry['basis']??'';$worked=$entry['last_work']??'';$term_id=(int)($entry['catalog_term_id']??0);
-  if(!in_array($basis,['trb','recent','explicit'],true))return new \WP_Error('editorial_basis','Indica il criterio di inclusione.');
-  if($basis==='explicit'&&$key!=='sara rigo')return new \WP_Error('editorial_basis','L’inclusione esplicita è prevista per Sara Rigo.');
-  if($basis==='recent'&&(!valid_date($worked)||$worked<$cutoff||$worked>$today->format('Y-m-d')))return new \WP_Error('editorial_date','La collaborazione deve ricadere negli ultimi due anni: '.$name.'.');
+  if($basis!=='trb')return new \WP_Error('editorial_basis','Il roster comprende esclusivamente artisti ufficiali TRB rec. DDB e collaborazioni recenti non sono criteri di inclusione.');
   if($term_id){$term=get_term($term_id,'trb_catalog_artist');if(!$term||is_wp_error($term)||catalog_name_key($term->name)!==$key)return new \WP_Error('editorial_identity','Il riferimento di catalogo non corrisponde all’artista: '.$name.'.');}
   if($basis==='trb'){
    $verified=false;
@@ -56,6 +56,18 @@ function editorial_validate($data,$existing=[]){
  return $out;
 }
 add_action('admin_menu',function(){if(destination_site())add_submenu_page('trb-visual-editor','Roster pubblico','Roster pubblico','manage_options','trb-public-roster',__NAMESPACE__.'\\editorial_admin');});
+// Retire profiles imported under superseded criteria, preserving a private backup.
+add_action('admin_init',function(){
+ if(!destination_site()||!admin_permission())return;
+ $previous=(array)get_option('trb_studio_editorial_artists',[]);
+ $restricted=array_filter($previous,__NAMESPACE__.'\\editorial_entry_allowed');
+ if($restricted===$previous)return;
+ update_option('trb_studio_editorial_excluded_20261011',$previous,false);
+ update_option('trb_studio_editorial_artists',$restricted,false);
+ $synced=sync_artist_pages(directory_data());
+ if(is_wp_error($synced)){update_option('trb_studio_editorial_artists',$previous,false);return;}
+ if(function_exists('sg_cachepress_purge_cache'))sg_cachepress_purge_cache();
+});
 function editorial_admin(){
  if(!admin_permission()||!destination_site())return;
  $notice='';$error=false;
@@ -71,7 +83,7 @@ function editorial_admin(){
    else{if(function_exists('sg_cachepress_purge_cache'))sg_cachepress_purge_cache();$notice='Schede pubblicate. Foto e biografie sono modificabili nell’Editor sito e restano protette dalla sincronizzazione.';}
   }
  }
- echo '<div class="wrap"><h1>Roster pubblico</h1><p>Il roster riunisce i profili del portale e le schede editoriali verificate. Criteri: artisti TRB, Sara Rigo e collaborazioni degli ultimi due anni. Questa selezione non modifica account, contratti o gruppi del portale.</p>';
+ echo '<div class="wrap"><h1>Roster pubblico</h1><p>Il roster comprende esclusivamente artisti ufficiali TRB rec. DDB, collaborazioni recenti e precedenti eccezioni sono esclusi. Questa selezione non modifica account, contratti o gruppi del portale.</p>';
  if($notice)echo '<div class="notice '.($error?'notice-error':'notice-success').'"><p>'.esc_html($notice).'</p></div>';
  echo '<table class="widefat striped"><thead><tr><th>Artista</th><th>Origine</th><th>Scheda</th></tr></thead><tbody>';
  foreach(directory_data()['artists'] as $artist)echo '<tr><td>'.esc_html($artist['name']).'</td><td>'.esc_html(($artist['name_source']??'')==='editorial'?'Selezione editoriale':'Portale artisti').'</td><td><a href="'.esc_url(add_query_arg('trb-edit','1',artist_page_url($artist))).'">Modifica foto e biografia</a></td></tr>';
