@@ -249,6 +249,8 @@ if ( 'install' === $phase ) {
     wp_set_current_user( $id );
     $result['ordinary_artist'] = ! user_can( $id, 'manage_options' ) && ! trb_portal_is_release_qa_account( get_userdata( $id ) );
     $result['profile_completion_available'] = is_array( trb_portal_artist_profile_completion() );
+    require_once __DIR__ . '/qa-installed-document-access.php';
+    $result['document_access'] = trb_qa_installed_document_access( $id );
     if ( function_exists( 'WP_E_Sig' ) ) {
         $result['signature_models'] = false;
         $model = new WP_E_Esigrole(); $signature = new WP_E_Signature();
