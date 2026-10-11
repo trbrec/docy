@@ -7,11 +7,13 @@ $qaTemporaryRoot = str_replace( '\\', '/', realpath( sys_get_temp_dir() ) ?: '' 
 if ( ! $qaTemporaryRoot || dirname( dirname( $qaRoot ) ) !== $qaTemporaryRoot || ! preg_match( '~^trb-wp-mysql-qa-[0-9]+$~D', basename( dirname( $qaRoot ) ) ) || 'wordpress' !== basename( $qaRoot ) || ! is_file( $qaRoot . '/wp-load.php' ) || is_link( $qaRoot ) || is_link( dirname( $qaRoot ) ) ) throw new RuntimeException( 'An isolated official WordPress CI installation is required.' );
 $qaServing = PHP_SAPI === 'cli-server';
 $qaDatabase = getenv( 'TRB_QA_MYSQL_DATABASE' ) ?: 'trb_wp_qa';
+$qaPort = getenv( 'TRB_QA_MYSQL_PORT' ) ?: '3307';
+if ( ! ctype_digit( $qaPort ) || (int) $qaPort < 1024 || (int) $qaPort > 65535 ) throw new RuntimeException( 'Invalid isolated MySQL port.' );
 if ( ! preg_match( '/^trb_wp_qa(?:_[0-9]+)?$/D', $qaDatabase ) ) throw new RuntimeException( 'A disposable QA database is required.' );
 if ( $qaServing && ( ( $_SERVER['REMOTE_ADDR'] ?? '' ) !== '127.0.0.1' || ! hash_equals( (string) getenv( 'TRB_QA_HTTP_TOKEN' ), (string) ( $_SERVER['HTTP_X_TRB_QA_TOKEN'] ?? '' ) ) ) ) { http_response_code( 404 ); exit; }
 if ( ! $qaServing ) {
     if ( is_file( $qaRoot . '/wp-config.php' ) ) throw new RuntimeException( 'Refusing to reuse an existing WordPress configuration.' );
-    $qaConfig = "<?php\ndefine('DB_NAME','" . $qaDatabase . "');\ndefine('DB_USER','root');\ndefine('DB_PASSWORD','qa_ci');\ndefine('DB_HOST','127.0.0.1:3307');\ndefine('DB_CHARSET','utf8mb4');\ndefine('DB_COLLATE','');\ndefine('DISABLE_WP_CRON',true);\ndefine('DISALLOW_FILE_MODS',true);\ndefine('AUTOMATIC_UPDATER_DISABLED',true);\ndefine('WP_DEBUG',true);\ndefine('WP_DEBUG_DISPLAY',false);\ndefine('WP_ENVIRONMENT_TYPE','local');\n\$table_prefix='qa_';\n";
+    $qaConfig = "<?php\ndefine('DB_NAME','" . $qaDatabase . "');\ndefine('DB_USER','root');\ndefine('DB_PASSWORD','qa_ci');\ndefine('DB_HOST','127.0.0.1:" . $qaPort . "');\ndefine('DB_CHARSET','utf8mb4');\ndefine('DB_COLLATE','');\ndefine('DISABLE_WP_CRON',true);\ndefine('DISALLOW_FILE_MODS',true);\ndefine('AUTOMATIC_UPDATER_DISABLED',true);\ndefine('WP_DEBUG',true);\ndefine('WP_DEBUG_DISPLAY',false);\ndefine('WP_ENVIRONMENT_TYPE','local');\n\$table_prefix='qa_';\n";
     foreach ( array( 'AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT', 'LOGGED_IN_SALT', 'NONCE_SALT' ) as $qaKey ) $qaConfig .= "define('" . $qaKey . "','" . bin2hex( random_bytes( 32 ) ) . "');\n";
     $qaConfig .= "if(!defined('ABSPATH'))define('ABSPATH',__DIR__.'/');\nrequire_once ABSPATH.'wp-settings.php';\n";
     file_put_contents( $qaRoot . '/wp-config.php', $qaConfig );
@@ -136,6 +138,10 @@ if ( $qaServing ) {
         if ( ( $_POST['action'] ?? '' ) === 'trb_release_contract_callback' ) {
             require dirname( __DIR__, 2 ) . '/inc/trb-release-spreadsheet-bridge.php';
             trb_release_bridge_public_callback();
+        }
+        if ( ( $_POST['action'] ?? '' ) === 'trb_portal_attach_release_cover' ) {
+            if ( ( $_POST['qa_cover_commit_failure'] ?? '' ) === '1' ) add_filter( 'query', static function( $query ) { return $query === 'COMMIT' ? "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Injected QA cover commit failure'" : $query; } );
+            trb_portal_attach_release_cover();
         }
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_stage_release_chunk' ) trb_portal_stage_release_chunk();
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_submit_demo' ) {
@@ -264,7 +270,7 @@ try {
     $wpdb->query( "CREATE USER 'qa_schema_readonly'@'%' IDENTIFIED BY 'qa_ci'" );
     $wpdb->query( "GRANT SELECT ON {$qaDatabase}.* TO 'qa_schema_readonly'@'%'" );
     $qaRootDb = $wpdb;
-    $qaRestrictedDb = new wpdb( 'qa_schema_readonly', 'qa_ci', $qaDatabase, '127.0.0.1:3307' );
+    $qaRestrictedDb = new wpdb( 'qa_schema_readonly', 'qa_ci', $qaDatabase, '127.0.0.1:' . $qaPort );
     $qaRestrictedDb->set_prefix( $qaRootDb->prefix );
     $qaRestrictedDb->suppress_errors( true );
     $GLOBALS['wpdb'] = $qaRestrictedDb;
@@ -368,6 +374,7 @@ try {
     require __DIR__ . '/theme-translations-cases.php';
     require __DIR__ . '/theme-license-settings-cases.php';
     require __DIR__ . '/release-callback-mysql-cases.php';
+    require __DIR__ . '/release-cover-mysql-cases.php';
     $qaCartOldUser = get_current_user_id();
     wp_set_current_user( $qaUser );
     $qaCartNonce = wp_create_nonce( 'docy-buy-now-nonce' );

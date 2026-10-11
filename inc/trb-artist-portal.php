@@ -5011,33 +5011,76 @@ function trb_portal_release_has_final_cover( $release_id ) {
 /** Validate, scan and archive a definitive cover for an included request. */
 function trb_portal_store_final_release_cover( $release_id, $cover, $dpi_confirmed = false ) {
 	$release_id = absint( $release_id );
-	if ( 'trb_release' !== get_post_type( $release_id ) ) return new WP_Error( 'release_not_found' );
-	if ( 'request' !== get_post_meta( $release_id, '_trb_release_cover_mode', true ) || trb_portal_release_has_final_cover( $release_id ) ) return new WP_Error( 'invalid_cover_request' );
-	$valid = trb_portal_validate_release_upload( $cover, 'cover' );
-	if ( ! is_wp_error( $valid ) && ! $dpi_confirmed ) $valid = new WP_Error( 'cover_confirmation_missing' );
-	if ( is_wp_error( $valid ) ) return $valid;
-	$stored = trb_portal_store_release_upload( $release_id, $cover, 'cover' );
-	if ( is_wp_error( $stored ) ) return $stored;
-	$security_blocked = false;
-	if ( function_exists( 'trb_analysis_antivirus_scan' ) ) {
-		$local = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $stored ) : '';
-		$scan = $local ? trb_analysis_antivirus_scan( $local ) : new WP_Error( 'VIRUS_SCAN_FILE_MISSING' );
-		$stored['security_status'] = is_wp_error( $scan ) ? $scan->get_error_code() : 'clean';
-		$security_blocked = is_wp_error( $scan );
+	$lock = trb_release_process_lock( 'release:' . $release_id );
+	if ( ! $lock ) return new WP_Error( 'release_busy' );
+	global $wpdb;
+	$started = false;
+	$stored = array();
+	$existing_paths = array();
+	$request_id = 0;
+	$prior_errors = $wpdb->suppress_errors( true );
+	try {
+		if ( trb_release_is_inactive( $release_id ) ) return new WP_Error( 'release_not_found' );
+		if ( 'request' !== get_post_meta( $release_id, '_trb_release_cover_mode', true ) || trb_portal_release_has_final_cover( $release_id ) ) return new WP_Error( 'invalid_cover_request' );
+		$valid = trb_portal_validate_release_upload( $cover, 'cover' );
+		if ( ! is_wp_error( $valid ) && ! $dpi_confirmed ) $valid = new WP_Error( 'cover_confirmation_missing' );
+		if ( is_wp_error( $valid ) ) return $valid;
+		foreach ( array( $wpdb->postmeta, $wpdb->options ) as $table ) {
+			$engine = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $table ) );
+			if ( 'INNODB' !== strtoupper( (string) $engine ) ) throw new RuntimeException( 'Transactional cover storage unavailable.' );
+		}
+		$directory = trailingslashit( wp_upload_dir()['basedir'] ) . 'trb-release-private/' . $release_id;
+		foreach ( glob( $directory . '/*' ) ?: array() as $path ) $existing_paths[] = realpath( $path );
+		if ( false === $wpdb->query( 'START TRANSACTION' ) ) throw new RuntimeException( 'Cover transaction did not start.' );
+		$started = true;
+		$stored = trb_portal_store_release_upload( $release_id, $cover, 'cover' );
+		if ( is_wp_error( $stored ) ) return $stored;
+		$security_blocked = false;
+		if ( function_exists( 'trb_analysis_antivirus_scan' ) ) {
+			$local = function_exists( 'trb_release_pcloud_local_file' ) ? trb_release_pcloud_local_file( $stored ) : '';
+			$scan = $local ? trb_analysis_antivirus_scan( $local ) : new WP_Error( 'VIRUS_SCAN_FILE_MISSING' );
+			$stored['security_status'] = is_wp_error( $scan ) ? $scan->get_error_code() : 'clean';
+			$security_blocked = is_wp_error( $scan );
+		}
+		$files = get_post_meta( $release_id, '_trb_release_files', true );
+		$files = is_array( $files ) ? $files : array();
+		$files[] = $stored;
+		$write = static function( $id, $key, $value ) use ( $wpdb ) {
+			update_post_meta( $id, $key, wp_slash( $value ) );
+			$values = $wpdb->get_col( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id=%d AND meta_key=%s", $id, $key ) );
+			if ( $wpdb->last_error || ! $values ) throw new RuntimeException( 'Cover metadata write failed.' );
+			foreach ( $values as $actual ) if ( $actual !== (string) maybe_serialize( $value ) ) throw new RuntimeException( 'Cover metadata readback mismatch.' );
+		};
+		$write( $release_id, '_trb_release_files', array_values( $files ) );
+		$write( $release_id, '_trb_release_cover_status', $security_blocked ? 'security_scan_waiting' : 'uploaded' );
+		$request_id = absint( get_post_meta( $release_id, '_trb_release_cover_request_id', true ) );
+		if ( $request_id ) $write( $request_id, '_trb_cover_request_status', $security_blocked ? 'security_scan_waiting' : 'completed' );
+		if ( $security_blocked ) {
+			$write( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
+		} elseif ( ! function_exists( 'trb_release_pcloud_schedule_sync' ) && 'cover_creation_pending' === get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) {
+			$write( $release_id, '_trb_release_pipeline_status', 'manual_review' );
+		}
+		if ( false === $wpdb->query( 'COMMIT' ) ) throw new RuntimeException( 'Cover commit unconfirmed.' );
+		$started = false;
+	} catch ( Throwable $error ) {
+		if ( $started ) { $wpdb->query( 'ROLLBACK' ); $started = false; }
+		if ( is_array( $stored ) && ! empty( $stored['path'] ) ) {
+			$path = trb_file_retry_path( $release_id, $stored );
+			if ( $path && ! in_array( $path, $existing_paths, true ) ) trb_portal_delete_release_files( array( $stored ) );
+		}
+		do_action( 'trb_portal_cover_storage_failure', $release_id, $error );
+		return new WP_Error( 'release_storage_failed' );
+	} finally {
+		if ( $started ) $wpdb->query( 'ROLLBACK' );
+		wp_cache_delete( $release_id, 'post_meta' );
+		if ( $request_id ) wp_cache_delete( $request_id, 'post_meta' );
+		wp_cache_delete( 'alloptions', 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+		wp_cache_delete( 'cron', 'options' );
+		$wpdb->suppress_errors( $prior_errors );
+		trb_release_process_unlock( $lock );
 	}
-	$files = (array) get_post_meta( $release_id, '_trb_release_files', true );
-	$files[] = $stored;
-	update_post_meta( $release_id, '_trb_release_files', array_values( $files ) );
-	update_post_meta( $release_id, '_trb_release_cover_status', $security_blocked ? 'security_scan_waiting' : 'uploaded' );
-	$request_id = absint( get_post_meta( $release_id, '_trb_release_cover_request_id', true ) );
-	if ( $request_id ) update_post_meta( $request_id, '_trb_cover_request_status', $security_blocked ? 'security_scan_waiting' : 'completed' );
-	if ( $security_blocked ) {
-		update_post_meta( $release_id, '_trb_release_pipeline_status', 'security_scan_waiting' );
-	} elseif ( function_exists( 'trb_release_pcloud_schedule_sync' ) ) {
-		trb_release_pcloud_schedule_sync( $release_id, true );
-	} elseif ( 'cover_creation_pending' === get_post_meta( $release_id, '_trb_release_pipeline_status', true ) ) {
-		update_post_meta( $release_id, '_trb_release_pipeline_status', 'manual_review' );
-	}
+	if ( ! $security_blocked && function_exists( 'trb_release_pcloud_schedule_sync' ) ) trb_release_pcloud_schedule_sync( $release_id, true );
 	return true;
 }
 
