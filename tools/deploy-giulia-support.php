@@ -20,7 +20,7 @@ $stage='entry';$indexPath=$crm.'/index.php';$index=(string)file_get_contents($in
 $anchor='$router->dispatch($method,rtrim($path,\'/\')?:\'/\');';
 $hook="require_once __DIR__.'/app/GiuliaSupport.php';\nif(\\TrbCrm\\GiuliaSupport::dispatch(\$method,rtrim(\$path,'/')?:'/'))exit;\n";
 if(!str_contains($index,"require_once __DIR__.'/app/GiuliaSupport.php';")) {if(substr_count($index,$anchor)!==1)throw new RuntimeException();$index=str_replace($anchor,$hook.$anchor,$index);}
-$changes=[$crm.'/app/GiuliaSupport.php'=>(string)file_get_contents($bundle.'/integrations/giulia/GiuliaSupport.php'),$indexPath=>$index];$original=[];
+$changes=[$crm.'/app/GiuliaSupport.php'=>(string)file_get_contents($bundle.'/integrations/giulia/GiuliaSupport.php'),$crm.'/app/GiuliaReport.php'=>(string)file_get_contents($bundle.'/integrations/giulia/GiuliaReport.php'),$private.'/run-giulia-report.php'=>(string)file_get_contents($bundle.'/tools/run-giulia-report.php'),$indexPath=>$index];$original=[];
 $stage='validate';foreach($changes as $path=>$next){$original[$path]=is_file($path)?file_get_contents($path):null;$staged=$backup.'/'.basename($path).'.next';file_put_contents($staged,$next);exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($staged).' 2>&1',$output,$status);if($status!==0)throw new RuntimeException();if($original[$path]!==null&&!is_file($backup.'/'.basename($path).'.previous'))file_put_contents($backup.'/'.basename($path).'.previous',$original[$path]);}
 $stage='activate';try {foreach($changes as $path=>$next){$temp=$path.'.giulia-next';if(file_put_contents($temp,$next)!==strlen($next)||!rename($temp,$path))throw new RuntimeException();}if(!hash_equals(hash('sha256',$changes[$crm.'/app/GiuliaSupport.php']),hash_file('sha256',$crm.'/app/GiuliaSupport.php')))throw new RuntimeException();}
 catch(Throwable $e){foreach($original as $path=>$content){if($content===null){if(is_file($path))unlink($path);}else file_put_contents($path,$content);}throw $e;}
@@ -36,5 +36,8 @@ $http=stream_context_create(['http'=>['method'=>'POST','header'=>"Content-Type: 
 $response=json_decode((string)file_get_contents('https://crm.trbrec.com/api/giulia/support',false,$http),true);
 if(($response['reason']??'')!=='identity_required')throw new RuntimeException();
 } catch(Throwable $e) {foreach($original as $path=>$content){if($content===null){if(is_file($path))unlink($path);}else file_put_contents($path,$content);}throw $e;}
+$stage='report-scheduler';
+chmod($private.'/run-giulia-report.php',0600);
+require $bundle.'/tools/ensure-giulia-report.php';
 file_put_contents($private.'/giulia-deployed-sha',$revision);echo 'GIULIA_DEPLOY_OK revision='.$revision."\n";
 
