@@ -93,6 +93,10 @@ function trb_qa_installed_document_template( $artist_id, $doc_id, $rule, $viewer
     wp_set_current_user( (int) $admins[0] );
     $wp_query = new WP_Query( array( 'post_type' => 'docs', 'p' => $doc_id, 'post_status' => 'private' ) );
     if ( ! $wp_query->have_posts() ) throw new RuntimeException( 'Synthetic document query failed.' );
+    // WP::register_globals normally establishes this context before a template.
+    $GLOBALS['wp_the_query'] = $wp_query;
+    $wp_query->the_post();
+    $wp_query->rewind_posts();
     wp_set_current_user( $viewer === 'administrator' ? (int) $admins[0] : ( $viewer === 'artist' ? $artist_id : 0 ) );
     $diagnostics_before = $GLOBALS['qa_stack_result']['diagnostics'] ?? array();
     ob_start();
