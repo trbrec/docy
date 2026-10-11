@@ -142,6 +142,7 @@ final class GiuliaSupport
     }
     public static function dispatch(string $method, string $path): bool
     {
+        if ($path === '/giulia-report') { require_once __DIR__.'/GiuliaReport.php'; GiuliaReport::dispatch($method); return true; }
         if (!in_array($path,['/api/giulia/support','/giulia-integration'],true)) return false;
         header('Cache-Control: no-store, private');header('X-Robots-Tag: noindex, nofollow');header('Referrer-Policy: no-referrer');
         try {

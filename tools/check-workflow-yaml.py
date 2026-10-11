@@ -50,3 +50,10 @@ for name in ('verify', 'mysql-profile'):
         assert not step.get('continue-on-error'), 'Required validation step may ignore failure'
 print('Production dependency graph requires shared regression and real MySQL validation.')
 assert '--enable' not in Path('.github/workflows/deploy.yml').read_text(), 'Ordinary deployment must preserve existing onboarding activation'
+
+# Credential alignment must run the same native suite even when PR events are unavailable.
+demo_alignment = yaml.load(Path('.github/workflows/demo-key-alignment.yml').read_text(), Loader=UniqueMappingLoader)
+assert demo_alignment['jobs']['validate']['uses'] == './.github/workflows/submission-checks.yml'
+assert demo_alignment['jobs']['align']['needs'] == 'validate'
+assert not demo_alignment['jobs']['align'].get('if') and not demo_alignment['jobs']['align'].get('continue-on-error')
+print('Demo key alignment requires successful shared native validation.')

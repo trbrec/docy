@@ -9,7 +9,10 @@ concurrency:
   group: demo-sheet-key-alignment
   cancel-in-progress: false
 jobs:
+  validate:
+    uses: ./.github/workflows/submission-checks.yml
   align:
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -22,7 +25,6 @@ jobs:
           SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
           SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
           SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -33,14 +35,6 @@ jobs:
           PY
           tag=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json"))["tag"])')
           phase=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json"))["phase"])')
-          validation=pending
-          for attempt in $(seq 1 30); do
-            validation=$(curl --fail --silent --show-error -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${GITHUB_SHA}&per_page=30" | python3 -c 'import json,sys;r=[x for x in json.load(sys.stdin)["workflow_runs"] if x["name"]=="Portal pre-merge checks"];print(r[0].get("conclusion") or "pending" if r else "pending")')
-            if [ "${validation}" = success ]; then break; fi
-            if [ "${validation}" != pending ]; then exit 1; fi
-            sleep 15
-          done
-          test "${validation}" = success
           install -d -m 700 "${HOME}/.ssh" /tmp/trb-demo-key-status
           printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
           chmod 600 "${HOME}/.ssh/id_ed25519"
