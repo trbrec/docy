@@ -122,6 +122,7 @@ function trb_docy_verify_deployed_commit( $sha ) {
 		return $files;
 	}
 
+	require_once __DIR__ . '/trb-deployment-file-policy.php';
 	$theme_root = trailingslashit( get_template_directory() );
 	$checked    = 0;
 	foreach ( $files as $file ) {
@@ -134,9 +135,8 @@ function trb_docy_verify_deployed_commit( $sha ) {
 			return new WP_Error( 'trb_commit_manifest_invalid', 'Il manifest del commit contiene un percorso non valido.', array( 'status' => 503 ) );
 		}
 
-		// Repository automation is not part of the WordPress theme installed by
-		// Deployer for Git, so workflow-only changes are intentionally ignored.
-		if ( 0 === strpos( $path, '.github/' ) ) {
+		// Repository automation and private test fixtures are intentionally absent from the public theme.
+		if ( 0 === strpos( $path, '.github/' ) || ! trb_portal_release_path_is_public( $path ) ) {
 			continue;
 		}
 

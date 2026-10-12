@@ -15,9 +15,10 @@ $trb_release_candidate = $trb_release_directory . '/candidate'; $trb_release_the
 $trb_release_verification_stage = 'release-path';
 if ( realpath( dirname( __DIR__ ) ) !== $trb_release_candidate || is_link( $trb_release_directory ) || trim( (string) @file_get_contents( $trb_release_theme . '/.trb-deployed-sha' ) ) !== $trb_release_revision ) throw new RuntimeException( 'Release path mismatch.' );
 require __DIR__ . '/portal-release-backup.php';
-$trb_release_files = trb_portal_release_files( $trb_release_candidate );
+$trb_release_files = trb_portal_release_public_files( $trb_release_candidate );
 $trb_release_verification_stage = 'obsolete-modules';
 foreach ( array( 'integrations/onboarding/crm/OnboardingPcloud.php', 'tools/test-onboarding-pcloud.php' ) as $trb_release_path ) if ( file_exists( $trb_release_theme . '/' . $trb_release_path ) || is_link( $trb_release_theme . '/' . $trb_release_path ) ) throw new RuntimeException( 'Obsolete module cleanup unconfirmed.' );
+trb_portal_release_assert_no_public_tests( $trb_release_theme );
 $trb_release_verification_stage = 'theme-bytes';
 foreach ( $trb_release_files as $trb_release_path => $trb_release_spec ) if ( is_link( $trb_release_theme . '/' . $trb_release_path ) || ! is_file( $trb_release_theme . '/' . $trb_release_path ) || ! hash_equals( $trb_release_spec['sha256'], hash_file( 'sha256', $trb_release_theme . '/' . $trb_release_path ) ) ) { $trb_release_path_fingerprint = substr( hash( 'sha256', $trb_release_path ), 0, 12 ); throw new RuntimeException( 'Theme byte mismatch.' ); }
 $trb_release_verification_stage = 'integration-bytes';

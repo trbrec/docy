@@ -1,5 +1,6 @@
 <?php
 /** File-only rollback: no live database or uploaded artist material is restored. */
+require_once dirname( __DIR__ ) . '/inc/trb-deployment-file-policy.php';
 function trb_portal_release_path_is_safe( $path ) {
     return is_string( $path ) && preg_match( '#^[a-zA-Z0-9_. ()/@+-]+$#D', $path )
         && ! preg_match( '#(^/|/$|//|(^|/)\.{1,2}(/|$))#', $path );
@@ -21,10 +22,18 @@ function trb_portal_release_files( $root ) {
     ksort( $files );
     return $files;
 }
+function trb_portal_release_public_files( $root ) {
+    return array_filter( trb_portal_release_files( $root ), 'trb_portal_release_path_is_public', ARRAY_FILTER_USE_KEY );
+}
+function trb_portal_release_assert_no_public_tests( $root ) {
+    foreach ( trb_portal_release_files( $root ) as $path => $spec ) {
+        if ( ! trb_portal_release_path_is_public( $path ) ) throw new RuntimeException( 'Development test source remains in public theme.' );
+    }
+}
 
 function trb_portal_release_snapshot( $theme, $candidate, $backup, $revision ) {
     if ( is_link( $backup ) || file_exists( $backup ) ) throw new RuntimeException( 'Release backup already exists.' );
-    $previous = trb_portal_release_files( $theme ); $next = trb_portal_release_files( $candidate );
+    $previous = trb_portal_release_files( $theme ); $next = trb_portal_release_public_files( $candidate );
     if ( ! isset( $previous['functions.php'], $next['functions.php'] ) || ! mkdir( $backup, 0700, true ) ) throw new RuntimeException( 'Theme snapshot unavailable.' );
     foreach ( $previous as $path => $spec ) {
         $target = $backup . '/files/' . $path;
@@ -41,17 +50,26 @@ function trb_portal_release_snapshot( $theme, $candidate, $backup, $revision ) {
 function trb_portal_release_prune( $theme, $candidate, $backup, $revision ) {
     $manifest = json_decode( file_get_contents( $backup . '/manifest.json' ), true, 64, JSON_THROW_ON_ERROR );
     if ( ( $manifest['revision'] ?? '' ) !== $revision ) throw new RuntimeException( 'Prune revision mismatch.' );
+    $obsolete = array( 'integrations/onboarding/crm/OnboardingPcloud.php', 'tools/test-onboarding-pcloud.php' );
+    foreach ( $obsolete as $path ) if ( file_exists( $candidate . '/' . $path ) || is_link( $candidate . '/' . $path ) ) throw new RuntimeException( 'Obsolete module still in candidate.' );
+    // Test sources remain in the private candidate; remove only public copies captured in the snapshot.
+    $paths = $obsolete;
+    foreach ( array_keys( $manifest['previous'] ) as $path ) {
+        if ( ! trb_portal_release_path_is_safe( $path ) ) throw new RuntimeException( 'Unsafe prune path.' );
+        if ( ! trb_portal_release_path_is_public( $path ) ) $paths[] = $path;
+    }
     $remove = array();
-    foreach ( array( 'integrations/onboarding/crm/OnboardingPcloud.php', 'tools/test-onboarding-pcloud.php' ) as $path ) {
-        if ( file_exists( $candidate . '/' . $path ) || is_link( $candidate . '/' . $path ) ) throw new RuntimeException( 'Obsolete module still in candidate.' );
+    foreach ( array_unique( $paths ) as $path ) {
+        if ( isset( $manifest['next'][$path] ) ) throw new RuntimeException( 'Pruned source still in public candidate inventory.' );
         $target = $theme . '/' . $path;
         for ( $parent = $target; strlen( $parent ) >= strlen( $theme ); $parent = dirname( $parent ) ) if ( is_link( $parent ) ) throw new RuntimeException( 'Unsafe prune link.' );
         if ( ! file_exists( $target ) ) continue;
+        for ( $parent = $backup . '/files/' . $path; strlen( $parent ) >= strlen( $backup ); $parent = dirname( $parent ) ) if ( is_link( $parent ) ) throw new RuntimeException( 'Unsafe prune backup link.' );
         $hash = $manifest['previous'][$path]['sha256'] ?? '';
-        if ( ! is_file( $target ) || ! is_file( $backup . '/files/' . $path ) || ! hash_equals( $hash, hash_file( 'sha256', $target ) ) || ! hash_equals( $hash, hash_file( 'sha256', $backup . '/files/' . $path ) ) ) throw new RuntimeException( 'Obsolete source changed after snapshot.' );
+        if ( ! is_file( $target ) || ! is_file( $backup . '/files/' . $path ) || ! hash_equals( $hash, hash_file( 'sha256', $target ) ) || ! hash_equals( $hash, hash_file( 'sha256', $backup . '/files/' . $path ) ) ) throw new RuntimeException( 'Pruned source changed after snapshot.' );
         $remove[] = $target;
     }
-    foreach ( $remove as $target ) if ( ! unlink( $target ) ) throw new RuntimeException( 'Obsolete module cleanup failed.' );
+    foreach ( $remove as $target ) if ( ! unlink( $target ) ) throw new RuntimeException( 'Obsolete or test source cleanup failed.' );
     return count( $remove );
 }
 
