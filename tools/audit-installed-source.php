@@ -1,6 +1,9 @@
 <?php
 /** Read-only source and database metadata inventory; never starts application workers. */
 if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
+ini_set( 'display_errors', '0' );
+$inventoryStage = 'bootstrap';
+set_exception_handler( static function() use ( &$inventoryStage ) { fwrite( STDERR, 'Read-only inventory unconfirmed at ' . $inventoryStage . ".\n" ); exit( 1 ); } );
 if ( in_array( '--crm-schema', $argv, true ) ) {
     ini_set( 'display_errors', '0' );
     try {
@@ -121,6 +124,7 @@ if ( in_array( '--database-shape', $argv, true ) ) {
 }
 $source_names = array( 'ActivationFlow.php', 'CandidateContractReview.php', 'CandidateFollowupPolicy.php', 'Controller.php', 'Core.php', 'MailRecovery.php', 'MaterialArchivePolicy.php', 'OnboardingAdmin.php', 'OnboardingContractCatalog.php', 'OnboardingContractWorkflow.php', 'OnboardingDrive.php', 'OnboardingEntry.php', 'OnboardingIdentity.php', 'OnboardingIntake.php', 'OnboardingLedger.php', 'OnboardingMail.php', 'OnboardingPolicy.php', 'OnboardingRuntime.php', 'OnboardingService.php', 'OnboardingTransport.php', 'OnboardingWorkflowInstaller.php', 'PcloudDemoStorage.php', 'ProposalMailCatalog.php', 'ProposalMailCopy.php', 'SubmissionRepository.php', 'SymphonicSheet.php', 'View.php', 'bootstrap.php', 'routes.php' );
 if ( in_array( '--sources', $argv, true ) ) {
+    $inventoryStage = 'source-selection';
     $source_paths = array();
     foreach ( $source_names as $name ) $source_paths[ 'crm/app/' . $name ] = '/home/customer/www/crm.trbrec.com/public_html/app/' . $name;
     foreach ( array( 'index.php', 'pcloud-material.php', 'download-folder-handler.php', '.htaccess', 'app-20260831-r27.js', 'app-20260828-v7.css', 'release-review-r2.css', 'config/routes.php' ) as $name ) $source_paths[ 'crm/' . $name ] = '/home/customer/www/crm.trbrec.com/public_html/' . $name;
@@ -139,6 +143,7 @@ if ( in_array( '--sources', $argv, true ) ) {
     }
     $sources = array();
     foreach ( $source_paths as $name => $path ) {
+        $inventoryStage = 'source-' . substr( hash( 'sha256', $name ), 0, 12 );
         if ( ! is_file( $path ) || is_link( $path ) ) throw new RuntimeException( 'An explicitly selected source file is unavailable.' );
         $content = file_get_contents( $path );
         // Configuration files, database rows and artist uploads are never selected.
@@ -158,6 +163,7 @@ $roots = array(
 );
 $result = array( 'read_only' => true, 'php_version' => PHP_VERSION, 'roots' => array(), 'logs' => array() );
 foreach ( $roots as $label => $root ) {
+    $inventoryStage = 'files-' . $label;
     $files = array();
     if ( is_dir( $root ) ) {
         $iterator = 'portal_theme' === $label
