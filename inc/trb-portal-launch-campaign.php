@@ -12,6 +12,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 const TRB_PORTAL_LAUNCH_CAMPAIGN = 'portal-launch-2026-08-10';
 const TRB_PORTAL_LAUNCH_HOOK     = 'trb_portal_send_launch_campaign_batch';
 
+/**
+ * A technical release never authorizes artist communications by itself.
+ * The private, revision-bound qualification is issued only after the complete
+ * fictional signature/payment/archive/activation flow and final audit pass.
+ * The deployment workflow deliberately does not create this receipt.
+ */
+function trb_portal_launch_campaign_is_ready() {
+	$marker = trailingslashit( get_template_directory() ) . '.trb-deployed-sha';
+	if ( is_link( $marker ) || ! is_file( $marker ) || filesize( $marker ) > 128 ) return false;
+	$sha = trim( (string) @file_get_contents( $marker ) );
+	if ( ! preg_match( '/^[a-f0-9]{40}$/D', $sha ) || ! trb_docy_has_completed_release( $sha ) ) return false;
+	$directory = dirname( untrailingslashit( ABSPATH ) ) . '/private/portal-release-' . $sha;
+	$path = $directory . '/artist-communications.json';
+	if ( is_link( $directory ) || is_link( $path ) || ! is_file( $path ) || filesize( $path ) > 16384 ) return false;
+	$receipt = json_decode( (string) @file_get_contents( $path ), true );
+	return is_array( $receipt ) && ( $receipt['revision'] ?? '' ) === $sha
+		&& ( $receipt['campaign'] ?? '' ) === TRB_PORTAL_LAUNCH_CAMPAIGN
+		&& ( $receipt['audit_completed'] ?? false ) === true
+		&& ( $receipt['signature_payment_flow_verified'] ?? false ) === true
+		&& ( $receipt['communications_authorized'] ?? false ) === true;
+}
+
 /** Return the fixed launch date in the Italian timezone. */
 function trb_portal_launch_campaign_datetime() {
 	return new DateTimeImmutable( '2026-08-10 09:00:00', new DateTimeZone( 'Europe/Rome' ) );
@@ -28,11 +50,11 @@ function trb_portal_launch_campaign_roles() {
 }
 
 /**
- * Register the one-time campaign only after the installed release is verified.
+ * Register the one-time campaign only after the complete audit is qualified.
  * The overdue fallback also recovers an event removed from WP-Cron.
  */
 function trb_portal_schedule_launch_campaign() {
-	if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN || ! trb_docy_has_completed_release() ) {
+	if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN || ! trb_portal_launch_campaign_is_ready() ) {
 		return;
 	}
 
@@ -89,14 +111,14 @@ function trb_portal_launch_campaign_message( WP_User $user ) {
 
 /** Send a small batch, recording every successful delivery to prevent duplicates. */
 function trb_portal_send_launch_campaign_batch() {
-	if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN || ! trb_docy_has_completed_release() ) {
+	if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN || ! trb_portal_launch_campaign_is_ready() ) {
 		return;
 	}
 	$lock = trb_release_process_lock( 'portal-launch:' . TRB_PORTAL_LAUNCH_CAMPAIGN );
 	if ( ! $lock ) return;
 	try {
 		// Recheck after acquiring the lock; another worker may have completed it.
-		if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN || ! trb_docy_has_completed_release() ) return;
+		if ( get_option( 'trb_portal_launch_campaign_completed' ) === TRB_PORTAL_LAUNCH_CAMPAIGN || ! trb_portal_launch_campaign_is_ready() ) return;
 
 		$users  = get_users(
 			array(
@@ -132,7 +154,7 @@ function trb_portal_send_launch_campaign_batch() {
 		);
 
 		foreach ( $users as $user ) {
-			if ( ! trb_docy_has_completed_release() ) return;
+			if ( ! trb_portal_launch_campaign_is_ready() ) return;
 			$attempts = (int) get_user_meta( $user->ID, '_trb_portal_launch_campaign_attempts', true ) + 1;
 			update_user_meta( $user->ID, '_trb_portal_launch_campaign_attempts', $attempts );
 			if ( wp_mail( $user->user_email, $subject, trb_portal_launch_campaign_message( $user ), $headers ) ) {
@@ -141,7 +163,7 @@ function trb_portal_send_launch_campaign_batch() {
 			}
 		}
 
-		if ( ! wp_next_scheduled( TRB_PORTAL_LAUNCH_HOOK ) ) {
+		if ( trb_portal_launch_campaign_is_ready() && ! wp_next_scheduled( TRB_PORTAL_LAUNCH_HOOK ) ) {
 			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, TRB_PORTAL_LAUNCH_HOOK );
 		}
 	} finally {

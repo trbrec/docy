@@ -20,6 +20,10 @@ define( 'DISABLE_WP_CRON', true ); define( 'WP_USE_THEMES', false );
 $_SERVER['HTTP_HOST'] = 'artist.trbrec.com'; $_SERVER['REQUEST_URI'] = '/'; $_SERVER['HTTPS'] = 'on';
 ob_start(); require $site . '/public_html/wp-load.php';
 if ( realpath( get_template_directory() ) !== $theme || ! trb_docy_deployment_is_ssh_only() ) throw new RuntimeException( 'Theme activation mismatch.' );
+if ( ! function_exists( 'trb_portal_launch_campaign_is_ready' ) || trb_portal_launch_campaign_is_ready()
+    || file_exists( $release . '/artist-communications.json' ) || is_link( $release . '/artist-communications.json' )
+    || false !== has_action( 'init', 'trb_portal_schedule_launch_campaign' )
+    || false !== has_action( 'trb_portal_send_launch_campaign_batch', 'trb_portal_send_launch_campaign_batch' ) ) throw new RuntimeException( 'Artist communications are not paused for the complete audit.' );
 foreach ( array( 'trb_webdav_request', 'trb_portal_handle_artist_profile', 'trb_crm_sync_atomic', 'trb_portal_maintain_error_log' ) as $function ) if ( ! function_exists( $function ) ) throw new RuntimeException( 'Portal component missing.' );
 $log_event = wp_get_scheduled_event( 'trb_portal_daily_log_maintenance' );
 if ( ! $log_event || $log_event->schedule !== 'daily' || ! has_action( 'trb_portal_daily_log_maintenance', 'trb_portal_maintain_error_log' ) ) throw new RuntimeException( 'Daily log maintenance unconfirmed.' );

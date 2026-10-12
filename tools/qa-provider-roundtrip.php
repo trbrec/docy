@@ -88,7 +88,7 @@ try {
         $result['pcloud_folder_delete_member_statuses'] = trb_qa_provider_multistatus_codes( $folder_deleted );
         $absent = trb_webdav_request( trb_demo_settings(), 'GET', $remote, null, array( 'Cache-Control' => 'no-cache' ) );
         $file_resource_absent = trb_qa_provider_resource_absent( $remote, $file_resource_status );
-        $folder_resource_absent = trb_qa_provider_await_resource_absent( $folder . '/', $folder_resource_status, $folder_observations );
+        $folder_resource_absent = trb_qa_provider_await_resource_absent( $folder . '/', $folder_resource_status, $folder_observations, null, static fn() => trb_qa_provider_delete_empty_owned_collection( $folder . '/' ) );
         $result['pcloud_folder_absence_observations'] = $folder_observations;
         $result['pcloud_cleanup_http'] = array( is_wp_error( $file_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $file_deleted ), is_wp_error( $folder_deleted ) ? 0 : (int) wp_remote_retrieve_response_code( $folder_deleted ), is_wp_error( $absent ) ? 0 : (int) wp_remote_retrieve_response_code( $absent ) );
         $result['pcloud_file_absence_http'] = $file_resource_status;
@@ -100,9 +100,11 @@ try {
     }
     if ( null !== $prior_run && function_exists( 'trb_qa_provider_resource_absent' ) ) {
         // An earlier DELETE acknowledgement is not proof of eventual absence.
-        // Probe only the explicitly identified synthetic collection; do not erase it.
+        // Reconcile only this explicitly identified owned fixture, and only if empty.
         $result['pcloud_prior_fixture'] = 'QA-AUDIT-' . $prior_run;
-        $result['pcloud_prior_fixture_absent'] = trb_qa_provider_resource_absent( '/Upload files - TRB rec/Audio/Demo files/QA-AUDIT-' . $prior_run . '/', $prior_status );
+        $prior_path = '/Upload files - TRB rec/Audio/Demo files/QA-AUDIT-' . $prior_run . '/';
+        $result['pcloud_prior_fixture_absent'] = trb_qa_provider_await_resource_absent( $prior_path, $prior_status, $prior_observations, null, static fn() => trb_qa_provider_delete_empty_owned_collection( $prior_path ) );
         $result['pcloud_prior_fixture_absence_http'] = $prior_status;
+        $result['pcloud_prior_fixture_absence_observations'] = $prior_observations;
     }
 }

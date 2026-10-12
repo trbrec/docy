@@ -40,4 +40,19 @@ foreach ( array( '<broken', '<!DOCTYPE x [<!ENTITY e SYSTEM "file:///unreadable"
     $multi['body'] = $body;
     if ( null !== trb_qa_provider_multistatus_codes( $multi ) ) throw new RuntimeException( 'Unsafe or malformed provider body accepted.' );
 }
-echo "Namespaced DAV listing and malformed XML refusal; actual resource absence, permission/transport failures and ambiguous statuses verified.\n";
+$owned = '/Upload files - TRB rec/Audio/Demo files/QA-AUDIT-0123456789abcdef/';
+$xml = static fn( $paths ) => '<D:multistatus xmlns:D="DAV:">' . implode( '', array_map( static fn( $path ) => '<D:response><D:href>' . htmlspecialchars( $path, ENT_XML1 ) . '</D:href></D:response>', $paths ) ) . '</D:multistatus>';
+foreach ( array( '/real-artist/', $owned . '../', str_replace( '0123456789abcdef', 'unknown', $owned ) ) as $path ) {
+    $GLOBALS['last_request'] = null;
+    if ( trb_qa_provider_delete_empty_owned_collection( $path ) || null !== $GLOBALS['last_request'] ) throw new RuntimeException( 'Non-owned collection reached the provider.' );
+}
+foreach ( array( array(), array( '/other/' ), array( $owned, $owned . 'unexpected.pdf' ) ) as $paths ) {
+    $GLOBALS['response'] = array( 'status' => 207, 'body' => $xml( $paths ) );
+    if ( trb_qa_provider_delete_empty_owned_collection( $owned ) || $GLOBALS['last_request'][1] !== 'PROPFIND' ) throw new RuntimeException( 'Unconfirmed or nonempty collection was deleted.' );
+}
+$GLOBALS['response_queue'] = array( array( 'status' => 207, 'body' => $xml( array( $owned ) ) ), array( 'status' => 204, 'body' => '' ) );
+if ( ! trb_qa_provider_delete_empty_owned_collection( $owned ) || $GLOBALS['last_request'][1] !== 'DELETE' ) throw new RuntimeException( 'Owned empty collection could not be reconciled.' );
+$GLOBALS['response_queue'] = array( array( 'status' => 207, 'body' => '' ), array( 'status' => 207, 'body' => $xml( array( $owned ) ) ), array( 'status' => 204, 'body' => '' ), array( 'status' => 404, 'body' => '' ) );
+$pauses = array();
+if ( ! trb_qa_provider_await_resource_absent( $owned, $status, $observations, $pause, static fn() => trb_qa_provider_delete_empty_owned_collection( $owned ) ) || $observations !== array( 207, 404 ) ) throw new RuntimeException( 'A retry must still observe independent DAV absence.' );
+echo "DAV absence, ambiguous failures and bounded reconciliation of only an owned empty collection verified; unrelated and nonempty collections preserved.\n";

@@ -46,6 +46,8 @@ $sha = str_repeat( 'a', 40 ); $marker = ABSPATH . 'theme/.trb-deployed-sha';
 $directory = $root . '/private/portal-release-' . $sha; mkdir( $directory, 0700, true );
 $receipt = $directory . '/complete.json';
 $verified = json_encode( array( 'revision' => $sha, 'verified' => true ) );
+$qualification = $directory . '/artist-communications.json';
+$qualified = array( 'revision' => $sha, 'campaign' => TRB_PORTAL_LAUNCH_CAMPAIGN, 'audit_completed' => true, 'signature_payment_flow_verified' => true, 'communications_authorized' => true );
 try {
     launch_pending();
     file_put_contents( $marker, $sha ); launch_pending();
@@ -55,7 +57,20 @@ try {
     file_put_contents( $receipt, $verified ); file_put_contents( $marker, '../outside' ); clearstatcache(); launch_pending();
     file_put_contents( $marker, $sha ); clearstatcache();
     launch_check( trb_docy_has_completed_release( $sha ) && ! trb_docy_has_completed_release( str_repeat( 'b', 40 ) ), 'Receipt did not match the installed revision.' );
+    launch_pending(); // A completed technical release still cannot send announcements.
+    foreach ( $qualified as $key => $value ) {
+        $invalid = $qualified; unset( $invalid[$key] );
+        file_put_contents( $qualification, json_encode( $invalid ) ); clearstatcache(); launch_pending();
+        $invalid[$key] = is_bool( $value ) ? 1 : ( 'revision' === $key ? str_repeat( 'b', 40 ) : 'other-campaign' );
+        file_put_contents( $qualification, json_encode( $invalid ) ); clearstatcache(); launch_pending();
+    }
+    foreach ( array( '{broken', str_repeat( ' ', 16385 ) ) as $bytes ) {
+        file_put_contents( $qualification, $bytes ); clearstatcache(); launch_pending();
+    }
+    file_put_contents( $qualification, json_encode( $qualified ) ); clearstatcache();
     if ( PHP_OS_FAMILY !== 'Windows' ) {
+        rename( $qualification, $qualification . '.owned' ); symlink( $qualification . '.owned', $qualification ); clearstatcache(); launch_pending();
+        unlink( $qualification ); rename( $qualification . '.owned', $qualification );
         rename( $receipt, $receipt . '.owned' ); symlink( $receipt . '.owned', $receipt ); clearstatcache(); launch_pending();
         unlink( $receipt ); rename( $receipt . '.owned', $receipt );
         rename( $marker, $marker . '.owned' ); symlink( $marker . '.owned', $marker ); clearstatcache(); launch_pending();
@@ -67,10 +82,10 @@ try {
     $lock = trb_release_process_lock( 'portal-launch:' . TRB_PORTAL_LAUNCH_CAMPAIGN );
     try { trb_portal_send_launch_campaign_batch(); launch_check( ! $GLOBALS['mail'] && ! $GLOBALS['meta'], 'Concurrent worker sent mail.' ); }
     finally { trb_release_process_unlock( $lock ); }
-    $GLOBALS['during_mail'] = static function() { unlink( $GLOBALS['receipt'] ); clearstatcache(); };
+    $GLOBALS['during_mail'] = static function() { unlink( $GLOBALS['qualification'] ); clearstatcache(); };
     trb_portal_send_launch_campaign_batch();
-    launch_check( count( $GLOBALS['mail'] ) === 1 && ! isset( $GLOBALS['meta'][2] ), 'Campaign continued after its release receipt disappeared.' );
-    file_put_contents( $receipt, $verified ); clearstatcache();
+    launch_check( count( $GLOBALS['mail'] ) === 1 && ! isset( $GLOBALS['meta'][2] ) && ! $GLOBALS['events'], 'Campaign continued or scheduled a retry after audit qualification disappeared.' );
+    file_put_contents( $qualification, json_encode( $qualified ) ); clearstatcache();
     $GLOBALS['during_mail'] = static function() { trb_portal_send_launch_campaign_batch(); };
     trb_portal_send_launch_campaign_batch(); $GLOBALS['during_mail'] = null;
     launch_check( count( $GLOBALS['mail'] ) === 2 && ( $GLOBALS['meta'][2]['_trb_portal_launch_campaign_attempts'] ?? 0 ) === 1, 'Reentrant worker duplicated delivery or attempts.' );
@@ -81,7 +96,9 @@ try {
     trb_portal_send_launch_campaign_batch();
     launch_check( ( $GLOBALS['meta'][3]['_trb_portal_launch_campaign_attempts'] ?? 0 ) === 1 && ! isset( $GLOBALS['meta'][3]['_trb_portal_launch_campaign_sent'] ), 'Failed mail recorded as delivered.' );
     launch_check( isset( $GLOBALS['events'][TRB_PORTAL_LAUNCH_HOOK] ), 'Failed recipient lost its retry.' );
-    echo "Campaign waits for the installed verified release; real lock contention, mid-batch rollback, idempotency and mail failure passed.\n";
+    $GLOBALS['options'] = $GLOBALS['events'] = $GLOBALS['mail'] = $GLOBALS['meta'] = $GLOBALS['queries'] = array();
+    unlink( $receipt ); clearstatcache(); launch_pending();
+    echo "Campaign requires a separate revision-bound full audit; missing, stale, invalid and revoked qualifications, real lock contention, idempotency and mail failure passed.\n";
 } finally {
     if ( dirname( realpath( $root ) ?: '' ) !== realpath( sys_get_temp_dir() ) || ! preg_match( '/^trb-launch-qa-[a-f0-9]{16}$/D', basename( $root ) ) ) throw new RuntimeException( 'Fixture cleanup path mismatch.' );
     $remove = static function( $path ) use ( &$remove ) { if ( is_dir( $path ) && ! is_link( $path ) ) { foreach ( scandir( $path ) as $name ) if ( $name !== '.' && $name !== '..' ) $remove( $path . '/' . $name ); rmdir( $path ); } elseif ( file_exists( $path ) || is_link( $path ) ) unlink( $path ); };
