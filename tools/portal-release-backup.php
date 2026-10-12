@@ -1,5 +1,9 @@
 <?php
 /** File-only rollback: no live database or uploaded artist material is restored. */
+function trb_portal_release_path_is_safe( $path ) {
+    return is_string( $path ) && preg_match( '#^[a-zA-Z0-9_. ()/@+-]+$#D', $path )
+        && ! preg_match( '#(^/|/$|//|(^|/)\.{1,2}(/|$))#', $path );
+}
 function trb_portal_release_files( $root ) {
     if ( is_link( $root ) ) throw new RuntimeException( 'Release directory link refused.' );
     $root = realpath( $root );
@@ -11,7 +15,7 @@ function trb_portal_release_files( $root ) {
         if ( preg_match( '#(^|/)(\.git|\.github)(/|$)#', $relative ) || str_starts_with( $relative, '.trb-' ) && '.trb-deployed-sha' !== $relative ) continue;
         if ( $entry->isLink() ) throw new RuntimeException( 'Release symlinks require review.' );
         if ( ! $entry->isFile() ) continue;
-        if ( ! preg_match( '#^[a-zA-Z0-9_. /@+-]+$#D', $relative ) || preg_match( '#(^|/)\.\.(/|$)#', $relative ) ) throw new RuntimeException( 'Unsafe release path.' );
+        if ( ! trb_portal_release_path_is_safe( $relative ) ) throw new RuntimeException( 'Unsafe release path.' );
         $files[$relative] = array( 'sha256' => hash_file( 'sha256', $entry->getPathname() ), 'mode' => $entry->getPerms() & 0777 );
     }
     ksort( $files );
@@ -34,13 +38,30 @@ function trb_portal_release_snapshot( $theme, $candidate, $backup, $revision ) {
     return count( $previous );
 }
 
+function trb_portal_release_prune( $theme, $candidate, $backup, $revision ) {
+    $manifest = json_decode( file_get_contents( $backup . '/manifest.json' ), true, 64, JSON_THROW_ON_ERROR );
+    if ( ( $manifest['revision'] ?? '' ) !== $revision ) throw new RuntimeException( 'Prune revision mismatch.' );
+    $remove = array();
+    foreach ( array( 'integrations/onboarding/crm/OnboardingPcloud.php', 'tools/test-onboarding-pcloud.php' ) as $path ) {
+        if ( file_exists( $candidate . '/' . $path ) || is_link( $candidate . '/' . $path ) ) throw new RuntimeException( 'Obsolete module still in candidate.' );
+        $target = $theme . '/' . $path;
+        for ( $parent = $target; strlen( $parent ) >= strlen( $theme ); $parent = dirname( $parent ) ) if ( is_link( $parent ) ) throw new RuntimeException( 'Unsafe prune link.' );
+        if ( ! file_exists( $target ) ) continue;
+        $hash = $manifest['previous'][$path]['sha256'] ?? '';
+        if ( ! is_file( $target ) || ! is_file( $backup . '/files/' . $path ) || ! hash_equals( $hash, hash_file( 'sha256', $target ) ) || ! hash_equals( $hash, hash_file( 'sha256', $backup . '/files/' . $path ) ) ) throw new RuntimeException( 'Obsolete source changed after snapshot.' );
+        $remove[] = $target;
+    }
+    foreach ( $remove as $target ) if ( ! unlink( $target ) ) throw new RuntimeException( 'Obsolete module cleanup failed.' );
+    return count( $remove );
+}
+
 function trb_portal_release_restore( $theme, $backup, $revision ) {
     $manifest = json_decode( file_get_contents( $backup . '/manifest.json' ), true, 64, JSON_THROW_ON_ERROR );
     if ( ( $manifest['revision'] ?? '' ) !== $revision ) throw new RuntimeException( 'Rollback revision mismatch.' );
     $previous = $manifest['previous']; $next = $manifest['next'];
     // Validate every path and byte before modifying any public file.
     foreach ( array_unique( array_merge( array_keys( $previous ), array_keys( $next ) ) ) as $path ) {
-        if ( ! preg_match( '#^[a-zA-Z0-9_. /@+-]+$#D', $path ) || preg_match( '#(^|/)\.\.(/|$)#', $path ) ) throw new RuntimeException( 'Unsafe rollback path.' );
+        if ( ! trb_portal_release_path_is_safe( $path ) ) throw new RuntimeException( 'Unsafe rollback path.' );
         $target = $theme . '/' . $path;
         for ( $parent = $target; strlen( $parent ) >= strlen( $theme ); $parent = dirname( $parent ) ) if ( is_link( $parent ) ) throw new RuntimeException( 'Unsafe rollback link.' );
         if ( isset( $previous[$path] ) && ( ! is_file( $backup . '/files/' . $path ) || ! hash_equals( $previous[$path]['sha256'], hash_file( 'sha256', $backup . '/files/' . $path ) ) ) ) throw new RuntimeException( 'Rollback backup changed.' );

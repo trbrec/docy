@@ -50,6 +50,16 @@ for name in ('verify', 'mysql-profile'):
         assert not step.get('continue-on-error'), 'Required validation step may ignore failure'
 print('Production dependency graph requires shared regression and real MySQL validation.')
 assert '--enable' not in Path('.github/workflows/deploy.yml').read_text(), 'Ordinary deployment must preserve existing onboarding activation'
+release_steps = deploy['jobs']['deploy']['steps']
+assert release_steps[0]['with']['fetch-depth'] == 0, 'Release recovery requires the actual installed ancestor history'
+release_script = release_steps[1]['run']
+assert 'git merge-base --is-ancestor "${deployment_base}" "${GITHUB_SHA}"' in release_script
+assert 'git cat-file -e "${deployment_base}^{commit}"' in release_script
+assert release_script.index('deployment_base=$(ssh') < release_script.index('release_stage=candidate-upload')
+release_diffs = [line for line in release_script.splitlines() if 'if git diff --name-only ' in line]
+assert release_diffs and all('"${deployment_base}" "${GITHUB_SHA}"' in line for line in release_diffs), 'Failed prior releases may lose required integration installers'
+assert 'prepare-portal-release.php\' prune' in release_script and 'release_stage=obsolete-module-cleanup' in release_script
+print('Release recovery compares the verified installed ancestor and retains snapshot-protected obsolete source cleanup.')
 
 # Credential alignment must run the same native suite even when PR events are unavailable.
 demo_alignment = yaml.load(Path('.github/workflows/demo-key-alignment.yml').read_text(), Loader=UniqueMappingLoader)

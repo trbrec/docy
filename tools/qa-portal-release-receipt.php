@@ -36,6 +36,12 @@ if ( 'preflight' === $mode ) {
         if ( 'readiness' === $key ) $checks['readiness_flags'] = json_decode( implode( "\n", $output ), true );
     }
     $canonical = $readJson( '/home/customer/www/crm.trbrec.com/private/canonical-release.json' );
+    require $candidate . '/tools/crm-module-source-guard.php';
+    $required = array( 'app/GiuliaSupport.php', 'assets/onboarding.css' );
+    foreach ( glob( $candidate . '/integrations/onboarding/crm/*.php' ) as $file ) $required[] = 'app/' . basename( $file );
+    try { trb_crm_module_source_guard( '/home/customer/www/crm.trbrec.com/public_html', '/home/customer/www/crm.trbrec.com/private/canonical-release.json', $required ); }
+    catch ( RuntimeException $error ) { $checks['canonical_guard_error'] = $error->getMessage(); }
+    $checks['canonical_required_modules_absent'] = array_values( array_diff( $required, array_column( $canonical['files'] ?? array(), 'path' ) ) );
     $checks['canonical_drift_paths'] = array();
     foreach ( $canonical['files'] ?? array() as $entry ) {
         $path = $entry['path'] ?? '';
