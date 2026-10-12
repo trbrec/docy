@@ -87,6 +87,7 @@ function trb_qa_installed_http( $work ) {
             $GLOBALS['trb_qa_http_responses'][] = array( 'native_wp_login_status' => $native_status, 'fixture_owner_matches_core' => fileowner( $bridge ) === fileowner( $site . '/wp-login.php' ), 'fixture_group_matches_core' => filegroup( $bridge ) === filegroup( $site . '/wp-login.php' ) );
         }
         $check( 200 === $login['status'], 'native_login_page' );
+        $check( str_contains( $login['body'], 'Benvenuto su Portale Artisti TRB rec.' ) && ! str_contains( $login['body'], 'This site is accessible to approved users only.' ) && str_contains( $login['body'], 'Realizzato con WordPress' ), 'italian_native_approval_login_rendered' );
         $landing = $request( '/', null, false );
         $check( 200 === $landing['status'] && str_contains( $landing['body'], '<h1>Il punto di riferimento per gli artisti TRB rec' ) && str_contains( $landing['body'], 'Centro risorse esclusivo' ) && ! str_contains( $landing['body'], 'Knowledge Hub' ), 'italian_public_landing_rendered' );
         $entry = $request( '/accedi/', null, false );
