@@ -9,8 +9,10 @@ function launch_hooks_blocked() {
     if ( ( $GLOBALS['removed']['init'] ?? null ) !== array( 'trb_portal_schedule_launch_campaign', 45 ) || ( $GLOBALS['removed']['trb_portal_send_launch_campaign_batch'] ?? null ) !== array( 'trb_portal_send_launch_campaign_batch', 10 ) ) throw new RuntimeException( 'Unverified launch announcement remains active.' );
 }
 launch_hooks_blocked();
-if ( true ) { function trb_docy_has_completed_release() { return $GLOBALS['ready']; } }
+if ( true ) { function trb_docy_has_completed_release() { return true; } }
+launch_hooks_blocked();
+if ( true ) { function trb_portal_launch_campaign_is_ready() { return $GLOBALS['ready']; } }
 $GLOBALS['ready'] = false; launch_hooks_blocked();
 $GLOBALS['ready'] = true; $GLOBALS['removed'] = array(); $GLOBALS['hooks']['after_setup_theme']();
-if ( $GLOBALS['removed'] ) throw new RuntimeException( 'Verified launch announcement was disabled.' );
-echo "Independent launch guard protects legacy and pending themes, and preserves a verified release.\n";
+if ( $GLOBALS['removed'] ) throw new RuntimeException( 'Qualified launch announcement was disabled.' );
+echo "Independent launch guard protects legacy, pending and technically verified themes until full audit qualification.\n";

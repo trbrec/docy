@@ -20,7 +20,10 @@ foreach ( array( 'trb-launch-release-guard.php', 'trb-legacy-field-preservation.
     trb_release_file_check_path( $path, $content );
     if ( is_link( $source ) || ! is_file( $source ) ) throw new RuntimeException( 'Independent guard source unavailable.' );
     $next = file_get_contents( $source ); $original = is_file( $path ) ? file_get_contents( $path ) : null;
-    if ( null !== $original && $original !== $next ) throw new RuntimeException( 'Existing independent guard diverged.' );
+    // Only the reviewed receipt-only predecessor may migrate to the audit gate.
+    $reviewed_previous = 'trb-launch-release-guard.php' === $guard && null !== $original
+        && hash_equals( '316ad90f8f679eb3f8c0555162ce69d47179102999d2e441aef4cdc605347eac', hash( 'sha256', $original ) );
+    if ( null !== $original && $original !== $next && ! $reviewed_previous ) throw new RuntimeException( 'Existing independent guard diverged.' );
     $guard_bytes[ $path ] = $next;
     if ( $original !== $next ) $changes[] = compact( 'path', 'original', 'next' );
 }
@@ -31,13 +34,13 @@ try {
     define( 'DISABLE_WP_CRON', true );
     $_SERVER['HTTP_HOST'] = 'artist.trbrec.com'; $_SERVER['SERVER_NAME'] = 'artist.trbrec.com'; $_SERVER['REQUEST_URI'] = '/'; $_SERVER['REQUEST_METHOD'] = 'GET'; $_SERVER['HTTPS'] = 'on';
     ob_start(); require $root . '/wp-load.php'; ob_end_clean();
-    $ready = function_exists( 'trb_docy_has_completed_release' ) && trb_docy_has_completed_release();
+    $ready = function_exists( 'trb_portal_launch_campaign_is_ready' ) && trb_portal_launch_campaign_is_ready();
     if ( ! $ready && ( false !== has_action( 'init', 'trb_portal_schedule_launch_campaign' ) || false !== has_action( 'trb_portal_send_launch_campaign_batch', 'trb_portal_send_launch_campaign_batch' ) ) ) throw new RuntimeException( 'Unverified native launch hooks remain active.' );
     if ( false !== has_action( 'init', 'docy_remove_acf_fields_if_exists_in_codestar' ) ) throw new RuntimeException( 'Legacy field deletion remains active.' );
     foreach ( $guard_bytes as $path => $next ) {
         if ( is_link( $path ) || ! hash_equals( hash( 'sha256', $next ), hash_file( 'sha256', $path ) ) ) throw new RuntimeException( 'Independent guard readback failed.' );
     }
-    echo json_encode( array( 'completed' => true, 'file_readback_verified' => true, 'native_hooks_verified' => true, 'legacy_field_deletion_blocked' => true, 'announcement_waiting_for_verified_release' => ! $ready, 'artist_messages' => 0 ), JSON_THROW_ON_ERROR ) . "\n";
+    echo json_encode( array( 'completed' => true, 'file_readback_verified' => true, 'native_hooks_verified' => true, 'legacy_field_deletion_blocked' => true, 'announcement_waiting_for_full_audit' => ! $ready, 'artist_messages' => 0 ), JSON_THROW_ON_ERROR ) . "\n";
 } catch ( Throwable $error ) {
     if ( $changes ) trb_release_file_rollback( $backup, $content );
     throw $error;
