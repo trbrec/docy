@@ -311,7 +311,10 @@ jobs:
           release_stage=public-login
           curl --fail --silent --show-error --connect-timeout 10 --max-time 45 -H 'Cache-Control: no-cache' 'https://artist.trbrec.com/wp-login.php' >/dev/null
           release_stage=published-files
-          ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/verify-portal-release.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+          if ! verification=$(ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/verify-portal-release.php' '${GITHUB_SHA}'" 2>/dev/null); then
+            printf '%s' "${verification}" | python3 -c 'import json,sys;d=json.load(sys.stdin);stages=("bootstrap","release-path","obsolete-modules","theme-bytes","integration-bytes","wordpress-bootstrap","theme-activation","announcement-pause","runtime-components","daily-log-schedule","atomic-storage","private-receipt");stage=d.get("stage");assert stage in stages;fingerprint=d.get("path_fingerprint");assert fingerprint is None or len(fingerprint)==12 and all(c in "0123456789abcdef" for c in fingerprint);table=d.get("table_label");assert table is None or table in ("users","usermeta","posts","postmeta","options");print("Portal verification failure:",stage,"fingerprint:",fingerprint,"table:",table)'
+            exit 1
+          fi
           release_stage=release-receipt
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/record-ssh-deployment.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           echo "Complete portal release verified: ${GITHUB_SHA}."
