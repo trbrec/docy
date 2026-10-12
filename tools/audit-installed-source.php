@@ -127,7 +127,8 @@ if ( in_array( '--sources', $argv, true ) ) {
     $inventoryStage = 'source-selection';
     $source_paths = array();
     foreach ( $source_names as $name ) $source_paths[ 'crm/app/' . $name ] = '/home/customer/www/crm.trbrec.com/public_html/app/' . $name;
-    foreach ( array( 'index.php', 'pcloud-material.php', 'download-folder-handler.php', '.htaccess', 'app-20260831-r27.js', 'app-20260828-v7.css', 'release-review-r2.css', 'config/routes.php' ) as $name ) $source_paths[ 'crm/' . $name ] = '/home/customer/www/crm.trbrec.com/public_html/' . $name;
+    foreach ( array( 'index.php', 'pcloud-material.php', 'download-folder-handler.php', '.htaccess', 'release-review-r2.css', 'config/routes.php' ) as $name ) $source_paths[ 'crm/' . $name ] = '/home/customer/www/crm.trbrec.com/public_html/' . $name;
+    // Styles and scripts are selected from the installed View's actual /assets/ references below.
     preg_match_all( '~(/assets/[a-zA-Z0-9_-]+\.(?:js|css|cmd))~', file_get_contents( '/home/customer/www/crm.trbrec.com/public_html/app/View.php' ), $assets );
     foreach ( array_unique( $assets[1] ) as $asset ) $source_paths[ 'crm' . $asset ] = '/home/customer/www/crm.trbrec.com/public_html' . $asset;
     foreach ( array( 'trb-crm-sync.php', 'trb-login-cache-guard.php', 'trb-z-crm-release-sync-r26.php' ) as $name ) $source_paths[ 'portal/mu-plugins/' . $name ] = '/home/customer/www/artist.trbrec.com/public_html/wp-content/mu-plugins/' . $name;
