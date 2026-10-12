@@ -51,16 +51,18 @@ $stage($functionsPath,$functions);
 foreach($changes as $c){$current=is_file($c['path'])?file_get_contents($c['path']):null;if($current!==$c['original'])throw new RuntimeException('Concurrent edit');}
  require_once $crm.'/app/Core.php';\TrbCrm\Env::load($crm.'/.env');
  require_once $crm.'/app/OnboardingLedger.php';require_once $crm.'/app/OnboardingDrive.php';require_once $crm.'/app/OnboardingTransport.php';require_once $crm.'/app/OnboardingContractCatalog.php';
+ require_once __DIR__.'/onboarding-read-only-health.php';
+ $readOnlyHealth=static function(string $action): array{return trb_onboarding_read_only_health($action,static function(array $payload): array{return \TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),$payload);});};
  onboarding_stage('archive-config');
- $drive=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_drive_health']);
+ $drive=$readOnlyHealth('crm_onboarding_drive_health');
  if(($drive['provider']??'')!=='google_drive'||($drive['private']??false)!==true)throw new RuntimeException('Private Drive archive not ready');
  onboarding_stage('configuration');
  foreach(['ARTIST_PORTAL_SYNC_SECRET','OPENAI_API_KEY','CONTRACT_APPS_SCRIPT_SECRET','APP_KEY'] as $key)if(strlen((string)\TrbCrm\Env::get($key,''))<(in_array($key,['APP_KEY','ARTIST_PORTAL_SYNC_SECRET'],true)?32:16))throw new RuntimeException('Required configuration missing');
  onboarding_stage('mail-health');
- $mail=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_candidate_mail_health']);
+ $mail=$readOnlyHealth('crm_candidate_mail_health');
  if(($mail['transport']??'')!=='gmail'||($mail['sent_copy']??false)!==true||strtolower((string)($mail['mailbox']??''))!=='andrea.tognassi@trbrec.com')throw new RuntimeException('Adhesion email adapter not ready');
  onboarding_stage('signature-health');
- $health=\TrbCrm\OnboardingTransport::script((string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_URL',''),(string)\TrbCrm\Env::get('CONTRACT_APPS_SCRIPT_SECRET',''),['action'=>'crm_onboarding_health']);
+ $health=$readOnlyHealth('crm_onboarding_health');
  if(($health['version']??'')!=='2026.2'||($health['otp_configured']??false)!==true)throw new RuntimeException('Signature adapter not ready');
  onboarding_stage('contract-sources');
  foreach(\TrbCrm\OnboardingContractCatalog::all() as $model){$actual=$health['models'][$model['template_key']]??[];if(($actual['id']??'')!==$model['template_document_id']||($actual['anchors']??false)!==true||!hash_equals($model['source_sha256'],(string)($actual['sha256']??'')))throw new RuntimeException('Contract source mismatch');}
