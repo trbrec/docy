@@ -1,6 +1,6 @@
 {
-  "request": "verify-final-installed-20261012-30",
+  "request": "diagnose-final-verification-20261012-31",
   "mode": "read_only",
   "published_revision": "8bde11ae359b05054c59f48b1cc4c4b8aceb7092",
-  "diagnostic_only": false
+  "diagnostic_only": true
 }

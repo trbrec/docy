@@ -19,6 +19,13 @@ $readJson = static function( $path ) {
 foreach ( array( $site, $theme, $release, $candidate ) as $directory ) if ( is_link( $directory ) || realpath( $directory ) !== $directory ) throw new RuntimeException( 'Unexpected release directory.' );
 if ( 'preflight' === $mode ) {
     $checks = array( 'read_only' => true, 'personal_data_exported' => false, 'diagnostic_only' => true, 'revision' => $revision );
+    define( 'SHORTINIT', true ); define( 'DISABLE_WP_CRON', true );
+    ob_start(); require $site . '/public_html/wp-load.php'; ob_end_clean();
+    global $wpdb;
+    $checks['production_table_engines'] = array();
+    foreach ( array( 'users', 'usermeta', 'posts', 'postmeta', 'options' ) as $label ) {
+        $checks['production_table_engines'][$label] = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $wpdb->$label ) );
+    }
     $checks['complete_receipt_present'] = is_file( $release . '/complete.json' );
     $checks['snapshot_manifest_present'] = is_file( $release . '/theme.previous/manifest.json' );
     $installed = trim( (string) @file_get_contents( $theme . '/.trb-deployed-sha' ) );
