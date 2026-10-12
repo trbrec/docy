@@ -1,6 +1,6 @@
 {
-  "request": "diagnose-signature-health-20261012-33",
+  "request": "final-published-release-independent-readback-20261012-33",
   "mode": "read_only",
-  "published_revision": "ae0507c299fb779da70f02f44240175890c5ca86",
-  "diagnostic_only": true
+  "published_revision": "1d3deaa8b74fc39e7bcbab5bf1391f81cd262748",
+  "diagnostic_only": false
 }
