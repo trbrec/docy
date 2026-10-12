@@ -28,7 +28,28 @@ if ( 'preflight' === $mode ) {
         try { $checks[$key] = count( trb_portal_release_files( $directory ) ); }
         catch ( RuntimeException $error ) { $checks[$key] = false; $checks[$key . '_error'] = $error->getMessage(); }
     }
-    foreach ( array( 'canonical_preflight' => array( 'preflight-portal-release.php' ), 'integration_preflight' => array( 'deploy-portal-integrations.php', 'preflight', $revision ), 'readiness' => array( 'onboarding-readiness.php', $revision ) ) as $key => $arguments ) {
+    if ( $checks['snapshot_manifest_present'] ) {
+        $snapshot = $readJson( $release . '/theme.previous/manifest.json' );
+        $checks['rollback_theme_bytes_verified'] = ( $snapshot['revision'] ?? '' ) === $revision;
+        foreach ( $snapshot['previous'] ?? array() as $path => $spec ) {
+            if ( ! trb_portal_release_path_is_safe( $path ) ) throw new RuntimeException( 'Unsafe snapshot diagnostic path.' );
+            foreach ( array( $theme . '/' . $path, $release . '/theme.previous/files/' . $path ) as $file ) if ( is_link( $file ) || ! is_file( $file ) || ! hash_equals( $spec['sha256'], hash_file( 'sha256', $file ) ) ) $checks['rollback_theme_bytes_verified'] = false;
+        }
+        foreach ( array_diff_key( $snapshot['next'] ?? array(), $snapshot['previous'] ?? array() ) as $path => $spec ) if ( file_exists( $theme . '/' . $path ) || is_link( $theme . '/' . $path ) ) $checks['rollback_theme_bytes_verified'] = false;
+        $checks['rollback_theme_files_checked'] = count( $snapshot['previous'] ?? array() );
+    }
+    require_once $candidate . '/tools/release-file-transaction.php';
+    foreach ( array( 'rollback_store_bytes_verified' => array( $site . '/private/onboarding-' . $revision . '/store-files', '/home/customer/www/store.trbrec.com/public_html/wp-content/themes' ), 'rollback_integration_bytes_verified' => array( $site . '/private/portal-audit-' . $revision . '/files', $site . '/public_html/wp-content' ) ) as $key => $location ) {
+        $checks[$key] = true; $checks[$key . '_files_checked'] = 0;
+        if ( ! is_file( $location[0] . '/manifest.json' ) ) continue;
+        foreach ( $readJson( $location[0] . '/manifest.json' ) as $item ) {
+            trb_release_file_check_path( $item['path'], $location[1] );
+            $current = is_file( $item['path'] ) ? hash_file( 'sha256', $item['path'] ) : null;
+            if ( $current !== $item['previous'] || null === $item['previous'] && file_exists( $item['path'] ) ) $checks[$key] = false;
+            $checks[$key . '_files_checked']++;
+        }
+    }
+    foreach ( array( 'canonical_preflight' => array( 'preflight-portal-release.php' ), 'support_health' => array( 'deploy-giulia-support.php', $revision ), 'integration_preflight' => array( 'deploy-portal-integrations.php', 'preflight', $revision ), 'readiness' => array( 'onboarding-readiness.php', $revision ) ) as $key => $arguments ) {
         $command = escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( $candidate . '/tools/' . array_shift( $arguments ) );
         foreach ( $arguments as $argument ) $command .= ' ' . escapeshellarg( $argument );
         $output = array(); exec( $command . ' 2>/dev/null', $output, $code );

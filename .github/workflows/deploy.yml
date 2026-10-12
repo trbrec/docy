@@ -199,6 +199,7 @@ jobs:
             fi
           fi
           if git diff --name-only "${deployment_base}" "${GITHUB_SHA}" | grep -E '^(tools/finish-onboarding-privacy\.php|inc/trb-candidate-(privacy-page|onboarding)\.php|tools/check-workflow-yaml\.py)$' >/dev/null; then
+            release_stage=privacy-verification
             ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/finish-onboarding-privacy.php' '${GITHUB_SHA}'" >/dev/null 2>&1
             echo "Artist privacy published, linked and anonymously reachable; instant-payment copy verified."
           fi
@@ -304,10 +305,14 @@ jobs:
             /tmp/trb-roster-browser/node_modules/.bin/playwright install --with-deps chromium
             NODE_PATH=/tmp/trb-roster-browser/node_modules node tools/site-preview.test.cjs /tmp/trb-public-preview /tmp/trb-site-layout-qa
           fi
+          release_stage=crm-support-health
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/deploy-giulia-support.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/maintain-portal-log.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+          release_stage=public-login
           curl --fail --silent --show-error --connect-timeout 10 --max-time 45 -H 'Cache-Control: no-cache' 'https://artist.trbrec.com/wp-login.php' >/dev/null
+          release_stage=published-files
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/verify-portal-release.php' '${GITHUB_SHA}'" >/dev/null 2>&1
+          release_stage=release-receipt
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/record-ssh-deployment.php' '${GITHUB_SHA}'" >/dev/null 2>&1
           echo "Complete portal release verified: ${GITHUB_SHA}."
 

@@ -59,11 +59,15 @@ $response=wp_remote_get('https://artist.trbrec.com/adesione/?trb_privacy_check=2
 $html=is_wp_error($response)?'':wp_remote_retrieve_body($response);
 $result['candidate_public_http_200']=!is_wp_error($response)&&wp_remote_retrieve_response_code($response)===200;
 $result['candidate_privacy_link']=$url!==''&&str_contains($html,esc_url($url));
-$result['candidate_instant_payment_copy']=str_contains($html,'PayPal o una carta di credito/debito')&&!str_contains($html,'Per il bonifico');
+require $paymentCopyProbe;
+$result['candidate_instant_payment_copy']=trb_onboarding_instant_payment_copy_present($html);
 while(ob_get_level())ob_end_clean();echo json_encode($result);
 OPERATIONS;
-$code='$_SERVER["HTTP_HOST"]="artist.trbrec.com";$_SERVER["REQUEST_URI"]="/";$_SERVER["HTTPS"]="on";define("WP_USE_THEMES",false);define("DISABLE_WP_CRON",true);ob_start();require "/home/customer/www/artist.trbrec.com/public_html/wp-load.php";$notice='.var_export($notice,true).';$verify='.($verify?'true':'false').';'.$operations;
+$code='$_SERVER["HTTP_HOST"]="artist.trbrec.com";$_SERVER["REQUEST_URI"]="/";$_SERVER["HTTPS"]="on";define("WP_USE_THEMES",false);define("DISABLE_WP_CRON",true);ob_start();require "/home/customer/www/artist.trbrec.com/public_html/wp-load.php";$notice='.var_export($notice,true).';$verify='.($verify?'true':'false').';$paymentCopyProbe='.var_export(__DIR__.'/onboarding-privacy-checks.php',true).';'.$operations;
 exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($code).' 2>/dev/null',$lines,$status);
 $result=$status===0?json_decode(implode("\n",$lines),true):null;
-if(!is_array($result)||!$result||in_array(false,$result,true))throw new RuntimeException('Privacy verification failed');
+if(!is_array($result)||!$result||in_array(false,$result,true)){
+    if(is_array($result)){ $safe=[];foreach($result as $key=>$value)if(is_bool($value))$safe[$key]=$value;fwrite(STDERR,json_encode(['success'=>false,'checks'=>$safe])."\n"); }
+    throw new RuntimeException('Privacy verification failed');
+}
 while(ob_get_level())ob_end_clean();echo json_encode(['success'=>true,'checks'=>$result])."\n";
