@@ -1,13 +1,33 @@
 /** New adhesions only. Routing authenticates with the existing CRM contract secret. */
 var TRBONB_MODELS={dds_pimd_49:'1uiETHRrjQXHSI7wMyuYXF8RNrBq18oa3ffDZuuk-Yiw',ddb_csae_600:'1xsUOkcDT9LjwAXR7qjrTGH9OxEsH7MqSjxEQWkwgnkc',ddb_ccad_600:'1JtCIYt7g64eusvVCQdWE_ghM292ibY71N8R3moDqrPQ',ddb_ccad_800:'1CeWuvHPA2d6fv8w_wXosDX4WmNIrWuLYydANHTOa9IA',ddb_ccad_1200:'1l_4ENK1B5tcEulWjyAs5Byd-LedlgkiH2QeAqmhYe_U',ddb_trb_ccad_2000:'1Bm-ZOIabbdjANAP8ZFeE59E1Ajo9yvT-oi7VCK4OH3Y',ddb_trb_ccad_3000:'1M25Fr0oaJu7Ld1QI_VD_zAyeAEqoSX12GPi31OL_-wI',ddb_trb_ccad_4000:'1OKkazZXljhR7n8wuxVW_tNG5zGZcTo3Mx8IUs25ti0o',ddb_trb_ccad_6000:'1nwkUgDhcvGf5D8pRLuBDCtPl6LJVNQ9elk5Dt58V3JI',trb_ccde:'11QreYLe5GW4PsMW5pNR55MFxWR9N9PAj-1BfgLNAY3Q'};
+/** Exact native historical revisions: existing proposal snapshots are never rewritten. */
+var TRBONB_LEGACY_ROOT='1ziePo6xoURvWw0o2IDwjEaO_tz6pE9bn';
+var TRBONB_LEGACY_MODELS={
+ ddb_ccad_600:{'36433f99844d99a8927cbcf7e5a0b809cf0c2392ac934eb1a31052af3693cf67':'1xImfdyXwH47A40MoVfXtc18dFSGGqfFbOGK3ZZWzSIA'},
+ ddb_csae_600:{'d47cf7ca9808e788f8c32000a2e834eb2f792d1f912754a65a7bbd082bfadffd':'1u2AQgrtBQ653PNUXv98lhjBr0Dd8TTqGVrYx49rIUXM'}
+};
+function TRBONB_sourceModel_(s){
+ var model=TRBONB_MODELS[s.template_key];if(!model||model!==s.template_document_id||!/^[a-f0-9]{64}$/.test(String(s.source_sha256||'')))throw new Error('Modello adesione non autorizzato.');
+ var historical=(TRBONB_LEGACY_MODELS[s.template_key]||{})[s.source_sha256];if(!historical)return model;
+ TRBONB_drivePrivate_(DriveApp.getFolderById(TRBONB_LEGACY_ROOT));
+ var file=TRBONB_drivePrivate_(DriveApp.getFileById(historical)),parents=file.getParents();
+ if(!parents.hasNext()||parents.next().getId()!==TRBONB_LEGACY_ROOT||parents.hasNext())throw new Error('Versione storica fuori dall’archivio privato.');
+ return historical;
+}
 function TRBONB_sha_(value){return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,value).map(function(b){return ('0'+((b+256)%256).toString(16)).slice(-2);}).join('');}
+function TRBONB_legacyHealth_(){
+ var count=0;Object.keys(TRBONB_LEGACY_MODELS).forEach(function(key){Object.keys(TRBONB_LEGACY_MODELS[key]).forEach(function(hash){
+  var id=TRBONB_sourceModel_({template_key:key,template_document_id:TRBONB_MODELS[key],source_sha256:hash}),doc=DocumentApp.openById(id),text=[doc.getBody(),doc.getHeader(),doc.getFooter()].filter(Boolean).map(function(s){return s.getText();}).join('\n');
+  if(TRBONB_sha_(text)!==hash||!['#otp_firma_artista_1#','#otp_firma_artista_2#','#otp_firma_trb_1#','#otp_firma_trb_2#'].every(function(a){return text.split(a).length===2;}))throw new Error('Versione storica del contratto modificata.');count++;
+ });});return {verified:true,versions:count};
+}
 function TRBONB_models_(){var out={};Object.keys(TRBONB_MODELS).forEach(function(k){var doc=DocumentApp.openById(TRBONB_MODELS[k]);var text=[doc.getBody(),doc.getHeader(),doc.getFooter()].filter(Boolean).map(function(s){return s.getText();}).join('\n');out[k]={id:TRBONB_MODELS[k],sha256:TRBONB_sha_(text),anchors:['#otp_firma_artista_1#','#otp_firma_artista_2#','#otp_firma_trb_1#','#otp_firma_trb_2#'].every(function(a){return text.split(a).length===2;})};});return out;}
 function TRBONB_modelManifest(){console.log(JSON.stringify(TRBONB_models_()));}
 function TRBONB_command_(p){
  var props=PropertiesService.getScriptProperties(),secret=props.getProperty('TRB_CRM_CONTRACT_SECRET');
  if(!secret||p.secret!==secret||p.confirm!==true)throw new Error('Richiesta adesione non autorizzata.');
  if(/^crm_onboarding_drive_(health|folder|grant|verify|read)$/.test(p.action)){if(p.action!=='crm_onboarding_drive_health'&&!/^[a-f0-9]{32}$/.test(String(p.practice_id||'')))throw new Error('Identificativo adesione non valido.');return TRBONB_driveCommand_(p);}
- if(p.action==='crm_onboarding_health')return {success:true,version:'2026.2',models:TRBONB_models_(),otp_configured:!!props.getProperty('OTP_EMAIL')&&!!props.getProperty('OTP_PASSWORD')};
+ if(p.action==='crm_onboarding_health')return {success:true,version:'2026.2',models:TRBONB_models_(),historical_sources:TRBONB_legacyHealth_(),otp_configured:!!props.getProperty('OTP_EMAIL')&&!!props.getProperty('OTP_PASSWORD')};
  if(!/^[a-f0-9]{32}$/.test(String(p.practice_id||'')))throw new Error('Identificativo adesione non valido.');
  if(p.action==='crm_onboarding_document')return TRBONB_document_(p);
  if(!/^[a-f0-9]{64}$/.test(String(p.request_key||'')))throw new Error('Identificativo firma non valido.');
@@ -32,7 +52,7 @@ function TRBONB_activationLabels_(text){
  throw new Error('Pulsante di attivazione mancante o duplicato.');
 }
 function TRBONB_document_(p){
- var s=p.snapshot||{},model=TRBONB_MODELS[s.template_key];if(!model||model!==s.template_document_id||!['proposal','final'].includes(p.phase))throw new Error('Modello adesione non autorizzato.');
+ var s=p.snapshot||{};if(!['proposal','final'].includes(p.phase))throw new Error('Modello adesione non autorizzato.');var model=TRBONB_sourceModel_(s);
  var original=DocumentApp.openById(model),text=[original.getBody(),original.getHeader(),original.getFooter()].filter(Boolean).map(function(x){return x.getText();}).join('\n');if(TRBONB_sha_(text)!==s.source_sha256)throw new Error('Il modello è cambiato: verifica le condizioni prima di preparare la proposta.');var activationLabels=TRBONB_activationLabels_(text);
  var invite=String(p.invite_url||'');if(!/^https:\/\/artist\.trbrec\.com\/adesione\/#invite=[a-f0-9]{64}$/.test(invite))throw new Error('Collegamento adesione non valido.');
  var binding=TRBONB_sha_(JSON.stringify([p.practice_id,p.phase,s,p.appendix||null,p.details||null,invite])),key='TRBONB_DOC_'+p.practice_id+'_'+p.phase,props=PropertiesService.getScriptProperties(),lock=LockService.getScriptLock();lock.waitLock(30000);
