@@ -1,1 +1,6 @@
-{"request":"pending-practices-20261012-02","mode":"read_only"}
+{
+  "request": "diagnose-release-20261012-26",
+  "mode": "read_only",
+  "published_revision": "571ba0259011075627849a2294d9387c50b3c5fe",
+  "diagnostic_only": true
+}

@@ -10,6 +10,7 @@ $candidate = $release . '/candidate'; $theme = $site . '/public_html/wp-content/
 if ( realpath( dirname( __DIR__ ) ) !== $candidate || is_link( $release ) || trim( (string) @file_get_contents( $theme . '/.trb-deployed-sha' ) ) !== $revision ) throw new RuntimeException( 'Release path mismatch.' );
 require __DIR__ . '/portal-release-backup.php';
 $files = trb_portal_release_files( $candidate );
+foreach ( array( 'integrations/onboarding/crm/OnboardingPcloud.php', 'tools/test-onboarding-pcloud.php' ) as $path ) if ( file_exists( $theme . '/' . $path ) || is_link( $theme . '/' . $path ) ) throw new RuntimeException( 'Obsolete module cleanup unconfirmed.' );
 foreach ( $files as $path => $spec ) if ( is_link( $theme . '/' . $path ) || ! is_file( $theme . '/' . $path ) || ! hash_equals( $spec['sha256'], hash_file( 'sha256', $theme . '/' . $path ) ) ) throw new RuntimeException( 'Theme byte mismatch.' );
 $manifest_path = $site . '/private/portal-audit-' . $revision . '/verified-sources.json';
 if ( is_link( $manifest_path ) || ! is_file( $manifest_path ) ) throw new RuntimeException( 'Integration manifest unavailable.' );

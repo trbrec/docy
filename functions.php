@@ -100,6 +100,21 @@ add_action( 'wp_head', 'trb_portal_favicon', 1 );
 add_action( 'admin_head', 'trb_portal_favicon', 1 );
 add_action( 'login_head', 'trb_portal_favicon', 1 );
 
+/** Fill the approval plugin's public Italian messages with a native catalog. */
+function trb_portal_load_approval_translations() {
+	$locale = determine_locale();
+	if ( 'it' === $locale || str_starts_with( $locale, 'it_' ) ) {
+		load_textdomain( 'new-user-approve', get_template_directory() . '/languages/new-user-approve-it_IT.mo', $locale );
+	}
+}
+add_action( 'init', 'trb_portal_load_approval_translations', 9 );
+
+function trb_portal_login_header_text( $text ) {
+	$locale = determine_locale();
+	return 'it' === $locale || str_starts_with( $locale, 'it_' ) ? 'Realizzato con WordPress' : $text;
+}
+add_filter( 'login_headertext', 'trb_portal_login_header_text' );
+
 // Handle null post object errors
 add_action(
 	'init',

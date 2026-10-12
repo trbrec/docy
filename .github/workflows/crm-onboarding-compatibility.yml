@@ -35,8 +35,10 @@ jobs:
           ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
           source_file=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp /home/customer/www/crm.trbrec.com/private/onboarding-compatibility.XXXXXXXX.php')
           [[ "${source_file}" =~ ^/home/customer/www/crm\.trbrec\.com/private/onboarding-compatibility\.[A-Za-z0-9]{8}\.php$ ]]
+          receipt_file=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp /home/customer/www/crm.trbrec.com/private/portal-release-readback.XXXXXXXX.php')
+          [[ "${receipt_file}" =~ ^/home/customer/www/crm\.trbrec\.com/private/portal-release-readback\.[A-Za-z0-9]{8}\.php$ ]]
           cleanup() {
-            ssh "${ssh_opts[@]}" "${remote}" "rm -f -- '${source_file}'; test ! -e '${source_file}'" >/dev/null 2>&1
+            ssh "${ssh_opts[@]}" "${remote}" "rm -f -- '${source_file}' '${receipt_file}'; test ! -e '${source_file}' && test ! -e '${receipt_file}'" >/dev/null 2>&1
             ssh-add -D >/dev/null 2>&1 || true
             rm -f "${HOME}/.ssh/id_ed25519"
           }
@@ -44,9 +46,19 @@ jobs:
           scp -q -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-crm-onboarding-inventory.php "${remote}:${source_file}"
           ssh "${ssh_opts[@]}" "${remote}" "php '${source_file}'" > /tmp/onboarding-compatibility.json 2>/dev/null
           python3 -c 'import json;d=json.load(open("/tmp/onboarding-compatibility.json"));assert d.get("read_only") is True and d.get("personal_data_exported") is False'
+          revision=$(python3 -c 'import json;print(json.load(open("tools/onboarding-compatibility-request.json")).get("published_revision", ""))')
+          if [ -n "${revision}" ]; then
+            [[ "${revision}" =~ ^[a-f0-9]{40}$ ]]
+            mode=$(python3 -c 'import json;print("preflight" if json.load(open("tools/onboarding-compatibility-request.json")).get("diagnostic_only") is True else "verify")')
+            scp -q -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-portal-release-receipt.php "${remote}:${receipt_file}"
+            ssh "${ssh_opts[@]}" "${remote}" "php '${receipt_file}' '${revision}' '${mode}'" > /tmp/portal-release-readback.json 2>/dev/null
+            python3 -c 'import json;d=json.load(open("/tmp/portal-release-readback.json"));assert d.get("read_only") is True and d.get("personal_data_exported") is False'
+          fi
       - name: Preserve non-personal compatibility classifications
         uses: actions/upload-artifact@v4
         with:
           name: onboarding-compatibility
-          path: /tmp/onboarding-compatibility.json
+          path: |
+            /tmp/onboarding-compatibility.json
+            /tmp/portal-release-readback.json
           retention-days: 7
