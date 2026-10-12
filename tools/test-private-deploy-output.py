@@ -20,6 +20,15 @@ for command in commands:
             assert required in wrapper,'Sanitized wrapper output guard missing'
         assert "$last['message']" not in wrapper and 'getMessage' not in wrapper
         continue
+    if '/tools/verify-portal-release.php' in command:
+        assert '2>/dev/null' in command and 'verification=$(ssh' in command
+        verifier=Path('tools/verify-portal-release.php').read_text()
+        for required in ('ob_end_clean();', "'stage' => $trb_release_verification_stage", "'path_fingerprint' => $trb_release_path_fingerprint", "'table_label' => $trb_release_table_label"):
+            assert required in verifier, 'Bounded verifier output guard missing'
+        assert all(forbidden not in verifier for forbidden in ('getMessage', 'getTrace', 'debug_backtrace'))
+        assert 'assert stage in stages' in text and 'all(c in "0123456789abcdef" for c in fingerprint)' in text
+        assert 'echo "${verification}"' not in text, 'Unparsed verification output may leak'
+        continue
     if '/tools/export-site-preview.php' in command:
         assert '2>/dev/null' in command and '> "/tmp/trb-public-preview/' in command
         export=Path('tools/export-site-preview.php').read_text()
