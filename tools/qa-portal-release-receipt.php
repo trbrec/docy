@@ -77,6 +77,19 @@ if ( 'preflight' === $mode ) {
         $file = '/home/customer/www/crm.trbrec.com/public_html/' . $path;
         if ( is_link( $file ) || ! is_file( $file ) || ! hash_equals( $entry['sha256'], hash_file( 'sha256', $file ) ) ) $checks['canonical_drift_paths'][] = $path;
     }
+    require_once '/home/customer/www/crm.trbrec.com/public_html/app/Core.php';
+    \TrbCrm\Env::load( '/home/customer/www/crm.trbrec.com/public_html/.env' );
+    require_once '/home/customer/www/crm.trbrec.com/public_html/app/OnboardingTransport.php';
+    $checks['signature_health_attempts'] = array();
+    for ( $attempt = 0; $attempt < 2; $attempt++ ) {
+        $started = microtime( true );
+        try {
+            $health = \TrbCrm\OnboardingTransport::script( (string) \TrbCrm\Env::get( 'CONTRACT_APPS_SCRIPT_URL', '' ), (string) \TrbCrm\Env::get( 'CONTRACT_APPS_SCRIPT_SECRET', '' ), array( 'action' => 'crm_onboarding_health' ) );
+            $checks['signature_health_attempts'][] = array( 'confirmed' => ( $health['version'] ?? '' ) === '2026.2' && ( $health['otp_configured'] ?? false ) === true, 'current_sources' => count( $health['models'] ?? array() ), 'historical_sources' => $health['historical_sources']['versions'] ?? 0, 'elapsed_seconds' => round( microtime( true ) - $started, 2 ) );
+        } catch ( Throwable $error ) {
+            $checks['signature_health_attempts'][] = array( 'confirmed' => false, 'http_status' => (int) $error->getCode(), 'elapsed_seconds' => round( microtime( true ) - $started, 2 ) );
+        }
+    }
     echo json_encode( $checks, JSON_THROW_ON_ERROR ) . "\n"; exit;
 }
 $receipt = $readJson( $release . '/complete.json' );

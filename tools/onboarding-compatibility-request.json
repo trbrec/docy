@@ -1,6 +1,6 @@
 {
-  "request": "diagnose-final-verification-20261012-31",
+  "request": "diagnose-signature-health-20261012-33",
   "mode": "read_only",
-  "published_revision": "8bde11ae359b05054c59f48b1cc4c4b8aceb7092",
+  "published_revision": "ae0507c299fb779da70f02f44240175890c5ca86",
   "diagnostic_only": true
 }
