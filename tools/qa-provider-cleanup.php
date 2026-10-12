@@ -28,7 +28,7 @@ function trb_qa_provider_resource_absent( $path, &$status = null ) {
 }
 
 /** A provider may acknowledge DELETE before its DAV collection disappears. */
-function trb_qa_provider_await_resource_absent( $path, &$status = null, &$observations = null, $pause = null ) {
+function trb_qa_provider_await_resource_absent( $path, &$status = null, &$observations = null, $pause = null, $reconcile = null ) {
     $observations = array();
     foreach ( array( 0, 2, 5, 10, 20, 30 ) as $delay ) {
         if ( $delay ) { if ( null === $pause ) sleep( $delay ); else $pause( $delay ); }
@@ -38,6 +38,7 @@ function trb_qa_provider_await_resource_absent( $path, &$status = null, &$observ
         // Retry only a resource that is still present. Authentication, transport
         // and other ambiguous failures must remain failures, never absence.
         if ( 207 !== $status ) return false;
+        if ( null !== $reconcile && ! $reconcile() ) return false;
     }
     return false;
 }
@@ -61,7 +62,7 @@ function trb_qa_provider_multistatus_codes( $response ) {
 
 /** Remove only identifiable, old QA folders containing our exact synthetic bytes. */
 function trb_qa_provider_listing( $folder ) {
-    $response = trb_webdav_request( trb_demo_settings(), 'PROPFIND', $folder . '/', '', array( 'Depth' => '1' ) );
+    $response = trb_webdav_request( trb_demo_settings(), 'PROPFIND', $folder . '/', '', array( 'Depth' => '1', 'Cache-Control' => 'no-cache' ) );
     if ( is_wp_error( $response ) || 207 !== (int) wp_remote_retrieve_response_code( $response ) ) throw new RuntimeException( 'QA archive listing unavailable.', is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response ) );
     $body = wp_remote_retrieve_body( $response );
     if ( strlen( $body ) > 1048576 ) throw new RuntimeException( 'QA listing exceeds its bound.' );
@@ -78,6 +79,17 @@ function trb_qa_provider_listing( $folder ) {
         $rows[] = array( 'path' => rtrim( $path, '/' ), 'modified' => strtotime( (string) ( $date[0] ?? '' ) ) ?: 0 );
     }
     return $rows;
+}
+
+/** Retry deletion only for an explicitly owned QA collection proven empty now. */
+function trb_qa_provider_delete_empty_owned_collection( $path ) {
+    if ( ! preg_match( '#^/Upload files - TRB rec/Audio/Demo files/QA-AUDIT-[a-f0-9]{16}/$#D', $path ) ) return false;
+    try { $rows = trb_qa_provider_listing( rtrim( $path, '/' ) ); }
+    catch ( RuntimeException $error ) { return in_array( $error->getCode(), array( 404, 410 ), true ); }
+    // Do not erase an unexpected child or trust an unrelated/empty DAV response.
+    if ( count( $rows ) !== 1 || $rows[0]['path'] !== rtrim( $path, '/' ) ) return false;
+    $response = trb_webdav_request( trb_demo_settings(), 'DELETE', $path );
+    return ! is_wp_error( $response ) && in_array( (int) wp_remote_retrieve_response_code( $response ), array( 200, 204, 207, 404, 410 ), true );
 }
 
 function trb_qa_provider_cleanup_stale( $bytes ) {
@@ -98,7 +110,7 @@ function trb_qa_provider_cleanup_stale( $bytes ) {
             trb_webdav_request( trb_demo_settings(), 'DELETE', $file );
         } elseif ( ! in_array( $status, array( 404, 410 ), true ) ) throw new RuntimeException( 'QA readback unavailable.' );
         trb_webdav_request( trb_demo_settings(), 'DELETE', $folder . '/' );
-        if ( ! trb_qa_provider_await_resource_absent( $folder . '/' ) ) throw new RuntimeException( 'Stale QA archive cleanup unconfirmed.' );
+        if ( ! trb_qa_provider_await_resource_absent( $folder . '/', $status, $observations, null, static fn() => trb_qa_provider_delete_empty_owned_collection( $folder . '/' ) ) ) throw new RuntimeException( 'Stale QA archive cleanup unconfirmed.' );
         $removed++;
     }
     return $removed;
