@@ -45,7 +45,7 @@ if ( 'preflight' === $mode ) {
         foreach ( $readJson( $location[0] . '/manifest.json' ) as $item ) {
             trb_release_file_check_path( $item['path'], $location[1] );
             $current = is_file( $item['path'] ) ? hash_file( 'sha256', $item['path'] ) : null;
-            if ( $current !== $item['previous'] ) $checks[$key] = false;
+            if ( $current !== $item['previous'] || null === $item['previous'] && file_exists( $item['path'] ) ) $checks[$key] = false;
             $checks[$key . '_files_checked']++;
         }
     }
