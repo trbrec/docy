@@ -1,5 +1,6 @@
 <?php
 /** Exercise the real CLI scanner against an isolated WordPress bootstrap fixture. */
+if ( PHP_SAPI !== 'cli' ) { http_response_code( 404 ); exit; }
 $source = file_get_contents( __DIR__ . '/audit-legacy-artist-materials.php' );
 if ( false === $source ) throw new RuntimeException( 'Scanner source unavailable.' );
 $sandbox = sys_get_temp_dir() . '/trb-inventory-bootstrap-' . bin2hex( random_bytes( 8 ) );

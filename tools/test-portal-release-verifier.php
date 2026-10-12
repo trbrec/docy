@@ -9,6 +9,10 @@ mkdir( $fixture . '/private/portal-audit-' . $sha, 0700, true );
 $source = str_replace( "'/home/customer/www/artist.trbrec.com'", var_export( $fixture, true ), file_get_contents( __DIR__ . '/verify-portal-release.php' ) );
 file_put_contents( $candidate . '/tools/verify-portal-release.php', $source );
 copy( __DIR__ . '/portal-release-backup.php', $candidate . '/tools/portal-release-backup.php' );
+mkdir( $candidate . '/inc', 0700 ); mkdir( $theme . '/inc', 0700 );
+copy( dirname( __DIR__ ) . '/inc/trb-deployment-file-policy.php', $candidate . '/inc/trb-deployment-file-policy.php' );
+copy( $candidate . '/inc/trb-deployment-file-policy.php', $theme . '/inc/trb-deployment-file-policy.php' );
+file_put_contents( $candidate . '/tools/test-private-only.php', '<?php /* private synthetic fixture */' );
 file_put_contents( $candidate . '/functions.php', '<?php /* fictional theme */' );
 file_put_contents( $candidate . '/.trb-deployed-sha', $sha . "\n" );
 foreach ( array( 'functions.php', '.trb-deployed-sha', 'tools/verify-portal-release.php', 'tools/portal-release-backup.php' ) as $path ) copy( $candidate . '/' . $path, $theme . '/' . $path );
@@ -42,8 +46,12 @@ $run = static function() use ( $candidate, $sha ) {
 try {
     list( $code, $output ) = $run();
     $receipt = json_decode( (string) @file_get_contents( $release . '/complete.json' ), true );
-    if ( 0 !== $code || ( $receipt['verified'] ?? false ) !== true || ( $receipt['revision'] ?? '' ) !== $sha || ( $receipt['theme_files'] ?? 0 ) !== 4 ) throw new RuntimeException( 'WordPress bootstrap corrupted the release state or receipt.' );
+    if ( 0 !== $code || ( $receipt['verified'] ?? false ) !== true || ( $receipt['revision'] ?? '' ) !== $sha || ( $receipt['theme_files'] ?? 0 ) !== 5 ) throw new RuntimeException( 'WordPress bootstrap corrupted the release state or required a private test in public.' );
     unlink( $release . '/complete.json' );
+    file_put_contents( $theme . '/tools/test-untracked.php', '<?php /* unrecognized public fixture */' );
+    list( $code, $output ) = $run(); $failure = json_decode( $output, true );
+    if ( 1 !== $code || ( $failure['stage'] ?? '' ) !== 'obsolete-modules' || is_file( $release . '/complete.json' ) ) throw new RuntimeException( 'An untracked public fixture was certified.' );
+    unlink( $theme . '/tools/test-untracked.php' );
     file_put_contents( $fixture . '/public_html/nonatomic.fixture', 'synthetic unsupported engine' );
     list( $code, $output ) = $run(); $failure = json_decode( $output, true );
     if ( 1 !== $code || ( $failure['stage'] ?? '' ) !== 'atomic-storage' || ( $failure['table_label'] ?? '' ) !== 'users' || is_file( $release . '/complete.json' ) ) throw new RuntimeException( 'Unsupported storage was certified or lost its safe diagnostic.' );
@@ -51,7 +59,7 @@ try {
     file_put_contents( $theme . '/functions.php', '<?php /* concurrent change */' );
     list( $code, $output ) = $run(); $failure = json_decode( $output, true );
     if ( 1 !== $code || ( $failure['stage'] ?? '' ) !== 'theme-bytes' || ( $failure['path_fingerprint'] ?? '' ) !== substr( hash( 'sha256', 'functions.php' ), 0, 12 ) || is_file( $release . '/complete.json' ) || str_contains( $output, $fixture ) ) throw new RuntimeException( 'Changed source was certified or a private path leaked.' );
-    echo "Real verifier preserves state across WordPress globals, refuses source drift and nontransactional storage, and emits bounded diagnostics.\n";
+    echo "Real verifier accepts private tests, rejects public test residue, source drift and nontransactional storage, and preserves bounded diagnostics.\n";
 } finally {
     if ( dirname( realpath( $fixture ) ?: '' ) !== realpath( sys_get_temp_dir() ) || ! preg_match( '/^trb-verifier-[a-f0-9]{16}$/D', basename( $fixture ) ) ) throw new RuntimeException( 'Verifier fixture cleanup path mismatch.' );
     $entries = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $fixture, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );

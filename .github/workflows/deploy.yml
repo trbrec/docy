@@ -117,7 +117,7 @@ jobs:
           integrations_started=1
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/deploy-portal-integrations.php' apply '${GITHUB_SHA}'" >/dev/null 2>&1
           release_stage=theme-install
-          ssh "${ssh_opts[@]}" "${remote}" "rsync -a --checksum --exclude='.trb-deployed-sha' '${candidate}/' '${DEPLOY_PATH}/' && cp '${candidate}/.trb-deployed-sha' '${DEPLOY_PATH}/.trb-deployed-sha'" >/dev/null 2>&1
+          ssh "${ssh_opts[@]}" "${remote}" "rsync -a --checksum --exclude='.trb-deployed-sha' --exclude='/tools/test-*' --exclude='/tests/' --exclude='/integrations/site-studio/test-*' --exclude='/tools/fixtures-onboarding-entry-mail.php' --exclude='/tools/site-preview.test.cjs' --exclude='/integrations/site-studio/artist-cards.test.cjs' --exclude='/integrations/site-studio/editor-browser.test.cjs' '${candidate}/' '${DEPLOY_PATH}/' && cp '${candidate}/.trb-deployed-sha' '${DEPLOY_PATH}/.trb-deployed-sha'" >/dev/null 2>&1
           release_stage=obsolete-module-cleanup
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/prepare-portal-release.php' prune '${GITHUB_SHA}'" >/dev/null 2>&1
           release_stage=dependent-installers

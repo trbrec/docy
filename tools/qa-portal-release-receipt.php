@@ -95,7 +95,8 @@ if ( 'preflight' === $mode ) {
 $receipt = $readJson( $release . '/complete.json' );
 if ( ( $receipt['verified'] ?? false ) !== true || ( $receipt['revision'] ?? '' ) !== $revision || trim( (string) file_get_contents( $theme . '/.trb-deployed-sha' ) ) !== $revision ) throw new RuntimeException( 'Publication not acknowledged.' );
 require $candidate . '/tools/portal-release-backup.php';
-$files = trb_portal_release_files( $candidate );
+$files = trb_portal_release_public_files( $candidate );
+trb_portal_release_assert_no_public_tests( $theme );
 foreach ( $files as $path => $spec ) if ( is_link( $theme . '/' . $path ) || ! is_file( $theme . '/' . $path ) || ! hash_equals( $spec['sha256'], hash_file( 'sha256', $theme . '/' . $path ) ) ) throw new RuntimeException( 'Published file drift.' );
 if ( count( $files ) !== ( $receipt['theme_files'] ?? 0 ) ) throw new RuntimeException( 'Publication count mismatch.' );
 $backup = $release . '/theme.previous';
@@ -107,6 +108,31 @@ foreach ( $backupFiles as $path => $spec ) if ( ! hash_equals( $manifest['previo
 $integrations = $readJson( $site . '/private/portal-audit-' . $revision . '/verified-sources.json' );
 foreach ( $integrations as $entry ) if ( ! str_starts_with( $entry['target'] ?? '', $site . '/public_html/wp-content/' ) || is_link( $entry['target'] ) || ! is_file( $entry['target'] ) || ! hash_equals( $entry['next_sha256'], hash_file( 'sha256', $entry['target'] ) ) ) throw new RuntimeException( 'Integration drift.' );
 if ( count( $integrations ) !== ( $receipt['integration_files'] ?? -1 ) ) throw new RuntimeException( 'Integration count mismatch.' );
+// Resolve the Store's active stylesheet in a separate, minimal, read-only bootstrap.
+$storeRoot = '/home/customer/www/store.trbrec.com/public_html';
+$storeCode = 'define("SHORTINIT",true);define("DISABLE_WP_CRON",true);require ' . var_export( $storeRoot . '/wp-load.php', true ) . ';global $wpdb;$slug=$wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name=%s","stylesheet"));if($wpdb->last_error||!is_string($slug))exit(1);echo json_encode(array("stylesheet"=>$slug),JSON_THROW_ON_ERROR);';
+$storeOutput = array();
+exec( escapeshellarg( PHP_BINARY ) . ' -r ' . escapeshellarg( $storeCode ) . ' 2>/dev/null', $storeOutput, $storeStatus );
+$storeState = json_decode( implode( "\n", $storeOutput ), true );
+if ( $storeStatus !== 0 || ! is_array( $storeState ) || ! preg_match( '/^[a-zA-Z0-9_-]+$/D', $storeState['stylesheet'] ?? '' ) ) throw new RuntimeException( 'Store stylesheet unconfirmed.' );
+$storeThemes = $storeRoot . '/wp-content/themes';
+$storeTheme = $storeThemes . '/' . $storeState['stylesheet'];
+require_once $candidate . '/tools/release-file-transaction.php';
+$storeModule = $storeTheme . '/inc/trb-onboarding-payments.php';
+trb_release_file_check_path( $storeModule, $storeThemes );
+trb_release_file_check_path( $storeTheme . '/functions.php', $storeThemes );
+if ( ! is_file( $storeModule ) || ! hash_equals( hash_file( 'sha256', $candidate . '/integrations/onboarding/store/trb-onboarding-payments.php' ), hash_file( 'sha256', $storeModule ) ) || ! str_contains( (string) file_get_contents( $storeTheme . '/functions.php' ), "'/inc/trb-onboarding-payments.php'" ) ) throw new RuntimeException( 'Store payment module drift.' );
+$storeBackup = $site . '/private/onboarding-' . $revision . '/store-files';
+$storeBackupCount = 0;
+if ( is_link( $storeBackup ) ) throw new RuntimeException( 'Unexpected Store backup link.' );
+if ( is_dir( $storeBackup ) ) {
+    foreach ( $readJson( $storeBackup . '/manifest.json' ) as $item ) {
+        trb_release_file_check_path( $item['path'], $storeThemes );
+        if ( ! in_array( $item['path'], array( $storeModule, $storeTheme . '/functions.php' ), true ) || ! is_file( $item['path'] ) || ! hash_equals( $item['next'], hash_file( 'sha256', $item['path'] ) ) || $item['backup'] !== hash( 'sha256', $item['path'] ) . '.before' ) throw new RuntimeException( 'Store release receipt drift.' );
+        if ( null !== $item['previous'] && ( is_link( $storeBackup . '/' . $item['backup'] ) || ! is_file( $storeBackup . '/' . $item['backup'] ) || ! hash_equals( $item['previous'], hash_file( 'sha256', $storeBackup . '/' . $item['backup'] ) ) ) ) throw new RuntimeException( 'Store recovery bytes changed.' );
+        $storeBackupCount++;
+    }
+}
 if ( file_exists( $release . '/artist-communications.json' ) || is_link( $release . '/artist-communications.json' ) ) throw new RuntimeException( 'Premature artist communications qualification.' );
 foreach ( array( 'trb-launch-release-guard.php', 'trb-legacy-field-preservation.php' ) as $name ) {
     $file = $site . '/public_html/wp-content/mu-plugins/' . $name;
@@ -140,4 +166,4 @@ ob_start(); require $site . '/public_html/wp-load.php'; ob_end_clean();
 global $wpdb;
 $qaTables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( 'trbqa_' ) . '%' ) );
 if ( ! is_array( $qaTables ) || $qaTables || $wpdb->last_error ) throw new RuntimeException( 'Temporary QA tables remain or could not be checked.' );
-echo json_encode( array( 'read_only' => true, 'personal_data_exported' => false, 'revision' => $revision, 'published_theme_files_verified' => count( $files ), 'rollback_backup_files_verified' => count( $backupFiles ), 'integration_files_verified' => count( $integrations ), 'independent_guard_files_verified' => 2, 'temporary_qa_workspaces_remaining' => 0, 'temporary_qa_endpoints_remaining' => 0, 'temporary_qa_tables_remaining' => 0, 'artist_communications_waiting_for_full_audit' => true, 'canonical_crm_revision' => $canonical['revision'], 'canonical_crm_files_verified' => count( $canonical['files'] ), 'google_generator_authenticated_health_verified' => true, 'current_contract_sources_verified' => count( $models ), 'historical_contract_sources_verified' => 2, 'checked_at_utc' => gmdate( 'c' ) ), JSON_THROW_ON_ERROR ) . "\n";
+echo json_encode( array( 'read_only' => true, 'personal_data_exported' => false, 'revision' => $revision, 'published_theme_files_verified' => count( $files ), 'rollback_backup_files_verified' => count( $backupFiles ), 'integration_files_verified' => count( $integrations ), 'store_payment_modules_verified' => 1, 'store_release_backup_files_verified' => $storeBackupCount, 'independent_guard_files_verified' => 2, 'temporary_qa_workspaces_remaining' => 0, 'temporary_qa_endpoints_remaining' => 0, 'temporary_qa_tables_remaining' => 0, 'artist_communications_waiting_for_full_audit' => true, 'canonical_crm_revision' => $canonical['revision'], 'canonical_crm_files_verified' => count( $canonical['files'] ), 'google_generator_authenticated_health_verified' => true, 'current_contract_sources_verified' => count( $models ), 'historical_contract_sources_verified' => 2, 'checked_at_utc' => gmdate( 'c' ) ), JSON_THROW_ON_ERROR ) . "\n";
