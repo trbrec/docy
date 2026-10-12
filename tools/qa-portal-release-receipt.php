@@ -95,7 +95,8 @@ if ( 'preflight' === $mode ) {
 $receipt = $readJson( $release . '/complete.json' );
 if ( ( $receipt['verified'] ?? false ) !== true || ( $receipt['revision'] ?? '' ) !== $revision || trim( (string) file_get_contents( $theme . '/.trb-deployed-sha' ) ) !== $revision ) throw new RuntimeException( 'Publication not acknowledged.' );
 require $candidate . '/tools/portal-release-backup.php';
-$files = trb_portal_release_files( $candidate );
+$files = trb_portal_release_public_files( $candidate );
+trb_portal_release_assert_no_public_tests( $theme );
 foreach ( $files as $path => $spec ) if ( is_link( $theme . '/' . $path ) || ! is_file( $theme . '/' . $path ) || ! hash_equals( $spec['sha256'], hash_file( 'sha256', $theme . '/' . $path ) ) ) throw new RuntimeException( 'Published file drift.' );
 if ( count( $files ) !== ( $receipt['theme_files'] ?? 0 ) ) throw new RuntimeException( 'Publication count mismatch.' );
 $backup = $release . '/theme.previous';

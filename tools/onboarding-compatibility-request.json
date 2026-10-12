@@ -1,6 +1,6 @@
 {
-  "request": "final-published-release-and-store-readback-20261012-33b",
+  "request": "wordfence-release-canonical-preflight-diagnosis-20261013-36",
   "mode": "read_only",
-  "published_revision": "1d3deaa8b74fc39e7bcbab5bf1391f81cd262748",
-  "diagnostic_only": false
+  "published_revision": "d9d3690205db91f742d3821f8aa45e48dc458df7",
+  "diagnostic_only": true
 }
