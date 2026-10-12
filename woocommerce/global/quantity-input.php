@@ -17,33 +17,33 @@
 
 defined( 'ABSPATH' ) || exit;
 
-if ( $max_value && $min_value === $max_value ) {
-    ?>
-	<div class="quantity hidden">
-		<input type="hidden" id="<?php echo esc_attr( $input_id ); ?>" class="qty" name="<?php echo esc_attr( $input_name ); ?>" value="<?php echo esc_attr( $min_value ); ?>" />
-	</div>
-	<?php
-} else {
-	/* translators: %s: Quantity. */
-	$labelledby = ! empty( $args['product_name'] ) ? sprintf( __( '%s quantity', 'docy' ), strip_tags( $args['product_name'] ) ) : '';
-	?>
-	<div class="product-qty">
-        <button class="ar_top" type="button"><i class="arrow_carrot-up"></i></button>
+/* translators: %s: Product name. */
+$label = ! empty( $args['product_name'] ) ? sprintf( __( '%s quantity', 'docy' ), wp_strip_all_tags( $args['product_name'] ) ) : __( 'Quantità', 'docy' );
+$adjustable = 'hidden' !== $type && ! $readonly;
+?>
+	<div class="product-qty quantity<?php echo 'hidden' === $type ? ' hidden' : ''; ?>">
+        <?php do_action( 'woocommerce_before_quantity_input_field' ); ?>
+        <label class="screen-reader-text" for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
+        <?php if ( $adjustable ) : ?>
+        <button class="ar_top" type="button" aria-label="<?php esc_attr_e( 'Aumenta la quantità', 'docy' ); ?>"><i class="arrow_carrot-up" aria-hidden="true"></i></button>
+        <?php endif; ?>
         <input
-			type="number"
+			type="<?php echo esc_attr( $type ); ?>"
+			<?php echo $readonly ? 'readonly="readonly"' : ''; ?>
 			id="<?php echo esc_attr( $input_id ); ?>"
-			class="input-text qty text manual-adjust"
+			class="<?php echo esc_attr( implode( ' ', array_unique( array_merge( (array) $classes, array( 'qty', 'manual-adjust' ) ) ) ) ); ?>"
 			step="<?php echo esc_attr( $step ); ?>"
 			min="<?php echo esc_attr( $min_value ); ?>"
 			max="<?php echo esc_attr( 0 < $max_value ? $max_value : '' ); ?>"
 			name="<?php echo esc_attr( $input_name ); ?>"
 			value="<?php echo esc_attr( $input_value ); ?>"
 			title="<?php echo esc_attr_x( 'Qty', 'Product quantity input tooltip', 'docy' ); ?>"
-			size="4"
 			pattern="<?php echo esc_attr( $pattern ); ?>"
 			inputmode="<?php echo esc_attr( $inputmode ); ?>"
-			aria-labelledby="<?php echo esc_attr( $labelledby ); ?>" />
-        <button class="ar_down" type="button"><i class="arrow_carrot-down"></i></button>
+			placeholder="<?php echo esc_attr( $placeholder ); ?>"
+			autocomplete="<?php echo esc_attr( $autocomplete ?? 'off' ); ?>" />
+        <?php if ( $adjustable ) : ?>
+        <button class="ar_down" type="button" aria-label="<?php esc_attr_e( 'Diminuisci la quantità', 'docy' ); ?>"><i class="arrow_carrot-down" aria-hidden="true"></i></button>
+        <?php endif; ?>
+        <?php do_action( 'woocommerce_after_quantity_input_field' ); ?>
 	</div>
-	<?php
-}

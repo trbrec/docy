@@ -1,7 +1,4 @@
 <?php
-global $wc_loop_i;
-$short_description = apply_filters( 'woocommerce_short_description', $post->post_excerpt );
-$opt = get_option( 'docy_opt' );
 global $product;
 ?>
 <li <?php wc_product_class( 'row shop_list_item' ); ?>>
@@ -25,9 +22,7 @@ global $product;
             <p class="f_p f_300 f_size_15"> <?php echo wp_trim_words( get_the_excerpt(), 20, '...' ) ?> </p>
             
             <div class="pr_button">
-                <a href="?add-to-cart=<?php echo get_the_ID() ?>" title="<?php echo esc_attr($product->single_add_to_cart_text()) ?>" class="cart_btn">
-                    <?php esc_html_e( 'Add to cart', 'docy' ) ?>
-                </a>
+                <?php woocommerce_template_loop_add_to_cart( array( 'class' => 'cart_btn' ) ); ?>
                 <?php echo shortcode_exists( 'ti_wishlists_addtowishlist' ) ? do_shortcode( '[ti_wishlists_addtowishlist]' ) : ''; ?>
             </div>
         </div>

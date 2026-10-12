@@ -36,6 +36,8 @@
 			this.starsContainer = this.container.find('.docy-rating-stars');
 			this.storageKey = 'docy_article_rated_' + this.postId;
 			this.currentFocusIndex = 0;
+			this.pending = false;
+			this.rated = false;
 
 			// Check if already rated via localStorage.
 			if (this.hasRated()) {
@@ -168,16 +170,21 @@
 		 */
 		submitRating: function (rating) {
 			var self = this;
+			if (this.pending || this.hasRated()) return;
+			this.pending = true;
 
 			// Add loading state.
-			this.container.addClass('is-loading');
+			this.container.addClass('is-loading').attr('aria-busy', 'true');
+			this.stars.prop('disabled', true);
 
 			// Announce to screen readers.
-			this.announceToScreenReader(docy_rating_params.submitting_text || 'Submitting your rating...');
+			this.announceToScreenReader(docy_rating_params.submitting_text || 'Invio del voto…');
 
 			$.ajax({
 				url: docy_rating_params.ajax_url,
 				type: 'POST',
+				dataType: 'json',
+				timeout: 20000,
 				data: {
 					action: 'docy_submit_article_rating',
 					post_id: this.postId,
@@ -185,26 +192,29 @@
 					nonce: docy_rating_params.nonce
 				},
 				success: function (response) {
-					if (response.success) {
+					if (response && response.success === true && response.data &&
+						typeof response.data.votes === 'number' && Number.isInteger(response.data.votes) && response.data.votes > 0 &&
+						typeof response.data.avg_rating === 'number' && response.data.avg_rating >= 1 && response.data.avg_rating <= 5) {
 						// Mark as rated in localStorage.
 						self.setRated();
 
 						// Announce success to screen readers.
-						self.announceToScreenReader(response.data.message || docy_rating_params.thank_you_text);
+						self.announceToScreenReader(docy_rating_params.thank_you_text || 'Grazie per aver votato questo articolo!');
 
 						// Show thank you message.
 						self.showThankYou();
 					} else {
 						// Show error message if any.
-						console.error('Rating submission failed:', response.data);
-						self.announceToScreenReader('Rating submission failed. Please try again.');
-						self.container.removeClass('is-loading');
+						self.announceToScreenReader(docy_rating_params.error_text || 'Impossibile salvare il voto. Riprova.');
 					}
 				},
-				error: function (xhr, status, error) {
-					console.error('Rating AJAX error:', error);
-					self.announceToScreenReader('An error occurred. Please try again.');
-					self.container.removeClass('is-loading');
+				error: function () {
+					self.announceToScreenReader(docy_rating_params.error_text || 'Impossibile salvare il voto. Riprova.');
+				},
+				complete: function () {
+					self.pending = false;
+					self.container.removeClass('is-loading').removeAttr('aria-busy');
+					self.stars.prop('disabled', self.rated);
 				}
 			});
 		},
@@ -237,14 +247,16 @@
 		 * @return {boolean} True if already rated.
 		 */
 		hasRated: function () {
-			return localStorage.getItem(this.storageKey) === 'true';
+			if (this.rated) return true;
+			try { return localStorage.getItem(this.storageKey) === 'true'; } catch (error) { return false; }
 		},
 
 		/**
 		 * Mark the article as rated in localStorage.
 		 */
 		setRated: function () {
-			localStorage.setItem(this.storageKey, 'true');
+			this.rated = true;
+			try { localStorage.setItem(this.storageKey, 'true'); } catch (error) { /* The server cookie still records this browser's vote. */ }
 		},
 
 		/**
@@ -257,10 +269,11 @@
 				'<path d="M7.493 18.5c-.425 0-.82-.236-.975-.632A7.48 7.48 0 0 1 6 15.125c0-1.75.599-3.358 1.602-4.634.151-.192.373-.309.6-.397.473-.183.89-.514 1.212-.924a9.042 9.042 0 0 1 2.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 0 0 .322-1.672V3a.75.75 0 0 1 .75-.75 2.25 2.25 0 0 1 2.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 0 1-2.649 7.521c-.388.482-.987.729-1.605.729H14.23c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 0 0-1.423-.23h-.777ZM2.331 10.727a11.969 11.969 0 0 0-.831 4.398 12 12 0 0 0 .52 3.507c.26.85 1.084 1.368 1.973 1.368H4.9c.445 0 .72-.498.523-.898a8.963 8.963 0 0 1-.924-3.977c0-1.708.476-3.305 1.302-4.666.245-.403-.028-.959-.5-.959H4.25c-.832 0-1.612.453-1.918 1.227Z" />' +
 				'</svg>' +
 				'</div>' +
-				'<p class="docy-rating-thankyou-text">' + docy_rating_params.thank_you_text + '</p>' +
+				'<p class="docy-rating-thankyou-text"></p>' +
 				'</div>';
 
 			this.container.removeClass('is-loading').html(thankYouHtml);
+			this.container.find('.docy-rating-thankyou-text').text(docy_rating_params.thank_you_text || 'Grazie per aver votato questo articolo!');
 		}
 	};
 

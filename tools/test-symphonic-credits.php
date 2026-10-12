@@ -4,6 +4,9 @@ require __DIR__.'/../inc/trb-symphonic-genres.php';
 require __DIR__.'/test-release-credit-roles.php';
 $roles=trb_symphonic_roles();
 check(array_map('count',$roles)===array('writers'=>43,'performers'=>818,'engineering'=>115),'Complete observed Symphonic catalogue');
+check(trb_symphonic_role_label('Composer')==='Compositore' && trb_symphonic_role_label('Lyricist')==='Autore del testo' && trb_symphonic_role_label('Producer')==='Produttore musicale' && trb_symphonic_role_label('Vocals')==='Voce','Required roles have Italian display labels');
+foreach(trb_symphonic_role_catalogue() as $options)foreach($options as $role)if(!is_string($role['label_it']??null)||trim($role['label_it'])==='')throw new Exception('Missing Italian display label: '.$role['name']);
+check(true,'Every catalogue entry has an Italian label or its international instrument name');
 $t=$tracks[0];unset($t['credits']['credits']);
 $t['credits']['performers']=[['name'=>'Test Singer','role'=>'Vocals']];
 $t['credits']['engineering']=[['name'=>'Test Producer','role'=>'Producer']];
@@ -21,6 +24,8 @@ check(true,'Every observed role accepted only in its group');
 
 $genres=trb_symphonic_genres();
 check(count($genres)===48 && array_sum(array_map('count',$genres))===498,'Complete observed genre/subgenre pairs');
+check(trb_symphonic_genre_label('Electronic')==='Musica elettronica'&&trb_symphonic_genre_label('Other')==='Altro'&&trb_symphonic_genre_label('Audiobooks')==='Audiolibri','Genre display labels are Italian without changing canonical values');
+check(trb_symphonic_genre_label('Deep House')==='Deep House','International style names remain intact');
 $genreTrack=$t;$genreTrack['primary_genre']='Alternative';$genreTrack['secondary_genre']='Indie Rock';
 check(!trb_symphonic_genre_errors([$genreTrack]) && count(trb_portal_sanitize_release_tracks([$genreTrack],true,true))===1,'Valid Symphonic genre pair accepted');
 $genreTrack['secondary_genre']='Alternative Pop';

@@ -1,0 +1,46 @@
+<?php
+declare(strict_types=1);
+if(PHP_SAPI!=='cli')exit(1);
+require_once __DIR__.'/../integrations/onboarding/crm/OnboardingService.php';
+use TrbCrm\OnboardingPolicy;use TrbCrm\OnboardingContractCatalog;use TrbCrm\OnboardingLedger;use TrbCrm\OnboardingService;
+function sides_check(bool $ok,string $message):void{if(!$ok)throw new RuntimeException($message);}
+function sides_reject(callable $fn,string $message):void{try{$fn();}catch(Throwable $e){return;}throw new RuntimeException($message);}
+$slots=['identity_front','identity_back','tax_front','tax_back'];
+foreach(OnboardingContractCatalog::all() as $model)sides_check(OnboardingPolicy::requiredIdentitySlots($model)===$slots,'Every restored model requires both sides of both documents');
+sides_check(OnboardingPolicy::requiredIdentitySlots([])===['identity_front','tax_front'],'Issued historical snapshots retain their two-front contract');
+sides_reject(fn()=>OnboardingPolicy::requiredIdentitySlots(['identity_document_sides'=>'unknown']),'Unknown requirement cannot silently downgrade verification');
+$db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);$ledger=new OnboardingLedger($db);$ledger->install();
+$snapshot=OnboardingContractCatalog::model('ddb_ccad_600')+['unsigned_document_sha256'=>str_repeat('a',64),'first_name'=>'Mario','last_name'=>'Rossi','email'=>'sides@example.invalid','artist_folder_id'=>'synthetic-private','contract_number'=>'SYNTHETIC-ONLY'];
+$id=$ledger->create(1,$snapshot,gmdate('c',time()+86400))['id'];
+$ledger->saveDetails($id,['privacy_acknowledged_at'=>gmdate('c'),'tax_code'=>'RSSMRA90A01H501W']);
+$archive=new class{public int $reads=0;public function identityDocument(array $file):array{$this->reads++;return ['mime'=>'image/png','data'=>base64_encode('synthetic-only'),'name'=>$file['name']];}};
+$reader=new class{public int $calls=0;public array $slots=[];public array $fields=['identity_document'=>true,'tax_document'=>true,'legible'=>true,'tax_legible'=>true,'first_name'=>'Mario','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_first_name'=>'Mario','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W','identity_back_document'=>true,'identity_sides_consistent'=>true,'tax_back_document'=>true,'tax_sides_consistent'=>true];public function extract(array $documents):array{$this->calls++;$this->slots=array_column($documents,'slot');return $this->fields;}};
+$unused=static function():never{throw new RuntimeException('Document verification must not call payment, signature or activation');};
+$service=new OnboardingService($ledger,$archive,$reader,$unused,$unused);
+sides_check($service->view($ledger->practice($id))['required_identity_slots']===$slots,'Browser receives the immutable requirements');
+$file=static fn(string $slot,int $version=1):array=>['file_id'=>'synthetic-'.$slot.'-'.$version,'folder_id'=>'synthetic-private','hash'=>'synthetic-hash-'.$slot.'-'.$version,'name'=>$slot.'.png'];
+foreach(['identity_front','tax_front'] as $slot)$ledger->recordFile($id,$slot,$file($slot));
+sides_reject(fn()=>$service->identity($ledger->practice($id)),'Two valid fronts cannot queue a four-side contract');
+sides_check($reader->calls===0&&$archive->reads===0,'Missing sides are rejected before any provider access');
+$ledger->recordFile($id,'identity_back',$file('identity_back'));
+sides_reject(fn()=>$service->identity($ledger->practice($id)),'A missing fiscal back still blocks verification');
+$ledger->recordFile($id,'tax_back',$file('tax_back'));
+$service->identity($ledger->practice($id));$old=$ledger->claimIdentity($id);
+sides_check($old!==null&&$old['required_identity_slots']===$slots,'Worker claim includes every required side');
+$fronts=$ledger->files($id);$ledger->recordFile($id,'identity_back',$file('identity_back',2));
+sides_check($ledger->identityVerification($id)===null,'Replacing a back invalidates the outstanding claim');
+sides_check(!$ledger->finishIdentity($old,$reader->fields,'2026-10-11'),'Stale completion cannot approve the replaced back');
+foreach(['identity_front','tax_front','tax_back'] as $slot)sides_check($ledger->files($id)[$slot]===$fronts[$slot],'Replacing one side preserves every other archived file');
+$service->identity($ledger->practice($id));$fresh=$ledger->claimIdentity($id);
+sides_check($fresh['input_fingerprint']!==$old['input_fingerprint'],'Back file metadata is included in the verification fingerprint');
+$ledger->recordFile($id,'identity_back',$file('identity_back',2));
+sides_check($ledger->identityVerification($id)['status']==='processing','Idempotent confirmation does not invalidate the same file');
+$bad=array_replace($reader->fields,['tax_back_document'=>false]);$ledger->finishIdentity($fresh,$bad,'2026-10-11');
+$v=$ledger->identityVerification($id);sides_check($v['status']==='rejected'&&$v['reason']==='tax_back_required'&&$v['replace_slots']===['tax_back'],'An unreadable fiscal back requires only that side to be replaced');
+sides_check(str_contains($v['message'],'retro'),'Correction instructions name the rejected side in Italian');
+$ledger->recordFile($id,'tax_back',$file('tax_back',2));$service->identity($ledger->practice($id));$service->processIdentity($id);
+sides_check($reader->slots===$slots&&$archive->reads===4,'The worker reads all four private archived files');
+sides_check($ledger->practice($id)['state']==='identity_matched','Only the complete consistent four-side revision is accepted');
+sides_check($ledger->practice($id)['snapshot']===$snapshot,'Verification never rewrites the issued contractual snapshot');
+sides_reject(fn()=>$ledger->recordFile($id,'identity_back',$file('identity_back',3)),'Accepted backs are immutable like accepted fronts');
+echo "Restored document policy verified: four sides, historical compatibility, missing sides, stale claims, idempotent confirmations and targeted correction.\n";

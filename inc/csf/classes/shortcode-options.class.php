@@ -166,10 +166,10 @@ if ( ! class_exists( 'CSF_Shortcoder' ) ) {
       $nonce         = ( ! empty( $_POST[ 'nonce' ] ) ) ? sanitize_text_field( wp_unslash( $_POST[ 'nonce' ] ) ) : '';
       $shortcode_key = ( ! empty( $_POST[ 'shortcode_key' ] ) ) ? sanitize_text_field( wp_unslash( $_POST[ 'shortcode_key' ] ) ) : '';
 
-      if ( ! empty( $shortcode_key ) && wp_verify_nonce( $nonce, 'csf_shortcode_nonce' ) ) {
+      if ( ctype_digit( $shortcode_key ) && (int) $shortcode_key > 0 && wp_verify_nonce( $nonce, 'csf_shortcode_nonce' ) && isset( $this->pre_sections[(int) $shortcode_key - 1] ) ) {
 
         $unallows  = array( 'group', 'repeater', 'sorter' );
-        $section   = $this->pre_sections[$shortcode_key-1];
+        $section   = $this->pre_sections[(int) $shortcode_key - 1];
         $shortcode = ( ! empty( $section['shortcode'] ) ) ? $section['shortcode'] : '';
         $view      = ( ! empty( $section['view'] ) ) ? $section['view'] : 'normal';
 

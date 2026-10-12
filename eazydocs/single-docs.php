@@ -26,7 +26,7 @@ $doc_container   = $doc_width == 'full-width' ? 'ezd-container-fluid px-lg-5' : 
 $content_wrapper = $doc_width == 'full-width' ? 'doc_full_width' : '';
 
 /* translators: %1$s is for opening link tag, %2$s is for closing link tag */
-$credit_text = ezd_get_opt( 'eazydocs-credit-text', sprintf( __( 'Powered By %1$s EazyDocs %2$s', 'eazydocs' ), '<a href="https://wordpress.org/plugins/eazydocs/" target="_blank" rel="noopener noreferrer">', '</a>' ) );
+$credit_text = ezd_get_opt( 'eazydocs-credit-text', sprintf( __( 'Powered By %1$s EazyDocs %2$s', 'docy' ), '<a href="https://wordpress.org/plugins/eazydocs/" target="_blank" rel="noopener noreferrer">', '</a>' ) );
 
 if ( ezd_is_premium() ) {
 	$credit_enable = ezd_get_opt( 'eazydocs-enable-credit', '1' );

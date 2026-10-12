@@ -2,8 +2,9 @@
 /** Synthetic WordPress/WooCommerce boundary tests: no network or real accounts. */
 define('ABSPATH',__DIR__);define('HOUR_IN_SECONDS',3600);
 class WP_Error{public function __construct(public $code,public $message,public $data=[]){}public function get_error_message(){return $this->message;}}
-class WP_User{public $roles=[];public $user_email='artist@example.invalid';public function __construct(public $ID=101){}public function has_cap($cap){return false;}public function add_role($role){$this->roles[]=$role;}}
+class WP_User{public $roles=[];public $user_pass='';public $user_email='artist@example.invalid';public function __construct(public $ID=101){}public function has_cap($cap){return false;}public function add_role($role){$this->roles[]=$role;}}
 function is_wp_error($x){return $x instanceof WP_Error;}
+function is_email($value){return filter_var($value,FILTER_VALIDATE_EMAIL)!==false;}
 function add_action(...$args){if(($args[0]??'')==='user_register'&&is_array($args[1]??null)&&($args[1][1]??'')==='request_admin_approval_email_2')$GLOBALS['approval_notification_suspended']=false;}function add_filter($tag,$callback,...$args){$GLOBALS['adapter_filters'][$tag][]=$callback;}
 function has_action($hook,$callback){return $hook==='user_register'&&($callback[1]??'')==='request_admin_approval_email_2'?10:false;}
 function remove_action($hook,$callback,$priority){$GLOBALS['approval_notification_suspended']=true;return true;}
@@ -23,6 +24,17 @@ function trb_portal_profiles(){return ['ddb'=>['role'=>'artista_b']];}function p
 function trb_release_bridge_contract_term_dates($term){return preg_match('~^\d\d/\d\d/\d\d - \d\d/\d\d/\d\d$~',$term)?[]:new WP_Error('term','Invalid');}
 function wp_next_scheduled($x){return true;}function wp_date($format,$stamp,$zone){return (new DateTimeImmutable('@'.$stamp))->setTimezone($zone)->format($format);}
 function check_adapter($ok,$message){if(!$ok)throw new RuntimeException($message);}
+// This suite isolates adapters; the native HTTP/MySQL suite verifies actual locks,
+// transactions, readback and rollback against the same production functions.
+function trb_crm_sync_atomic($scope,array $cacheIds,callable $operation){return $operation();}
+function trb_crm_sync_write_meta($type,$id,$key,$value){check_adapter($type==='user','Adapter writes user metadata');update_user_meta($id,$key,$value);}
+function trb_crm_sync_decode_serialized($value){return unserialize($value,array('allowed_classes'=>false));}
+$wpdb=new class{
+ public $usermeta='qa_usermeta';
+ public function get_blog_prefix(){return 'qa_';}
+ public function prepare($query,...$args){return $query;}
+ public function get_var($query){return serialize(array_fill_keys($GLOBALS['user']->roles,true));}
+};
 require dirname(__DIR__).'/inc/trb-candidate-onboarding.php';
 require dirname(__DIR__).'/integrations/onboarding/store/trb-onboarding-payments.php';
 // A login exception must expose only the managed published notice, never other content.

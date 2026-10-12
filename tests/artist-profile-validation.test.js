@@ -47,6 +47,7 @@ const settle=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r))
  input('data-trb-birthplace','تونس');assert.equal(fields['data-trb-birthplace'].value,'تونس');
  input('data-trb-birth-country','Italia');input('data-trb-birthplace','Tunisi');timers.pop()();municipal[municipal.length-1].resolve({places:[]});await settle();
  assert.notEqual(fields['data-trb-birthplace'].validity,'','Italian mode must still reject foreign cities');
+ for(const value of ['+391234567','+390200000000','+3933300000009']){phone.value=value;phone.dispatchEvent({type:'input'});assert.notEqual(phone.validity,'','Italian numbers must retain mobile validation');}
  phone.value='00216 20 123 456';phone.dispatchEvent({type:'input'});assert.equal(phone.validity,'');phone.dispatchEvent({type:'blur'});assert.equal(phone.value,'+21620123456');
  for(const number of ['+012345678','+1234567890123456','1234567']){phone.value=number;phone.dispatchEvent({type:'input'});assert.notEqual(phone.validity,'');}
  input('data-trb-tax-country','France');assert.equal(input('data-trb-tax-code','01 23-456.789').value,'01 23-456.789');assert.equal(fields['data-trb-tax-code'].validity,'');
@@ -59,4 +60,3 @@ const settle=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r))
  assert.notEqual(input('data-trb-document-number','123456789').validity,'');
  console.log('Italian and international profile validation, Unicode preservation and country-switch lookup races verified.');
 })().catch(e=>{console.error(e);process.exit(1);});
-

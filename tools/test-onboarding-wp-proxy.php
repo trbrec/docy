@@ -58,8 +58,8 @@ function is_user_logged_in() { return false; }
 
 final class NativeTestRequest
 {
-    public function __construct(private array $input, private array $headers=[]) {}
-    public function get_json_params(): array { return $this->input; }
+    public function __construct(private mixed $input, private array $headers=[]) {}
+    public function get_json_params(): mixed { return $this->input; }
     public function get_header(string $name): string { return $this->headers[strtolower($name)] ?? ''; }
     public function get_body(): string { return json_encode($this->input, JSON_THROW_ON_ERROR); }
 }
@@ -78,6 +78,64 @@ function native_recoverable($error, string $context): void {
 }
 
 require __DIR__.'/../inc/trb-candidate-onboarding.php';
+
+// Malformed JSON fields must stop before transport or any session/job mutation.
+// Arrays here reproduce requests that previously reached string casts/strtoupper.
+$_COOKIE['__Host-trb_onboarding']=str_repeat('b',64);
+$payloadKey=trb_onboarding_browser_key();
+$payloadSession=['session'=>str_repeat('a',64),'invite'=>str_repeat('c',64)];
+$GLOBALS['native_test']['transients'][$payloadKey]=$payloadSession;
+$malformedPayloads=[
+    ['action'=>'details','billing'=>['country'=>['TN']]],
+    ['action'=>'challenge','token'=>['invalid']],
+    ['action'=>'verify_email','code'=>['123456']],
+    ['action'=>'register','password'=>['invalid'],'repeat_password'=>['invalid']],
+    ['action'=>'municipalities','search'=>['Roma']],
+    ['action'=>'postcode','postcode'=>['25038']],
+    ['action'=>'view','billing'=>'not-an-object'],
+    ['action'=>'view','profile'=>['birth_place'=>['Roma']]],
+    ['action'=>'view','invoice'=>['company_name'=>['invalid']]],
+    ['action'=>'upload','file'=>'not-an-object'],
+    ['action'=>'upload','file'=>[]],
+    ['action'=>'upload'],
+    ['action'=>'upload','file'=>['name'=>['identity_front.pdf'],'mime'=>'application/pdf','size'=>10]],
+    ['action'=>'upload','file'=>['name'=>'identity_front.pdf','mime'=>['application/pdf'],'size'=>10]],
+    ['action'=>'upload','file'=>['name'=>'identity_front.pdf','mime'=>'application/pdf','size'=>[10]]],
+    ['action'=>'upload','file'=>['name'=>'identity_front.pdf','mime'=>'application/pdf','size'=>'10']],
+    ['action'=>'upload','file'=>['name'=>'identity_front.pdf','mime'=>'application/pdf','size'=>0]],
+    ['action'=>'upload','file'=>['name'=>'identity_front.pdf','mime'=>'application/pdf','size'=>10485761]],
+    ['action'=>'upload','file'=>['name'=>'identity_front.exe','mime'=>'application/pdf','size'=>10]],
+    ['action'=>'upload','file'=>['name'=>'identity_front.pdf','mime'=>'text/html','size'=>10]],
+    ['action'=>['view']],
+    ['action'=>'document','slot'=>['identity_front']],
+    ['action'=>'choose','plan_key'=>['free']],
+    ['action'=>'choose','proposal_sha256'=>['invalid']],
+    null, 'not-an-object', 42, ['view'],
+];
+$payloadCalls=count($GLOBALS['native_test']['calls']);
+$payloadJobs=$GLOBALS['native_test']['scheduled'];
+set_error_handler(static function($severity,$message,$file,$line){throw new ErrorException($message,0,$severity,$file,$line);});
+try{
+    foreach([['name'=>'identity_front.pdf','mime'=>'application/pdf','size'=>1],['name'=>'tax_front.png','mime'=>'image/png','size'=>10485760],['name'=>'identity_front.jpeg','mime'=>'image/jpeg','size'=>10]] as $validFile){
+        $validUpload=['action'=>'upload','slot'=>'identity_front','file'=>$validFile];
+        native_check(trb_onboarding_public_payload(new NativeTestRequest($validUpload))===$validUpload,'valid browser upload metadata preserves integer sizes and allowed MIME types');
+    }
+    foreach($malformedPayloads as $malformed){
+        $error=trb_onboarding_public(new NativeTestRequest($malformed));
+        native_check($error instanceof WP_Error&&($error->get_error_data()['status']??0)===422,'malformed public JSON returns a controlled validation error');
+        native_check(count($GLOBALS['native_test']['calls'])===$payloadCalls,'malformed public JSON cannot reach CRM or a provider');
+        native_check($GLOBALS['native_test']['transients'][$payloadKey]===$payloadSession&&$GLOBALS['native_test']['scheduled']===$payloadJobs,'malformed public JSON preserves the session and queued work');
+    }
+    $cookieHeaders=['content-type'=>'application/json','origin'=>'https://artist.trbrec.com','x-trb-onboarding-csrf'=>trb_onboarding_csrf(str_repeat('b',64))];
+    foreach([['nested-cookie'],[],'not-a-nonce',123] as $invalidCookie){
+        $_COOKIE['__Host-trb_onboarding']=$invalidCookie;
+        native_check(trb_onboarding_browser_key()==='','malformed browser cookies do not create a session key');
+        $error=trb_onboarding_public_permission(new NativeTestRequest(['action'=>'identity'],$cookieHeaders));
+        native_check($error instanceof WP_Error&&($error->get_error_data()['status']??0)===403,'malformed browser cookies fail CSRF without a PHP warning');
+    }
+}finally{restore_error_handler();}
+$GLOBALS['native_test']['transients']=[];
+unset($_COOKIE['__Host-trb_onboarding']);
 
 // A syntactically correct HTTP failure must not become an invalid-document decision.
 $GLOBALS['native_test']['remote']=new WP_Error('http_request_failed','cURL timeout at upstream-secret');

@@ -92,7 +92,5 @@ if ( ! defined( 'ABSPATH' ) ) {
 </ul>
 
 <div class="proceed_to_checkout">
-    <?php do_action( 'woocommerce_cart_actions' ); ?>
-    <?php wp_nonce_field( 'woocommerce-cart', 'woocommerce-cart-nonce' ); ?>
     <?php do_action( 'woocommerce_proceed_to_checkout' ); ?>
 </div>

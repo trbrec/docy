@@ -87,7 +87,7 @@ for profile in ("ddb", "ddb_trb", "trb"):
 
 check("DDS e DDB12 limitati esclusivamente dal profilo mensile", "array( 'dds', 'ddb12' )" in PORTAL)
 check("DDS escluso da pitching e playlist incluse", "'editorial_pitching'    => $service( 'Pitching editoriale', $development )" in PORTAL and "'owned_playlists'       => $service( 'Inserimento nelle playlist proprietarie', $development )" in PORTAL)
-check("DDS escluso da formazione mentoring e attestato", "'training'              => $service( 'Formazione e Knowledge Hub', array( 'ddb12', 'ddb', 'ddb_trb' ) )" in PORTAL and "'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'not_applicable'" in PORTAL)
+check("DDS escluso da formazione mentoring e attestato", "'training'              => $service( 'Formazione e Centro risorse', array( 'ddb12', 'ddb', 'ddb_trb' ) )" in PORTAL and "'dds' => array( 'duration_months' => 1, 'release_limit' => 'one_per_month', 'training_level' => 'not_applicable'" in PORTAL)
 check("account QA release limitati a spotify4 e spotify9", "array( 'spotify4', 'spotify9' )" in PORTAL and "array( 'spotify4@trbrec.com', 'spotify9@trbrec.com' )" in PORTAL)
 check("spotify4 ha fixture contrattuale e modulo release verificabile", "trb_release_bridge_seed_spotify4_qa_contract" in BRIDGE and "TRB-QA-SPOTIFY4" in BRIDGE and "trb_portal_release_qa_health_payload" in PORTAL)
 check("spotify4 usa conferma collaudo senza perdere il flusso TRB", "trb_portal_is_release_qa_account" in PORTAL and "current_user_can( 'manage_options' ) || trb_portal_is_release_qa_account()" in PORTAL)
@@ -183,7 +183,7 @@ check("richiamo esterno giornaliero attiva soltanto il monitor del sito", "cron:
 check("audit reale post-deploy con riepilogo email", "trb_resource_run_portal_audit" in RESOURCE and "Audit completo Portale Artisti completato" in RESOURCE)
 check("download file release vincolato al proprietario", "trb_portal_current_user_can_access_release" in PORTAL)
 check("file privati profilo vincolati all'utente e a un nonce", "check_admin_referer( 'trb_portal_private_file_'" in PORTAL and "trb_portal_private_profile_files()" in PORTAL)
-check("percorsi privati confinati con realpath", PORTAL.count("0 !== strpos( $target, $private_dir . DIRECTORY_SEPARATOR )") >= 2)
+check("percorsi privati confinati con realpath", "function trb_portal_private_profile_file_path" in PORTAL and "0 === strpos( $path, $root . DIRECTORY_SEPARATOR )" in PORTAL and "trb_portal_delete_retired_profile_files" in PORTAL)
 check("risorse Knowledge Hub filtrate per gruppo anche sui link diretti", "trb_portal_protect_tagged_resource" in PORTAL and "trb_portal_user_can_access( $profiles )" in PORTAL)
 check("callback contratto protetta da segreto condiviso", "trb_release_bridge_public_callback" in BRIDGE and "hash_equals" in BRIDGE and "shared_secret" in BRIDGE)
 check("stato contratti restituisce solo le release dell'utente", "'author'=>get_current_user_id()" in BRIDGE and "release-contract-status" in BRIDGE)
@@ -269,13 +269,13 @@ check("matrice release applica i sei limiti definitivi", all(token in RELEASE_TY
     "'album'        => array( 'label' => 'Album', 'range' => 'da 9 a 18 brani', 'min' => 9, 'max' => 18 )",
     "'double_album' => array( 'label' => 'Doppio album', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
     "'compilation'  => array( 'label' => 'Compilation', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
-    "'collection'   => array( 'label' => 'Collection', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
+    "'collection'   => array( 'label' => 'Raccolta', 'range' => 'da 18 a 24 brani', 'min' => 18, 'max' => 24 )",
 )))
 check("catalogo repertorio edito rimosso dalle tipologie", "'catalogue'" not in RELEASE_TYPES and "data-catalogue" not in PORTAL)
 check("limite frontend fermo a 24 tracce", "selected.dataset.max||24" in PORTAL and "selected.dataset.max||60" not in PORTAL)
 check("upload release limita ogni file a 250 MB", "maxFileBytes=250*1024*1024" in RELEASE_JS and "return 250 * MB_IN_BYTES" in PORTAL)
 check("upload release limita il totale a 4 GB", "maxSubmissionBytes=4*1024*1024*1024" in RELEASE_JS and "return 4 * 1024 * MB_IN_BYTES" in PORTAL)
-check("cleanup staging scaduto copre tutti gli account", "trb_portal_cleanup_expired_release_staging_all" in PORTAL and "glob( trailingslashit( $base ) . '*' )" in PORTAL and "trb_portal_cleanup_release_staging_session( $session, (int) $user_id )" in PORTAL)
+check("cleanup staging scaduto copre tutti gli account", "trb_portal_cleanup_expired_release_staging_all" in PORTAL and "glob( trailingslashit( $base ) . '*' )" in PORTAL and "trb_portal_cleanup_release_staging_session( $session, (int) $user_id, $cutoff )" in PORTAL)
 check("cleanup staging eseguito automaticamente ogni ora", "trb_portal_cleanup_release_staging_event" in PORTAL and "wp_schedule_event( time() + 5 * MINUTE_IN_SECONDS, 'hourly'" in PORTAL)
 check("cleanup staging confina i percorsi e conserva sessioni recenti", "0 !== strpos( $resolved_directory, $resolved_user_root . DIRECTORY_SEPARATOR )" in PORTAL and "filemtime( $resolved_directory ) > $cutoff" in PORTAL)
 check("cleanup staging registra solo rimozioni riuscite", "trb_release_staging_cleanup_last" in PORTAL and "clearstatcache( true, $resolved_directory )" in PORTAL and "if ( ! is_dir( $resolved_directory ) )" in PORTAL and "$summary['bytes'] += $session_bytes" in PORTAL)
@@ -300,15 +300,18 @@ check("audit produzione verifica contatori contratti firmati", "Contatore releas
 check("audit produzione rileva anche limiti ACR e pCloud maiuscoli", "acr_budget_limit_reached" in RESOURCE and "pcloud_quota_limit_reached" in RESOURCE)
 check("audit produzione include anomalie risorsa ancora aperte", "open_resource_events" in RESOURCE and "severity IN ('warning','critical')" in RESOURCE and "'resource_events' => $open_resource_events" in RESOURCE)
 check("monitor distingue il filesystem condiviso dallo staging", "Filesystem condiviso (dato informativo)" in RESOURCE and "Margine staging hosting" in RESOURCE)
-check("deploy valida PHP e regressioni prima della produzione", "Validate PHP and portal regressions" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "php -l" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-draft-normalizer.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8") and "test-release-staging-cleanup.php" in (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8"))
+validation_workflow = (ROOT / ".github/workflows/submission-checks.yml").read_text(encoding="utf-8")
+check("deploy subordinato alla suite condivisa PHP, browser e MySQL", "needs: validate" in DEPLOY_WORKFLOW and "uses: ./.github/workflows/submission-checks.yml" in DEPLOY_WORKFLOW and "workflow_call:" in validation_workflow and "mysql-profile:" in validation_workflow and "tests/php/profile-mysql-http.php" in validation_workflow and "for test in tools/test-*.php integrations/site-studio/test-*.php" in validation_workflow and "for test in tests/*.test.js" in validation_workflow)
 deploy_workflow = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
 check(
     "deploy SiteGround non dichiara successo prima della verifica",
     "timeout-minutes: 12" in deploy_workflow
     and "rsync -az --checksum" in deploy_workflow
-    and 'test "${deployed_sha}" = "${GITHUB_SHA}"' in deploy_workflow
-    and "php -l '${DEPLOY_PATH}/functions.php'" in deploy_workflow
-    and "Successfully deployed and verified ${deployed_sha}." in deploy_workflow,
+    and "tools/verify-portal-release.php' '${GITHUB_SHA}'" in deploy_workflow
+    and "tools/record-ssh-deployment.php' '${GITHUB_SHA}'" in deploy_workflow
+    and deploy_workflow.index("tools/verify-portal-release.php'") < deploy_workflow.index("tools/record-ssh-deployment.php'")
+    and "rollback_release()" in deploy_workflow
+    and "Complete portal release verified: ${GITHUB_SHA}." in deploy_workflow,
 )
 
 

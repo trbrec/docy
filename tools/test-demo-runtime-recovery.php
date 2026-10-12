@@ -8,8 +8,12 @@ $source=file_get_contents(dirname(__DIR__).'/inc/trb-demo-automation.php');
 $a=strpos($source,'function trb_demo_defer_review_if_needed(');$b=strpos($source,'function trb_demo_send_review(',$a);eval(substr($source,$a,$b-$a));
 $meta=[];$events=[];
 function get_post_meta($id,$key,$single=true){global $meta;return $meta[$key]??'';}
-function update_post_meta($id,$key,$value){global $meta;$meta[$key]=$value;}
+function update_post_meta($id,$key,$value){global $meta;if(($GLOBALS['reject_meta']??'')!==$key)$meta[$key]=$value;}
 function delete_post_meta($id,$key){global $meta;unset($meta[$key]);}
+function wp_cache_delete(...$args){}
+function wp_slash($value){return $value;}
+function trb_release_process_lock($scope){return tmpfile();}
+function trb_release_process_unlock($handle){fclose($handle);}
 function wp_next_scheduled(...$args){return false;}
 function wp_schedule_single_event($at,$hook,$args){global $events;$events[]=[$at,$hook,$args];return true;}
 function trb_demo_is_test_payload($payload){return !empty($payload['test']);}
@@ -34,6 +38,9 @@ function trb_demo_upload_to_pcloud($payload){global $remoteFails;return $remoteF
 function trb_demo_openai_review($payload){global $paidCalls;$paidCalls++;return ['review'=>'Stored successful evaluation','usage'=>['estimated_cost_usd'=>.01]];}
 function trb_demo_sheet_row(...$args){return true;}
 function wp_mail(...$args){throw new RuntimeException('Test must not send real notifications');}
+foreach(['trb_demo_run_locked','trb_demo_save_meta'] as $fn){
+ preg_match('/function '.$fn.'\(.*?(?=\nfunction |\nadd_action\()/s',$source,$match);eval($match[0]);
+}
 $a=strpos($source,'function trb_demo_process_request(');$b=strpos($source,"\nadd_action(",$a);eval(substr($source,$a,$b-$a));
 $meta=['_trb_demo_payload'=>['status'=>'queued','title'=>'Test']];$events=[];
 trb_demo_process_request(7);
@@ -43,4 +50,14 @@ $remoteFails=false;trb_demo_process_request(7);
 check_demo($paidCalls===1&&$meta['_trb_demo_payload']['status']==='ready','Retry repeated paid analysis');
 check_demo(!isset($meta['_trb_demo_last_error']),'Recovered request retained stale error');
 check_demo(!isset($meta['_trb_demo_last_error_code']),'Recovered request retained stale error code');
+$meta=['_trb_demo_payload'=>['status'=>'queued','title'=>'Test']];$paidCalls=0;$reject_meta='_trb_demo_review_result';
+trb_demo_process_request(7);
+check_demo($paidCalls===1&&!isset($meta['_trb_demo_review_result'])&&!empty($meta['_trb_demo_analysis_pending']),'Failed atomic review write lost its uncertainty marker');
+$reject_meta='';trb_demo_process_request(7);
+check_demo($paidCalls===1&&$meta['_trb_demo_payload']['status']==='manual_review','Uncertain paid analysis was automatically charged again');
+$meta=['_trb_demo_payload'=>['status'=>'queued','title'=>'Test']];$paidCalls=0;$reject_meta='_trb_demo_review';
+trb_demo_process_request(7);
+check_demo($paidCalls===1&&isset($meta['_trb_demo_review_result'])&&!isset($meta['_trb_demo_review']),'Split-column failure lost the complete paid result');
+$reject_meta='';trb_demo_process_request(7);
+check_demo($paidCalls===1&&$meta['_trb_demo_payload']['status']==='ready','Split-column recovery repeated a paid evaluation');
 echo "Demo actual-delivery guards and paid-result recovery passed.\n";

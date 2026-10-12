@@ -1,0 +1,4 @@
+# Command-line diagnostics and fixtures must never run through the public site.
+Require all denied
+Deny from all
+Options -Indexes

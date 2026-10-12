@@ -1,0 +1,96 @@
+name: Demo sheet key alignment
+on:
+  push:
+    branches: [fix/portal-audit-20261010]
+    paths: [tools/demo-key-request.json, .github/workflows/demo-key-alignment.yml]
+permissions:
+  contents: read
+concurrency:
+  group: demo-sheet-key-alignment
+  cancel-in-progress: false
+jobs:
+  validate:
+    uses: ./.github/workflows/submission-checks.yml
+  align:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare or complete the approved demo-only key alignment
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,re
+          d=json.load(open('tools/demo-key-request.json'))
+          assert set(d) in ({'tag','phase','scope'},{'tag','phase','scope','previous_qa_run'}) and re.fullmatch('[a-f0-9]{16}',d['tag'])
+          assert d['phase'] in ('prepare','status','apply','rollback','diagnose') and d['scope']=='existing_demo_sheet_only'
+          if 'previous_qa_run' in d:
+              assert d['phase']=='apply' and re.fullmatch('[a-f0-9]{16}',d['previous_qa_run'])
+          PY
+          tag=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json"))["tag"])')
+          phase=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json"))["phase"])')
+          previous_qa=$(python3 -c 'import json;print(json.load(open("tools/demo-key-request.json")).get("previous_qa_run",""))')
+          install -d -m 700 "${HOME}/.ssh" /tmp/trb-demo-key-status
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -T 10 -p "${SSH_PORT}" "${SSH_HOST}" > "${HOME}/.ssh/known_hosts"
+          test -s "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          source_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /home/customer/www/artist.trbrec.com/private/demo-key-source.XXXXXXXX')
+          [[ "${source_dir}" =~ ^/home/customer/www/artist\.trbrec\.com/private/demo-key-source\.[A-Za-z0-9]{8}$ ]]
+          verified=false
+          cleanup() {
+            if [ "${phase}" = apply ] && [ "${verified}" != true ]; then
+              ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/demo-key-alignment.php' rollback '${tag}'" > /tmp/trb-demo-key-status/rollback.json 2>/dev/null || true
+            fi
+            ssh "${ssh_opts[@]}" "${remote}" "rm -rf -- '${source_dir}'" >/dev/null 2>&1 || true
+            ssh-add -D >/dev/null 2>&1 || true
+            rm -f "${HOME}/.ssh/id_ed25519"
+          }
+          trap cleanup EXIT
+          ssh "${ssh_opts[@]}" "${remote}" "mkdir '${source_dir}/tools' '${source_dir}/inc'"
+          rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" tools/demo-key-alignment.php tools/qa-browser-recipient.pem tools/qa-provider-roundtrip.php tools/qa-provider-cleanup.php tools/qa-demo-link-diagnostics.php "${remote}:${source_dir}/tools/"
+          rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" inc/trb-webdav.php "${remote}:${source_dir}/inc/"
+          if [ "${phase}" = diagnose ]; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-demo-link-diagnostics.php' '${tag}'" > /tmp/trb-demo-key-status/diagnostics.json 2>/dev/null
+            python3 -c 'import json;d=json.load(open("/tmp/trb-demo-key-status/diagnostics.json"));assert d.get("completed") is True and d.get("read_only") is True and d.get("settings_changed") is False and d.get("credential_exported") is False'
+          else
+            ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/demo-key-alignment.php' '${phase}' '${tag}'" > /tmp/trb-demo-key-status/result.json 2>/dev/null
+            python3 -c 'import json;d=json.load(open("/tmp/trb-demo-key-status/result.json"));assert d.get("prepared") is True or (d.get("completed") is True and d.get("readback_verified") is True)'
+          fi
+          if [ "${phase}" = apply ]; then
+            run=$(openssl rand -hex 8)
+            if [ -n "${previous_qa}" ]; then
+              ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-provider-roundtrip.php' '${run}' no-ai '${previous_qa}'" > /tmp/trb-demo-key-status/providers.json 2>/dev/null
+            else
+              ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-provider-roundtrip.php' '${run}' no-ai" > /tmp/trb-demo-key-status/providers.json 2>/dev/null
+            fi
+            python3 -c 'import json;d=json.load(open("/tmp/trb-demo-key-status/providers.json"));assert all(d.get(k) is True for k in ("sheets","sheets_cleanup","pcloud","pcloud_cleanup","local_fixture_cleanup")),"Signed provider round trip incomplete"'
+            if [ -n "${previous_qa}" ]; then
+              python3 -c 'import json;d=json.load(open("/tmp/trb-demo-key-status/providers.json"));assert d.get("pcloud_prior_fixture_absent") is True,"Previous owned QA collection absence unconfirmed"'
+            fi
+          fi
+          verified=true
+      - name: Preserve generic results and the encrypted new key only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-key-alignment-status
+          path: /tmp/trb-demo-key-status/
+          retention-days: 1
+          if-no-files-found: error

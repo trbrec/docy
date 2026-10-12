@@ -1,0 +1,75 @@
+name: Canonical CRM owner release
+on:
+  push:
+    branches: [fix/portal-audit-20261010]
+    paths: [tools/crm-release-request.json]
+permissions:
+  contents: read
+concurrency:
+  group: canonical-crm-owner-release
+  cancel-in-progress: false
+jobs:
+  validate:
+    uses: ./.github/workflows/submission-checks.yml
+  install:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install only the reviewed separately signed private CRM package
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "${HOME}/.ssh" /tmp/trb-canonical-crm-status
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -T 10 -p "${SSH_PORT}" "${SSH_HOST}" > "${HOME}/.ssh/known_hosts"
+          test -s "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          source_dir=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp -d /home/customer/www/crm.trbrec.com/private/canonical-release-source.XXXXXXXX')
+          [[ "${source_dir}" =~ ^/home/customer/www/crm\.trbrec\.com/private/canonical-release-source\.[A-Za-z0-9]{8}$ ]]
+          cleanup() {
+            ssh "${ssh_opts[@]}" "${remote}" "rm -rf -- '${source_dir}'" >/dev/null 2>&1 || true
+            ssh-add -D >/dev/null 2>&1 || true
+            rm -f "${HOME}/.ssh/id_ed25519"
+          }
+          trap cleanup EXIT
+          ssh "${ssh_opts[@]}" "${remote}" "mkdir '${source_dir}/tools'"
+          rsync -az -e "ssh -p ${SSH_PORT} -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            tools/qa-canonical-crm-release.php tools/qa-crm-release-backup.php tools/crm-release-request.json \
+            tools/release-file-transaction.php tools/onboarding-readiness.php tools/qa-crm-onboarding-inventory.php "${remote}:${source_dir}/tools/"
+          printf '%s\n' "${GITHUB_SHA}" | ssh "${ssh_opts[@]}" "${remote}" "cat > '${source_dir}/.trb-deployed-sha'"
+          ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-crm-onboarding-inventory.php'" > /tmp/trb-canonical-crm-status/practices-before.json 2>/dev/null
+          ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-canonical-crm-release.php' install" > /tmp/trb-canonical-crm-status/installed.json 2>/dev/null
+          python3 -c 'import json;d=json.load(open("/tmp/trb-canonical-crm-status/installed.json"));assert d.get("completed") is True and d.get("production_deployed") is True'
+          if ! ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/onboarding-readiness.php' '${GITHUB_SHA}'" > /tmp/trb-canonical-crm-status/readiness.json 2>/dev/null; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-canonical-crm-release.php' rollback" > /tmp/trb-canonical-crm-status/rollback.json 2>/dev/null
+            exit 1
+          fi
+          if ! python3 -c 'import json;d=json.load(open("/tmp/trb-canonical-crm-status/readiness.json"));assert all(d.get(k) is True for k in ("revision","archive_connection","signature_adapter","mail_adapter","contract_sources","portal_adapter"))'; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-canonical-crm-release.php' rollback" > /tmp/trb-canonical-crm-status/rollback.json 2>/dev/null
+            exit 1
+          fi
+          ssh "${ssh_opts[@]}" "${remote}" "php '${source_dir}/tools/qa-crm-onboarding-inventory.php'" > /tmp/trb-canonical-crm-status/practices-after.json 2>/dev/null
+      - name: Preserve only generic release and provider verification flags
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-crm-release-status
+          path: /tmp/trb-canonical-crm-status/
+          retention-days: 7
+          if-no-files-found: error

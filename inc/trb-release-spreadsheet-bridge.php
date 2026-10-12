@@ -948,13 +948,20 @@ function trb_release_bridge_payload( $release_id ) {
         'phone'=>trb_release_bridge_profile_value($post->post_author,'phone'),'artist_name'=>trb_release_bridge_profile_value($post->post_author,'artist_name'),
         'tax_code'=>trb_release_bridge_profile_value($post->post_author,'tax_code'),'birth_date'=>trb_release_bridge_profile_value($post->post_author,'birth_date'),
         'birth_place'=>trb_release_bridge_profile_value($post->post_author,'birth_place'),'birth_province'=>trb_release_bridge_profile_value($post->post_author,'birth_province'),
+		'birth_country'=>trb_release_bridge_profile_value($post->post_author,'birth_country','Italia'),
+		'tax_country'=>trb_release_bridge_profile_value($post->post_author,'tax_country','Italia'),
         'document_type'=>trb_release_bridge_profile_value($post->post_author,'document_type','Carta d’identità'),
+		'document_expiry'=>trb_release_bridge_profile_value($post->post_author,'document_expiry'),
+		'document_no_expiry'=>trb_release_bridge_profile_value($post->post_author,'document_no_expiry'),
         'document_number'=>trb_release_bridge_profile_value($post->post_author,'document_number'),'address'=>trb_release_bridge_profile_value($post->post_author,'street'),
         'street_number'=>trb_release_bridge_profile_value($post->post_author,'street_number'),'postcode'=>trb_release_bridge_profile_value($post->post_author,'postal_code'),
         'municipality'=>trb_release_bridge_profile_value($post->post_author,'city'),'province'=>trb_release_bridge_profile_value($post->post_author,'province'),
         'country'=>trb_release_bridge_profile_value($post->post_author,'country','Italia'),
     );
-    foreach ( array( 'name','surname','email','phone','artist_name','tax_code','birth_date','birth_place','birth_province','document_type','document_number','address','street_number','postcode','municipality','province','country' ) as $required ) {
+	$required_fields = array( 'name','surname','email','phone','artist_name','tax_code','tax_country','birth_date','birth_place','birth_country','document_type','document_number','address','municipality','country' );
+	if ( trb_portal_country_is_italy( $artist['birth_country'] ) ) $required_fields[] = 'birth_province';
+	if ( trb_portal_country_is_italy( $artist['country'] ) ) $required_fields = array_merge( $required_fields, array( 'street_number','postcode','province' ) );
+    foreach ( $required_fields as $required ) {
         if ( '' === trim( (string) $artist[ $required ] ) ) return new WP_Error( 'artist_data_missing', 'Dato contrattuale mancante: ' . $required . '.' );
     }
     if ( empty( $tracks ) ) return new WP_Error( 'tracks_missing', 'Nessun brano disponibile per il contratto.' );
@@ -987,6 +994,12 @@ function trb_release_bridge_spreadsheet_row( $payload ) {
             return $entry['name'] . $suffix;
         }, $entries ) ) );
     };
+	$birth_place = (string) ( $artist['birth_place'] ?? '' );
+	$birth_country = (string) ( $artist['birth_country'] ?? 'Italia' );
+	if ( ! trb_portal_country_is_italy( $birth_country ) ) $birth_place .= ' (' . $birth_country . ')';
+	$document_type = (string) ( $artist['document_type'] ?? '' );
+	$document_labels = array( 'cie' => 'Carta d’identità elettronica italiana', 'passport' => 'Passaporto', 'foreign_identity' => 'Documento d’identità estero' );
+	$document_type = $document_labels[ $document_type ] ?? $document_type;
 
     $row = array(
         wp_date( 'd/m/Y H:i', strtotime( (string) ( $payload['confirmed_at'] ?? 'now' ) ) ),
@@ -994,9 +1007,9 @@ function trb_release_bridge_spreadsheet_row( $payload ) {
         (string) ( $artist['name'] ?? '' ),
         (string) ( $artist['surname'] ?? '' ),
         $format_date( $artist['birth_date'] ?? '' ),
-        (string) ( $artist['birth_place'] ?? '' ),
+        $birth_place,
         (string) ( $artist['tax_code'] ?? '' ),
-        (string) ( $artist['document_type'] ?? '' ),
+        $document_type,
         (string) ( $artist['document_number'] ?? '' ),
         (string) ( $artist['address'] ?? '' ),
         (string) ( $artist['street_number'] ?? '' ),
@@ -1161,6 +1174,12 @@ function trb_release_bridge_callback_url() {
 
 /** Apply a verified contract callback once; repeated completed callbacks are harmless. */
 function trb_release_bridge_apply_callback( $payload ) {
+    if ( ! is_array( $payload ) || ! isset( $payload['release_id'], $payload['status'], $payload['dossier_id'] ) ||
+        ! ( is_int( $payload['release_id'] ) || is_string( $payload['release_id'] ) ) || ! is_string( $payload['status'] ) ||
+        ! ( is_int( $payload['dossier_id'] ) || is_string( $payload['dossier_id'] ) ) ||
+        ( isset( $payload['signed_at'] ) && ! is_string( $payload['signed_at'] ) ) ) {
+        return new WP_Error( 'callback_invalid', 'Dati della firma non validi.', array( 'status' => 400 ) );
+    }
     $release_id = absint( $payload['release_id'] ?? 0 );
     if ( ! $release_id || 'trb_release' !== get_post_type( $release_id ) ) return new WP_Error( 'not_found', 'Release non trovata.', array( 'status' => 404 ) );
 	if ( trb_release_is_inactive($release_id) ) return new WP_Error('release_cancelled','Pratica annullata.',array('status'=>409));
@@ -1169,32 +1188,73 @@ function trb_release_bridge_apply_callback( $payload ) {
 
     $dossier_id = sanitize_text_field( (string) ( $payload['dossier_id'] ?? '' ) );
     if ( ! $dossier_id ) return new WP_Error( 'dossier_missing', 'Dossier OTP mancante.', array( 'status' => 400 ) );
-    $stored_dossier = sanitize_text_field( (string) get_post_meta( $release_id, '_trb_otp_dossier_id', true ) );
-    if ( $stored_dossier && ! hash_equals( $stored_dossier, $dossier_id ) ) return new WP_Error( 'dossier_mismatch', 'Il dossier OTP non corrisponde alla pratica.', array( 'status' => 409 ) );
-    if ( ! $stored_dossier ) update_post_meta( $release_id, '_trb_otp_dossier_id', $dossier_id );
-
-    $status = sanitize_key( (string) ( $payload['status'] ?? '' ) );
-    if ( ! in_array( $status, array( 'completed', 'contract_sent' ), true ) ) return new WP_Error( 'status_invalid', 'Stato firma non valido.', array( 'status' => 400 ) );
-    if ( 'completed' !== $status ) {
-        if ( 'signed' !== get_post_meta( $release_id, '_trb_contract_state', true ) ) update_post_meta( $release_id, '_trb_contract_state', 'contract_sent' );
-        return array( 'success' => true, 'state' => get_post_meta( $release_id, '_trb_contract_state', true ) );
+    static $active = false;
+    if ( $active ) return new WP_Error( 'callback_busy', 'Aggiornamento già in corso. Riprova tra poco.', array( 'status' => 503 ) );
+    $lock = trb_release_process_lock( 'release:' . $release_id );
+    if ( ! $lock ) return new WP_Error( 'callback_busy', 'Aggiornamento già in corso. Riprova tra poco.', array( 'status' => 503 ) );
+    global $wpdb;
+    $started = false;
+    $active = true;
+    $prior_errors = $wpdb->suppress_errors( true );
+    try {
+        // Re-read under the dispatch/cancellation lock, not the request's stale cache.
+        if ( trb_release_is_inactive( $release_id ) ) return new WP_Error( 'release_cancelled', 'Pratica annullata.', array( 'status' => 409 ) );
+        $stored_dossier = sanitize_text_field( (string) get_post_meta( $release_id, '_trb_otp_dossier_id', true ) );
+        if ( $stored_dossier && ! hash_equals( $stored_dossier, $dossier_id ) ) return new WP_Error( 'dossier_mismatch', 'Il dossier OTP non corrisponde alla pratica.', array( 'status' => 409 ) );
+        // State hooks can schedule a summary in wp_options; both tables must roll back.
+        foreach ( array( $wpdb->postmeta, $wpdb->options ) as $table ) {
+            $engine = $wpdb->get_var( $wpdb->prepare( 'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s', $table ) );
+            if ( 'INNODB' !== strtoupper( (string) $engine ) ) throw new RuntimeException( 'Transactional signature storage unavailable.' );
+        }
+        if ( false === $wpdb->query( 'START TRANSACTION' ) ) throw new RuntimeException( 'Signature transaction did not start.' );
+        $started = true;
+        if ( ! $stored_dossier ) trb_release_bridge_write_callback_meta( $release_id, '_trb_otp_dossier_id', $dossier_id );
+        $already_signed = 'signed' === get_post_meta( $release_id, '_trb_contract_state', true );
+        if ( 'completed' === $status ) {
+            if ( ! $already_signed ) {
+                $signed_at = sanitize_text_field( $payload['signed_at'] ?? '' );
+                trb_release_bridge_write_callback_meta( $release_id, '_trb_contract_signed_at', $signed_at ?: gmdate( DATE_ATOM ) );
+                trb_release_bridge_write_callback_meta( $release_id, '_trb_contract_error', null );
+                trb_release_bridge_write_callback_meta( $release_id, '_trb_contract_state', 'signed' );
+            }
+        } elseif ( ! $already_signed ) {
+            trb_release_bridge_write_callback_meta( $release_id, '_trb_contract_state', 'contract_sent' );
+        }
+        if ( false === $wpdb->query( 'COMMIT' ) ) throw new RuntimeException( 'Signature commit unconfirmed.' );
+        $started = false;
+        if ( 'completed' !== $status ) return array( 'success' => true, 'state' => $already_signed ? 'signed' : 'contract_sent' );
+        // Provider retries may retry the sheet, but cannot replace the first signature.
+        $spreadsheet_result = trb_release_bridge_notify_spreadsheet_signed( $release_id );
+        return array(
+            'success'      => true,
+            'state'        => 'signed',
+            'idempotent'   => $already_signed,
+            'spreadsheet_synced' => ! is_wp_error( $spreadsheet_result ),
+            'release_date' => (string) get_post_meta( $release_id, '_trb_release_date', true ),
+        );
+    } catch ( Throwable $error ) {
+        if ( $started ) $wpdb->query( 'ROLLBACK' );
+        do_action( 'trb_release_bridge_storage_failure', $release_id, $error );
+        return new WP_Error( 'callback_storage_failed', 'Salvataggio della firma non confermato. Riprova sulla stessa pratica.', array( 'status' => 503 ) );
+    } finally {
+        wp_cache_delete( $release_id, 'post_meta' );
+        wp_cache_delete( 'alloptions', 'options' );
+        wp_cache_delete( 'notoptions', 'options' );
+        wp_cache_delete( 'cron', 'options' );
+        $wpdb->suppress_errors( $prior_errors );
+        trb_release_process_unlock( $lock );
+        $active = false;
     }
+}
 
-    $already_signed = 'signed' === get_post_meta( $release_id, '_trb_contract_state', true );
-    if ( ! $already_signed ) {
-        $signed_at = sanitize_text_field( (string) ( $payload['signed_at'] ?? '' ) );
-        update_post_meta( $release_id, '_trb_contract_state', 'signed' );
-        update_post_meta( $release_id, '_trb_contract_signed_at', $signed_at ?: gmdate( DATE_ATOM ) );
-        delete_post_meta( $release_id, '_trb_contract_error' );
-    }
-    $spreadsheet_result = trb_release_bridge_notify_spreadsheet_signed( $release_id );
-    return array(
-        'success'      => true,
-        'state'        => 'signed',
-        'idempotent'   => $already_signed,
-        'spreadsheet_synced' => ! is_wp_error( $spreadsheet_result ),
-        'release_date' => (string) get_post_meta( $release_id, '_trb_release_date', true ),
-    );
+/** WordPress returns false for both unchanged and failed writes: verify actual rows. */
+function trb_release_bridge_write_callback_meta( $release_id, $key, $value ) {
+    global $wpdb;
+    if ( null === $value ) delete_post_meta( $release_id, $key );
+    else update_post_meta( $release_id, $key, wp_slash( $value ) );
+    $values = $wpdb->get_col( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id=%d AND meta_key=%s", $release_id, $key ) );
+    if ( $wpdb->last_error || ( null === $value ? count( $values ) !== 0 : ! $values ) ) throw new RuntimeException( 'Signature metadata write failed.' );
+    if ( null !== $value ) foreach ( $values as $stored ) if ( (string) $stored !== $value ) throw new RuntimeException( 'Signature metadata readback mismatch.' );
 }
 
 /** Public provider endpoint authenticated with the same shared bridge secret. */
@@ -1207,8 +1267,8 @@ function trb_release_bridge_public_callback() {
     $payload = json_decode( (string) $raw, true );
     if ( ! is_array( $payload ) ) $payload = wp_unslash( $_POST );
     $settings = trb_release_bridge_settings();
-    $header_secret = isset( $_SERVER['HTTP_X_TRB_PORTAL_SECRET'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRB_PORTAL_SECRET'] ) ) : '';
-    $secret = $header_secret ?: sanitize_text_field( (string) ( $payload['secret'] ?? '' ) );
+    $header_secret = isset( $_SERVER['HTTP_X_TRB_PORTAL_SECRET'] ) && is_string( $_SERVER['HTTP_X_TRB_PORTAL_SECRET'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_TRB_PORTAL_SECRET'] ) ) : '';
+    $secret = $header_secret ?: ( isset( $payload['secret'] ) && is_string( $payload['secret'] ) ? sanitize_text_field( $payload['secret'] ) : '' );
     if ( ! $settings['shared_secret'] || ! $secret || ! hash_equals( (string) $settings['shared_secret'], $secret ) ) wp_send_json_error( array( 'message' => 'Secret non valido.' ), 403 );
     $result = trb_release_bridge_apply_callback( $payload );
     if ( is_wp_error( $result ) ) wp_send_json_error( array( 'message' => $result->get_error_message() ), absint( $result->get_error_data()['status'] ?? 400 ) );
@@ -1227,7 +1287,8 @@ function trb_release_bridge_rest_routes() {
         return rest_ensure_response($out);
     }));
     register_rest_route('trb/v1','/release-contract-callback',array('methods'=>'POST','permission_callback'=>'__return_true','callback'=>function(WP_REST_Request $request){
-        $s=trb_release_bridge_settings(); $secret=(string)($request->get_header('x-trb-portal-secret')?:$request->get_param('secret'));
+        $s=trb_release_bridge_settings(); $secret=$request->get_header('x-trb-portal-secret')?:$request->get_param('secret');
+        if(!is_string($secret))return new WP_Error('forbidden','Secret non valido.',array('status'=>403));
         if(!$s['shared_secret']||!hash_equals($s['shared_secret'],$secret))return new WP_Error('forbidden','Secret non valido.',array('status'=>403));
         $result=trb_release_bridge_apply_callback($request->get_params());
         return is_wp_error($result)?$result:rest_ensure_response($result);

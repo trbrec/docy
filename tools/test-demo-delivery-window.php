@@ -18,6 +18,11 @@ $cases = array(
 	array( '2026-08-29 17:30', '2026-08-31 10:30', 'la domenica è esclusa' ),
 	array( '2026-08-30 10:00', '2026-08-31 11:30', 'invio domenicale' ),
 	array( '2026-08-29 08:30', '2026-08-29 11:30', 'tre ore esatte il sabato' ),
+	array( '2026-10-10 17:52:52', '2026-10-12 10:52:52', 'invio reale con secondi prima della chiusura del sabato' ),
+	array( '2026-08-24 18:29:59', '2026-08-25 11:29:59', 'ultimo secondo prima della chiusura' ),
+	array( '2026-08-24 15:30:00', '2026-08-24 18:30:00', 'termine esatto alla chiusura' ),
+	array( '2026-03-28 18:29:59', '2026-03-30 11:29:59', 'passaggio all’ora legale' ),
+	array( '2026-10-24 18:29:59', '2026-10-26 11:29:59', 'passaggio all’ora solare' ),
 );
 
 foreach ( $cases as $case ) {
@@ -25,7 +30,7 @@ foreach ( $cases as $case ) {
 	$expected  = ( new DateTimeImmutable( $case[1], $timezone ) )->getTimestamp();
 	$actual    = trb_portal_add_demo_working_hours( $submitted );
 	if ( $actual !== $expected ) {
-		fwrite( STDERR, 'FAIL ' . $case[2] . ': atteso ' . $case[1] . ', ottenuto ' . wp_date( 'Y-m-d H:i', $actual, $timezone ) . "\n" );
+		fwrite( STDERR, 'FAIL ' . $case[2] . ': atteso ' . $case[1] . ', ottenuto ' . ( new DateTimeImmutable( '@' . $actual ) )->setTimezone( $timezone )->format( 'Y-m-d H:i:s' ) . "\n" );
 		exit( 1 );
 	}
 	echo 'PASS ' . $case[2] . "\n";

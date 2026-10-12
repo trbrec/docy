@@ -5,7 +5,7 @@ defined( 'ABSPATH' ) || exit;
  * Notice
  * Deactivate the ACF plugin
  *
- * @return void
+ * @return string
  */
 function docy_get_plugin_deactivation_url( $plugin_slug ) {
 	return wp_nonce_url(

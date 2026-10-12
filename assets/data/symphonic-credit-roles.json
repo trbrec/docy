@@ -2,3911 +2,4887 @@
   "engineering": [
     {
       "id": "142",
-      "name": "A&R Administrator"
+      "name": "A&R Administrator",
+      "label_it": "Responsabile amministrativo A&R"
     },
     {
       "id": "143",
-      "name": "A&R Coordinator"
+      "name": "A&R Coordinator",
+      "label_it": "Coordinatore A&R"
     },
     {
       "id": "153",
-      "name": "Additional Engineer"
+      "name": "Additional Engineer",
+      "label_it": "Tecnico del suono aggiuntivo"
     },
     {
       "id": "154",
-      "name": "Additional Producer"
+      "name": "Additional Producer",
+      "label_it": "Produttore musicale aggiuntivo"
     },
     {
       "id": "176",
-      "name": "Art Production"
+      "name": "Art Production",
+      "label_it": "Produzione artistica"
     },
     {
       "id": "180",
-      "name": "Assistant Editing Engineer"
+      "name": "Assistant Editing Engineer",
+      "label_it": "Assistente al montaggio audio"
     },
     {
       "id": "118",
-      "name": "Assistant Engineer"
+      "name": "Assistant Engineer",
+      "label_it": "Assistente tecnico del suono"
     },
     {
       "id": "181",
-      "name": "Assistant Mastering Engineer"
+      "name": "Assistant Mastering Engineer",
+      "label_it": "Assistente alla finalizzazione audio"
     },
     {
       "id": "182",
-      "name": "Assistant Mixing Engineer"
+      "name": "Assistant Mixing Engineer",
+      "label_it": "Assistente al missaggio"
     },
     {
       "id": "184",
-      "name": "Assistant Recording Engineer"
+      "name": "Assistant Recording Engineer",
+      "label_it": "Assistente alla registrazione"
     },
     {
       "id": "185",
-      "name": "Assistant Strings Engineer"
+      "name": "Assistant Strings Engineer",
+      "label_it": "Assistente alla registrazione degli archi"
     },
     {
       "id": "186",
-      "name": "Assistant Surround Mixing Engineer"
+      "name": "Assistant Surround Mixing Engineer",
+      "label_it": "Assistente al missaggio multicanale"
     },
     {
       "id": "188",
-      "name": "Associate Producer"
+      "name": "Associate Producer",
+      "label_it": "Produttore associato"
     },
     {
       "id": "189",
-      "name": "Audio Processing"
+      "name": "Audio Processing",
+      "label_it": "Elaborazione audio"
     },
     {
       "id": "190",
-      "name": "Audio Restoration"
+      "name": "Audio Restoration",
+      "label_it": "Restauro audio"
     },
     {
       "id": "191",
-      "name": "Audio Technician"
+      "name": "Audio Technician",
+      "label_it": "Tecnico audio"
     },
     {
       "id": "201",
-      "name": "Balance Engineer"
+      "name": "Balance Engineer",
+      "label_it": "Tecnico del bilanciamento audio"
     },
     {
       "id": "262",
-      "name": "Bass Technician"
+      "name": "Bass Technician",
+      "label_it": "Tecnico del basso"
     },
     {
       "id": "306",
-      "name": "Camera Operator"
+      "name": "Camera Operator",
+      "label_it": "Operatore di ripresa"
     },
     {
       "id": "339",
-      "name": "Choreography"
+      "name": "Choreography",
+      "label_it": "Coreografia"
     },
     {
       "id": "346",
-      "name": "Cinematography"
+      "name": "Cinematography",
+      "label_it": "Direzione della fotografia"
     },
     {
       "id": "360",
-      "name": "Co-Executive Producer"
+      "name": "Co-Executive Producer",
+      "label_it": "Coproduttore esecutivo"
     },
     {
       "id": "119",
-      "name": "Co-Producer"
+      "name": "Co-Producer",
+      "label_it": "Coproduttore musicale"
     },
     {
       "id": "363",
-      "name": "Compilation Producer"
+      "name": "Compilation Producer",
+      "label_it": "Produttore della raccolta"
     },
     {
       "id": "365",
-      "name": "Computer Graphics"
+      "name": "Computer Graphics",
+      "label_it": "Grafica digitale"
     },
     {
       "id": "366",
-      "name": "Concert Producer"
+      "name": "Concert Producer",
+      "label_it": "Produttore del concerto"
     },
     {
       "id": "387",
-      "name": "Costume Design"
+      "name": "Costume Design",
+      "label_it": "Ideazione dei costumi"
     },
     {
       "id": "388",
-      "name": "Cover Art"
+      "name": "Cover Art",
+      "label_it": "Grafica della copertina"
     },
     {
       "id": "389",
-      "name": "Cover Photography"
+      "name": "Cover Photography",
+      "label_it": "Fotografia della copertina"
     },
     {
       "id": "391",
-      "name": "Creative Director"
+      "name": "Creative Director",
+      "label_it": "Direttore creativo"
     },
     {
       "id": "420",
-      "name": "Drawing"
+      "name": "Drawing",
+      "label_it": "Disegno"
     },
     {
       "id": "423",
-      "name": "Drum Technician"
+      "name": "Drum Technician",
+      "label_it": "Tecnico della batteria"
     },
     {
       "id": "439",
-      "name": "Editing Engineer"
+      "name": "Editing Engineer",
+      "label_it": "Tecnico del montaggio audio"
     },
     {
       "id": "453",
-      "name": "Engineer"
+      "name": "Engineer",
+      "label_it": "Tecnico del suono"
     },
     {
       "id": "455",
-      "name": "Engraving"
+      "name": "Engraving",
+      "label_it": "Incisione della partitura"
     },
     {
       "id": "457",
-      "name": "Equipment Technician"
+      "name": "Equipment Technician",
+      "label_it": "Tecnico delle attrezzature"
     },
     {
       "id": "461",
-      "name": "Executive Producer"
+      "name": "Executive Producer",
+      "label_it": "Produttore esecutivo"
     },
     {
       "id": "465",
-      "name": "Film Director"
+      "name": "Film Director",
+      "label_it": "Regista cinematografico"
     },
     {
       "id": "466",
-      "name": "Film Editor"
+      "name": "Film Editor",
+      "label_it": "Montatore cinematografico"
     },
     {
       "id": "467",
-      "name": "Film Producer"
+      "name": "Film Producer",
+      "label_it": "Produttore cinematografico"
     },
     {
       "id": "120",
-      "name": "Graphic Design"
+      "name": "Graphic Design",
+      "label_it": "Progettazione grafica"
     },
     {
       "id": "90",
-      "name": "Guitar Technician"
+      "name": "Guitar Technician",
+      "label_it": "Tecnico delle chitarre"
     },
     {
       "id": "524",
-      "name": "Harpsichord Technician"
+      "name": "Harpsichord Technician",
+      "label_it": "Tecnico del clavicembalo"
     },
     {
       "id": "525",
-      "name": "Harpsichord Tuner"
+      "name": "Harpsichord Tuner",
+      "label_it": "Accordatore del clavicembalo"
     },
     {
       "id": "546",
-      "name": "Illustrator"
+      "name": "Illustrator",
+      "label_it": "Illustratore"
     },
     {
       "id": "547",
-      "name": "Immersive Audio Engineer"
+      "name": "Immersive Audio Engineer",
+      "label_it": "Tecnico dell’audio immersivo"
     },
     {
       "id": "548",
-      "name": "Immersive Mastering Engineer"
+      "name": "Immersive Mastering Engineer",
+      "label_it": "Tecnico della finalizzazione audio immersiva"
     },
     {
       "id": "549",
-      "name": "Immersive Mixing Engineer"
+      "name": "Immersive Mixing Engineer",
+      "label_it": "Tecnico del missaggio immersivo"
     },
     {
       "id": "571",
-      "name": "Keyboard Technician"
+      "name": "Keyboard Technician",
+      "label_it": "Tecnico delle tastiere"
     },
     {
       "id": "585",
-      "name": "Lighting Design"
+      "name": "Lighting Design",
+      "label_it": "Progettazione delle luci"
     },
     {
       "id": "587",
-      "name": "Lithography"
+      "name": "Lithography",
+      "label_it": "Litografia"
     },
     {
       "id": "589",
-      "name": "Live Mixing Engineer"
+      "name": "Live Mixing Engineer",
+      "label_it": "Tecnico del missaggio dal vivo"
     },
     {
       "id": "590",
-      "name": "Live Production"
+      "name": "Live Production",
+      "label_it": "Produzione dal vivo"
     },
     {
       "id": "591",
-      "name": "Live Recording Engineer"
+      "name": "Live Recording Engineer",
+      "label_it": "Tecnico della registrazione dal vivo"
     },
     {
       "id": "83",
-      "name": "Mastering Engineer"
+      "name": "Mastering Engineer",
+      "label_it": "Tecnico della finalizzazione audio"
     },
     {
       "id": "93",
-      "name": "Mixing Engineer"
+      "name": "Mixing Engineer",
+      "label_it": "Tecnico del missaggio"
     },
     {
       "id": "627",
-      "name": "Music Supervisor"
+      "name": "Music Supervisor",
+      "label_it": "Supervisore musicale"
     },
     {
       "id": "653",
-      "name": "Organ Technician"
+      "name": "Organ Technician",
+      "label_it": "Tecnico dell’organo"
     },
     {
       "id": "656",
-      "name": "Original Engineering"
+      "name": "Original Engineering",
+      "label_it": "Tecnica del suono originale"
     },
     {
       "id": "657",
-      "name": "Original Mastering Engineer"
+      "name": "Original Mastering Engineer",
+      "label_it": "Tecnico della finalizzazione audio originale"
     },
     {
       "id": "658",
-      "name": "Original Mixing Engineer"
+      "name": "Original Mixing Engineer",
+      "label_it": "Tecnico del missaggio originale"
     },
     {
       "id": "659",
-      "name": "Original Producer"
+      "name": "Original Producer",
+      "label_it": "Produttore musicale originale"
     },
     {
       "id": "662",
-      "name": "Overdub Engineer"
+      "name": "Overdub Engineer",
+      "label_it": "Tecnico delle sovraincisioni"
     },
     {
       "id": "663",
-      "name": "Package Design"
+      "name": "Package Design",
+      "label_it": "Progettazione della confezione"
     },
     {
       "id": "664",
-      "name": "Paintings"
+      "name": "Paintings",
+      "label_it": "Dipinti"
     },
     {
       "id": "680",
-      "name": "Photo Editor"
+      "name": "Photo Editor",
+      "label_it": "Revisore fotografico"
     },
     {
       "id": "681",
-      "name": "Photography"
+      "name": "Photography",
+      "label_it": "Fotografia"
     },
     {
       "id": "686",
-      "name": "Piano Technician"
+      "name": "Piano Technician",
+      "label_it": "Tecnico del pianoforte"
     },
     {
       "id": "688",
-      "name": "Piano Tuner"
+      "name": "Piano Tuner",
+      "label_it": "Accordatore del pianoforte"
     },
     {
       "id": "701",
-      "name": "Portraits"
+      "name": "Portraits",
+      "label_it": "Ritratti"
     },
     {
       "id": "705",
-      "name": "Post Production Assistant"
+      "name": "Post Production Assistant",
+      "label_it": "Assistente alla postproduzione"
     },
     {
       "id": "706",
-      "name": "Post Production Director"
+      "name": "Post Production Director",
+      "label_it": "Direttore della postproduzione"
     },
     {
       "id": "707",
-      "name": "Post Production Editor"
+      "name": "Post Production Editor",
+      "label_it": "Montatore di postproduzione"
     },
     {
       "id": "708",
-      "name": "Post Production Engineer"
+      "name": "Post Production Engineer",
+      "label_it": "Tecnico della postproduzione"
     },
     {
       "id": "709",
-      "name": "Post Production Mixing Engineer"
+      "name": "Post Production Mixing Engineer",
+      "label_it": "Tecnico del missaggio di postproduzione"
     },
     {
       "id": "710",
-      "name": "Post Production Supervisor"
+      "name": "Post Production Supervisor",
+      "label_it": "Supervisore della postproduzione"
     },
     {
       "id": "82",
-      "name": "Producer"
+      "name": "Producer",
+      "label_it": "Produttore musicale"
     },
     {
       "id": "86",
-      "name": "Production Assistant"
+      "name": "Production Assistant",
+      "label_it": "Assistente di produzione"
     },
     {
       "id": "121",
-      "name": "Recording Engineer"
+      "name": "Recording Engineer",
+      "label_it": "Tecnico della registrazione"
     },
     {
       "id": "725",
-      "name": "Recording Supervisor"
+      "name": "Recording Supervisor",
+      "label_it": "Supervisore della registrazione"
     },
     {
       "id": "726",
-      "name": "Recording Technician"
+      "name": "Recording Technician",
+      "label_it": "Tecnico di registrazione"
     },
     {
       "id": "729",
-      "name": "Reissue Producer"
+      "name": "Reissue Producer",
+      "label_it": "Produttore della riedizione"
     },
     {
       "id": "730",
-      "name": "Remix Producer"
+      "name": "Remix Producer",
+      "label_it": "Produttore del remix"
     },
     {
       "id": "740",
-      "name": "Research"
+      "name": "Research",
+      "label_it": "Ricerca"
     },
     {
       "id": "763",
-      "name": "Score Producer"
+      "name": "Score Producer",
+      "label_it": "Produttore della colonna musicale"
     },
     {
       "id": "771",
-      "name": "Set Designer"
+      "name": "Set Designer",
+      "label_it": "Scenografo"
     },
     {
       "id": "798",
-      "name": "Sound Design"
+      "name": "Sound Design",
+      "label_it": "Progettazione sonora"
     },
     {
       "id": "96",
-      "name": "Sound Engineer"
+      "name": "Sound Engineer",
+      "label_it": "Tecnico del suono"
     },
     {
       "id": "800",
-      "name": "Soundtrack Producer"
+      "name": "Soundtrack Producer",
+      "label_it": "Produttore della colonna sonora"
     },
     {
       "id": "803",
-      "name": "Special Effects"
+      "name": "Special Effects",
+      "label_it": "Effetti speciali"
     },
     {
       "id": "807",
-      "name": "Stage Director"
+      "name": "Stage Director",
+      "label_it": "Regista di scena"
     },
     {
       "id": "808",
-      "name": "Stage Manager"
+      "name": "Stage Manager",
+      "label_it": "Direttore di palco"
     },
     {
       "id": "809",
-      "name": "Stage Technician"
+      "name": "Stage Technician",
+      "label_it": "Tecnico di palco"
     },
     {
       "id": "824",
-      "name": "Strings Engineer"
+      "name": "Strings Engineer",
+      "label_it": "Tecnico della registrazione degli archi"
     },
     {
       "id": "829",
-      "name": "Studio Personnel"
+      "name": "Studio Personnel",
+      "label_it": "Personale dello studio"
     },
     {
       "id": "830",
-      "name": "Studio Technician"
+      "name": "Studio Technician",
+      "label_it": "Tecnico di studio"
     },
     {
       "id": "831",
-      "name": "Stylist"
+      "name": "Stylist",
+      "label_it": "Responsabile dello stile"
     },
     {
       "id": "836",
-      "name": "Surround Mixing Engineer"
+      "name": "Surround Mixing Engineer",
+      "label_it": "Tecnico del missaggio multicanale"
     },
     {
       "id": "862",
-      "name": "Tape Editor"
+      "name": "Tape Editor",
+      "label_it": "Montatore dei nastri"
     },
     {
       "id": "863",
-      "name": "Tape Operator"
+      "name": "Tape Operator",
+      "label_it": "Operatore dei nastri"
     },
     {
       "id": "864",
-      "name": "Tape Preparation"
+      "name": "Tape Preparation",
+      "label_it": "Preparazione dei nastri"
     },
     {
       "id": "884",
-      "name": "Tonmeister"
+      "name": "Tonmeister",
+      "label_it": "Direttore tecnico del suono"
     },
     {
       "id": "886",
-      "name": "Transfer Engineer"
+      "name": "Transfer Engineer",
+      "label_it": "Tecnico del riversamento audio"
     },
     {
       "id": "905",
-      "name": "Typesetting"
+      "name": "Typesetting",
+      "label_it": "Composizione tipografica"
     },
     {
       "id": "906",
-      "name": "Typography"
+      "name": "Typography",
+      "label_it": "Tipografia"
     },
     {
       "id": "915",
-      "name": "Video Director"
+      "name": "Video Director",
+      "label_it": "Regista video"
     },
     {
       "id": "916",
-      "name": "Video Editor"
+      "name": "Video Editor",
+      "label_it": "Montatore video"
     },
     {
       "id": "917",
-      "name": "Video Producer"
+      "name": "Video Producer",
+      "label_it": "Produttore video"
     },
     {
       "id": "918",
-      "name": "Video Production"
+      "name": "Video Production",
+      "label_it": "Produzione video"
     },
     {
       "id": "919",
-      "name": "Videographer"
+      "name": "Videographer",
+      "label_it": "Operatore video"
     },
     {
       "id": "98",
-      "name": "Vocal Engineer"
+      "name": "Vocal Engineer",
+      "label_it": "Tecnico delle voci"
     },
     {
       "id": "940",
-      "name": "Vocal Mixing Engineer"
+      "name": "Vocal Mixing Engineer",
+      "label_it": "Tecnico del missaggio delle voci"
     },
     {
       "id": "941",
-      "name": "Vocal Producer"
+      "name": "Vocal Producer",
+      "label_it": "Produttore delle voci"
     },
     {
       "id": "944",
-      "name": "Vocal Recording Engineer"
+      "name": "Vocal Recording Engineer",
+      "label_it": "Tecnico della registrazione delle voci"
     },
     {
       "id": "948",
-      "name": "Wardrobe"
+      "name": "Wardrobe",
+      "label_it": "Costumi"
     }
   ],
   "performers": [
     {
       "id": "122",
-      "name": "10-String Bass Guitar"
+      "name": "10-String Bass Guitar",
+      "label_it": "Basso elettrico a 10 corde"
     },
     {
       "id": "123",
-      "name": "10-String Guitar"
+      "name": "10-String Guitar",
+      "label_it": "Chitarra a 10 corde"
     },
     {
       "id": "124",
-      "name": "11-String Guitar"
+      "name": "11-String Guitar",
+      "label_it": "Chitarra a 11 corde"
     },
     {
       "id": "125",
-      "name": "12-String Acoustic Guitar"
+      "name": "12-String Acoustic Guitar",
+      "label_it": "Chitarra acustica a 12 corde"
     },
     {
       "id": "126",
-      "name": "12-String Bass Guitar"
+      "name": "12-String Bass Guitar",
+      "label_it": "Basso elettrico a 12 corde"
     },
     {
       "id": "127",
-      "name": "12-String Electric Guitar"
+      "name": "12-String Electric Guitar",
+      "label_it": "Chitarra elettrica a 12 corde"
     },
     {
       "id": "128",
-      "name": "12-String Fiddle"
+      "name": "12-String Fiddle",
+      "label_it": "Violino popolare a 12 corde"
     },
     {
       "id": "47",
-      "name": "12-String Guitar"
+      "name": "12-String Guitar",
+      "label_it": "Chitarra a 12 corde"
     },
     {
       "id": "129",
-      "name": "4-String Banjo"
+      "name": "4-String Banjo",
+      "label_it": "Banjo a 4 corde"
     },
     {
       "id": "130",
-      "name": "4-String Guitar"
+      "name": "4-String Guitar",
+      "label_it": "Chitarra a 4 corde"
     },
     {
       "id": "131",
-      "name": "5-String Banjo"
+      "name": "5-String Banjo",
+      "label_it": "Banjo a 5 corde"
     },
     {
       "id": "132",
-      "name": "5-String Bass Guitar"
+      "name": "5-String Bass Guitar",
+      "label_it": "Basso elettrico a 5 corde"
     },
     {
       "id": "133",
-      "name": "6-String Banjo"
+      "name": "6-String Banjo",
+      "label_it": "Banjo a 6 corde"
     },
     {
       "id": "134",
-      "name": "6-String Bass Guitar"
+      "name": "6-String Bass Guitar",
+      "label_it": "Basso elettrico a 6 corde"
     },
     {
       "id": "135",
-      "name": "7-String Banjo"
+      "name": "7-String Banjo",
+      "label_it": "Banjo a 7 corde"
     },
     {
       "id": "136",
-      "name": "7-String Bass Guitar"
+      "name": "7-String Bass Guitar",
+      "label_it": "Basso elettrico a 7 corde"
     },
     {
       "id": "137",
-      "name": "7-String Guitar"
+      "name": "7-String Guitar",
+      "label_it": "Chitarra a 7 corde"
     },
     {
       "id": "138",
-      "name": "8-String Bass Guitar"
+      "name": "8-String Bass Guitar",
+      "label_it": "Basso elettrico a 8 corde"
     },
     {
       "id": "139",
-      "name": "8-String Guitar"
+      "name": "8-String Guitar",
+      "label_it": "Chitarra a 8 corde"
     },
     {
       "id": "140",
-      "name": "9-String Guitar"
+      "name": "9-String Guitar",
+      "label_it": "Chitarra a 9 corde"
     },
     {
       "id": "141",
-      "name": "A Cappella Ensemble"
+      "name": "A Cappella Ensemble",
+      "label_it": "Formazione a cappella"
     },
     {
       "id": "144",
-      "name": "Accompaniment"
+      "name": "Accompaniment",
+      "label_it": "Accompagnamento"
     },
     {
       "id": "103",
-      "name": "Accordion"
+      "name": "Accordion",
+      "label_it": "Fisarmonica"
     },
     {
       "id": "145",
-      "name": "Accordion Duo"
+      "name": "Accordion Duo",
+      "label_it": "Duo di fisarmoniche"
     },
     {
       "id": "146",
-      "name": "Acoustic Baritone Guitar"
+      "name": "Acoustic Baritone Guitar",
+      "label_it": "Chitarra baritona acustica"
     },
     {
       "id": "147",
-      "name": "Acoustic Bass Guitar"
+      "name": "Acoustic Bass Guitar",
+      "label_it": "Basso acustico"
     },
     {
       "id": "148",
-      "name": "Acoustic Fretless Guitar"
+      "name": "Acoustic Fretless Guitar",
+      "label_it": "Chitarra acustica senza tasti"
     },
     {
       "id": "27",
-      "name": "Acoustic Guitar"
+      "name": "Acoustic Guitar",
+      "label_it": "Chitarra acustica"
     },
     {
       "id": "149",
-      "name": "Acoustic Rhythm Guitar"
+      "name": "Acoustic Rhythm Guitar",
+      "label_it": "Chitarra ritmica acustica"
     },
     {
       "id": "150",
-      "name": "Acoustic Slide Guitar"
+      "name": "Acoustic Slide Guitar",
+      "label_it": "Chitarra acustica con bottleneck"
     },
     {
       "id": "100",
-      "name": "Actor"
+      "name": "Actor",
+      "label_it": "Attore"
     },
     {
       "id": "155",
-      "name": "Additional Vocals"
+      "name": "Additional Vocals",
+      "label_it": "Voci aggiuntive"
     },
     {
       "id": "156",
-      "name": "African Percussion"
+      "name": "African Percussion",
+      "label_it": "Percussioni africane"
     },
     {
       "id": "157",
-      "name": "Alphorn"
+      "name": "Alphorn",
+      "label_it": "Corno delle Alpi"
     },
     {
       "id": "158",
-      "name": "Alto Clarinet"
+      "name": "Alto Clarinet",
+      "label_it": "Clarinetto contralto"
     },
     {
       "id": "159",
-      "name": "Alto Flute"
+      "name": "Alto Flute",
+      "label_it": "Flauto contralto"
     },
     {
       "id": "160",
-      "name": "Alto Guitar"
+      "name": "Alto Guitar",
+      "label_it": "Chitarra contralto"
     },
     {
       "id": "161",
-      "name": "Alto Horn"
+      "name": "Alto Horn",
+      "label_it": "Flicorno contralto"
     },
     {
       "id": "162",
-      "name": "Alto Lute"
+      "name": "Alto Lute",
+      "label_it": "Liuto contralto"
     },
     {
       "id": "163",
-      "name": "Alto Recorder"
+      "name": "Alto Recorder",
+      "label_it": "Flauto dolce contralto"
     },
     {
       "id": "48",
-      "name": "Alto Saxophone"
+      "name": "Alto Saxophone",
+      "label_it": "Sassofono contralto"
     },
     {
       "id": "17",
-      "name": "Alto Solo"
+      "name": "Alto Solo",
+      "label_it": "Solista contralto"
     },
     {
       "id": "164",
-      "name": "Alto Tenor (Vocal)"
+      "name": "Alto Tenor (Vocal)",
+      "label_it": "Voce di tenore contraltino"
     },
     {
       "id": "165",
-      "name": "Alto Trombone"
+      "name": "Alto Trombone",
+      "label_it": "Trombone contralto"
     },
     {
       "id": "166",
-      "name": "Alto Viola"
+      "name": "Alto Viola",
+      "label_it": "Viola contralto"
     },
     {
       "id": "167",
-      "name": "Alto Viola da Gamba"
+      "name": "Alto Viola da Gamba",
+      "label_it": "Viola da gamba contralto"
     },
     {
       "id": "168",
-      "name": "Alto Violin"
+      "name": "Alto Violin",
+      "label_it": "Violino contralto"
     },
     {
       "id": "169",
-      "name": "Alto Zither"
+      "name": "Alto Zither",
+      "label_it": "Cetra contralto"
     },
     {
       "id": "16",
-      "name": "Anime Character"
+      "name": "Anime Character",
+      "label_it": "Personaggio di animazione giapponese"
     },
     {
       "id": "170",
-      "name": "Announcer"
+      "name": "Announcer",
+      "label_it": "Annunciatore"
     },
     {
       "id": "171",
-      "name": "Appalachian Dulcimer"
+      "name": "Appalachian Dulcimer",
+      "label_it": "Salterio degli Appalachi"
     },
     {
       "id": "172",
-      "name": "Archlute"
+      "name": "Archlute",
+      "label_it": "Arciliuto"
     },
     {
       "id": "173",
-      "name": "Army Band"
+      "name": "Army Band",
+      "label_it": "Banda dell’esercito"
     },
     {
       "id": "174",
-      "name": "ARP Synthesizer"
+      "name": "ARP Synthesizer",
+      "label_it": "Sintetizzatore ARP"
     },
     {
       "id": "178",
-      "name": "Assistant Conductor"
+      "name": "Assistant Conductor",
+      "label_it": "Assistente alla direzione musicale"
     },
     {
       "id": "179",
-      "name": "Assistant Director"
+      "name": "Assistant Director",
+      "label_it": "Assistente alla direzione"
     },
     {
       "id": "183",
-      "name": "Assistant Programming"
+      "name": "Assistant Programming",
+      "label_it": "Assistente alla programmazione"
     },
     {
       "id": "187",
-      "name": "Associate Conductor"
+      "name": "Associate Conductor",
+      "label_it": "Direttore musicale associato"
     },
     {
       "id": "192",
-      "name": "Autoharp"
+      "name": "Autoharp",
+      "label_it": "Autoharp"
     },
     {
       "id": "193",
-      "name": "B-Flat Clarinet"
+      "name": "B-Flat Clarinet",
+      "label_it": "Clarinetto in si bemolle"
     },
     {
       "id": "194",
-      "name": "Baby Bass"
+      "name": "Baby Bass",
+      "label_it": "Contrabbasso elettrico compatto"
     },
     {
       "id": "9",
-      "name": "Background Vocals"
+      "name": "Background Vocals",
+      "label_it": "Cori di accompagnamento"
     },
     {
       "id": "195",
-      "name": "Baglama"
+      "name": "Baglama",
+      "label_it": "Baglama"
     },
     {
       "id": "196",
-      "name": "Bagpipes"
+      "name": "Bagpipes",
+      "label_it": "Cornamusa"
     },
     {
       "id": "197",
-      "name": "Bajo Quinto"
+      "name": "Bajo Quinto",
+      "label_it": "Bajo Quinto"
     },
     {
       "id": "198",
-      "name": "Bajo Sexto"
+      "name": "Bajo Sexto",
+      "label_it": "Bajo Sexto"
     },
     {
       "id": "199",
-      "name": "Balafon"
+      "name": "Balafon",
+      "label_it": "Balafon"
     },
     {
       "id": "200",
-      "name": "Balalaika"
+      "name": "Balalaika",
+      "label_it": "Balalaika"
     },
     {
       "id": "202",
-      "name": "Ballet Orchestra"
+      "name": "Ballet Orchestra",
+      "label_it": "Orchestra di balletto"
     },
     {
       "id": "203",
-      "name": "Bamboo Flute"
+      "name": "Bamboo Flute",
+      "label_it": "Flauto di bambù"
     },
     {
       "id": "204",
-      "name": "Bamboo Saxophone"
+      "name": "Bamboo Saxophone",
+      "label_it": "Sassofono di bambù"
     },
     {
       "id": "205",
-      "name": "Band"
+      "name": "Band",
+      "label_it": "Gruppo musicale"
     },
     {
       "id": "206",
-      "name": "Band Conductor"
+      "name": "Band Conductor",
+      "label_it": "Direttore del gruppo musicale"
     },
     {
       "id": "207",
-      "name": "Band Leader"
+      "name": "Band Leader",
+      "label_it": "Responsabile del gruppo musicale"
     },
     {
       "id": "208",
-      "name": "Bandola"
+      "name": "Bandola",
+      "label_it": "Bandola"
     },
     {
       "id": "209",
-      "name": "Bandoneon"
+      "name": "Bandoneon",
+      "label_it": "Bandoneon"
     },
     {
       "id": "210",
-      "name": "Bandura"
+      "name": "Bandura",
+      "label_it": "Bandura"
     },
     {
       "id": "211",
-      "name": "Bandurria"
+      "name": "Bandurria",
+      "label_it": "Bandurria"
     },
     {
       "id": "63",
-      "name": "Banjo"
+      "name": "Banjo",
+      "label_it": "Banjo"
     },
     {
       "id": "212",
-      "name": "Banjolin"
+      "name": "Banjolin",
+      "label_it": "Banjolin"
     },
     {
       "id": "213",
-      "name": "Bansuri"
+      "name": "Bansuri",
+      "label_it": "Bansuri"
     },
     {
       "id": "214",
-      "name": "Barbat"
+      "name": "Barbat",
+      "label_it": "Barbat"
     },
     {
       "id": "215",
-      "name": "Baritone Guitar"
+      "name": "Baritone Guitar",
+      "label_it": "Chitarra baritona"
     },
     {
       "id": "216",
-      "name": "Baritone Horn"
+      "name": "Baritone Horn",
+      "label_it": "Flicorno baritono"
     },
     {
       "id": "56",
-      "name": "Baritone Saxophone"
+      "name": "Baritone Saxophone",
+      "label_it": "Sassofono baritono"
     },
     {
       "id": "6",
-      "name": "Baritone Solo"
+      "name": "Baritone Solo",
+      "label_it": "Solista baritono"
     },
     {
       "id": "217",
-      "name": "Baritone Trombone"
+      "name": "Baritone Trombone",
+      "label_it": "Trombone baritono"
     },
     {
       "id": "218",
-      "name": "Baritone Violin"
+      "name": "Baritone Violin",
+      "label_it": "Violino baritono"
     },
     {
       "id": "219",
-      "name": "Baroque Alto Trombone"
+      "name": "Baroque Alto Trombone",
+      "label_it": "Trombone contralto barocco"
     },
     {
       "id": "220",
-      "name": "Baroque Bass Trombone"
+      "name": "Baroque Bass Trombone",
+      "label_it": "Trombone basso barocco"
     },
     {
       "id": "221",
-      "name": "Baroque Bassoon"
+      "name": "Baroque Bassoon",
+      "label_it": "Fagotto barocco"
     },
     {
       "id": "222",
-      "name": "Baroque Bassoon Ensemble"
+      "name": "Baroque Bassoon Ensemble",
+      "label_it": "Formazione di fagotti barocchi"
     },
     {
       "id": "223",
-      "name": "Baroque Brass Ensemble"
+      "name": "Baroque Brass Ensemble",
+      "label_it": "Formazione di ottoni barocchi"
     },
     {
       "id": "224",
-      "name": "Baroque Cello"
+      "name": "Baroque Cello",
+      "label_it": "Violoncello barocco"
     },
     {
       "id": "225",
-      "name": "Baroque Chamber Orchestra"
+      "name": "Baroque Chamber Orchestra",
+      "label_it": "Orchestra da camera barocca"
     },
     {
       "id": "226",
-      "name": "Baroque Choir"
+      "name": "Baroque Choir",
+      "label_it": "Coro barocco"
     },
     {
       "id": "227",
-      "name": "Baroque Guitar"
+      "name": "Baroque Guitar",
+      "label_it": "Chitarra barocca"
     },
     {
       "id": "228",
-      "name": "Baroque Harp"
+      "name": "Baroque Harp",
+      "label_it": "Arpa barocca"
     },
     {
       "id": "229",
-      "name": "Baroque Lute"
+      "name": "Baroque Lute",
+      "label_it": "Liuto barocco"
     },
     {
       "id": "230",
-      "name": "Baroque Music Ensemble"
+      "name": "Baroque Music Ensemble",
+      "label_it": "Formazione di musica barocca"
     },
     {
       "id": "231",
-      "name": "Baroque Music String Ensemble"
+      "name": "Baroque Music String Ensemble",
+      "label_it": "Formazione di archi di musica barocca"
     },
     {
       "id": "232",
-      "name": "Baroque Music Vocal Ensemble"
+      "name": "Baroque Music Vocal Ensemble",
+      "label_it": "Formazione vocale di musica barocca"
     },
     {
       "id": "233",
-      "name": "Baroque Music Wind Ensemble"
+      "name": "Baroque Music Wind Ensemble",
+      "label_it": "Formazione di fiati di musica barocca"
     },
     {
       "id": "234",
-      "name": "Baroque Oboe"
+      "name": "Baroque Oboe",
+      "label_it": "Oboe barocco"
     },
     {
       "id": "235",
-      "name": "Baroque Opera Orchestra"
+      "name": "Baroque Opera Orchestra",
+      "label_it": "Orchestra d’opera barocca"
     },
     {
       "id": "236",
-      "name": "Baroque Orchestra"
+      "name": "Baroque Orchestra",
+      "label_it": "Orchestra barocca"
     },
     {
       "id": "237",
-      "name": "Baroque Quartet"
+      "name": "Baroque Quartet",
+      "label_it": "Quartetto barocco"
     },
     {
       "id": "238",
-      "name": "Baroque Recorder"
+      "name": "Baroque Recorder",
+      "label_it": "Flauto dolce barocco"
     },
     {
       "id": "239",
-      "name": "Baroque Trio"
+      "name": "Baroque Trio",
+      "label_it": "Trio barocco"
     },
     {
       "id": "240",
-      "name": "Baroque Trumpet"
+      "name": "Baroque Trumpet",
+      "label_it": "Tromba barocca"
     },
     {
       "id": "241",
-      "name": "Baroque Viola"
+      "name": "Baroque Viola",
+      "label_it": "Viola barocca"
     },
     {
       "id": "242",
-      "name": "Baroque Violin"
+      "name": "Baroque Violin",
+      "label_it": "Violino barocco"
     },
     {
       "id": "243",
-      "name": "Baroque Wind Ensemble"
+      "name": "Baroque Wind Ensemble",
+      "label_it": "Formazione di fiati barocchi"
     },
     {
       "id": "244",
-      "name": "Barrel Organ"
+      "name": "Barrel Organ",
+      "label_it": "Organo a cilindro"
     },
     {
       "id": "245",
-      "name": "Baryton"
+      "name": "Baryton",
+      "label_it": "Baryton"
     },
     {
       "id": "247",
-      "name": "Bass"
+      "name": "Bass",
+      "label_it": "Basso"
     },
     {
       "id": "248",
-      "name": "Bass (Vocal)"
+      "name": "Bass (Vocal)",
+      "label_it": "Voce di basso"
     },
     {
       "id": "249",
-      "name": "Bass Banjo"
+      "name": "Bass Banjo",
+      "label_it": "Banjo basso"
     },
     {
       "id": "72",
-      "name": "Bass Clarinet"
+      "name": "Bass Clarinet",
+      "label_it": "Clarinetto basso"
     },
     {
       "id": "250",
-      "name": "Bass Drum"
+      "name": "Bass Drum",
+      "label_it": "Grancassa"
     },
     {
       "id": "251",
-      "name": "Bass Flute"
+      "name": "Bass Flute",
+      "label_it": "Flauto basso"
     },
     {
       "id": "252",
-      "name": "Bass Flute-A-Bec"
+      "name": "Bass Flute-A-Bec",
+      "label_it": "Flauto dolce basso"
     },
     {
       "id": "31",
-      "name": "Bass Guitar"
+      "name": "Bass Guitar",
+      "label_it": "Basso elettrico"
     },
     {
       "id": "253",
-      "name": "Bass Harmonica"
+      "name": "Bass Harmonica",
+      "label_it": "Armonica bassa"
     },
     {
       "id": "254",
-      "name": "Bass Harp"
+      "name": "Bass Harp",
+      "label_it": "Arpa bassa"
     },
     {
       "id": "255",
-      "name": "Bass Horn"
+      "name": "Bass Horn",
+      "label_it": "Corno basso"
     },
     {
       "id": "256",
-      "name": "Bass Lute"
+      "name": "Bass Lute",
+      "label_it": "Liuto basso"
     },
     {
       "id": "257",
-      "name": "Bass Marimba"
+      "name": "Bass Marimba",
+      "label_it": "Marimba bassa"
     },
     {
       "id": "258",
-      "name": "Bass Oboe"
+      "name": "Bass Oboe",
+      "label_it": "Oboe basso"
     },
     {
       "id": "259",
-      "name": "Bass Recorder"
+      "name": "Bass Recorder",
+      "label_it": "Flauto dolce basso"
     },
     {
       "id": "260",
-      "name": "Bass Saxophone"
+      "name": "Bass Saxophone",
+      "label_it": "Sassofono basso"
     },
     {
       "id": "261",
-      "name": "Bass Synthesizer"
+      "name": "Bass Synthesizer",
+      "label_it": "Sintetizzatore basso"
     },
     {
       "id": "53",
-      "name": "Bass Trombone"
+      "name": "Bass Trombone",
+      "label_it": "Trombone basso"
     },
     {
       "id": "263",
-      "name": "Bass Trumpet"
+      "name": "Bass Trumpet",
+      "label_it": "Tromba bassa"
     },
     {
       "id": "264",
-      "name": "Bass Viola Da Gamba"
+      "name": "Bass Viola Da Gamba",
+      "label_it": "Viola da gamba bassa"
     },
     {
       "id": "265",
-      "name": "Bass Violin"
+      "name": "Bass Violin",
+      "label_it": "Violino basso"
     },
     {
       "id": "266",
-      "name": "Bass-Baritone (Vocal)"
+      "name": "Bass-Baritone (Vocal)",
+      "label_it": "Voce di basso baritono"
     },
     {
       "id": "267",
-      "name": "Basset Clarinet"
+      "name": "Basset Clarinet",
+      "label_it": "Clarinetto di bassetto"
     },
     {
       "id": "268",
-      "name": "Basset Horn"
+      "name": "Basset Horn",
+      "label_it": "Corno di bassetto"
     },
     {
       "id": "269",
-      "name": "Basset Recorder"
+      "name": "Basset Recorder",
+      "label_it": "Flauto dolce di bassetto"
     },
     {
       "id": "270",
-      "name": "Basso Continuo"
+      "name": "Basso Continuo",
+      "label_it": "Basso Continuo"
     },
     {
       "id": "21",
-      "name": "Bassoon"
+      "name": "Bassoon",
+      "label_it": "Fagotto"
     },
     {
       "id": "271",
-      "name": "Bassoon Quartet"
+      "name": "Bassoon Quartet",
+      "label_it": "Quartetto di fagotti"
     },
     {
       "id": "272",
-      "name": "Batá Drums"
+      "name": "Batá Drums",
+      "label_it": "Tamburi batá"
     },
     {
       "id": "273",
-      "name": "Bayan"
+      "name": "Bayan",
+      "label_it": "Bayan"
     },
     {
       "id": "274",
-      "name": "Beatbox"
+      "name": "Beatbox",
+      "label_it": "Percussioni vocali"
     },
     {
       "id": "275",
-      "name": "Beats"
+      "name": "Beats",
+      "label_it": "Basi ritmiche"
     },
     {
       "id": "276",
-      "name": "Beigehu"
+      "name": "Beigehu",
+      "label_it": "Beigehu"
     },
     {
       "id": "104",
-      "name": "Bells"
+      "name": "Bells",
+      "label_it": "Campane"
     },
     {
       "id": "277",
-      "name": "Bendir"
+      "name": "Bendir",
+      "label_it": "Bendir"
     },
     {
       "id": "278",
-      "name": "Berimbau"
+      "name": "Berimbau",
+      "label_it": "Berimbau"
     },
     {
       "id": "279",
-      "name": "Birbyne"
+      "name": "Birbyne",
+      "label_it": "Birbyne"
     },
     {
       "id": "280",
-      "name": "Biwa"
+      "name": "Biwa",
+      "label_it": "Biwa"
     },
     {
       "id": "281",
-      "name": "Bodhrán Drum"
+      "name": "Bodhrán Drum",
+      "label_it": "Tamburo bodhrán"
     },
     {
       "id": "66",
-      "name": "Bongos"
+      "name": "Bongos",
+      "label_it": "Bongos"
     },
     {
       "id": "283",
-      "name": "Bouzouki"
+      "name": "Bouzouki",
+      "label_it": "Bouzouki"
     },
     {
       "id": "284",
-      "name": "Boy Soprano (Vocal)"
+      "name": "Boy Soprano (Vocal)",
+      "label_it": "Voce bianca di soprano"
     },
     {
       "id": "285",
-      "name": "Boys' Choir"
+      "name": "Boys' Choir",
+      "label_it": "Coro di voci bianche maschili"
     },
     {
       "id": "286",
-      "name": "Brass"
+      "name": "Brass",
+      "label_it": "Ottoni"
     },
     {
       "id": "287",
-      "name": "Brass and Organ Ensemble"
+      "name": "Brass and Organ Ensemble",
+      "label_it": "Formazione di ottoni e organo"
     },
     {
       "id": "289",
-      "name": "Brass Band"
+      "name": "Brass Band",
+      "label_it": "Banda di ottoni"
     },
     {
       "id": "290",
-      "name": "Brass Conductor"
+      "name": "Brass Conductor",
+      "label_it": "Direttore degli ottoni"
     },
     {
       "id": "291",
-      "name": "Brass Ensemble"
+      "name": "Brass Ensemble",
+      "label_it": "Formazione di ottoni"
     },
     {
       "id": "292",
-      "name": "Brass Instrument"
+      "name": "Brass Instrument",
+      "label_it": "Strumento a ottone"
     },
     {
       "id": "293",
-      "name": "Brass Octet"
+      "name": "Brass Octet",
+      "label_it": "Ottetto di ottoni"
     },
     {
       "id": "294",
-      "name": "Brass Orchestra"
+      "name": "Brass Orchestra",
+      "label_it": "Orchestra di ottoni"
     },
     {
       "id": "295",
-      "name": "Brass Quartet"
+      "name": "Brass Quartet",
+      "label_it": "Quartetto di ottoni"
     },
     {
       "id": "296",
-      "name": "Brass Quintet"
+      "name": "Brass Quintet",
+      "label_it": "Quintetto di ottoni"
     },
     {
       "id": "297",
-      "name": "Brass Septet"
+      "name": "Brass Septet",
+      "label_it": "Settimino di ottoni"
     },
     {
       "id": "298",
-      "name": "Bugle"
+      "name": "Bugle",
+      "label_it": "Tromba naturale"
     },
     {
       "id": "299",
-      "name": "Bukkehorn"
+      "name": "Bukkehorn",
+      "label_it": "Bukkehorn"
     },
     {
       "id": "300",
-      "name": "Button Accordion"
+      "name": "Button Accordion",
+      "label_it": "Fisarmonica a bottoni"
     },
     {
       "id": "301",
-      "name": "Byzantine Lyra"
+      "name": "Byzantine Lyra",
+      "label_it": "Lira bizantina"
     },
     {
       "id": "302",
-      "name": "C-Melody Saxophone"
+      "name": "C-Melody Saxophone",
+      "label_it": "Sassofono in do"
     },
     {
       "id": "303",
-      "name": "Cabasa"
+      "name": "Cabasa",
+      "label_it": "Cabasa"
     },
     {
       "id": "74",
-      "name": "Cajon"
+      "name": "Cajon",
+      "label_it": "Cajon"
     },
     {
       "id": "305",
-      "name": "Cajun Fiddle"
+      "name": "Cajun Fiddle",
+      "label_it": "Violino cajun"
     },
     {
       "id": "307",
-      "name": "Cantor"
+      "name": "Cantor",
+      "label_it": "Cantore"
     },
     {
       "id": "308",
-      "name": "Carillon"
+      "name": "Carillon",
+      "label_it": "Carillon"
     },
     {
       "id": "309",
-      "name": "Cast"
+      "name": "Cast",
+      "label_it": "Interpreti"
     },
     {
       "id": "310",
-      "name": "Castanets"
+      "name": "Castanets",
+      "label_it": "Castagnette"
     },
     {
       "id": "311",
-      "name": "Cathedral Choir"
+      "name": "Cathedral Choir",
+      "label_it": "Coro della cattedrale"
     },
     {
       "id": "312",
-      "name": "Cavaquinho"
+      "name": "Cavaquinho",
+      "label_it": "Cavaquinho"
     },
     {
       "id": "313",
-      "name": "Caxixi"
+      "name": "Caxixi",
+      "label_it": "Caxixi"
     },
     {
       "id": "314",
-      "name": "Celesta"
+      "name": "Celesta",
+      "label_it": "Celesta"
     },
     {
       "id": "30",
-      "name": "Cello"
+      "name": "Cello",
+      "label_it": "Violoncello"
     },
     {
       "id": "315",
-      "name": "Cello Duo"
+      "name": "Cello Duo",
+      "label_it": "Duo di violoncelli"
     },
     {
       "id": "316",
-      "name": "Cello Octet"
+      "name": "Cello Octet",
+      "label_it": "Ottetto di violoncelli"
     },
     {
       "id": "317",
-      "name": "Cello Quartet"
+      "name": "Cello Quartet",
+      "label_it": "Quartetto di violoncelli"
     },
     {
       "id": "318",
-      "name": "Celtic Flute"
+      "name": "Celtic Flute",
+      "label_it": "Flauto celtico"
     },
     {
       "id": "319",
-      "name": "Celtic Harp"
+      "name": "Celtic Harp",
+      "label_it": "Arpa celtica"
     },
     {
       "id": "320",
-      "name": "Chalumeau"
+      "name": "Chalumeau",
+      "label_it": "Chalumeau"
     },
     {
       "id": "321",
-      "name": "Chamber Choir"
+      "name": "Chamber Choir",
+      "label_it": "Coro da camera"
     },
     {
       "id": "322",
-      "name": "Chamber Music Ensemble"
+      "name": "Chamber Music Ensemble",
+      "label_it": "Formazione di musica da camera"
     },
     {
       "id": "323",
-      "name": "Chamber Orchestra"
+      "name": "Chamber Orchestra",
+      "label_it": "Orchestra da camera"
     },
     {
       "id": "324",
-      "name": "Chamber Organ"
+      "name": "Chamber Organ",
+      "label_it": "Organo da camera"
     },
     {
       "id": "325",
-      "name": "Chamberlain Strings"
+      "name": "Chamberlain Strings",
+      "label_it": "Archi Chamberlain"
     },
     {
       "id": "326",
-      "name": "Chant Conductor"
+      "name": "Chant Conductor",
+      "label_it": "Direttore del canto"
     },
     {
       "id": "327",
-      "name": "Chant Vocals"
+      "name": "Chant Vocals",
+      "label_it": "Canto intonato"
     },
     {
       "id": "328",
-      "name": "Chapman Stick"
+      "name": "Chapman Stick",
+      "label_it": "Chapman Stick"
     },
     {
       "id": "329",
-      "name": "Charango"
+      "name": "Charango",
+      "label_it": "Charango"
     },
     {
       "id": "330",
-      "name": "Children's Choir"
+      "name": "Children's Choir",
+      "label_it": "Coro di bambini"
     },
     {
       "id": "331",
-      "name": "Children's Vocals"
+      "name": "Children's Vocals",
+      "label_it": "Voci di bambini"
     },
     {
       "id": "332",
-      "name": "Chinese Flute"
+      "name": "Chinese Flute",
+      "label_it": "Flauto cinese"
     },
     {
       "id": "333",
-      "name": "Chinese Traditional Music Ensemble"
+      "name": "Chinese Traditional Music Ensemble",
+      "label_it": "Formazione di musica tradizionale cinese"
     },
     {
       "id": "334",
-      "name": "Chitarrone"
+      "name": "Chitarrone",
+      "label_it": "Chitarrone"
     },
     {
       "id": "8",
-      "name": "Choir"
+      "name": "Choir",
+      "label_it": "Coro"
     },
     {
       "id": "336",
-      "name": "Choir Boy"
+      "name": "Choir Boy",
+      "label_it": "Cantore di voce bianca"
     },
     {
       "id": "337",
-      "name": "Choir Director"
+      "name": "Choir Director",
+      "label_it": "Direttore del coro"
     },
     {
       "id": "85",
-      "name": "Choir Master"
+      "name": "Choir Master",
+      "label_it": "Maestro del coro"
     },
     {
       "id": "338",
-      "name": "Choral Conductor"
+      "name": "Choral Conductor",
+      "label_it": "Direttore corale"
     },
     {
       "id": "15",
-      "name": "Chorus"
+      "name": "Chorus",
+      "label_it": "Coro"
     },
     {
       "id": "341",
-      "name": "Chorus Conductor"
+      "name": "Chorus Conductor",
+      "label_it": "Direttore delle parti corali"
     },
     {
       "id": "342",
-      "name": "Chorus Director"
+      "name": "Chorus Director",
+      "label_it": "Direttore del coro"
     },
     {
       "id": "343",
-      "name": "Christmas Carols Ensemble"
+      "name": "Christmas Carols Ensemble",
+      "label_it": "Formazione di canti natalizi"
     },
     {
       "id": "344",
-      "name": "Chromatic Harmonica"
+      "name": "Chromatic Harmonica",
+      "label_it": "Armonica cromatica"
     },
     {
       "id": "345",
-      "name": "Cimbalom"
+      "name": "Cimbalom",
+      "label_it": "Cimbalom"
     },
     {
       "id": "347",
-      "name": "Cittern"
+      "name": "Cittern",
+      "label_it": "Cetra rinascimentale"
     },
     {
       "id": "348",
-      "name": "Clap Stick"
+      "name": "Clap Stick",
+      "label_it": "Legnetti da percussione"
     },
     {
       "id": "349",
-      "name": "Claps"
+      "name": "Claps",
+      "label_it": "Battiti di mani"
     },
     {
       "id": "68",
-      "name": "Clarinet"
+      "name": "Clarinet",
+      "label_it": "Clarinetto"
     },
     {
       "id": "350",
-      "name": "Clarinet Orchestra"
+      "name": "Clarinet Orchestra",
+      "label_it": "Orchestra di clarinetti"
     },
     {
       "id": "351",
-      "name": "Clarinet Quartet"
+      "name": "Clarinet Quartet",
+      "label_it": "Quartetto di clarinetti"
     },
     {
       "id": "352",
-      "name": "Clarinet Trio"
+      "name": "Clarinet Trio",
+      "label_it": "Trio di clarinetti"
     },
     {
       "id": "353",
-      "name": "Classical Ensemble"
+      "name": "Classical Ensemble",
+      "label_it": "Formazione di musica classica"
     },
     {
       "id": "51",
-      "name": "Classical Guitar"
+      "name": "Classical Guitar",
+      "label_it": "Chitarra classica"
     },
     {
       "id": "354",
-      "name": "Classical Vocals"
+      "name": "Classical Vocals",
+      "label_it": "Canto classico"
     },
     {
       "id": "355",
-      "name": "Claves"
+      "name": "Claves",
+      "label_it": "Claves"
     },
     {
       "id": "356",
-      "name": "Clavichord"
+      "name": "Clavichord",
+      "label_it": "Clavicordo"
     },
     {
       "id": "36",
-      "name": "Clavier"
+      "name": "Clavier",
+      "label_it": "Tastiera"
     },
     {
       "id": "357",
-      "name": "Clavinet"
+      "name": "Clavinet",
+      "label_it": "Clavinet"
     },
     {
       "id": "361",
-      "name": "Comedian"
+      "name": "Comedian",
+      "label_it": "Comico"
     },
     {
       "id": "362",
-      "name": "Commentary"
+      "name": "Commentary",
+      "label_it": "Commento"
     },
     {
       "id": "367",
-      "name": "Concertina"
+      "name": "Concertina",
+      "label_it": "Concertina"
     },
     {
       "id": "81",
-      "name": "Conductor"
+      "name": "Conductor",
+      "label_it": "Direttore musicale"
     },
     {
       "id": "58",
-      "name": "Congas"
+      "name": "Congas",
+      "label_it": "Congas"
     },
     {
       "id": "368",
-      "name": "Contemporary Music Chamber Orchestra"
+      "name": "Contemporary Music Chamber Orchestra",
+      "label_it": "Orchestra da camera di musica contemporanea"
     },
     {
       "id": "369",
-      "name": "Contemporary Music Ensemble"
+      "name": "Contemporary Music Ensemble",
+      "label_it": "Formazione di musica contemporanea"
     },
     {
       "id": "370",
-      "name": "Contemporary Music Orchestra"
+      "name": "Contemporary Music Orchestra",
+      "label_it": "Orchestra di musica contemporanea"
     },
     {
       "id": "371",
-      "name": "Contemporary Music Quartet"
+      "name": "Contemporary Music Quartet",
+      "label_it": "Quartetto di musica contemporanea"
     },
     {
       "id": "372",
-      "name": "Contemporary Music Trio"
+      "name": "Contemporary Music Trio",
+      "label_it": "Trio di musica contemporanea"
     },
     {
       "id": "373",
-      "name": "Continuo"
+      "name": "Continuo",
+      "label_it": "Continuo"
     },
     {
       "id": "374",
-      "name": "Contrabass"
+      "name": "Contrabass",
+      "label_it": "Contrabbasso"
     },
     {
       "id": "375",
-      "name": "Contrabass Clarinet"
+      "name": "Contrabass Clarinet",
+      "label_it": "Clarinetto contrabbasso"
     },
     {
       "id": "376",
-      "name": "Contrabass Flute"
+      "name": "Contrabass Flute",
+      "label_it": "Flauto contrabbasso"
     },
     {
       "id": "377",
-      "name": "Contrabass Recorder"
+      "name": "Contrabass Recorder",
+      "label_it": "Flauto dolce contrabbasso"
     },
     {
       "id": "378",
-      "name": "Contrabass Saxophone"
+      "name": "Contrabass Saxophone",
+      "label_it": "Sassofono contrabbasso"
     },
     {
       "id": "379",
-      "name": "Contrabass Trombone"
+      "name": "Contrabass Trombone",
+      "label_it": "Trombone contrabbasso"
     },
     {
       "id": "380",
-      "name": "Contrabassoon"
+      "name": "Contrabassoon",
+      "label_it": "Controfagotto"
     },
     {
       "id": "381",
-      "name": "Contralto (Vocal)"
+      "name": "Contralto (Vocal)",
+      "label_it": "Voce di contralto"
     },
     {
       "id": "382",
-      "name": "Contralto Clarinet"
+      "name": "Contralto Clarinet",
+      "label_it": "Clarinetto contralto grave"
     },
     {
       "id": "49",
-      "name": "Cornet"
+      "name": "Cornet",
+      "label_it": "Cornetta"
     },
     {
       "id": "384",
-      "name": "Cornetto"
+      "name": "Cornetto",
+      "label_it": "Cornetto"
     },
     {
       "id": "385",
-      "name": "Corno da Caccia"
+      "name": "Corno da Caccia",
+      "label_it": "Corno da Caccia"
     },
     {
       "id": "386",
-      "name": "Coro"
+      "name": "Coro",
+      "label_it": "Coro"
     },
     {
       "id": "14",
-      "name": "Countertenor Solo"
+      "name": "Countertenor Solo",
+      "label_it": "Solista controtenore"
     },
     {
       "id": "390",
-      "name": "Cowbell"
+      "name": "Cowbell",
+      "label_it": "Campanaccio"
     },
     {
       "id": "392",
-      "name": "Crossover Duo"
+      "name": "Crossover Duo",
+      "label_it": "Duo di generi misti"
     },
     {
       "id": "393",
-      "name": "Crossover Ensemble"
+      "name": "Crossover Ensemble",
+      "label_it": "Formazione di generi misti"
     },
     {
       "id": "394",
-      "name": "Crossover Trio"
+      "name": "Crossover Trio",
+      "label_it": "Trio di generi misti"
     },
     {
       "id": "395",
-      "name": "Crotales"
+      "name": "Crotales",
+      "label_it": "Crotali"
     },
     {
       "id": "396",
-      "name": "Crumhorn"
+      "name": "Crumhorn",
+      "label_it": "Cromorno"
     },
     {
       "id": "397",
-      "name": "Cuatro Venezolano"
+      "name": "Cuatro Venezolano",
+      "label_it": "Cuatro Venezolano"
     },
     {
       "id": "398",
-      "name": "Cuica"
+      "name": "Cuica",
+      "label_it": "Cuica"
     },
     {
       "id": "399",
-      "name": "Cymbals"
+      "name": "Cymbals",
+      "label_it": "Piatti"
     },
     {
       "id": "400",
-      "name": "Dadi"
+      "name": "Dadi",
+      "label_it": "Dadi"
     },
     {
       "id": "401",
-      "name": "Daf"
+      "name": "Daf",
+      "label_it": "Daf"
     },
     {
       "id": "403",
-      "name": "Dancer"
+      "name": "Dancer",
+      "label_it": "Ballerino"
     },
     {
       "id": "404",
-      "name": "Darbuka"
+      "name": "Darbuka",
+      "label_it": "Darbuka"
     },
     {
       "id": "405",
-      "name": "Daruan"
+      "name": "Daruan",
+      "label_it": "Daruan"
     },
     {
       "id": "406",
-      "name": "Daxophone"
+      "name": "Daxophone",
+      "label_it": "Daxophone"
     },
     {
       "id": "407",
-      "name": "Dhol"
+      "name": "Dhol",
+      "label_it": "Dhol"
     },
     {
       "id": "408",
-      "name": "Dialogue"
+      "name": "Dialogue",
+      "label_it": "Dialogo"
     },
     {
       "id": "409",
-      "name": "Didgeridoo"
+      "name": "Didgeridoo",
+      "label_it": "Didgeridoo"
     },
     {
       "id": "410",
-      "name": "Dilruba"
+      "name": "Dilruba",
+      "label_it": "Dilruba"
     },
     {
       "id": "411",
-      "name": "Dizi"
+      "name": "Dizi",
+      "label_it": "Dizi"
     },
     {
       "id": "87",
-      "name": "DJ"
+      "name": "DJ",
+      "label_it": "DJ"
     },
     {
       "id": "70",
-      "name": "Djembe"
+      "name": "Djembe",
+      "label_it": "Djembe"
     },
     {
       "id": "412",
-      "name": "Dobro"
+      "name": "Dobro",
+      "label_it": "Dobro"
     },
     {
       "id": "413",
-      "name": "Dojo"
+      "name": "Dojo",
+      "label_it": "Dojo"
     },
     {
       "id": "414",
-      "name": "Domra"
+      "name": "Domra",
+      "label_it": "Domra"
     },
     {
       "id": "22",
-      "name": "Double Bass"
+      "name": "Double Bass",
+      "label_it": "Contrabbasso"
     },
     {
       "id": "415",
-      "name": "Double Bass Ensemble"
+      "name": "Double Bass Ensemble",
+      "label_it": "Formazione di contrabbassi"
     },
     {
       "id": "416",
-      "name": "Double Bass Quartet"
+      "name": "Double Bass Quartet",
+      "label_it": "Quartetto di contrabbassi"
     },
     {
       "id": "417",
-      "name": "Double Flute"
+      "name": "Double Flute",
+      "label_it": "Flauto doppio"
     },
     {
       "id": "418",
-      "name": "Double Recorder"
+      "name": "Double Recorder",
+      "label_it": "Flauto dolce doppio"
     },
     {
       "id": "419",
-      "name": "Doumbek"
+      "name": "Doumbek",
+      "label_it": "Doumbek"
     },
     {
       "id": "421",
-      "name": "Drum Machine"
+      "name": "Drum Machine",
+      "label_it": "Batteria elettronica"
     },
     {
       "id": "422",
-      "name": "Drum Programming"
+      "name": "Drum Programming",
+      "label_it": "Programmazione della batteria"
     },
     {
       "id": "46",
-      "name": "Drums"
+      "name": "Drums",
+      "label_it": "Batteria"
     },
     {
       "id": "424",
-      "name": "Duduk"
+      "name": "Duduk",
+      "label_it": "Duduk"
     },
     {
       "id": "425",
-      "name": "Duet Vocals"
+      "name": "Duet Vocals",
+      "label_it": "Duo vocale"
     },
     {
       "id": "426",
-      "name": "Dulcian"
+      "name": "Dulcian",
+      "label_it": "Dulciana"
     },
     {
       "id": "427",
-      "name": "Dulcimer"
+      "name": "Dulcimer",
+      "label_it": "Salterio"
     },
     {
       "id": "428",
-      "name": "Dutar"
+      "name": "Dutar",
+      "label_it": "Dutar"
     },
     {
       "id": "402",
-      "name": "Đàn Tranh"
+      "name": "Đàn Tranh",
+      "label_it": "Đàn Tranh"
     },
     {
       "id": "429",
-      "name": "E-Bow"
+      "name": "E-Bow",
+      "label_it": "E-Bow"
     },
     {
       "id": "430",
-      "name": "Early Music Chamber Choir"
+      "name": "Early Music Chamber Choir",
+      "label_it": "Coro da camera di musica antica"
     },
     {
       "id": "431",
-      "name": "Early Music Chamber Orchestra"
+      "name": "Early Music Chamber Orchestra",
+      "label_it": "Orchestra da camera di musica antica"
     },
     {
       "id": "432",
-      "name": "Early Music Choir"
+      "name": "Early Music Choir",
+      "label_it": "Coro di musica antica"
     },
     {
       "id": "433",
-      "name": "Early Music Duo"
+      "name": "Early Music Duo",
+      "label_it": "Duo di musica antica"
     },
     {
       "id": "434",
-      "name": "Early Music Ensemble"
+      "name": "Early Music Ensemble",
+      "label_it": "Formazione di musica antica"
     },
     {
       "id": "435",
-      "name": "Early Music Instrument"
+      "name": "Early Music Instrument",
+      "label_it": "Strumento di musica antica"
     },
     {
       "id": "436",
-      "name": "Early Music Orchestra"
+      "name": "Early Music Orchestra",
+      "label_it": "Orchestra di musica antica"
     },
     {
       "id": "437",
-      "name": "Early Music Trio"
+      "name": "Early Music Trio",
+      "label_it": "Trio di musica antica"
     },
     {
       "id": "438",
-      "name": "Early Music Vocal Ensemble"
+      "name": "Early Music Vocal Ensemble",
+      "label_it": "Formazione vocale di musica antica"
     },
     {
       "id": "440",
-      "name": "Electric Banjo"
+      "name": "Electric Banjo",
+      "label_it": "Banjo elettrico"
     },
     {
       "id": "441",
-      "name": "Electric Bass Guitar"
+      "name": "Electric Bass Guitar",
+      "label_it": "Basso elettrico"
     },
     {
       "id": "442",
-      "name": "Electric Cello"
+      "name": "Electric Cello",
+      "label_it": "Violoncello elettrico"
     },
     {
       "id": "443",
-      "name": "Electric Fretless Guitar"
+      "name": "Electric Fretless Guitar",
+      "label_it": "Chitarra elettrica senza tasti"
     },
     {
       "id": "23",
-      "name": "Electric Guitar"
+      "name": "Electric Guitar",
+      "label_it": "Chitarra elettrica"
     },
     {
       "id": "444",
-      "name": "Electric Mandolin"
+      "name": "Electric Mandolin",
+      "label_it": "Mandolino elettrico"
     },
     {
       "id": "445",
-      "name": "Electric Piano"
+      "name": "Electric Piano",
+      "label_it": "Pianoforte elettrico"
     },
     {
       "id": "446",
-      "name": "Electric Sitar"
+      "name": "Electric Sitar",
+      "label_it": "Sitar elettrico"
     },
     {
       "id": "447",
-      "name": "Electric Upright Bass"
+      "name": "Electric Upright Bass",
+      "label_it": "Contrabbasso elettrico"
     },
     {
       "id": "448",
-      "name": "Electric Violin"
+      "name": "Electric Violin",
+      "label_it": "Violino elettrico"
     },
     {
       "id": "449",
-      "name": "Electronic Instrument"
+      "name": "Electronic Instrument",
+      "label_it": "Strumento elettronico"
     },
     {
       "id": "450",
-      "name": "Electronic Music Ensemble"
+      "name": "Electronic Music Ensemble",
+      "label_it": "Formazione di musica elettronica"
     },
     {
       "id": "451",
-      "name": "Electronic Percussion"
+      "name": "Electronic Percussion",
+      "label_it": "Percussioni elettroniche"
     },
     {
       "id": "452",
-      "name": "Electronics"
+      "name": "Electronics",
+      "label_it": "Elettronica"
     },
     {
       "id": "454",
-      "name": "English Horn"
+      "name": "English Horn",
+      "label_it": "Corno inglese"
     },
     {
       "id": "105",
-      "name": "Ensemble"
+      "name": "Ensemble",
+      "label_it": "Formazione musicale"
     },
     {
       "id": "456",
-      "name": "Ensemble Director"
+      "name": "Ensemble Director",
+      "label_it": "Direttore della formazione"
     },
     {
       "id": "458",
-      "name": "Erhu"
+      "name": "Erhu",
+      "label_it": "Erhu"
     },
     {
       "id": "459",
-      "name": "Euphonium"
+      "name": "Euphonium",
+      "label_it": "Eufonio"
     },
     {
       "id": "460",
-      "name": "EWI"
+      "name": "EWI",
+      "label_it": "EWI"
     },
     {
       "id": "462",
-      "name": "Fairlight CMI"
+      "name": "Fairlight CMI",
+      "label_it": "Fairlight CMI"
     },
     {
       "id": "463",
-      "name": "Farfisa"
+      "name": "Farfisa",
+      "label_it": "Farfisa"
     },
     {
       "id": "77",
-      "name": "Fiddle"
+      "name": "Fiddle",
+      "label_it": "Violino popolare"
     },
     {
       "id": "464",
-      "name": "Fife"
+      "name": "Fife",
+      "label_it": "Piffero"
     },
     {
       "id": "468",
-      "name": "Finger Cymbals"
+      "name": "Finger Cymbals",
+      "label_it": "Cimbali a dita"
     },
     {
       "id": "469",
-      "name": "Finger Snaps"
+      "name": "Finger Snaps",
+      "label_it": "Schiocchi di dita"
     },
     {
       "id": "470",
-      "name": "First Cello"
+      "name": "First Cello",
+      "label_it": "Primo violoncello"
     },
     {
       "id": "61",
-      "name": "First Violin"
+      "name": "First Violin",
+      "label_it": "Primo violino"
     },
     {
       "id": "471",
-      "name": "Flageolet"
+      "name": "Flageolet",
+      "label_it": "Flageolet"
     },
     {
       "id": "472",
-      "name": "Flamenco Cajón"
+      "name": "Flamenco Cajón",
+      "label_it": "Cajón flamenco"
     },
     {
       "id": "473",
-      "name": "Flamenco Guitar"
+      "name": "Flamenco Guitar",
+      "label_it": "Chitarra flamenca"
     },
     {
       "id": "41",
-      "name": "Flugelhorn"
+      "name": "Flugelhorn",
+      "label_it": "Flicorno"
     },
     {
       "id": "60",
-      "name": "Flute"
+      "name": "Flute",
+      "label_it": "Flauto"
     },
     {
       "id": "474",
-      "name": "Flute Ensemble"
+      "name": "Flute Ensemble",
+      "label_it": "Formazione di flauti"
     },
     {
       "id": "475",
-      "name": "Flute Quartet"
+      "name": "Flute Quartet",
+      "label_it": "Quartetto di flauti"
     },
     {
       "id": "476",
-      "name": "Flute Quintet"
+      "name": "Flute Quintet",
+      "label_it": "Quintetto di flauti"
     },
     {
       "id": "477",
-      "name": "Folk Music Ensemble"
+      "name": "Folk Music Ensemble",
+      "label_it": "Formazione di musica popolare"
     },
     {
       "id": "478",
-      "name": "Folk Music Orchestra"
+      "name": "Folk Music Orchestra",
+      "label_it": "Orchestra di musica popolare"
     },
     {
       "id": "479",
-      "name": "Foot Stomping"
+      "name": "Foot Stomping",
+      "label_it": "Battiti di piedi"
     },
     {
       "id": "480",
-      "name": "Fortepiano"
+      "name": "Fortepiano",
+      "label_it": "Fortepiano"
     },
     {
       "id": "481",
-      "name": "Frame Drum"
+      "name": "Frame Drum",
+      "label_it": "Tamburo a cornice"
     },
     {
       "id": "482",
-      "name": "French Horn"
+      "name": "French Horn",
+      "label_it": "Corno francese"
     },
     {
       "id": "55",
-      "name": "Fretless Electric Bass Guitar"
+      "name": "Fretless Electric Bass Guitar",
+      "label_it": "Basso elettrico senza tasti"
     },
     {
       "id": "483",
-      "name": "Fretless Guitar"
+      "name": "Fretless Guitar",
+      "label_it": "Chitarra senza tasti"
     },
     {
       "id": "484",
-      "name": "Fujara"
+      "name": "Fujara",
+      "label_it": "Fujara"
     },
     {
       "id": "485",
-      "name": "Funde"
+      "name": "Funde",
+      "label_it": "Funde"
     },
     {
       "id": "486",
-      "name": "Fuzz Guitar"
+      "name": "Fuzz Guitar",
+      "label_it": "Chitarra con distorsione fuzz"
     },
     {
       "id": "487",
-      "name": "Gadulka"
+      "name": "Gadulka",
+      "label_it": "Gadulka"
     },
     {
       "id": "488",
-      "name": "Gamelan"
+      "name": "Gamelan",
+      "label_it": "Gamelan"
     },
     {
       "id": "489",
-      "name": "Gang Vocals"
+      "name": "Gang Vocals",
+      "label_it": "Voci di gruppo"
     },
     {
       "id": "490",
-      "name": "Gaodi"
+      "name": "Gaodi",
+      "label_it": "Gaodi"
     },
     {
       "id": "491",
-      "name": "Gaohu"
+      "name": "Gaohu",
+      "label_it": "Gaohu"
     },
     {
       "id": "492",
-      "name": "Gehu"
+      "name": "Gehu",
+      "label_it": "Gehu"
     },
     {
       "id": "493",
-      "name": "Ghatam"
+      "name": "Ghatam",
+      "label_it": "Ghatam"
     },
     {
       "id": "494",
-      "name": "Girls' Choir"
+      "name": "Girls' Choir",
+      "label_it": "Coro di voci bianche femminili"
     },
     {
       "id": "495",
-      "name": "Gittern"
+      "name": "Gittern",
+      "label_it": "Chitarra medievale"
     },
     {
       "id": "496",
-      "name": "Glass Harmonica"
+      "name": "Glass Harmonica",
+      "label_it": "Armonica a bicchieri"
     },
     {
       "id": "497",
-      "name": "Glockenspiel"
+      "name": "Glockenspiel",
+      "label_it": "Glockenspiel"
     },
     {
       "id": "498",
-      "name": "Gong"
+      "name": "Gong",
+      "label_it": "Gong"
     },
     {
       "id": "499",
-      "name": "Gospel Choir"
+      "name": "Gospel Choir",
+      "label_it": "Coro gospel"
     },
     {
       "id": "500",
-      "name": "Gothic Harp"
+      "name": "Gothic Harp",
+      "label_it": "Arpa gotica"
     },
     {
       "id": "501",
-      "name": "Great Bass Recorder"
+      "name": "Great Bass Recorder",
+      "label_it": "Flauto dolce gran basso"
     },
     {
       "id": "502",
-      "name": "Gregorian Chant Choir"
+      "name": "Gregorian Chant Choir",
+      "label_it": "Coro di canto gregoriano"
     },
     {
       "id": "503",
-      "name": "Gregorian Chant Ensemble"
+      "name": "Gregorian Chant Ensemble",
+      "label_it": "Formazione di canto gregoriano"
     },
     {
       "id": "504",
-      "name": "Group"
+      "name": "Group",
+      "label_it": "Gruppo"
     },
     {
       "id": "505",
-      "name": "Güícharo"
+      "name": "Güícharo",
+      "label_it": "Güícharo"
     },
     {
       "id": "506",
-      "name": "Güira"
+      "name": "Güira",
+      "label_it": "Güira"
     },
     {
       "id": "507",
-      "name": "Güiro"
+      "name": "Güiro",
+      "label_it": "Güiro"
     },
     {
       "id": "19",
-      "name": "Guitar"
+      "name": "Guitar",
+      "label_it": "Chitarra"
     },
     {
       "id": "508",
-      "name": "Guitar Duo"
+      "name": "Guitar Duo",
+      "label_it": "Duo di chitarre"
     },
     {
       "id": "509",
-      "name": "Guitar Quartet"
+      "name": "Guitar Quartet",
+      "label_it": "Quartetto di chitarre"
     },
     {
       "id": "510",
-      "name": "Guitar Synthesizer"
+      "name": "Guitar Synthesizer",
+      "label_it": "Sintetizzatore per chitarra"
     },
     {
       "id": "511",
-      "name": "Guitar Trio"
+      "name": "Guitar Trio",
+      "label_it": "Trio di chitarre"
     },
     {
       "id": "512",
-      "name": "Guitarron"
+      "name": "Guitarron",
+      "label_it": "Guitarron"
     },
     {
       "id": "513",
-      "name": "Guqin"
+      "name": "Guqin",
+      "label_it": "Guqin"
     },
     {
       "id": "514",
-      "name": "Gut String Guitar"
+      "name": "Gut String Guitar",
+      "label_it": "Chitarra con corde di budello"
     },
     {
       "id": "515",
-      "name": "Guzheng"
+      "name": "Guzheng",
+      "label_it": "Guzheng"
     },
     {
       "id": "516",
-      "name": "Haegeum"
+      "name": "Haegeum",
+      "label_it": "Haegeum"
     },
     {
       "id": "517",
-      "name": "Hammered Dulcimer"
+      "name": "Hammered Dulcimer",
+      "label_it": "Salterio a percussione"
     },
     {
       "id": "28",
-      "name": "Hammond Organ"
+      "name": "Hammond Organ",
+      "label_it": "Organo Hammond"
     },
     {
       "id": "518",
-      "name": "Hand Claps"
+      "name": "Hand Claps",
+      "label_it": "Battiti di mani"
     },
     {
       "id": "519",
-      "name": "Handbell Choir"
+      "name": "Handbell Choir",
+      "label_it": "Coro di campanelle"
     },
     {
       "id": "520",
-      "name": "Hang"
+      "name": "Hang",
+      "label_it": "Hang"
     },
     {
       "id": "521",
-      "name": "Hardanger Fiddle"
+      "name": "Hardanger Fiddle",
+      "label_it": "Violino Hardanger"
     },
     {
       "id": "76",
-      "name": "Harmonica"
+      "name": "Harmonica",
+      "label_it": "Armonica"
     },
     {
       "id": "522",
-      "name": "Harmonium"
+      "name": "Harmonium",
+      "label_it": "Armonio"
     },
     {
       "id": "11",
-      "name": "Harmony Vocals"
+      "name": "Harmony Vocals",
+      "label_it": "Armonie vocali"
     },
     {
       "id": "73",
-      "name": "Harp"
+      "name": "Harp",
+      "label_it": "Arpa"
     },
     {
       "id": "523",
-      "name": "Harp Ensemble"
+      "name": "Harp Ensemble",
+      "label_it": "Formazione di arpe"
     },
     {
       "id": "32",
-      "name": "Harpsichord"
+      "name": "Harpsichord",
+      "label_it": "Clavicembalo"
     },
     {
       "id": "526",
-      "name": "Haute Contre Vocals"
+      "name": "Haute Contre Vocals",
+      "label_it": "Voce di tenore acuto francese"
     },
     {
       "id": "527",
-      "name": "Heckelphone"
+      "name": "Heckelphone",
+      "label_it": "Heckelphone"
     },
     {
       "id": "528",
-      "name": "Herald Trumpet"
+      "name": "Herald Trumpet",
+      "label_it": "Tromba araldica"
     },
     {
       "id": "529",
-      "name": "Hi-Hat"
+      "name": "Hi-Hat",
+      "label_it": "Charleston"
     },
     {
       "id": "530",
-      "name": "Hi-String Guitar"
+      "name": "Hi-String Guitar",
+      "label_it": "Chitarra con accordatura acuta"
     },
     {
       "id": "531",
-      "name": "Hichiriki"
+      "name": "Hichiriki",
+      "label_it": "Hichiriki"
     },
     {
       "id": "532",
-      "name": "High Tenor (Vocal)"
+      "name": "High Tenor (Vocal)",
+      "label_it": "Voce di tenore acuto"
     },
     {
       "id": "533",
-      "name": "Historical Bassoon"
+      "name": "Historical Bassoon",
+      "label_it": "Fagotto storico"
     },
     {
       "id": "534",
-      "name": "Historical Flutes"
+      "name": "Historical Flutes",
+      "label_it": "Flauti storici"
     },
     {
       "id": "535",
-      "name": "Historical Guitar"
+      "name": "Historical Guitar",
+      "label_it": "Chitarra storica"
     },
     {
       "id": "536",
-      "name": "Historical Harp"
+      "name": "Historical Harp",
+      "label_it": "Arpa storica"
     },
     {
       "id": "537",
-      "name": "Historical Percussion"
+      "name": "Historical Percussion",
+      "label_it": "Percussioni storiche"
     },
     {
       "id": "37",
-      "name": "Horn"
+      "name": "Horn",
+      "label_it": "Corno"
     },
     {
       "id": "539",
-      "name": "Horn Conductor"
+      "name": "Horn Conductor",
+      "label_it": "Direttore dei corni"
     },
     {
       "id": "540",
-      "name": "Horn Ensemble"
+      "name": "Horn Ensemble",
+      "label_it": "Formazione di corni"
     },
     {
       "id": "541",
-      "name": "Horn Quartet"
+      "name": "Horn Quartet",
+      "label_it": "Quartetto di corni"
     },
     {
       "id": "542",
-      "name": "Horn Section"
+      "name": "Horn Section",
+      "label_it": "Sezione dei corni"
     },
     {
       "id": "543",
-      "name": "Host"
+      "name": "Host",
+      "label_it": "Presentatore"
     },
     {
       "id": "544",
-      "name": "Huqin"
+      "name": "Huqin",
+      "label_it": "Huqin"
     },
     {
       "id": "545",
-      "name": "Hurdy Gurdy"
+      "name": "Hurdy Gurdy",
+      "label_it": "Ghironda"
     },
     {
       "id": "550",
-      "name": "Indian Flute"
+      "name": "Indian Flute",
+      "label_it": "Flauto indiano"
     },
     {
       "id": "551",
-      "name": "Instrumental Ensemble"
+      "name": "Instrumental Ensemble",
+      "label_it": "Formazione strumentale"
     },
     {
       "id": "552",
-      "name": "Interviewee"
+      "name": "Interviewee",
+      "label_it": "Intervistato"
     },
     {
       "id": "553",
-      "name": "Interviewer"
+      "name": "Interviewer",
+      "label_it": "Intervistatore"
     },
     {
       "id": "554",
-      "name": "Intro Vocals"
+      "name": "Intro Vocals",
+      "label_it": "Voce introduttiva"
     },
     {
       "id": "555",
-      "name": "Introduction by"
+      "name": "Introduction by",
+      "label_it": "Introduzione di"
     },
     {
       "id": "556",
-      "name": "Irish Flute"
+      "name": "Irish Flute",
+      "label_it": "Flauto irlandese"
     },
     {
       "id": "557",
-      "name": "Irish Whistle"
+      "name": "Irish Whistle",
+      "label_it": "Fischietto irlandese"
     },
     {
       "id": "558",
-      "name": "Japanese Flute"
+      "name": "Japanese Flute",
+      "label_it": "Flauto giapponese"
     },
     {
       "id": "559",
-      "name": "Jazz Ensemble"
+      "name": "Jazz Ensemble",
+      "label_it": "Formazione di musica jazz"
     },
     {
       "id": "560",
-      "name": "Jazz Trio"
+      "name": "Jazz Trio",
+      "label_it": "Trio di musica jazz"
     },
     {
       "id": "561",
-      "name": "Kalimba"
+      "name": "Kalimba",
+      "label_it": "Kalimba"
     },
     {
       "id": "562",
-      "name": "Kamancheh"
+      "name": "Kamancheh",
+      "label_it": "Kamancheh"
     },
     {
       "id": "563",
-      "name": "Kantele"
+      "name": "Kantele",
+      "label_it": "Kantele"
     },
     {
       "id": "564",
-      "name": "Kanun"
+      "name": "Kanun",
+      "label_it": "Kanun"
     },
     {
       "id": "565",
-      "name": "Kaval"
+      "name": "Kaval",
+      "label_it": "Kaval"
     },
     {
       "id": "566",
-      "name": "Kazoo"
+      "name": "Kazoo",
+      "label_it": "Kazoo"
     },
     {
       "id": "568",
-      "name": "Keyboard Bass"
+      "name": "Keyboard Bass",
+      "label_it": "Basso a tastiera"
     },
     {
       "id": "569",
-      "name": "Keyboard Instrument"
+      "name": "Keyboard Instrument",
+      "label_it": "Strumento a tastiera"
     },
     {
       "id": "570",
-      "name": "Keyboard Synth"
+      "name": "Keyboard Synth",
+      "label_it": "Sintetizzatore a tastiera"
     },
     {
       "id": "75",
-      "name": "Keyboards"
+      "name": "Keyboards",
+      "label_it": "Tastiere"
     },
     {
       "id": "572",
-      "name": "Keytar"
+      "name": "Keytar",
+      "label_it": "Keytar"
     },
     {
       "id": "573",
-      "name": "Khene"
+      "name": "Khene",
+      "label_it": "Khene"
     },
     {
       "id": "34",
-      "name": "Kora"
+      "name": "Kora",
+      "label_it": "Kora"
     },
     {
       "id": "574",
-      "name": "Koto"
+      "name": "Koto",
+      "label_it": "Koto"
     },
     {
       "id": "575",
-      "name": "Kugo"
+      "name": "Kugo",
+      "label_it": "Kugo"
     },
     {
       "id": "576",
-      "name": "Lap Cello"
+      "name": "Lap Cello",
+      "label_it": "Violoncello da ginocchio"
     },
     {
       "id": "577",
-      "name": "Lap Slide Guitar"
+      "name": "Lap Slide Guitar",
+      "label_it": "Chitarra da ginocchio con bottleneck"
     },
     {
       "id": "578",
-      "name": "Lap Steel Guitar"
+      "name": "Lap Steel Guitar",
+      "label_it": "Chitarra hawaiana da ginocchio"
     },
     {
       "id": "579",
-      "name": "Lautenwerck"
+      "name": "Lautenwerck",
+      "label_it": "Lautenwerck"
     },
     {
       "id": "580",
-      "name": "Lead Acoustic Guitar"
+      "name": "Lead Acoustic Guitar",
+      "label_it": "Chitarra acustica solista"
     },
     {
       "id": "581",
-      "name": "Lead Electric Guitar"
+      "name": "Lead Electric Guitar",
+      "label_it": "Chitarra elettrica solista"
     },
     {
       "id": "35",
-      "name": "Lead Guitar"
+      "name": "Lead Guitar",
+      "label_it": "Chitarra solista"
     },
     {
       "id": "582",
-      "name": "Lead Violin"
+      "name": "Lead Violin",
+      "label_it": "Violino solista"
     },
     {
       "id": "5",
-      "name": "Lead Vocals"
+      "name": "Lead Vocals",
+      "label_it": "Voce principale"
     },
     {
       "id": "583",
-      "name": "Leaf"
+      "name": "Leaf",
+      "label_it": "Foglia sonora"
     },
     {
       "id": "586",
-      "name": "Lirone"
+      "name": "Lirone",
+      "label_it": "Lirone"
     },
     {
       "id": "588",
-      "name": "Liuqin"
+      "name": "Liuqin",
+      "label_it": "Liuqin"
     },
     {
       "id": "592",
-      "name": "Loops"
+      "name": "Loops",
+      "label_it": "Sequenze ripetute"
     },
     {
       "id": "593",
-      "name": "Low Whistle"
+      "name": "Low Whistle",
+      "label_it": "Fischietto grave"
     },
     {
       "id": "594",
-      "name": "Lowrey Organ"
+      "name": "Lowrey Organ",
+      "label_it": "Organo Lowrey"
     },
     {
       "id": "106",
-      "name": "Lute"
+      "name": "Lute",
+      "label_it": "Liuto"
     },
     {
       "id": "595",
-      "name": "Lute Duo"
+      "name": "Lute Duo",
+      "label_it": "Duo di liuti"
     },
     {
       "id": "596",
-      "name": "Lyra Viol"
+      "name": "Lyra Viol",
+      "label_it": "Viola lyra"
     },
     {
       "id": "597",
-      "name": "Lyre"
+      "name": "Lyre",
+      "label_it": "Lira"
     },
     {
       "id": "598",
-      "name": "Lyricon"
+      "name": "Lyricon",
+      "label_it": "Lyricon"
     },
     {
       "id": "599",
-      "name": "Mandocello"
+      "name": "Mandocello",
+      "label_it": "Mandoloncello"
     },
     {
       "id": "600",
-      "name": "Mandola"
+      "name": "Mandola",
+      "label_it": "Mandola"
     },
     {
       "id": "67",
-      "name": "Mandolin"
+      "name": "Mandolin",
+      "label_it": "Mandolino"
     },
     {
       "id": "601",
-      "name": "Maracas"
+      "name": "Maracas",
+      "label_it": "Maracas"
     },
     {
       "id": "602",
-      "name": "Marching Band"
+      "name": "Marching Band",
+      "label_it": "Banda da parata"
     },
     {
       "id": "603",
-      "name": "Marimba"
+      "name": "Marimba",
+      "label_it": "Marimba"
     },
     {
       "id": "604",
-      "name": "Mbira"
+      "name": "Mbira",
+      "label_it": "Mbira"
     },
     {
       "id": "605",
-      "name": "MC"
+      "name": "MC",
+      "label_it": "MC"
     },
     {
       "id": "606",
-      "name": "Medieval Flute"
+      "name": "Medieval Flute",
+      "label_it": "Flauto medievale"
     },
     {
       "id": "607",
-      "name": "Medieval Harp"
+      "name": "Medieval Harp",
+      "label_it": "Arpa medievale"
     },
     {
       "id": "608",
-      "name": "Medieval Music Ensemble"
+      "name": "Medieval Music Ensemble",
+      "label_it": "Formazione di musica medievale"
     },
     {
       "id": "609",
-      "name": "Medieval Music Quartet"
+      "name": "Medieval Music Quartet",
+      "label_it": "Quartetto di musica medievale"
     },
     {
       "id": "610",
-      "name": "Medieval Music Vocal Ensemble"
+      "name": "Medieval Music Vocal Ensemble",
+      "label_it": "Formazione vocale di musica medievale"
     },
     {
       "id": "611",
-      "name": "Mellophone"
+      "name": "Mellophone",
+      "label_it": "Mellofono"
     },
     {
       "id": "612",
-      "name": "Mellotron"
+      "name": "Mellotron",
+      "label_it": "Mellotron"
     },
     {
       "id": "613",
-      "name": "Melodeon"
+      "name": "Melodeon",
+      "label_it": "Fisarmonica diatonica"
     },
     {
       "id": "614",
-      "name": "Melodica"
+      "name": "Melodica",
+      "label_it": "Melodica"
     },
     {
       "id": "615",
-      "name": "Men's Choir"
+      "name": "Men's Choir",
+      "label_it": "Coro maschile"
     },
     {
       "id": "107",
-      "name": "Metallophone"
+      "name": "Metallophone",
+      "label_it": "Metallofono"
     },
     {
       "id": "616",
-      "name": "Mezzo Violin"
+      "name": "Mezzo Violin",
+      "label_it": "Violino mezzosoprano"
     },
     {
       "id": "7",
-      "name": "Mezzo-Soprano Solo"
+      "name": "Mezzo-Soprano Solo",
+      "label_it": "Solista mezzosoprano"
     },
     {
       "id": "617",
-      "name": "Military Band"
+      "name": "Military Band",
+      "label_it": "Banda militare"
     },
     {
       "id": "618",
-      "name": "Military Choir"
+      "name": "Military Choir",
+      "label_it": "Coro militare"
     },
     {
       "id": "108",
-      "name": "Mixed Artist"
+      "name": "Mixed Artist",
+      "label_it": "Artista presente nel mix"
     },
     {
       "id": "619",
-      "name": "Modular Synth"
+      "name": "Modular Synth",
+      "label_it": "Sintetizzatore modulare"
     },
     {
       "id": "620",
-      "name": "Mong"
+      "name": "Mong",
+      "label_it": "Mong"
     },
     {
       "id": "621",
-      "name": "Moog"
+      "name": "Moog",
+      "label_it": "Moog"
     },
     {
       "id": "622",
-      "name": "Mouth Harp"
+      "name": "Mouth Harp",
+      "label_it": "Scacciapensieri"
     },
     {
       "id": "623",
-      "name": "Mouth Organ"
+      "name": "Mouth Organ",
+      "label_it": "Organo a bocca"
     },
     {
       "id": "624",
-      "name": "Mridangam"
+      "name": "Mridangam",
+      "label_it": "Mridangam"
     },
     {
       "id": "625",
-      "name": "Multi-Instrumentalist"
+      "name": "Multi-Instrumentalist",
+      "label_it": "Polistrumentista"
     },
     {
       "id": "626",
-      "name": "Musette"
+      "name": "Musette",
+      "label_it": "Musette"
     },
     {
       "id": "89",
-      "name": "Music Director"
+      "name": "Music Director",
+      "label_it": "Direttore musicale"
     },
     {
       "id": "628",
-      "name": "Musical Saw"
+      "name": "Musical Saw",
+      "label_it": "Sega musicale"
     },
     {
       "id": "629",
-      "name": "Muted Trombone"
+      "name": "Muted Trombone",
+      "label_it": "Trombone con sordina"
     },
     {
       "id": "630",
-      "name": "Muted Trumpet"
+      "name": "Muted Trumpet",
+      "label_it": "Tromba con sordina"
     },
     {
       "id": "631",
-      "name": "Narrator"
+      "name": "Narrator",
+      "label_it": "Narratore"
     },
     {
       "id": "632",
-      "name": "Native American Flute"
+      "name": "Native American Flute",
+      "label_it": "Flauto dei nativi americani"
     },
     {
       "id": "633",
-      "name": "Natural Horn"
+      "name": "Natural Horn",
+      "label_it": "Corno naturale"
     },
     {
       "id": "634",
-      "name": "Ney"
+      "name": "Ney",
+      "label_it": "Ney"
     },
     {
       "id": "635",
-      "name": "Nyckelharpa"
+      "name": "Nyckelharpa",
+      "label_it": "Nyckelharpa"
     },
     {
       "id": "636",
-      "name": "Nylon-String Guitar"
+      "name": "Nylon-String Guitar",
+      "label_it": "Chitarra con corde di nylon"
     },
     {
       "id": "25",
-      "name": "Oboe"
+      "name": "Oboe",
+      "label_it": "Oboe"
     },
     {
       "id": "637",
-      "name": "Oboe d'Amore"
+      "name": "Oboe d'Amore",
+      "label_it": "Oboe d’amore"
     },
     {
       "id": "638",
-      "name": "Oboe Da Caccia"
+      "name": "Oboe Da Caccia",
+      "label_it": "Oboe da caccia"
     },
     {
       "id": "639",
-      "name": "Ocarina"
+      "name": "Ocarina",
+      "label_it": "Ocarina"
     },
     {
       "id": "640",
-      "name": "Omnichord"
+      "name": "Omnichord",
+      "label_it": "Omnichord"
     },
     {
       "id": "641",
-      "name": "Ondes Martenot"
+      "name": "Ondes Martenot",
+      "label_it": "Ondes Martenot"
     },
     {
       "id": "642",
-      "name": "Opera and Ballet Orchestra"
+      "name": "Opera and Ballet Orchestra",
+      "label_it": "Orchestra d’opera e balletto"
     },
     {
       "id": "643",
-      "name": "Opera Choir"
+      "name": "Opera Choir",
+      "label_it": "Coro d’opera"
     },
     {
       "id": "644",
-      "name": "Opera Company"
+      "name": "Opera Company",
+      "label_it": "Compagnia d’opera"
     },
     {
       "id": "645",
-      "name": "Opera Orchestra"
+      "name": "Opera Orchestra",
+      "label_it": "Orchestra d’opera"
     },
     {
       "id": "646",
-      "name": "Ophicleide"
+      "name": "Ophicleide",
+      "label_it": "Oficleide"
     },
     {
       "id": "101",
-      "name": "Orchestra"
+      "name": "Orchestra",
+      "label_it": "Orchestra"
     },
     {
       "id": "647",
-      "name": "Orchestra Conductor"
+      "name": "Orchestra Conductor",
+      "label_it": "Direttore d’orchestra"
     },
     {
       "id": "648",
-      "name": "Orchestra Director"
+      "name": "Orchestra Director",
+      "label_it": "Direttore artistico dell’orchestra"
     },
     {
       "id": "649",
-      "name": "Orchestra Leader"
+      "name": "Orchestra Leader",
+      "label_it": "Primo violino dell’orchestra"
     },
     {
       "id": "650",
-      "name": "Orchestra Manager"
+      "name": "Orchestra Manager",
+      "label_it": "Responsabile dell’orchestra"
     },
     {
       "id": "20",
-      "name": "Organ"
+      "name": "Organ",
+      "label_it": "Organo"
     },
     {
       "id": "652",
-      "name": "Organ Pedals"
+      "name": "Organ Pedals",
+      "label_it": "Pedaliera d’organo"
     },
     {
       "id": "654",
-      "name": "Organetto"
+      "name": "Organetto",
+      "label_it": "Organetto"
     },
     {
       "id": "660",
-      "name": "Oud"
+      "name": "Oud",
+      "label_it": "Oud"
     },
     {
       "id": "661",
-      "name": "Outro Vocals"
+      "name": "Outro Vocals",
+      "label_it": "Voce conclusiva"
     },
     {
       "id": "665",
-      "name": "Pakhavaj"
+      "name": "Pakhavaj",
+      "label_it": "Pakhavaj"
     },
     {
       "id": "666",
-      "name": "Palmas"
+      "name": "Palmas",
+      "label_it": "Palmas"
     },
     {
       "id": "667",
-      "name": "Pan Flute"
+      "name": "Pan Flute",
+      "label_it": "Flauto di Pan"
     },
     {
       "id": "668",
-      "name": "Pandeiro"
+      "name": "Pandeiro",
+      "label_it": "Pandeiro"
     },
     {
       "id": "669",
-      "name": "Panderos"
+      "name": "Panderos",
+      "label_it": "Panderos"
     },
     {
       "id": "670",
-      "name": "Pardessus de Viole"
+      "name": "Pardessus de Viole",
+      "label_it": "Pardessus de Viole"
     },
     {
       "id": "671",
-      "name": "Parlor Guitar"
+      "name": "Parlor Guitar",
+      "label_it": "Chitarra da salotto"
     },
     {
       "id": "59",
-      "name": "Pedal Steel Guitar"
+      "name": "Pedal Steel Guitar",
+      "label_it": "Chitarra hawaiana a pedali"
     },
     {
       "id": "50",
-      "name": "Percussion"
+      "name": "Percussion",
+      "label_it": "Percussioni"
     },
     {
       "id": "673",
-      "name": "Percussion Duo"
+      "name": "Percussion Duo",
+      "label_it": "Duo di percussioni"
     },
     {
       "id": "674",
-      "name": "Percussion Ensemble"
+      "name": "Percussion Ensemble",
+      "label_it": "Formazione di percussioni"
     },
     {
       "id": "675",
-      "name": "Percussion Instrument"
+      "name": "Percussion Instrument",
+      "label_it": "Strumento a percussione"
     },
     {
       "id": "676",
-      "name": "Percussion Quartet"
+      "name": "Percussion Quartet",
+      "label_it": "Quartetto di percussioni"
     },
     {
       "id": "677",
-      "name": "Period Instrument Orchestra"
+      "name": "Period Instrument Orchestra",
+      "label_it": "Orchestra con strumenti d’epoca"
     },
     {
       "id": "678",
-      "name": "Philharmonic Choir"
+      "name": "Philharmonic Choir",
+      "label_it": "Coro filarmonico"
     },
     {
       "id": "679",
-      "name": "Philharmonic Orchestra"
+      "name": "Philharmonic Orchestra",
+      "label_it": "Orchestra filarmonica"
     },
     {
       "id": "79",
-      "name": "Piano"
+      "name": "Piano",
+      "label_it": "Pianoforte"
     },
     {
       "id": "682",
-      "name": "Piano Duo"
+      "name": "Piano Duo",
+      "label_it": "Duo di pianoforti"
     },
     {
       "id": "683",
-      "name": "Piano Ensemble"
+      "name": "Piano Ensemble",
+      "label_it": "Formazione di pianoforti"
     },
     {
       "id": "684",
-      "name": "Piano Quartet"
+      "name": "Piano Quartet",
+      "label_it": "Quartetto di pianoforti"
     },
     {
       "id": "685",
-      "name": "Piano Quintet"
+      "name": "Piano Quintet",
+      "label_it": "Quintetto di pianoforti"
     },
     {
       "id": "687",
-      "name": "Piano Trio"
+      "name": "Piano Trio",
+      "label_it": "Trio di pianoforti"
     },
     {
       "id": "64",
-      "name": "Piccolo"
+      "name": "Piccolo",
+      "label_it": "Ottavino"
     },
     {
       "id": "689",
-      "name": "Piccolo Bass"
+      "name": "Piccolo Bass",
+      "label_it": "Basso piccolo"
     },
     {
       "id": "690",
-      "name": "Piccolo Trumpet"
+      "name": "Piccolo Trumpet",
+      "label_it": "Tromba piccola"
     },
     {
       "id": "691",
-      "name": "Pierrot Ensemble"
+      "name": "Pierrot Ensemble",
+      "label_it": "Formazione di strumenti della formazione Pierrot"
     },
     {
       "id": "692",
-      "name": "Pipa"
+      "name": "Pipa",
+      "label_it": "Pipa"
     },
     {
       "id": "693",
-      "name": "Pipe"
+      "name": "Pipe",
+      "label_it": "Canna sonora"
     },
     {
       "id": "694",
-      "name": "Pipe Ensemble"
+      "name": "Pipe Ensemble",
+      "label_it": "Formazione di canne sonore"
     },
     {
       "id": "695",
-      "name": "Pipe Organ"
+      "name": "Pipe Organ",
+      "label_it": "Organo a canne"
     },
     {
       "id": "696",
-      "name": "Pipes"
+      "name": "Pipes",
+      "label_it": "Canne sonore"
     },
     {
       "id": "697",
-      "name": "Playback Singer"
+      "name": "Playback Singer",
+      "label_it": "Cantante fuori campo"
     },
     {
       "id": "698",
-      "name": "Pocket Trumpet"
+      "name": "Pocket Trumpet",
+      "label_it": "Tromba tascabile"
     },
     {
       "id": "700",
-      "name": "Pops Orchestra"
+      "name": "Pops Orchestra",
+      "label_it": "Orchestra di musica leggera"
     },
     {
       "id": "702",
-      "name": "Portuguese Guitar"
+      "name": "Portuguese Guitar",
+      "label_it": "Chitarra portoghese"
     },
     {
       "id": "703",
-      "name": "Positive Organ"
+      "name": "Positive Organ",
+      "label_it": "Organo positivo"
     },
     {
       "id": "704",
-      "name": "Post Horn"
+      "name": "Post Horn",
+      "label_it": "Corno postale"
     },
     {
       "id": "711",
-      "name": "Prepared Piano"
+      "name": "Prepared Piano",
+      "label_it": "Pianoforte preparato"
     },
     {
       "id": "712",
-      "name": "Primera Voz"
+      "name": "Primera Voz",
+      "label_it": "Prima voce"
     },
     {
       "id": "109",
-      "name": "Programming"
+      "name": "Programming",
+      "label_it": "Programmazione"
     },
     {
       "id": "713",
-      "name": "Psaltery"
+      "name": "Psaltery",
+      "label_it": "Salterio"
     },
     {
       "id": "714",
-      "name": "Pump Organ"
+      "name": "Pump Organ",
+      "label_it": "Organo a pompa"
     },
     {
       "id": "715",
-      "name": "Rabab"
+      "name": "Rabab",
+      "label_it": "Rabab"
     },
     {
       "id": "716",
-      "name": "Radio Choir"
+      "name": "Radio Choir",
+      "label_it": "Coro radiofonico"
     },
     {
       "id": "717",
-      "name": "Radio Orchestra"
+      "name": "Radio Orchestra",
+      "label_it": "Orchestra radiofonica"
     },
     {
       "id": "718",
-      "name": "Ragga MC"
+      "name": "Ragga MC",
+      "label_it": "Ragga MC"
     },
     {
       "id": "110",
-      "name": "Rap"
+      "name": "Rap",
+      "label_it": "Rap"
     },
     {
       "id": "719",
-      "name": "Realization (figured bass)"
+      "name": "Realization (figured bass)",
+      "label_it": "Realizzazione del basso cifrato"
     },
     {
       "id": "720",
-      "name": "Rebec"
+      "name": "Rebec",
+      "label_it": "Ribeca"
     },
     {
       "id": "111",
-      "name": "Recorder"
+      "name": "Recorder",
+      "label_it": "Flauto dolce"
     },
     {
       "id": "722",
-      "name": "Recorder Ensemble"
+      "name": "Recorder Ensemble",
+      "label_it": "Formazione di flauti dolci"
     },
     {
       "id": "723",
-      "name": "Recorder Quartet"
+      "name": "Recorder Quartet",
+      "label_it": "Quartetto di flauti dolci"
     },
     {
       "id": "724",
-      "name": "Recorder Quintet"
+      "name": "Recorder Quintet",
+      "label_it": "Quintetto di flauti dolci"
     },
     {
       "id": "727",
-      "name": "Reed Organ"
+      "name": "Reed Organ",
+      "label_it": "Organo ad ancia"
     },
     {
       "id": "728",
-      "name": "Reeds"
+      "name": "Reeds",
+      "label_it": "Ance"
     },
     {
       "id": "731",
-      "name": "Renaissance Flute"
+      "name": "Renaissance Flute",
+      "label_it": "Flauto rinascimentale"
     },
     {
       "id": "732",
-      "name": "Renaissance Guitar"
+      "name": "Renaissance Guitar",
+      "label_it": "Chitarra rinascimentale"
     },
     {
       "id": "733",
-      "name": "Renaissance Music Chamber Choir"
+      "name": "Renaissance Music Chamber Choir",
+      "label_it": "Coro da camera di musica rinascimentale"
     },
     {
       "id": "734",
-      "name": "Renaissance Music Ensemble"
+      "name": "Renaissance Music Ensemble",
+      "label_it": "Formazione di musica rinascimentale"
     },
     {
       "id": "735",
-      "name": "Renaissance Music Quartet"
+      "name": "Renaissance Music Quartet",
+      "label_it": "Quartetto di musica rinascimentale"
     },
     {
       "id": "736",
-      "name": "Renaissance Music Wind Ensemble"
+      "name": "Renaissance Music Wind Ensemble",
+      "label_it": "Formazione di fiati di musica rinascimentale"
     },
     {
       "id": "737",
-      "name": "Repeater Drum"
+      "name": "Repeater Drum",
+      "label_it": "Tamburo repeater"
     },
     {
       "id": "738",
-      "name": "Requinto Guitar"
+      "name": "Requinto Guitar",
+      "label_it": "Chitarra requinto"
     },
     {
       "id": "739",
-      "name": "Requinto Jarocho"
+      "name": "Requinto Jarocho",
+      "label_it": "Requinto Jarocho"
     },
     {
       "id": "741",
-      "name": "Resonator Guitar"
+      "name": "Resonator Guitar",
+      "label_it": "Chitarra resofonica"
     },
     {
       "id": "24",
-      "name": "Rhodes Piano"
+      "name": "Rhodes Piano",
+      "label_it": "Pianoforte Rhodes"
     },
     {
       "id": "39",
-      "name": "Rhythm Guitar"
+      "name": "Rhythm Guitar",
+      "label_it": "Chitarra ritmica"
     },
     {
       "id": "743",
-      "name": "Rhythm Programming"
+      "name": "Rhythm Programming",
+      "label_it": "Programmazione ritmica"
     },
     {
       "id": "744",
-      "name": "Romantic Guitar"
+      "name": "Romantic Guitar",
+      "label_it": "Chitarra romantica"
     },
     {
       "id": "745",
-      "name": "Romantic Music Ensemble"
+      "name": "Romantic Music Ensemble",
+      "label_it": "Formazione di musica romantica"
     },
     {
       "id": "746",
-      "name": "Ruan"
+      "name": "Ruan",
+      "label_it": "Ruan"
     },
     {
       "id": "747",
-      "name": "Russian Folk Music Ensemble"
+      "name": "Russian Folk Music Ensemble",
+      "label_it": "Formazione di musica popolare russa"
     },
     {
       "id": "748",
-      "name": "Russian Guitar"
+      "name": "Russian Guitar",
+      "label_it": "Chitarra russa"
     },
     {
       "id": "749",
-      "name": "Sabar Ensemble"
+      "name": "Sabar Ensemble",
+      "label_it": "Formazione di tamburi sabar"
     },
     {
       "id": "750",
-      "name": "Sackbut"
+      "name": "Sackbut",
+      "label_it": "Sackbut"
     },
     {
       "id": "751",
-      "name": "Sacred Music Choir"
+      "name": "Sacred Music Choir",
+      "label_it": "Coro di musica sacra"
     },
     {
       "id": "752",
-      "name": "Sacred Music Ensemble"
+      "name": "Sacred Music Ensemble",
+      "label_it": "Formazione di musica sacra"
     },
     {
       "id": "112",
-      "name": "Sampled Artist"
+      "name": "Sampled Artist",
+      "label_it": "Artista campionato"
     },
     {
       "id": "753",
-      "name": "Sampler"
+      "name": "Sampler",
+      "label_it": "Campionatore"
     },
     {
       "id": "754",
-      "name": "Santur"
+      "name": "Santur",
+      "label_it": "Santur"
     },
     {
       "id": "755",
-      "name": "Sarangi"
+      "name": "Sarangi",
+      "label_it": "Sarangi"
     },
     {
       "id": "756",
-      "name": "Sarod"
+      "name": "Sarod",
+      "label_it": "Sarod"
     },
     {
       "id": "757",
-      "name": "Saxello"
+      "name": "Saxello",
+      "label_it": "Saxello"
     },
     {
       "id": "40",
-      "name": "Saxophone"
+      "name": "Saxophone",
+      "label_it": "Sassofono"
     },
     {
       "id": "759",
-      "name": "Saxophone Quartet"
+      "name": "Saxophone Quartet",
+      "label_it": "Quartetto di sassofoni"
     },
     {
       "id": "760",
-      "name": "Saxophone Quintet"
+      "name": "Saxophone Quintet",
+      "label_it": "Quintetto di sassofoni"
     },
     {
       "id": "764",
-      "name": "Scratches"
+      "name": "Scratches",
+      "label_it": "Graffi sonori sui dischi"
     },
     {
       "id": "765",
-      "name": "Screams"
+      "name": "Screams",
+      "label_it": "Urla"
     },
     {
       "id": "767",
-      "name": "Second Cello"
+      "name": "Second Cello",
+      "label_it": "Secondo violoncello"
     },
     {
       "id": "65",
-      "name": "Second Violin"
+      "name": "Second Violin",
+      "label_it": "Secondo violino"
     },
     {
       "id": "768",
-      "name": "Second Vocals"
+      "name": "Second Vocals",
+      "label_it": "Seconda voce"
     },
     {
       "id": "769",
-      "name": "Segunda Voz"
+      "name": "Segunda Voz",
+      "label_it": "Seconda voce"
     },
     {
       "id": "770",
-      "name": "Serpent"
+      "name": "Serpent",
+      "label_it": "Serpentone"
     },
     {
       "id": "772",
-      "name": "Shaker"
+      "name": "Shaker",
+      "label_it": "Sonaglio"
     },
     {
       "id": "773",
-      "name": "Shakuhachi"
+      "name": "Shakuhachi",
+      "label_it": "Shakuhachi"
     },
     {
       "id": "774",
-      "name": "Shamisen"
+      "name": "Shamisen",
+      "label_it": "Shamisen"
     },
     {
       "id": "775",
-      "name": "Shawm"
+      "name": "Shawm",
+      "label_it": "Ciaramella"
     },
     {
       "id": "776",
-      "name": "Shehnai"
+      "name": "Shehnai",
+      "label_it": "Shehnai"
     },
     {
       "id": "777",
-      "name": "Shekere"
+      "name": "Shekere",
+      "label_it": "Shekere"
     },
     {
       "id": "778",
-      "name": "Sheng"
+      "name": "Sheng",
+      "label_it": "Sheng"
     },
     {
       "id": "779",
-      "name": "Shō"
+      "name": "Shō",
+      "label_it": "Shō"
     },
     {
       "id": "780",
-      "name": "Shouts"
+      "name": "Shouts",
+      "label_it": "Grida"
     },
     {
       "id": "781",
-      "name": "Sistrum"
+      "name": "Sistrum",
+      "label_it": "Sistro"
     },
     {
       "id": "38",
-      "name": "Sitar"
+      "name": "Sitar",
+      "label_it": "Sitar"
     },
     {
       "id": "782",
-      "name": "Sleigh Bells"
+      "name": "Sleigh Bells",
+      "label_it": "Campanelli da slitta"
     },
     {
       "id": "783",
-      "name": "Slide Guitar"
+      "name": "Slide Guitar",
+      "label_it": "Chitarra con bottleneck"
     },
     {
       "id": "784",
-      "name": "Slide Trumpet"
+      "name": "Slide Trumpet",
+      "label_it": "Tromba a coulisse"
     },
     {
       "id": "785",
-      "name": "Slide Whistle"
+      "name": "Slide Whistle",
+      "label_it": "Fischietto a coulisse"
     },
     {
       "id": "786",
-      "name": "Snare Drum"
+      "name": "Snare Drum",
+      "label_it": "Rullante"
     },
     {
       "id": "787",
-      "name": "Solo"
+      "name": "Solo",
+      "label_it": "Solo"
     },
     {
       "id": "788",
-      "name": "Sopilka"
+      "name": "Sopilka",
+      "label_it": "Sopilka"
     },
     {
       "id": "789",
-      "name": "Sopranino Recorder"
+      "name": "Sopranino Recorder",
+      "label_it": "Flauto dolce sopranino"
     },
     {
       "id": "790",
-      "name": "Sopranino Saxophone"
+      "name": "Sopranino Saxophone",
+      "label_it": "Sassofono sopranino"
     },
     {
       "id": "791",
-      "name": "Soprano Clarinet"
+      "name": "Soprano Clarinet",
+      "label_it": "Clarinetto soprano"
     },
     {
       "id": "792",
-      "name": "Soprano Cornet"
+      "name": "Soprano Cornet",
+      "label_it": "Cornetta soprano"
     },
     {
       "id": "793",
-      "name": "Soprano Flute"
+      "name": "Soprano Flute",
+      "label_it": "Flauto soprano"
     },
     {
       "id": "794",
-      "name": "Soprano Recorder"
+      "name": "Soprano Recorder",
+      "label_it": "Flauto dolce soprano"
     },
     {
       "id": "44",
-      "name": "Soprano Saxophone"
+      "name": "Soprano Saxophone",
+      "label_it": "Sassofono soprano"
     },
     {
       "id": "18",
-      "name": "Soprano Solo"
+      "name": "Soprano Solo",
+      "label_it": "Solista soprano"
     },
     {
       "id": "795",
-      "name": "Soprano Trombone"
+      "name": "Soprano Trombone",
+      "label_it": "Trombone soprano"
     },
     {
       "id": "796",
-      "name": "Soprano Viola da Gamba"
+      "name": "Soprano Viola da Gamba",
+      "label_it": "Viola da gamba soprano"
     },
     {
       "id": "797",
-      "name": "Soprano Violin"
+      "name": "Soprano Violin",
+      "label_it": "Violino soprano"
     },
     {
       "id": "799",
-      "name": "Sound Effects"
+      "name": "Sound Effects",
+      "label_it": "Effetti sonori"
     },
     {
       "id": "801",
-      "name": "Sousaphone"
+      "name": "Sousaphone",
+      "label_it": "Susafono"
     },
     {
       "id": "802",
-      "name": "Speaker"
+      "name": "Speaker",
+      "label_it": "Voce parlante"
     },
     {
       "id": "804",
-      "name": "Spinet"
+      "name": "Spinet",
+      "label_it": "Spinetta"
     },
     {
       "id": "805",
-      "name": "Spoken Word"
+      "name": "Spoken Word",
+      "label_it": "Parlato"
     },
     {
       "id": "806",
-      "name": "Spoons"
+      "name": "Spoons",
+      "label_it": "Cucchiai"
     },
     {
       "id": "810",
-      "name": "Steel Drum"
+      "name": "Steel Drum",
+      "label_it": "Tamburo d’acciaio"
     },
     {
       "id": "43",
-      "name": "Steel Guitar"
+      "name": "Steel Guitar",
+      "label_it": "Chitarra hawaiana"
     },
     {
       "id": "811",
-      "name": "Streichmelodion"
+      "name": "Streichmelodion",
+      "label_it": "Streichmelodion"
     },
     {
       "id": "813",
-      "name": "String Conductor"
+      "name": "String Conductor",
+      "label_it": "Direttore degli archi"
     },
     {
       "id": "814",
-      "name": "String Ensemble"
+      "name": "String Ensemble",
+      "label_it": "Formazione di archi"
     },
     {
       "id": "815",
-      "name": "String Instrument"
+      "name": "String Instrument",
+      "label_it": "Strumento ad arco"
     },
     {
       "id": "816",
-      "name": "String Octet"
+      "name": "String Octet",
+      "label_it": "Ottetto di archi"
     },
     {
       "id": "817",
-      "name": "String Orchestra"
+      "name": "String Orchestra",
+      "label_it": "Orchestra di archi"
     },
     {
       "id": "818",
-      "name": "String Quartet"
+      "name": "String Quartet",
+      "label_it": "Quartetto di archi"
     },
     {
       "id": "819",
-      "name": "String Quintet"
+      "name": "String Quintet",
+      "label_it": "Quintetto di archi"
     },
     {
       "id": "820",
-      "name": "String Section"
+      "name": "String Section",
+      "label_it": "Sezione degli archi"
     },
     {
       "id": "821",
-      "name": "String Sextet"
+      "name": "String Sextet",
+      "label_it": "Sestetto di archi"
     },
     {
       "id": "822",
-      "name": "String Trio"
+      "name": "String Trio",
+      "label_it": "Trio di archi"
     },
     {
       "id": "823",
-      "name": "Strings"
+      "name": "Strings",
+      "label_it": "Archi"
     },
     {
       "id": "825",
-      "name": "Stritch"
+      "name": "Stritch",
+      "label_it": "Stritch"
     },
     {
       "id": "826",
-      "name": "Stroh Violin"
+      "name": "Stroh Violin",
+      "label_it": "Violino Stroh"
     },
     {
       "id": "827",
-      "name": "Studio Choir"
+      "name": "Studio Choir",
+      "label_it": "Coro di studio"
     },
     {
       "id": "828",
-      "name": "Studio Orchestra"
+      "name": "Studio Orchestra",
+      "label_it": "Orchestra di studio"
     },
     {
       "id": "832",
-      "name": "Stylophone"
+      "name": "Stylophone",
+      "label_it": "Stylophone"
     },
     {
       "id": "833",
-      "name": "Suona"
+      "name": "Suona",
+      "label_it": "Suona"
     },
     {
       "id": "834",
-      "name": "Surbahar"
+      "name": "Surbahar",
+      "label_it": "Surbahar"
     },
     {
       "id": "835",
-      "name": "Surdo"
+      "name": "Surdo",
+      "label_it": "Surdo"
     },
     {
       "id": "837",
-      "name": "Swing Music Band"
+      "name": "Swing Music Band",
+      "label_it": "Gruppo di musica swing"
     },
     {
       "id": "838",
-      "name": "Symphonic Band"
+      "name": "Symphonic Band",
+      "label_it": "Banda sinfonica"
     },
     {
       "id": "839",
-      "name": "Symphony Choir"
+      "name": "Symphony Choir",
+      "label_it": "Coro sinfonico"
     },
     {
       "id": "840",
-      "name": "Symphony Chorus"
+      "name": "Symphony Chorus",
+      "label_it": "Coro sinfonico"
     },
     {
       "id": "841",
-      "name": "Symphony Orchestra"
+      "name": "Symphony Orchestra",
+      "label_it": "Orchestra sinfonica"
     },
     {
       "id": "842",
-      "name": "Synclavier"
+      "name": "Synclavier",
+      "label_it": "Synclavier"
     },
     {
       "id": "843",
-      "name": "Synth Bass"
+      "name": "Synth Bass",
+      "label_it": "Basso sintetizzato"
     },
     {
       "id": "844",
-      "name": "Synth Guitar"
+      "name": "Synth Guitar",
+      "label_it": "Chitarra sintetizzata"
     },
     {
       "id": "845",
-      "name": "Synth Pads"
+      "name": "Synth Pads",
+      "label_it": "Tappeti sonori sintetizzati"
     },
     {
       "id": "846",
-      "name": "Synth Percussion"
+      "name": "Synth Percussion",
+      "label_it": "Percussioni sintetizzate"
     },
     {
       "id": "847",
-      "name": "Synth Strings"
+      "name": "Synth Strings",
+      "label_it": "Archi sintetizzati"
     },
     {
       "id": "113",
-      "name": "Synthesizer"
+      "name": "Synthesizer",
+      "label_it": "Sintetizzatore"
     },
     {
       "id": "848",
-      "name": "Synthesizer Programming"
+      "name": "Synthesizer Programming",
+      "label_it": "Programmazione del sintetizzatore"
     },
     {
       "id": "42",
-      "name": "Tabla"
+      "name": "Tabla",
+      "label_it": "Tabla"
     },
     {
       "id": "849",
-      "name": "Tabor"
+      "name": "Tabor",
+      "label_it": "Tabor"
     },
     {
       "id": "850",
-      "name": "Tafelklavier"
+      "name": "Tafelklavier",
+      "label_it": "Tafelklavier"
     },
     {
       "id": "851",
-      "name": "Taiko Drums"
+      "name": "Taiko Drums",
+      "label_it": "Tamburi taiko"
     },
     {
       "id": "852",
-      "name": "Talkbox"
+      "name": "Talkbox",
+      "label_it": "Talkbox"
     },
     {
       "id": "853",
-      "name": "Talking Drum"
+      "name": "Talking Drum",
+      "label_it": "Tamburo parlante"
     },
     {
       "id": "854",
-      "name": "Tamborim"
+      "name": "Tamborim",
+      "label_it": "Tamborim"
     },
     {
       "id": "855",
-      "name": "Tamboura"
+      "name": "Tamboura",
+      "label_it": "Tamboura"
     },
     {
       "id": "62",
-      "name": "Tambourine"
+      "name": "Tambourine",
+      "label_it": "Tamburello"
     },
     {
       "id": "856",
-      "name": "Tanbur"
+      "name": "Tanbur",
+      "label_it": "Tanbur"
     },
     {
       "id": "857",
-      "name": "Tango Ensemble"
+      "name": "Tango Ensemble",
+      "label_it": "Formazione di musica tango"
     },
     {
       "id": "858",
-      "name": "Tanpura"
+      "name": "Tanpura",
+      "label_it": "Tanpura"
     },
     {
       "id": "859",
-      "name": "Taonga Pūoro"
+      "name": "Taonga Pūoro",
+      "label_it": "Taonga Pūoro"
     },
     {
       "id": "860",
-      "name": "Tap Dancer"
+      "name": "Tap Dancer",
+      "label_it": "Ballerino di tip tap"
     },
     {
       "id": "861",
-      "name": "Tape"
+      "name": "Tape",
+      "label_it": "Nastro"
     },
     {
       "id": "865",
-      "name": "Tar"
+      "name": "Tar",
+      "label_it": "Tar"
     },
     {
       "id": "866",
-      "name": "Temple Blocks"
+      "name": "Temple Blocks",
+      "label_it": "Blocchetti sonori cavi"
     },
     {
       "id": "867",
-      "name": "Tenor Banjo"
+      "name": "Tenor Banjo",
+      "label_it": "Banjo tenore"
     },
     {
       "id": "868",
-      "name": "Tenor Drums"
+      "name": "Tenor Drums",
+      "label_it": "Tamburi tenori"
     },
     {
       "id": "869",
-      "name": "Tenor Guitar"
+      "name": "Tenor Guitar",
+      "label_it": "Chitarra tenore"
     },
     {
       "id": "870",
-      "name": "Tenor Horn"
+      "name": "Tenor Horn",
+      "label_it": "Flicorno tenore"
     },
     {
       "id": "871",
-      "name": "Tenor Recorder"
+      "name": "Tenor Recorder",
+      "label_it": "Flauto dolce tenore"
     },
     {
       "id": "872",
-      "name": "Tenor Sackbut"
+      "name": "Tenor Sackbut",
+      "label_it": "Trombone rinascimentale tenore"
     },
     {
       "id": "52",
-      "name": "Tenor Saxophone"
+      "name": "Tenor Saxophone",
+      "label_it": "Sassofono tenore"
     },
     {
       "id": "10",
-      "name": "Tenor Solo"
+      "name": "Tenor Solo",
+      "label_it": "Solista tenore"
     },
     {
       "id": "873",
-      "name": "Tenor Trombone"
+      "name": "Tenor Trombone",
+      "label_it": "Trombone tenore"
     },
     {
       "id": "874",
-      "name": "Tenor Viol"
+      "name": "Tenor Viol",
+      "label_it": "Viola da gamba tenore"
     },
     {
       "id": "875",
-      "name": "Tenor Viola da Gamba"
+      "name": "Tenor Viola da Gamba",
+      "label_it": "Viola da gamba tenore"
     },
     {
       "id": "876",
-      "name": "Tenor Violin"
+      "name": "Tenor Violin",
+      "label_it": "Violino tenore"
     },
     {
       "id": "878",
-      "name": "Theorbo"
+      "name": "Theorbo",
+      "label_it": "Tiorba"
     },
     {
       "id": "879",
-      "name": "Theremin"
+      "name": "Theremin",
+      "label_it": "Theremin"
     },
     {
       "id": "880",
-      "name": "Tibetan Bowls"
+      "name": "Tibetan Bowls",
+      "label_it": "Campane tibetane"
     },
     {
       "id": "78",
-      "name": "Timbales"
+      "name": "Timbales",
+      "label_it": "Timbales"
     },
     {
       "id": "54",
-      "name": "Timpani"
+      "name": "Timpani",
+      "label_it": "Timpani"
     },
     {
       "id": "881",
-      "name": "Tin Whistle"
+      "name": "Tin Whistle",
+      "label_it": "Fischietto di latta"
     },
     {
       "id": "882",
-      "name": "Toasting"
+      "name": "Toasting",
+      "label_it": "Canto parlato reggae"
     },
     {
       "id": "883",
-      "name": "Tom-Toms"
+      "name": "Tom-Toms",
+      "label_it": "Tamburi tom"
     },
     {
       "id": "885",
-      "name": "Toy Piano"
+      "name": "Toy Piano",
+      "label_it": "Pianoforte giocattolo"
     },
     {
       "id": "888",
-      "name": "Transverse Flute"
+      "name": "Transverse Flute",
+      "label_it": "Flauto traverso"
     },
     {
       "id": "889",
-      "name": "Trautonium"
+      "name": "Trautonium",
+      "label_it": "Trautonium"
     },
     {
       "id": "890",
-      "name": "Traverso"
+      "name": "Traverso",
+      "label_it": "Traverso"
     },
     {
       "id": "891",
-      "name": "Treble (Vocal)"
+      "name": "Treble (Vocal)",
+      "label_it": "Voce bianca acuta"
     },
     {
       "id": "892",
-      "name": "Treble Recorder"
+      "name": "Treble Recorder",
+      "label_it": "Flauto dolce contralto"
     },
     {
       "id": "893",
-      "name": "Treble Viola da Gamba"
+      "name": "Treble Viola da Gamba",
+      "label_it": "Viola da gamba soprano"
     },
     {
       "id": "894",
-      "name": "Treble Violin"
+      "name": "Treble Violin",
+      "label_it": "Violino acuto"
     },
     {
       "id": "895",
-      "name": "Tres"
+      "name": "Tres",
+      "label_it": "Tres"
     },
     {
       "id": "896",
-      "name": "Triangle"
+      "name": "Triangle",
+      "label_it": "Triangolo"
     },
     {
       "id": "33",
-      "name": "Trombone"
+      "name": "Trombone",
+      "label_it": "Trombone"
     },
     {
       "id": "897",
-      "name": "Trombone Quartet"
+      "name": "Trombone Quartet",
+      "label_it": "Quartetto di tromboni"
     },
     {
       "id": "29",
-      "name": "Trumpet"
+      "name": "Trumpet",
+      "label_it": "Tromba"
     },
     {
       "id": "899",
-      "name": "Trumpet Duo"
+      "name": "Trumpet Duo",
+      "label_it": "Duo di trombe"
     },
     {
       "id": "900",
-      "name": "Trumpet Ensemble"
+      "name": "Trumpet Ensemble",
+      "label_it": "Formazione di trombe"
     },
     {
       "id": "45",
-      "name": "Tuba"
+      "name": "Tuba",
+      "label_it": "Tuba"
     },
     {
       "id": "901",
-      "name": "Tuba Ensemble"
+      "name": "Tuba Ensemble",
+      "label_it": "Formazione di tube"
     },
     {
       "id": "902",
-      "name": "Tubular Bells"
+      "name": "Tubular Bells",
+      "label_it": "Campane tubolari"
     },
     {
       "id": "903",
-      "name": "Turntables"
+      "name": "Turntables",
+      "label_it": "Giradischi"
     },
     {
       "id": "904",
-      "name": "Txistu"
+      "name": "Txistu",
+      "label_it": "Txistu"
     },
     {
       "id": "907",
-      "name": "Udu"
+      "name": "Udu",
+      "label_it": "Udu"
     },
     {
       "id": "908",
-      "name": "Uilleann Pipes"
+      "name": "Uilleann Pipes",
+      "label_it": "Cornamusa irlandese uilleann"
     },
     {
       "id": "71",
-      "name": "Ukulele"
+      "name": "Ukulele",
+      "label_it": "Ukulele"
     },
     {
       "id": "26",
-      "name": "Upright Bass"
+      "name": "Upright Bass",
+      "label_it": "Contrabbasso"
     },
     {
       "id": "909",
-      "name": "Upright Piano"
+      "name": "Upright Piano",
+      "label_it": "Pianoforte verticale"
     },
     {
       "id": "910",
-      "name": "Valve Trombone"
+      "name": "Valve Trombone",
+      "label_it": "Trombone a pistoni"
     },
     {
       "id": "911",
-      "name": "Veena"
+      "name": "Veena",
+      "label_it": "Veena"
     },
     {
       "id": "912",
-      "name": "Vibes"
+      "name": "Vibes",
+      "label_it": "Vibrafono"
     },
     {
       "id": "913",
-      "name": "Vibraphone"
+      "name": "Vibraphone",
+      "label_it": "Vibrafono"
     },
     {
       "id": "914",
-      "name": "Vibraslap"
+      "name": "Vibraslap",
+      "label_it": "Vibraslap"
     },
     {
       "id": "920",
-      "name": "Vielle"
+      "name": "Vielle",
+      "label_it": "Viella"
     },
     {
       "id": "921",
-      "name": "Vihuela"
+      "name": "Vihuela",
+      "label_it": "Vihuela"
     },
     {
       "id": "922",
-      "name": "Viol"
+      "name": "Viol",
+      "label_it": "Viola da gamba"
     },
     {
       "id": "923",
-      "name": "Viol Consort"
+      "name": "Viol Consort",
+      "label_it": "Formazione di viole da gamba"
     },
     {
       "id": "69",
-      "name": "Viola"
+      "name": "Viola",
+      "label_it": "Viola"
     },
     {
       "id": "924",
-      "name": "Viola d'Amore"
+      "name": "Viola d'Amore",
+      "label_it": "Viola d’amore"
     },
     {
       "id": "925",
-      "name": "Viola da Gamba"
+      "name": "Viola da Gamba",
+      "label_it": "Viola da Gamba"
     },
     {
       "id": "926",
-      "name": "Viola da Gamba Ensemble"
+      "name": "Viola da Gamba Ensemble",
+      "label_it": "Formazione di viole da gamba"
     },
     {
       "id": "114",
-      "name": "Viola de Gamba"
+      "name": "Viola de Gamba",
+      "label_it": "Viola da gamba"
     },
     {
       "id": "927",
-      "name": "Viola Quartet"
+      "name": "Viola Quartet",
+      "label_it": "Quartetto di viole"
     },
     {
       "id": "928",
-      "name": "Violetta"
+      "name": "Violetta",
+      "label_it": "Violetta"
     },
     {
       "id": "57",
-      "name": "Violin"
+      "name": "Violin",
+      "label_it": "Violino"
     },
     {
       "id": "929",
-      "name": "Violin Duo"
+      "name": "Violin Duo",
+      "label_it": "Duo di violini"
     },
     {
       "id": "930",
-      "name": "Violin Ensemble"
+      "name": "Violin Ensemble",
+      "label_it": "Formazione di violini"
     },
     {
       "id": "931",
-      "name": "Violoncello"
+      "name": "Violoncello",
+      "label_it": "Violoncello"
     },
     {
       "id": "932",
-      "name": "Violone"
+      "name": "Violone",
+      "label_it": "Violone"
     },
     {
       "id": "933",
-      "name": "Violone Grosso"
+      "name": "Violone Grosso",
+      "label_it": "Violone Grosso"
     },
     {
       "id": "934",
-      "name": "Virginal"
+      "name": "Virginal",
+      "label_it": "Virginale"
     },
     {
       "id": "936",
-      "name": "Vocal Conductor"
+      "name": "Vocal Conductor",
+      "label_it": "Direttore vocale"
     },
     {
       "id": "937",
-      "name": "Vocal Director"
+      "name": "Vocal Director",
+      "label_it": "Direttore delle voci"
     },
     {
       "id": "938",
-      "name": "Vocal Duo"
+      "name": "Vocal Duo",
+      "label_it": "Duo di voci"
     },
     {
       "id": "939",
-      "name": "Vocal Effects"
+      "name": "Vocal Effects",
+      "label_it": "Effetti vocali"
     },
     {
       "id": "12",
-      "name": "Vocal Ensemble"
+      "name": "Vocal Ensemble",
+      "label_it": "Formazione di voci"
     },
     {
       "id": "942",
-      "name": "Vocal Programming"
+      "name": "Vocal Programming",
+      "label_it": "Programmazione vocale"
     },
     {
       "id": "943",
-      "name": "Vocal Quartet"
+      "name": "Vocal Quartet",
+      "label_it": "Quartetto di voci"
     },
     {
       "id": "13",
-      "name": "Vocal Solo"
+      "name": "Vocal Solo",
+      "label_it": "Solista vocale"
     },
     {
       "id": "945",
-      "name": "Vocal Trio"
+      "name": "Vocal Trio",
+      "label_it": "Trio di voci"
     },
     {
       "id": "946",
-      "name": "Vocaloid"
+      "name": "Vocaloid",
+      "label_it": "Vocaloid"
     },
     {
       "id": "115",
-      "name": "Vocals"
+      "name": "Vocals",
+      "label_it": "Voce"
     },
     {
       "id": "947",
-      "name": "Vocoder"
+      "name": "Vocoder",
+      "label_it": "Vocoder"
     },
     {
       "id": "949",
-      "name": "Washboard"
+      "name": "Washboard",
+      "label_it": "Asse da bucato a percussione"
     },
     {
       "id": "116",
-      "name": "Whistle"
+      "name": "Whistle",
+      "label_it": "Fischietto"
     },
     {
       "id": "950",
-      "name": "Whistling"
+      "name": "Whistling",
+      "label_it": "Fischio"
     },
     {
       "id": "952",
-      "name": "Wind Chimes"
+      "name": "Wind Chimes",
+      "label_it": "Campanelle a vento"
     },
     {
       "id": "953",
-      "name": "Wind Ensemble"
+      "name": "Wind Ensemble",
+      "label_it": "Formazione di fiati"
     },
     {
       "id": "954",
-      "name": "Wind Instrument"
+      "name": "Wind Instrument",
+      "label_it": "Strumento a fiato"
     },
     {
       "id": "955",
-      "name": "Wind Octet"
+      "name": "Wind Octet",
+      "label_it": "Ottetto di fiati"
     },
     {
       "id": "956",
-      "name": "Wind Orchestra"
+      "name": "Wind Orchestra",
+      "label_it": "Orchestra di fiati"
     },
     {
       "id": "957",
-      "name": "Wind Quartet"
+      "name": "Wind Quartet",
+      "label_it": "Quartetto di fiati"
     },
     {
       "id": "958",
-      "name": "Wind Quintet"
+      "name": "Wind Quintet",
+      "label_it": "Quintetto di fiati"
     },
     {
       "id": "959",
-      "name": "Wind Trio"
+      "name": "Wind Trio",
+      "label_it": "Trio di fiati"
     },
     {
       "id": "960",
-      "name": "Women's Choir"
+      "name": "Women's Choir",
+      "label_it": "Coro femminile"
     },
     {
       "id": "961",
-      "name": "Wood Block"
+      "name": "Wood Block",
+      "label_it": "Blocchetto di legno"
     },
     {
       "id": "962",
-      "name": "Wood Flute"
+      "name": "Wood Flute",
+      "label_it": "Flauto di legno"
     },
     {
       "id": "963",
-      "name": "Wood Recorder"
+      "name": "Wood Recorder",
+      "label_it": "Flauto dolce di legno"
     },
     {
       "id": "964",
-      "name": "Wood Whistle"
+      "name": "Wood Whistle",
+      "label_it": "Fischietto di legno"
     },
     {
       "id": "966",
-      "name": "Woodwind Ensemble"
+      "name": "Woodwind Ensemble",
+      "label_it": "Formazione di legni"
     },
     {
       "id": "967",
-      "name": "Woodwind Instrument"
+      "name": "Woodwind Instrument",
+      "label_it": "Strumento della famiglia dei legni"
     },
     {
       "id": "968",
-      "name": "Woodwind Quintet"
+      "name": "Woodwind Quintet",
+      "label_it": "Quintetto di legni"
     },
     {
       "id": "969",
-      "name": "Woodwinds"
+      "name": "Woodwinds",
+      "label_it": "Legni"
     },
     {
       "id": "970",
-      "name": "Worship Leader"
+      "name": "Worship Leader",
+      "label_it": "Responsabile del canto liturgico"
     },
     {
       "id": "972",
-      "name": "Wurlitzer Piano"
+      "name": "Wurlitzer Piano",
+      "label_it": "Pianoforte Wurlitzer"
     },
     {
       "id": "117",
-      "name": "Xylophone"
+      "name": "Xylophone",
+      "label_it": "Xilofono"
     },
     {
       "id": "973",
-      "name": "Xylorimba"
+      "name": "Xylorimba",
+      "label_it": "Xilorimba"
     },
     {
       "id": "974",
-      "name": "Yangqin"
+      "name": "Yangqin",
+      "label_it": "Yangqin"
     },
     {
       "id": "975",
-      "name": "Yokobue"
+      "name": "Yokobue",
+      "label_it": "Yokobue"
     },
     {
       "id": "976",
-      "name": "Youth Choir"
+      "name": "Youth Choir",
+      "label_it": "Coro giovanile"
     },
     {
       "id": "977",
-      "name": "Youth Orchestra"
+      "name": "Youth Orchestra",
+      "label_it": "Orchestra giovanile"
     },
     {
       "id": "978",
-      "name": "Zarb"
+      "name": "Zarb",
+      "label_it": "Zarb"
     },
     {
       "id": "979",
-      "name": "Zhongdi"
+      "name": "Zhongdi",
+      "label_it": "Zhongdi"
     },
     {
       "id": "980",
-      "name": "Zhonghu"
+      "name": "Zhonghu",
+      "label_it": "Zhonghu"
     },
     {
       "id": "981",
-      "name": "Zhongruan"
+      "name": "Zhongruan",
+      "label_it": "Zhongruan"
     },
     {
       "id": "982",
-      "name": "Zither"
+      "name": "Zither",
+      "label_it": "Cetra"
     }
   ],
   "writers": [
     {
       "id": "80",
-      "name": "Composer"
+      "name": "Composer",
+      "label_it": "Compositore"
     },
     {
       "id": "88",
-      "name": "Lyricist"
+      "name": "Lyricist",
+      "label_it": "Autore del testo"
     },
     {
       "id": "84",
-      "name": "Songwriter"
+      "name": "Songwriter",
+      "label_it": "Autore e compositore"
     },
     {
       "id": "102",
-      "name": "Adapter"
+      "name": "Adapter",
+      "label_it": "Adattatore"
     },
     {
       "id": "151",
-      "name": "Adapter (Religious Text)"
+      "name": "Adapter (Religious Text)",
+      "label_it": "Adattatore di testo religioso"
     },
     {
       "id": "152",
-      "name": "Adapter (Traditional Text)"
+      "name": "Adapter (Traditional Text)",
+      "label_it": "Adattatore di testo tradizionale"
     },
     {
       "id": "95",
-      "name": "Arranger"
+      "name": "Arranger",
+      "label_it": "Arrangiatore"
     },
     {
       "id": "175",
-      "name": "Arranger (Traditional)"
+      "name": "Arranger (Traditional)",
+      "label_it": "Arrangiatore di musica tradizionale"
     },
     {
       "id": "177",
-      "name": "Assistant Arranger"
+      "name": "Assistant Arranger",
+      "label_it": "Assistente all’arrangiamento"
     },
     {
       "id": "246",
-      "name": "Based on the Work of"
+      "name": "Based on the Work of",
+      "label_it": "Opera basata sul lavoro di"
     },
     {
       "id": "282",
-      "name": "Book"
+      "name": "Book",
+      "label_it": "Autore del libro"
     },
     {
       "id": "288",
-      "name": "Brass Arranger"
+      "name": "Brass Arranger",
+      "label_it": "Arrangiatore degli ottoni"
     },
     {
       "id": "304",
-      "name": "Cadenza"
+      "name": "Cadenza",
+      "label_it": "Cadenza"
     },
     {
       "id": "335",
-      "name": "Choir Arranger"
+      "name": "Choir Arranger",
+      "label_it": "Arrangiatore del coro"
     },
     {
       "id": "340",
-      "name": "Chorus Arranger"
+      "name": "Chorus Arranger",
+      "label_it": "Arrangiatore delle parti corali"
     },
     {
       "id": "358",
-      "name": "Co-Arranger"
+      "name": "Co-Arranger",
+      "label_it": "Coarrangiatore"
     },
     {
       "id": "359",
-      "name": "Co-Composer"
+      "name": "Co-Composer",
+      "label_it": "Cocompositore"
     },
     {
       "id": "364",
-      "name": "Composition Ascribed to"
+      "name": "Composition Ascribed to",
+      "label_it": "Composizione attribuita a"
     },
     {
       "id": "383",
-      "name": "Copyist"
+      "name": "Copyist",
+      "label_it": "Copista"
     },
     {
       "id": "538",
-      "name": "Horn Arranger"
+      "name": "Horn Arranger",
+      "label_it": "Arrangiatore dei corni"
     },
     {
       "id": "567",
-      "name": "Keyboard Arranger"
+      "name": "Keyboard Arranger",
+      "label_it": "Arrangiatore delle tastiere"
     },
     {
       "id": "97",
-      "name": "Librettist"
+      "name": "Librettist",
+      "label_it": "Librettista"
     },
     {
       "id": "584",
-      "name": "Libretto Editing"
+      "name": "Libretto Editing",
+      "label_it": "Revisione del libretto"
     },
     {
       "id": "651",
-      "name": "Orchestrator"
+      "name": "Orchestrator",
+      "label_it": "Orchestratore"
     },
     {
       "id": "655",
-      "name": "Original Arranger"
+      "name": "Original Arranger",
+      "label_it": "Arrangiatore originale"
     },
     {
       "id": "672",
-      "name": "Percussion Arranger"
+      "name": "Percussion Arranger",
+      "label_it": "Arrangiatore delle percussioni"
     },
     {
       "id": "699",
-      "name": "Poetry"
+      "name": "Poetry",
+      "label_it": "Autore della poesia"
     },
     {
       "id": "721",
-      "name": "Reconstruction"
+      "name": "Reconstruction",
+      "label_it": "Ricostruzione"
     },
     {
       "id": "742",
-      "name": "Revision"
+      "name": "Revision",
+      "label_it": "Revisione"
     },
     {
       "id": "758",
-      "name": "Saxophone Arranger"
+      "name": "Saxophone Arranger",
+      "label_it": "Arrangiatore dei sassofoni"
     },
     {
       "id": "761",
-      "name": "Score Editor"
+      "name": "Score Editor",
+      "label_it": "Revisore della partitura"
     },
     {
       "id": "762",
-      "name": "Score Preparation"
+      "name": "Score Preparation",
+      "label_it": "Preparazione della partitura"
     },
     {
       "id": "766",
-      "name": "Screenwriter"
+      "name": "Screenwriter",
+      "label_it": "Sceneggiatore"
     },
     {
       "id": "812",
-      "name": "String Arranger"
+      "name": "String Arranger",
+      "label_it": "Arrangiatore degli archi"
     },
     {
       "id": "877",
-      "name": "Text"
+      "name": "Text",
+      "label_it": "Autore del testo"
     },
     {
       "id": "99",
-      "name": "Transcriber"
+      "name": "Transcriber",
+      "label_it": "Trascrittore"
     },
     {
       "id": "887",
-      "name": "Translation"
+      "name": "Translation",
+      "label_it": "Traduzione"
     },
     {
       "id": "898",
-      "name": "Trumpet Arranger"
+      "name": "Trumpet Arranger",
+      "label_it": "Arrangiatore delle trombe"
     },
     {
       "id": "94",
-      "name": "Vocal Adaptation"
+      "name": "Vocal Adaptation",
+      "label_it": "Adattamento vocale"
     },
     {
       "id": "935",
-      "name": "Vocal Arranger"
+      "name": "Vocal Arranger",
+      "label_it": "Arrangiatore delle voci"
     },
     {
       "id": "951",
-      "name": "Wind Arranger"
+      "name": "Wind Arranger",
+      "label_it": "Arrangiatore dei fiati"
     },
     {
       "id": "965",
-      "name": "Woodwind Arranger"
+      "name": "Woodwind Arranger",
+      "label_it": "Arrangiatore dei legni"
     },
     {
       "id": "971",
-      "name": "Writer"
+      "name": "Writer",
+      "label_it": "Autore"
     }
   ]
 }

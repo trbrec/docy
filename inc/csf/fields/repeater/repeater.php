@@ -22,7 +22,7 @@ if ( ! class_exists( 'CSF_Field_repeater' ) ) {
         'button_title' => '<i class="fas fa-plus-circle"></i>',
       ) );
 
-      if ( preg_match( '/'. preg_quote( '['. $this->field['id'] .']' ) .'/', $this->unique ) ) {
+      if ( preg_match( '/'. preg_quote( '['. $this->field['id'] .']', '/' ) .'/', $this->unique ) ) {
 
         echo '<div class="csf-notice csf-notice-danger">'. esc_html__( 'Error: Field ID conflict.', 'docy' ) .'</div>';
 

@@ -60,10 +60,8 @@ class Docy_register_theme {
 	}
 
 	/**
-	 * [init_hooks description]
-	 * @method init_hooks
-	 *
-	 * @return [type]     [description]
+	 * Register license notices for the current administration page.
+	 * @return void
 	 */
 	public function init_hooks() {
 
@@ -129,16 +127,6 @@ class Docy_register_theme {
 	 * since 1.0.0
 	 */
 	function form() {
-		$purchase_code_status = trim( get_option( 'docy_purchase_code_status' ) );
-		$strings              = $this->strings;
-		if ( $purchase_code_status == 'valid' ) {
-			$type = 'password';
-		} else {
-			$type = 'text';
-		}
-		$license = trim( get_option( $this->theme_slug . '_purchase_code' ) );
-		$email   = get_option( $this->theme_slug . '_register_email', false );
-		$status  = get_option( $this->theme_slug . '_purchase_code_status', false );
 		$purchase_code_status = get_option('docy_purchase_code_status');
 		$license = get_option('docy_purchase_code');
 		$button_text = ($purchase_code_status === 'valid') ? 'Reset License' : 'Verify License';
@@ -163,7 +151,7 @@ class Docy_register_theme {
 		register_setting(
 			$this->theme_slug . '-license',
 			$this->theme_slug . '_purchase_code',
-			array( $this, 'sanitize_license' )
+			array( 'sanitize_callback' => 'sanitize_text_field' )
 		);
 		register_setting(
 			$this->theme_slug . '-license',
@@ -183,7 +171,13 @@ class Docy_register_theme {
 		}
 
 		// Decode the JSON response
+		if ( ! isset( $r['body'] ) || ! is_array( $r['body'] ) || ! isset( $r['body']['themes'] ) || ! is_string( $r['body']['themes'] ) ) {
+			return $r;
+		}
 		$themes = json_decode( $r['body']['themes'] );
+		if ( ! is_object( $themes ) || ! isset( $themes->themes ) || ! is_object( $themes->themes ) ) {
+			return $r;
+		}
 		// Remove the active parent and child themes from the check
 		$parent = get_option( 'template' );
 		$child  = get_option( 'stylesheet' );

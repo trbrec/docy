@@ -20,8 +20,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-global $product;
-
 ?>
 <span class="stock <?php echo esc_attr( $class ); ?>">
     <?php echo $product->is_in_stock() ? '<i class=" icon_box-checked"></i>' : ''; ?>

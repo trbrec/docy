@@ -1,8 +1,15 @@
 <?php
 $opt = get_option('docy_opt' );
-$cats = get_the_terms(get_the_ID(), 'category' );
+if ( ! in_array( $opt['is_related_posts'] ?? null, array( '1', 1, true, 1.0 ), true ) ) {
+    return;
+}
+
+$current_post_id = get_the_ID();
+$cats = get_the_terms($current_post_id, 'category' );
+if ( ! is_array( $cats ) || empty( $cats ) ) {
+    return;
+}
 $cat_ids = wp_list_pluck($cats,'term_id' );
-$is_related = !empty($opt['is_related_posts']) ? $opt['is_related_posts'] : '';
 $related_post_count = !empty($opt['related_posts_count']) ? $opt['related_posts_count'] : 3;
 $posts = new WP_Query( array(
     'post_type' => 'post',
@@ -15,11 +22,12 @@ $posts = new WP_Query( array(
         )),
     'posts_per_page' => $related_post_count,
     'ignore_sticky_posts' => 1,
+    'no_found_rows' => true,
     'orderby' => 'rand',
-    'post__not_in' => array($post->ID)
+    'post__not_in' => array($current_post_id)
 ));
 
-if ( $is_related == '1' && $posts->have_posts() ) :
+if ( $posts->have_posts() ) :
     ?>
     <div class="blog_related_post">
         <?php

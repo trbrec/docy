@@ -452,10 +452,6 @@ function trb_resource_usage_reserve( $data ) {
 	$wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO $table (provider,service,period_key,idempotency_key,release_id,track_index,file_hash,units,cost_max,cost_estimated,status,provider_reference,attempts,payload,created_at,updated_at) VALUES (%s,%s,%s,%s,%d,%d,%s,%f,%f,%f,%s,%s,%d,%s,%s,%s)", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$data['provider'], $data['service'], $data['period_key'], $data['idempotency_key'], $data['release_id'], $data['track_index'], $data['file_hash'], $data['units'], $data['cost_max'], $data['cost_estimated'], $data['status'], $data['provider_reference'], $data['attempts'], $data['payload'], $data['created_at'], $data['updated_at'] ) );
 	$id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE idempotency_key=%s", $data['idempotency_key'] ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	if ( 'acrcloud' === $data['provider'] ) {
-		$stats = trb_resource_acr_stats();
-		trb_resource_acr_thresholds( isset( $stats['cost_max'] ) ? (float) $stats['cost_max'] : 0, (float) trb_resource_settings()['acr_monthly_budget'] );
-	}
 	return $id;
 }
 

@@ -1,0 +1,17 @@
+{
+  "revision": "b45aa1d0b868235ed7098c97149145d674ec5c6b",
+  "tag": "eabb4c1dd15e80e6",
+  "archive_sha256": "7cc0c903d0c57b6353b15a5a19cbd597480712ab63cac13793e2af71f7dd353f",
+  "archive_bytes": 485440,
+  "file_count": 53,
+  "baseline_revision": "d8896feaedaeeb3b37f99cd6b71f7e24a3eb476a",
+  "baseline_manifest_sha256": "537423888e722517e2779c86eb291b34bf5a6ffcce0c926f76c1be85369de02f",
+  "changed_paths": [
+    "app/OnboardingAdmin.php",
+    "app/OnboardingContractCatalog.php",
+    "app/OnboardingIdentity.php",
+    "app/OnboardingLedger.php",
+    "app/OnboardingPolicy.php",
+    "app/OnboardingService.php"
+  ]
+}

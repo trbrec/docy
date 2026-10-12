@@ -170,8 +170,8 @@ if ( !class_exists('ThemeUpdateChecker') ):
         /**
          * Insert the latest update (if any) into the update list maintained by WP.
          *
-         * @param StdClass $updates Update list.
-         * @return array Modified update list.
+         * @param mixed $updates Site transient value; false when no value is stored.
+         * @return mixed The update list, or the original non-object transient value.
          */
         public function injectUpdate($updates){
             $state = get_option($this->optionName);
@@ -262,7 +262,7 @@ if ( !class_exists('ThemeUpdate') ):
          * Create a new instance of ThemeUpdate from its JSON-encoded representation.
          *
          * @param string $json Valid JSON string representing a theme information object.
-         * @return ThemeUpdate New instance of ThemeUpdate, or NULL on error.
+         * @return ThemeUpdate|null New instance of ThemeUpdate, or NULL on error.
          */
         public static function fromJson($json){
             $apiResponse = json_decode($json);
@@ -270,16 +270,19 @@ if ( !class_exists('ThemeUpdate') ):
                 return null;
             }
 
-            //Very, very basic validation.
-            $valid = isset($apiResponse->version) && !empty($apiResponse->version) && isset($apiResponse->details_url) && !empty($apiResponse->details_url);
+            // Remote metadata must be safe for version comparison and WP rendering.
+            $valid = isset($apiResponse->version, $apiResponse->details_url)
+                && is_string($apiResponse->version) && '' !== trim($apiResponse->version)
+                && is_string($apiResponse->details_url) && '' !== trim($apiResponse->details_url)
+                && (!isset($apiResponse->du) || is_string($apiResponse->du));
             if ( !$valid ){
                 return null;
             }
 
             $update = new self();
-            foreach(get_object_vars($apiResponse) as $key => $value){
-                $update->$key = $value;
-            }
+            $update->version = $apiResponse->version;
+            $update->details_url = $apiResponse->details_url;
+            $update->du = $apiResponse->du ?? null;
 
             return $update;
         }

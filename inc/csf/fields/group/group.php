@@ -31,12 +31,12 @@ if ( ! class_exists( 'CSF_Field_group' ) ) {
       $title_prefix    = ( ! empty( $args['accordion_title_prefix'] ) ) ? $args['accordion_title_prefix'] : '';
       $title_number    = ( ! empty( $args['accordion_title_number'] ) ) ? true : false;
       $title_auto      = ( ! empty( $args['accordion_title_auto'] ) ) ? true : false;
-      $title_first     = ( isset( $this->field['fields'][0]['id'] ) ) ? $this->field['fields'][0]['id'] : $this->field['fields'][1]['id'];
+      $title_first     = $this->field['fields'][0]['id'] ?? $this->field['fields'][1]['id'] ?? '';
       $title_by        = ( is_array( $args['accordion_title_by'] ) ) ? $args['accordion_title_by'] : (array) $args['accordion_title_by'];
       $title_by        = ( empty( $title_by ) ) ? array( $title_first ) : $title_by;
       $title_by_prefix = ( ! empty( $args['accordion_title_by_prefix'] ) ) ? $args['accordion_title_by_prefix'] : '';
 
-      if ( preg_match( '/'. preg_quote( '['. $this->field['id'] .']' ) .'/', $this->unique ) ) {
+      if ( preg_match( '/'. preg_quote( '['. $this->field['id'] .']', '/' ) .'/', $this->unique ) ) {
 
         echo '<div class="csf-notice csf-notice-danger">'. esc_html__( 'Error: Field ID conflict.', 'docy' ) .'</div>';
 
@@ -61,7 +61,7 @@ if ( ! class_exists( 'CSF_Field_group' ) ) {
           echo '</h4>';
 
           echo '<div class="csf-cloneable-content">';
-          foreach ( $this->field['fields'] as $field ) {
+          foreach ( $args['fields'] as $field ) {
 
             $field_default = ( isset( $field['default'] ) ) ? $field['default'] : '';
             $field_unique  = ( ! empty( $this->unique ) ) ? $this->unique .'['. $this->field['id'] .'][0]' : $this->field['id'] .'[0]';
@@ -97,8 +97,6 @@ if ( ! class_exists( 'CSF_Field_group' ) ) {
 
             }
 
-            $title = ( is_array( $title ) ) ? reset( $title ) : $title;
-
             echo '<div class="csf-cloneable-item">';
 
               echo '<div class="csf-cloneable-helper">';
@@ -117,7 +115,7 @@ if ( ! class_exists( 'CSF_Field_group' ) ) {
 
               echo '<div class="csf-cloneable-content">';
 
-              foreach ( $this->field['fields'] as $field ) {
+              foreach ( $args['fields'] as $field ) {
 
                 $field_unique = ( ! empty( $this->unique ) ) ? $this->unique .'['. $this->field['id'] .']['. $num .']' : $this->field['id'] .'['. $num .']';
                 $field_value  = ( isset( $field['id'] ) && isset( $value[$field['id']] ) ) ? $value[$field['id']] : '';

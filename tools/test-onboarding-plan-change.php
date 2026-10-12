@@ -9,8 +9,8 @@ function change_fixture(Closure $merchant):array{
  $snapshot=OnboardingContractCatalog::model('ddb_ccad_600')+['unsigned_document_sha256'=>str_repeat('a',64),'first_name'=>'Mario','last_name'=>'Rossi','email'=>'artist@example.invalid','artist_folder_id'=>'synthetic-private-folder','contract_number'=>'SYNTHETIC-ONLY'];
  $created=$ledger->create(1,$snapshot,gmdate('c',time()+86400));$id=$created['id'];
  $ledger->saveDetails($id,['billing'=>['address_1'=>'Via QA 1'],'tax_code'=>'RSSMRA90A01H501W','privacy_acknowledged_at'=>gmdate('c')]);
- foreach(['identity_front','tax_front'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>'synthetic-'.$i,'folder_id'=>'synthetic-private-folder','hash'=>'synthetic-'.$i]);
- $ledger->recordIdentity($id,['legible'=>true,'first_name'=>'Mario','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_legible'=>true,'tax_first_name'=>'Mario','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W'],'2026-10-03');
+ foreach(['identity_front','identity_back','tax_front','tax_back'] as $i=>$slot)$ledger->recordFile($id,$slot,['file_id'=>'synthetic-'.$i,'folder_id'=>'synthetic-private-folder','hash'=>'synthetic-'.$i]);
+ $ledger->recordIdentity($id,['identity_back_document'=>true,'identity_sides_consistent'=>true,'tax_back_document'=>true,'tax_sides_consistent'=>true,'legible'=>true,'first_name'=>'Mario','last_name'=>'Rossi','birth_date'=>'1990-01-01','expiry_date'=>'2090-01-01','tax_legible'=>true,'tax_first_name'=>'Mario','tax_last_name'=>'Rossi','tax_birth_date'=>'1990-01-01','tax_code'=>'RSSMRA90A01H501W'],'2026-10-03');
  $noExternal=static function(){throw new RuntimeException('Unexpected synthetic signature call');};
  return [$ledger,new OnboardingService($ledger,new stdClass,new stdClass,$merchant,$noExternal),$id,$db,$snapshot];
 }

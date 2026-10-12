@@ -8,6 +8,7 @@ function good_fields():array{return ['identity_document'=>true,'tax_document'=>t
 function identity_fixture():array{
     $db=new PDO('sqlite::memory:');$db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$ledger=new OnboardingLedger($db);$ledger->install();
     $snapshot=OnboardingContractCatalog::model('ddb_ccad_600')+['unsigned_document_sha256'=>str_repeat('a',64),'first_name'=>'Mario','last_name'=>'Rossi','artist_name'=>'Synthetic','email'=>'synthetic@example.invalid','artist_folder_id'=>'synthetic-archive','contract_number'=>'SYNTHETIC-DDB-600'];
+    unset($snapshot['identity_document_sides']); // Historical issued proposal: only the two fronts.
     $id=$ledger->create(1,$snapshot,gmdate('c',time()+86400))['id'];
     $archive=new class{public int $reads=0;public bool $fail=false;public function identityDocument($file){$this->reads++;if($this->fail)throw new RuntimeException('Synthetic private archive outage');return ['mime'=>'image/png','data'=>'synthetic-only','name'=>$file['name']];}};
     $reader=new class{public int $calls=0;public array $fields=[];public bool $fail=false;public ?Closure $during=null;public function extract($docs){$this->calls++;identity_check(array_column($docs,'slot')===['identity_front','tax_front'],'Only requested fronts extracted');if($this->during)($this->during)();if($this->fail)throw new RuntimeException('Synthetic temporary reader failure');return $this->fields;}};$reader->fields=good_fields();

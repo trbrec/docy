@@ -36,7 +36,7 @@ function trb_crm_connector_table() {
 
 function trb_crm_connector_install() {
 	global $wpdb;
-	if ( TRB_CRM_CONNECTOR_SCHEMA === get_option( 'trb_crm_connector_schema' ) ) return;
+	if ( TRB_CRM_CONNECTOR_SCHEMA === get_option( 'trb_crm_connector_schema' ) ) return true;
 	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 	$table = trb_crm_connector_table();
 	$charset = $wpdb->get_charset_collate();
@@ -61,10 +61,15 @@ function trb_crm_connector_install() {
 		KEY delivery_queue (status,next_attempt_at,id),
 		KEY entity_lookup (entity_type,external_id,id)
 	) {$charset};" );
+	// dbDelta returns descriptions even when a DDL statement failed: inspect the result.
+	$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+	$required = array( 'id', 'event_id', 'entity_type', 'external_id', 'operation', 'entity_version', 'payload', 'payload_hash', 'status', 'attempts', 'next_attempt_at', 'last_http_code', 'last_error', 'created_at', 'acknowledged_at' );
+	if ( ! is_array( $columns ) || array_diff( $required, $columns ) ) return false;
 	update_option( 'trb_crm_connector_schema', TRB_CRM_CONNECTOR_SCHEMA, false );
 	if ( false === get_option( 'trb_crm_bootstrap_state', false ) ) {
 		update_option( 'trb_crm_bootstrap_state', array( 'phase' => 'artists', 'artist_page' => 1, 'demo_page' => 1, 'complete' => false ), false );
 	}
+	return true;
 }
 add_action( 'init', 'trb_crm_connector_install', 2 );
 
@@ -82,7 +87,17 @@ add_action( 'init', 'trb_crm_connector_schedule', 20 );
 function trb_crm_connector_version() {
 	global $wpdb;
 	$micros = (int) floor( microtime( true ) * 1000000 );
-	return max( $micros, (int) get_option( 'trb_crm_last_entity_version', 0 ) + 1 );
+	// MySQL serializes this unique option row across independent PHP processes.
+	$initialized = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name,option_value,autoload) VALUES (%s,'0','off')", 'trb_crm_last_entity_version' ) );
+	if ( false === $initialized ) return false;
+	// Allocate in UPDATE: the first INSERT has an unrelated AUTO_INCREMENT option_id.
+	$written = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value=LAST_INSERT_ID(GREATEST(CAST(option_value AS UNSIGNED)+1,%d)),autoload='off' WHERE option_name=%s", $micros, 'trb_crm_last_entity_version' ) );
+	if ( false === $written || $written < 1 ) return false;
+	$version = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' );
+	wp_cache_delete( 'trb_crm_last_entity_version', 'options' );
+	wp_cache_delete( 'alloptions', 'options' );
+	wp_cache_delete( 'notoptions', 'options' );
+	return $version >= $micros ? $version : false;
 }
 
 function trb_crm_connector_clean( $value, $depth = 0 ) {
@@ -152,33 +167,37 @@ function trb_crm_connector_demo_payload( $request_id ) {
 
 function trb_crm_connector_queue( $entity_type, $external_id, $payload = null, $operation = 'upsert' ) {
 	global $wpdb;
-	trb_crm_connector_install();
+	if ( ! trb_crm_connector_install() ) return false;
 	$entity_type = sanitize_key( $entity_type );
 	$external_id = sanitize_text_field( (string) $external_id );
-	if ( ! in_array( $entity_type, array( 'artist', 'demo' ), true ) || '' === $external_id ) return false;
+	if ( ! in_array( $entity_type, array( 'artist', 'demo' ), true ) || '' === $external_id || strlen( $external_id ) > 120 || ! in_array( $operation, array( 'upsert', 'delete' ), true ) ) return false;
 	if ( null === $payload && 'delete' !== $operation ) {
 		if ( 'artist' === $entity_type ) $payload = trb_crm_connector_profile_payload( absint( $external_id ) );
 		else $payload = trb_crm_connector_demo_payload( absint( $external_id ) );
 	}
-	if ( null === $payload ) return false;
-	$version = trb_crm_connector_version();
-	update_option( 'trb_crm_last_entity_version', $version, false );
+	if ( ! is_array( $payload ) ) return false;
 	$payload_json = wp_json_encode( trb_crm_connector_clean( $payload ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+	if ( ! is_string( $payload_json ) ) return false;
+	$version = trb_crm_connector_version();
+	if ( false === $version ) return false;
 	$hash = hash( 'sha256', (string) $payload_json );
 	$event_id = hash( 'sha256', implode( '|', array( TRB_CRM_CONNECTOR_SOURCE, $entity_type, $external_id, $operation, $version, $hash ) ) );
-	// Keep the audit trail but deliver only the newest unsent snapshot for an
-	// entity. A demo processing step can update many post-meta rows in one request.
-	$wpdb->query( $wpdb->prepare( "UPDATE " . trb_crm_connector_table() . " SET status='superseded' WHERE entity_type=%s AND external_id=%s AND status IN ('queued','retry')", $entity_type, $external_id ) );
 	$inserted = $wpdb->insert( trb_crm_connector_table(), array(
 		'event_id' => $event_id, 'entity_type' => $entity_type, 'external_id' => $external_id,
 		'operation' => $operation, 'entity_version' => $version, 'payload' => $payload_json,
 		'payload_hash' => $hash, 'status' => 'queued', 'attempts' => 0,
 		'next_attempt_at' => current_time( 'mysql', true ), 'created_at' => current_time( 'mysql', true ),
 	), array( '%s','%s','%s','%s','%d','%s','%s','%s','%d','%s','%s' ) );
-	return false !== $inserted;
+	if ( false === $inserted ) return false;
+	// Never retire a deliverable event before its replacement is durable.
+	// The version condition also preserves a newer concurrent snapshot.
+	$wpdb->query( $wpdb->prepare( "UPDATE " . trb_crm_connector_table() . " SET status='superseded' WHERE entity_type=%s AND external_id=%s AND entity_version<%d AND status IN ('queued','retry')", $entity_type, $external_id, $version ) );
+	return true;
 }
 
-function trb_crm_connector_profile_saved( $user_id ) { trb_crm_connector_queue( 'artist', $user_id ); }
+function trb_crm_connector_profile_saved( $user_id ) {
+	if ( trb_crm_connector_queue( 'artist', $user_id ) ) unset( $GLOBALS['trb_crm_connector_dirty_profiles'][ $user_id ] );
+}
 add_action( 'trb_portal_artist_profile_saved', 'trb_crm_connector_profile_saved', 50 );
 add_action( 'user_register', 'trb_crm_connector_profile_saved', 50 );
 add_action( 'profile_update', 'trb_crm_connector_profile_saved', 50 );
@@ -229,12 +248,16 @@ function trb_crm_connector_bootstrap( $limit = 50 ) {
 	if ( 'artists' === $phase ) {
 		$page = max( 1, absint( isset( $state['artist_page'] ) ? $state['artist_page'] : 1 ) );
 		$users = get_users( array( 'number' => $limit, 'paged' => $page, 'fields' => 'ids', 'orderby' => 'ID', 'order' => 'ASC' ) );
-		foreach ( $users as $user_id ) trb_crm_connector_queue( 'artist', $user_id );
+		foreach ( $users as $user_id ) {
+			if ( ! trb_crm_connector_queue( 'artist', $user_id ) ) return $state;
+		}
 		if ( count( $users ) < $limit ) { $state['phase'] = 'demos'; $state['demo_page'] = 1; } else $state['artist_page'] = $page + 1;
 	} else {
 		$page = max( 1, absint( isset( $state['demo_page'] ) ? $state['demo_page'] : 1 ) );
 		$ids = get_posts( array( 'post_type' => 'trb_request', 'post_status' => 'any', 'posts_per_page' => $limit, 'paged' => $page, 'fields' => 'ids', 'meta_key' => '_trb_demo_payload', 'orderby' => 'ID', 'order' => 'ASC' ) );
-		foreach ( $ids as $id ) trb_crm_connector_queue( 'demo', $id );
+		foreach ( $ids as $id ) {
+			if ( ! trb_crm_connector_queue( 'demo', $id ) ) return $state;
+		}
 		if ( count( $ids ) < $limit ) { $state['complete'] = true; $state['phase'] = 'complete'; $state['completed_at'] = current_time( 'mysql', true ); } else $state['demo_page'] = $page + 1;
 	}
 	update_option( 'trb_crm_bootstrap_state', $state, false );
@@ -260,17 +283,21 @@ function trb_crm_connector_deliver( $limit = 50 ) {
 	$code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
 	$decoded = is_wp_error( $response ) ? null : json_decode( wp_remote_retrieve_body( $response ), true );
 	$ack = array();
-	if ( is_array( $decoded ) && ! empty( $decoded['results'] ) ) foreach ( $decoded['results'] as $result ) if ( ! empty( $result['event_id'] ) && in_array( $result['status'], array( 'applied','duplicate','stale' ), true ) ) $ack[ $result['event_id'] ] = true;
+	if ( $code >= 200 && $code < 300 && is_array( $decoded ) && isset( $decoded['results'] ) && is_array( $decoded['results'] ) ) {
+		foreach ( $decoded['results'] as $result ) {
+			if ( is_array( $result ) && isset( $result['event_id'], $result['status'] ) && is_string( $result['event_id'] ) && is_string( $result['status'] ) && in_array( $result['status'], array( 'applied','duplicate','stale' ), true ) ) $ack[ $result['event_id'] ] = true;
+		}
+	}
 	$sent = 0;
 	foreach ( $rows as $row ) {
 		if ( isset( $ack[ $row['event_id'] ] ) ) {
-			$wpdb->update( $table, array( 'status' => 'acknowledged', 'attempts' => (int) $row['attempts'] + 1, 'last_http_code' => $code, 'last_error' => null, 'acknowledged_at' => current_time( 'mysql', true ) ), array( 'id' => (int) $row['id'] ) );
-			$sent++;
+			$updated = $wpdb->update( $table, array( 'status' => 'acknowledged', 'attempts' => (int) $row['attempts'] + 1, 'last_http_code' => $code, 'last_error' => null, 'acknowledged_at' => current_time( 'mysql', true ) ), array( 'id' => (int) $row['id'], 'status' => $row['status'] ) );
+			if ( $updated > 0 ) $sent++;
 		} else {
 			$attempts = (int) $row['attempts'] + 1;
 			$delay = min( 6 * HOUR_IN_SECONDS, 5 * MINUTE_IN_SECONDS * ( 2 ** min( 6, $attempts - 1 ) ) );
-			$error = is_wp_error( $response ) ? $response->get_error_message() : ( is_array( $decoded ) && ! empty( $decoded['error'] ) ? $decoded['error'] : 'HTTP ' . $code . ': conferma evento mancante' );
-			$wpdb->update( $table, array( 'status' => 'retry', 'attempts' => $attempts, 'last_http_code' => $code, 'last_error' => mb_substr( $error, 0, 1000 ), 'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() + $delay ) ), array( 'id' => (int) $row['id'] ) );
+			$error = is_wp_error( $response ) ? $response->get_error_message() : ( is_array( $decoded ) && isset( $decoded['error'] ) && is_string( $decoded['error'] ) && '' !== $decoded['error'] ? $decoded['error'] : 'HTTP ' . $code . ': conferma evento mancante' );
+			$wpdb->update( $table, array( 'status' => 'retry', 'attempts' => $attempts, 'last_http_code' => $code, 'last_error' => mb_substr( $error, 0, 1000 ), 'next_attempt_at' => gmdate( 'Y-m-d H:i:s', time() + $delay ) ), array( 'id' => (int) $row['id'], 'status' => $row['status'] ) );
 		}
 	}
 	update_option( 'trb_crm_connector_last_run', array( 'at' => current_time( 'mysql', true ), 'http_code' => $code, 'batch_id' => $batch_id, 'selected' => count( $rows ), 'acknowledged' => $sent ), false );
@@ -278,10 +305,10 @@ function trb_crm_connector_deliver( $limit = 50 ) {
 }
 
 function trb_crm_connector_tick() {
-	if ( get_transient( 'trb_crm_connector_lock' ) ) return;
-	set_transient( 'trb_crm_connector_lock', 1, 4 * MINUTE_IN_SECONDS );
+	$lock = trb_release_process_lock( 'crm-connector-tick' );
+	if ( ! $lock ) return;
 	try { trb_crm_connector_bootstrap( 50 ); trb_crm_connector_deliver( 50 ); }
-	finally { delete_transient( 'trb_crm_connector_lock' ); }
+	finally { trb_release_process_unlock( $lock ); }
 }
 add_action( 'trb_crm_connector_tick', 'trb_crm_connector_tick' );
 
@@ -301,7 +328,11 @@ function trb_crm_connector_table_exists() {
 	return $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
 }
 
+function trb_crm_connector_health_permission() {
+	return current_user_can( 'manage_options' );
+}
+
 function trb_crm_connector_health_route() {
-	register_rest_route( 'trb/v1', '/crm-sync-health', array( 'methods' => WP_REST_Server::READABLE, 'callback' => function() { return rest_ensure_response( trb_crm_connector_health() ); }, 'permission_callback' => '__return_true' ) );
+	register_rest_route( 'trb/v1', '/crm-sync-health', array( 'methods' => WP_REST_Server::READABLE, 'callback' => function() { return rest_ensure_response( trb_crm_connector_health() ); }, 'permission_callback' => 'trb_crm_connector_health_permission' ) );
 }
 add_action( 'rest_api_init', 'trb_crm_connector_health_route' );

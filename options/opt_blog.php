@@ -421,7 +421,7 @@ CSF::createSection( 'docy_opt', array(
 			'subtitle'   => esc_html__( 'The title text displayed in the rating box.', 'docy' ),
 			'id'         => 'article_rating_title',
 			'type'       => 'text',
-			'default'    => esc_html__( 'Rate the article', 'docy' ),
+			'default'    => esc_html__( 'Valuta l’articolo', 'docy' ),
 			'dependency' => array( 'is_article_rating', '==', '1' ),
 		),
 
@@ -430,7 +430,7 @@ CSF::createSection( 'docy_opt', array(
 			'subtitle'   => esc_html__( 'The message displayed after a user submits their rating.', 'docy' ),
 			'id'         => 'article_rating_thank_you',
 			'type'       => 'text',
-			'default'    => esc_html__( 'Thank you for rating this article!', 'docy' ),
+			'default'    => esc_html__( 'Grazie per aver votato questo articolo!', 'docy' ),
 			'dependency' => array( 'is_article_rating', '==', '1' ),
 		),
 

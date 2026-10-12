@@ -36,6 +36,31 @@
          * Buy Now Button Functionality
          * Adds product to cart and redirects to checkout
          */
+
+        function buyNow($button, data) {
+            if ($button.data('buy-now-pending')) return;
+            $button.data('buy-now-pending', true).prop('disabled', true).addClass('loading');
+            function failed(response) {
+                $button.data('buy-now-pending', false).prop('disabled', false).removeClass('loading');
+                var message = response && response.data && response.data.message;
+                alert(typeof message === 'string' && message ? message : 'Impossibile aggiungere il prodotto al carrello. Riprova.');
+            }
+            $.ajax({
+                url: docy_buy_now_params.ajax_url,
+                type: 'POST',
+                dataType: 'json',
+                timeout: 20000,
+                data: data,
+                success: function(response) {
+                    if (response && response.success === true && response.data && typeof response.data.message === 'string') {
+                        window.location.href = docy_buy_now_params.checkout_url;
+                    } else {
+                        failed(response);
+                    }
+                },
+                error: function(xhr) { failed(xhr && xhr.responseJSON); }
+            });
+        }
         
         // Handle Buy Now for Simple Products
         $('.buy_now_btn:not(.buy_now_variable)').on('click', function(e) {
@@ -46,32 +71,11 @@
             var $form = $button.closest('form.cart');
             var quantity = $form.find('input.qty').val() || 1;
             
-            // Disable button and show loading
-            $button.prop('disabled', true).addClass('loading');
-            
-            // Add to cart via AJAX
-            $.ajax({
-                url: docy_buy_now_params.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'docy_buy_now_add_to_cart',
-                    product_id: productId,
-                    quantity: quantity,
-                    nonce: docy_buy_now_params.nonce
-                },
-                success: function(response) {
-                    if (response.success) {
-                        // Redirect to checkout
-                        window.location.href = docy_buy_now_params.checkout_url;
-                    } else {
-                        $button.prop('disabled', false).removeClass('loading');
-                        alert(response.data.message || 'Something went wrong. Please try again.');
-                    }
-                },
-                error: function() {
-                    $button.prop('disabled', false).removeClass('loading');
-                    alert('Something went wrong. Please try again.');
-                }
+            buyNow($button, {
+                action: 'docy_buy_now_add_to_cart',
+                product_id: productId,
+                quantity: quantity,
+                nonce: docy_buy_now_params.nonce
             });
         });
         
@@ -80,6 +84,7 @@
             e.preventDefault();
             
             var $button = $(this);
+            if ($button.data('buy-now-pending')) return;
             var $form = $button.closest('form.variations_form');
             var productId = $form.find('input[name="product_id"]').val();
             var variationId = $form.find('input[name="variation_id"]').val();
@@ -87,12 +92,9 @@
             
             // Check if variation is selected
             if (!variationId || variationId === '0') {
-                alert('Please select product options before buying.');
+                alert('Seleziona le opzioni del prodotto prima di acquistare.');
                 return;
             }
-            
-            // Disable button and show loading
-            $button.prop('disabled', true).addClass('loading');
             
             // Get variation data
             var variationData = {};
@@ -102,30 +104,13 @@
             });
             
             // Add to cart via AJAX
-            $.ajax({
-                url: docy_buy_now_params.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'docy_buy_now_add_to_cart',
-                    product_id: productId,
-                    quantity: quantity,
-                    variation_id: variationId,
-                    variation: variationData,
-                    nonce: docy_buy_now_params.nonce
-                },
-                success: function(response) {
-                    if (response.success) {
-                        // Redirect to checkout
-                        window.location.href = docy_buy_now_params.checkout_url;
-                    } else {
-                        $button.prop('disabled', false).removeClass('loading');
-                        alert(response.data.message || 'Something went wrong. Please try again.');
-                    }
-                },
-                error: function() {
-                    $button.prop('disabled', false).removeClass('loading');
-                    alert('Something went wrong. Please try again.');
-                }
+            buyNow($button, {
+                action: 'docy_buy_now_add_to_cart',
+                product_id: productId,
+                quantity: quantity,
+                variation_id: variationId,
+                variation: variationData,
+                nonce: docy_buy_now_params.nonce
             });
         });
         
@@ -135,35 +120,24 @@
          * Increment and decrement quantity in product single page and cart page
          */
         
-        // Increase quantity
-        if ($(".ar_top").length) {
-            $(".ar_top").on("click", function () {
-                var getID = $(this).next().attr("id");
-                var result = document.getElementById(getID);
-                var qty = result.value;
-                $(".woocommerce-cart .update-cart").removeAttr("disabled");
-                if (!isNaN(qty)) {
-                    result.value++;
-                    $(".cart_btn.ajax_add_to_cart").attr("data-quantity", result.value);
-                } else {
-                    return false;
-                }
-            });
-
-            // Decrease quantity
-            $(".ar_down").on("click", function () {
-                var getID = $(this).prev().attr("id");
-                var result = document.getElementById(getID);
-                var qty = result.value;
-                $(".woocommerce-cart .update-cart").removeAttr("disabled");
-                if (!isNaN(qty) && qty > 0) {
-                    result.value--;
-                    $(".cart_btn.ajax_add_to_cart").attr("data-quantity", result.value);
-                } else {
-                    return false;
-                }
-            });
-        }
+        $(document).on('click', '.ar_top, .ar_down', function () {
+            var input = $(this).closest('.product-qty').find('input.qty')[0];
+            if (!input || input.disabled || input.readOnly || input.type === 'hidden') return;
+            var previous = input.value;
+            var increasing = $(this).hasClass('ar_top');
+            if (input.type === 'number' && input.step !== 'any') {
+                try { increasing ? input.stepUp() : input.stepDown(); } catch (error) { return; }
+            } else {
+                var value = Number(input.value);
+                var step = Number(input.step) || 1;
+                if (!Number.isFinite(value) || step <= 0) return;
+                var next = Number((value + (increasing ? step : -step)).toFixed(10));
+                if (input.min !== '') next = Math.max(next, Number(input.min));
+                if (input.max !== '') next = Math.min(next, Number(input.max));
+                input.value = String(next);
+            }
+            if (input.value !== previous) $(input).trigger('input').trigger('change');
+        });
         
     });
     

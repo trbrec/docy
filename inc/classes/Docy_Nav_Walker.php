@@ -20,25 +20,18 @@ class Docy_Nav_Walker extends Walker_Nav_Menu {
      * @access public
      * @param mixed $output Passed by reference. Used to append additional content.
      * @param int   $depth (default: 0) Depth of page. Used for padding.
-     * @param array $args (default: array()) Arguments.
+     * @param stdClass|null $args Menu arguments supplied by WordPress.
      * @return void
      */
-    public function start_lvl( &$output, $depth = 0, $args = [] ) {
+    public function start_lvl( &$output, $depth = 0, $args = null ) {
         $indent = str_repeat( "\t", $depth );
-        if ( 0 === $depth ) {
+        if ( $depth < 2 ) {
             $output .= '<i class="arrow_carrot-down_alt2 mobile_dropdown_icon"></i>';
-            $output .= "\n$indent<ul role=\"menu\" class=\" dropdown-menu menu-depth-2nd\" >\n";
         }
-        if ( 1 === $depth ) {
-            $output .= '<i class="arrow_carrot-down_alt2 mobile_dropdown_icon"></i>';
-            $output .= ''."\n$indent<ul role=\"menu\" class=\" dropdown-menu dropdown-submenu menu-depth-3rd\" >\n";
-        }
-        if ( 2 === $depth ) {
-            $output .= "\n$indent<ul role=\"menu\" class=\" dropdown-menu dropdown-submenu menu-depth-4th\" >\n";
-        }
-        if ( 3 === $depth ) {
-            $output .= "\n$indent<ul role=\"menu\" class=\" dropdown-menu dropdown-submenu menu-depth-5th\" >\n";
-        }
+        $level = $depth + 2;
+        $suffix = 2 === $level ? 'nd' : ( 3 === $level ? 'rd' : 'th' );
+        $classes = 'dropdown-menu' . ( $depth > 0 ? ' dropdown-submenu' : '' ) . ' menu-depth-' . $level . $suffix;
+        $output .= "\n$indent<ul role=\"menu\" class=\" " . esc_attr( $classes ) . "\" >\n";
     }
 
     /**
@@ -51,11 +44,11 @@ class Docy_Nav_Walker extends Walker_Nav_Menu {
      * @param mixed $output Passed by reference. Used to append additional content.
      * @param mixed $item Menu item data object.
      * @param int   $depth (default: 0) Depth of menu item. Used for padding.
-     * @param array $args (default: array()) Arguments.
+     * @param stdClass|null $args Menu arguments supplied by WordPress.
      * @param int   $id (default: 0) Menu item ID.
      * @return void
      */
-    public function start_el( &$output, $item, $depth = 0, $args = [], $id = 0 ) {
+    public function start_el( &$output, $item, $depth = 0, $args = null, $id = 0 ) {
 
         $menu_description       = '';
         $is_description         = '';
@@ -74,9 +67,6 @@ class Docy_Nav_Walker extends Walker_Nav_Menu {
                 $menu_image = '<img src="' . esc_url( $image_url ) . '" alt="' . esc_attr( $item->title ) . '" class="menu-item-image" />';
             }
         }
-
-        $url = $item->url;
-        $url_hash = strpos($url, '#' );
 
         $indent = ( $depth ) ? str_repeat( "\t", $depth ) : '';       
         $value = '';
@@ -139,10 +129,7 @@ class Docy_Nav_Walker extends Walker_Nav_Menu {
         }
         $item_output = $args->before;
 
-        if ( ! empty( $item->attr_title ) )
-            $item_output .= '<a'. $attributes .'>';
-        else
-            $item_output .= '<a'. $attributes .'>';
+        $item_output .= '<a'. $attributes .'>';
 
         // Output image if exists
         $item_output .= $menu_image;
@@ -159,7 +146,7 @@ class Docy_Nav_Walker extends Walker_Nav_Menu {
             $item_output .= '</span>';
         }
 
-        $item_output .= ( $args->has_children && $depth > 0 &&  $depth < 3  ) ? ' <span class="arrow_carrot-right"></span></a>' : esc_attr( $item->attr_title ) . '</a>';
+        $item_output .= ( $args->has_children && $depth > 0 &&  $depth < 3  ) ? ' <span class="arrow_carrot-right"></span></a>' : '</a>';
         $item_output .= $args->after;
         $output      .= apply_filters( 'walker_nav_menu_start_el', $item_output, $item, $depth, $args );
     }
@@ -183,7 +170,7 @@ class Docy_Nav_Walker extends Walker_Nav_Menu {
      * @param mixed $depth Depth of current element.
      * @param mixed $args Arguments.
      * @param mixed $output Passed by reference. Used to append additional content.
-     * @return null Null on failure with no changes to parameters.
+     * @return void
      */
     public function display_element( $element, &$children_elements, $max_depth, $depth, $args, &$output ) {
         if ( ! $element ) {

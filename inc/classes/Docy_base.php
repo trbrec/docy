@@ -10,24 +10,22 @@ if ( !class_exists( 'Docy_base' ) ) :
     class Docy_base {
 
         /**
-         * [add_action description]
-         * @method add_action
-         * @param  [type]     $hook            [description]
-         * @param  [type]     $function_to_add [description]
-         * @param  integer    $priority        [description]
-         * @param  integer    $accepted_args   [description]
+         * Register a method on this instance as an action callback.
+         * @param string $hook Action name.
+         * @param string $function_to_add Method name.
+         * @param int $priority Callback priority.
+         * @param int $accepted_args Number of accepted arguments.
          */
         public function add_action( $hook, $function_to_add, $priority = 10, $accepted_args = 1 ) {
             add_action( $hook, array( &$this, $function_to_add ), $priority, $accepted_args );
         }
 
         /**
-         * [add_filter description]
-         * @method add_filter
-         * @param  [type]     $tag             [description]
-         * @param  [type]     $function_to_add [description]
-         * @param  integer    $priority        [description]
-         * @param  integer    $accepted_args   [description]
+         * Register a method on this instance as a filter callback.
+         * @param string $tag Filter name.
+         * @param string $function_to_add Method name.
+         * @param int $priority Callback priority.
+         * @param int $accepted_args Number of accepted arguments.
          */
         public function add_filter( $tag, $function_to_add, $priority = 10, $accepted_args = 1 ) {
             add_filter( $tag, array( &$this, $function_to_add ), $priority, $accepted_args );

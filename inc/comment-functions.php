@@ -134,7 +134,7 @@ function docy_get_comment_markup( $comment, array $args = [], int $depth = 1, bo
 		[
 			'style'     => 'ul',
 			'max_depth' => (int) get_option( 'thread_comments_depth', 5 ),
-			'reply_text' => esc_html__( 'Reply', 'docy' ),
+			'reply_text' => esc_html__( 'Rispondi', 'docy' ),
 		]
 	);
 
@@ -157,7 +157,7 @@ function docy_get_comment_markup( $comment, array $args = [], int $depth = 1, bo
 					<div class="comment_date meta sep"> <?php echo esc_html( get_comment_date( get_option( 'date_format' ), $comment ) ); ?> </div>
 				</div>
 				<?php if ( '0' === $comment->comment_approved ) : ?>
-					<em class="comment-awaiting-moderation"> <?php esc_html_e( 'Your comment is awaiting moderation.', 'docy' ); ?></em><br />
+					<em class="comment-awaiting-moderation"> <?php esc_html_e( 'Il tuo commento è in attesa di moderazione.', 'docy' ); ?></em><br />
 				<?php endif; ?>
 				<div class="comment-txt editor-content">
 					<?php comment_text( $comment ); ?>
@@ -168,7 +168,7 @@ function docy_get_comment_markup( $comment, array $args = [], int $depth = 1, bo
 						array_merge(
 							$args,
 							[
-								'reply_text' => esc_html__( 'Reply', 'docy' ) . '<i class="' . esc_attr( $arrow_icon ) . '"></i>',
+								'reply_text' => esc_html__( 'Rispondi', 'docy' ) . '<i class="' . esc_attr( $arrow_icon ) . '"></i>',
 								'depth'      => $depth,
 								'max_depth'  => $args['max_depth'],
 							]
@@ -179,7 +179,7 @@ function docy_get_comment_markup( $comment, array $args = [], int $depth = 1, bo
 					if ( $can_edit ) :
 						?>
 						<button type="button" class="docy-comment-edit-link" data-comment-id="<?php echo esc_attr( $comment->comment_ID ); ?>">
-							<i class="icon_pencil-edit" aria-hidden="true"></i><?php esc_html_e( 'Edit', 'docy' ); ?>
+							<i class="icon_pencil-edit" aria-hidden="true"></i><?php esc_html_e( 'Modifica', 'docy' ); ?>
 						</button>
 						<textarea class="docy-comment-edit-source" hidden><?php echo esc_textarea( $comment->comment_content ); ?></textarea>
 						<?php
@@ -231,12 +231,12 @@ function docy_render_comment_open( $comment, int $depth, array $args, bool $has_
  */
 function docy_ajax_post_comment(): void {
 	if ( ! docy_is_ajax_comments_enabled() ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Comments are not available right now.', 'docy' ) ], 400 );
+		wp_send_json_error( [ 'message' => esc_html__( 'I commenti non sono disponibili al momento.', 'docy' ) ], 400 );
 	}
 
 	// Verify nonce for security.
-	if ( ! isset( $_POST['docy_comment_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['docy_comment_nonce'] ) ), 'docy_ajax_comment' ) ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Security check failed. Please refresh the page and try again.', 'docy' ) ], 403 );
+	if ( ! isset( $_POST['docy_comment_nonce'] ) || ! is_string( $_POST['docy_comment_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['docy_comment_nonce'] ) ), 'docy_ajax_comment' ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Verifica di sicurezza non riuscita. Ricarica la pagina e riprova.', 'docy' ) ], 403 );
 	}
 
 	// wp_handle_comment_submission() expects unslashed data and performs all
@@ -248,7 +248,7 @@ function docy_ajax_post_comment(): void {
 	if ( is_wp_error( $comment ) ) {
 		$error_message = $comment->get_error_message();
 		if ( '' === $error_message ) {
-			$error_message = esc_html__( 'An error occurred while posting your comment.', 'docy' );
+			$error_message = esc_html__( 'Impossibile pubblicare il commento. Riprova.', 'docy' );
 		}
 
 		// Never leak internal codes/traces; return the safe, human-readable message only.
@@ -291,8 +291,8 @@ function docy_ajax_post_comment(): void {
 			'count'        => $count,
 			'count_text'   => $count_text,
 			'message'      => ( '1' === $approved )
-				? esc_html__( 'Your comment has been posted.', 'docy' )
-				: esc_html__( 'Thanks! Your comment is awaiting moderation.', 'docy' ),
+				? esc_html__( 'Il tuo commento è stato pubblicato.', 'docy' )
+				: esc_html__( 'Grazie! Il tuo commento è in attesa di moderazione.', 'docy' ),
 		]
 	);
 }
@@ -310,26 +310,27 @@ add_action( 'wp_ajax_nopriv_docy_post_comment', 'docy_ajax_post_comment' );
  */
 function docy_ajax_edit_comment(): void {
 	// Verify nonce for security.
-	if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'docy_edit_comment' ) ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Security check failed. Please refresh the page and try again.', 'docy' ) ], 403 );
+	if ( ! isset( $_POST['nonce'] ) || ! is_string( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'docy_edit_comment' ) ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Verifica di sicurezza non riuscita. Ricarica la pagina e riprova.', 'docy' ) ], 403 );
 	}
 
-	$comment_id = isset( $_POST['comment_id'] ) ? absint( $_POST['comment_id'] ) : 0;
+	$raw_id     = $_POST['comment_id'] ?? '';
+	$comment_id = is_string( $raw_id ) && ctype_digit( $raw_id ) ? filter_var( $raw_id, FILTER_VALIDATE_INT, [ 'options' => [ 'min_range' => 1 ] ] ) : 0;
 	$comment    = $comment_id ? get_comment( $comment_id ) : null;
 
 	if ( ! $comment instanceof WP_Comment ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Comment not found.', 'docy' ) ], 404 );
+		wp_send_json_error( [ 'message' => esc_html__( 'Commento non trovato.', 'docy' ) ], 404 );
 	}
 
 	// Capability / ownership check.
 	if ( ! docy_user_can_edit_comment( $comment ) ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'You are not allowed to edit this comment.', 'docy' ) ], 403 );
+		wp_send_json_error( [ 'message' => esc_html__( 'Non puoi modificare questo commento.', 'docy' ) ], 403 );
 	}
 
-	$raw_content = isset( $_POST['comment_content'] ) ? trim( wp_unslash( $_POST['comment_content'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- sanitized below via wp_kses.
+	$raw_content = isset( $_POST['comment_content'] ) && is_string( $_POST['comment_content'] ) ? trim( wp_unslash( $_POST['comment_content'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- sanitized below via wp_kses.
 
 	if ( '' === $raw_content ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Comment cannot be empty.', 'docy' ) ], 400 );
+		wp_send_json_error( [ 'message' => esc_html__( 'Il commento non può essere vuoto.', 'docy' ) ], 400 );
 	}
 
 	// Apply the same allowed-HTML restrictions WordPress uses for comments,
@@ -344,7 +345,7 @@ function docy_ajax_edit_comment(): void {
 
 	$content = trim( $content );
 	if ( '' === $content ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'Comment cannot be empty.', 'docy' ) ], 400 );
+		wp_send_json_error( [ 'message' => esc_html__( 'Il commento non può essere vuoto.', 'docy' ) ], 400 );
 	}
 
 	// wp_update_comment() expects slashed data.
@@ -357,10 +358,13 @@ function docy_ajax_edit_comment(): void {
 	);
 
 	if ( is_wp_error( $result ) ) {
-		wp_send_json_error( [ 'message' => esc_html__( 'The comment could not be updated. Please try again.', 'docy' ) ], 500 );
+		wp_send_json_error( [ 'message' => esc_html__( 'Impossibile aggiornare il commento. Riprova.', 'docy' ) ], 500 );
 	}
 
 	$updated = get_comment( $comment->comment_ID );
+	if ( ! $updated instanceof WP_Comment || $updated->comment_content !== $content ) {
+		wp_send_json_error( [ 'message' => esc_html__( 'Impossibile verificare il commento aggiornato. Ricarica la pagina prima di riprovare.', 'docy' ) ], 409 );
+	}
 
 	// Render the content exactly as comment_text() would.
 	$content_html = get_comment_text( $updated );
@@ -372,7 +376,7 @@ function docy_ajax_edit_comment(): void {
 			'comment_id'   => (int) $updated->comment_ID,
 			'content_html' => $content_html,
 			'source'       => $updated->comment_content,
-			'message'      => esc_html__( 'Comment updated.', 'docy' ),
+			'message'      => esc_html__( 'Commento aggiornato.', 'docy' ),
 		]
 	);
 }

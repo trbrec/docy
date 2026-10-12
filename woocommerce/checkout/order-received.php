@@ -36,8 +36,10 @@ defined( 'ABSPATH' ) || exit;
         echo $message;
         ?>
     </h2>
+    <?php if ( $order ) : ?>
     <p class="order-num">
         <?php esc_html_e( 'Order:', 'woocommerce' ); ?>
-        <?php echo '#'.$order->get_order_number(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+        <?php echo '#' . esc_html( $order->get_order_number() ); ?>
     </p>
+    <?php endif; ?>
 </div>

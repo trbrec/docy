@@ -1,10 +1,6 @@
 <?php
-global $wc_loop_i;
 global $product;
 
-use Automattic\WooCommerce\Blocks\BlockTypes\AbstractProductGrid;
-
-$opt    = get_option( 'docy_opt' );
 $column = wc_get_loop_prop( 'columns' );
 
 switch ( $column ) {

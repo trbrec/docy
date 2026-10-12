@@ -70,4 +70,6 @@ load_function('trb-release-spreadsheet-bridge.php','trb_release_bridge_apply_cal
 verify(trb_release_bridge_apply_callback(['release_id'=>2,'status'=>'completed','dossier_id'=>'x'])->code==='release_cancelled','Callback revived cancelled practice');
 verify(trb_release_bridge_apply_callback(['release_id'=>1,'status'=>'unknown','dossier_id'=>'wrong'])->code==='status_invalid','Invalid callback accepted');
 verify(empty($meta[1]['_trb_otp_dossier_id']),'Invalid callback claimed a dossier');
-echo "PASS real decision, obsolete/busy polling, cancelled dispatch, signed retry and callback integrity\n";
+// Successful callbacks, rollback and retry use real WordPress/MySQL in
+// tests/php/release-callback-mysql-cases.php rather than infallible meta stubs.
+echo "PASS real decision, obsolete/busy polling, cancelled dispatch and invalid callback guards\n";

@@ -8,7 +8,6 @@ define( 'MINUTE_IN_SECONDS', 60 );
 $test_uploads   = sys_get_temp_dir() . '/trb-release-staging-' . bin2hex( random_bytes( 6 ) );
 $test_options   = array();
 $test_scheduled = array();
-$test_transients = array();
 
 function wp_upload_dir() {
 	global $test_uploads;
@@ -45,17 +44,6 @@ function update_option( $key, $value, $autoload = null ) {
 	return true;
 }
 
-function get_transient( $key ) {
-	global $test_transients;
-	return $test_transients[ $key ] ?? false;
-}
-
-function set_transient( $key, $value, $expiration ) {
-	global $test_transients;
-	$test_transients[ $key ] = $value;
-	return true;
-}
-
 function wp_next_scheduled( $hook ) {
 	return false;
 }
@@ -88,9 +76,16 @@ function staging_remove_tree( $path ) {
 }
 
 $portal = file_get_contents( dirname( __DIR__ ) . '/inc/trb-artist-portal.php' );
+$integrity = file_get_contents( dirname( __DIR__ ) . '/inc/trb-release-integrity.php' );
+$lock_start = strpos( $integrity, 'function trb_release_process_lock' );
+$lock_end = strpos( $integrity, 'function trb_release_is_inactive', $lock_start );
+eval( substr( $integrity, $lock_start, $lock_end - $lock_start ) );
 $start  = strpos( $portal, 'function trb_portal_release_staging_base' );
 $end    = strpos( $portal, 'function trb_portal_release_max_file_bytes', $start );
 if ( false === $start || false === $end ) throw new RuntimeException( 'Release staging cleanup not found.' );
+$guardStart = strpos( $portal, 'function trb_portal_prepare_private_directory(' );
+$guardEnd = strpos( $portal, "\n}\n", $guardStart ) + 3;
+eval( substr( $portal, $guardStart, $guardEnd - $guardStart ) );
 eval( substr( $portal, $start, $end - $start ) ); // phpcs:ignore Squiz.PHP.Eval.Discouraged
 
 try {
@@ -103,6 +98,8 @@ try {
 
 	file_put_contents( $expired_session . '/f0.part', str_repeat( 'a', 1024 ) );
 	file_put_contents( $expired_session . '/f0.json', '{}' );
+	touch( $expired_session . '/f0.part', time() - 2 * DAY_IN_SECONDS );
+	touch( $expired_session . '/f0.json', time() - 2 * DAY_IN_SECONDS );
 	file_put_contents( $recent_session . '/f0.part', str_repeat( 'b', 2048 ) );
 	file_put_contents( $invalid_session . '/keep.part', 'keep' );
 	file_put_contents( $invalid_user . '/keep.part', 'keep' );
@@ -122,6 +119,21 @@ try {
 	staging_assert( 2 === $summary['files'], 'Cleanup file count is not based on successful deletion.' );
 	staging_assert( 1026 === $summary['bytes'], 'Cleanup byte count is incorrect.' );
 	staging_assert( $summary === $test_options['trb_release_staging_cleanup_last'], 'Cleanup result was not persisted.' );
+
+	// A long-lived directory with a recently appended file is still active.
+	touch( $recent_session, time() - 2 * DAY_IN_SECONDS );
+	clearstatcache();
+	trb_portal_cleanup_expired_release_staging_all();
+	staging_assert( is_file( $recent_session . '/f0.part' ), 'Cleanup deleted a recently appended chunk in an old directory.' );
+	touch( $recent_session . '/f0.part', time() - 2 * DAY_IN_SECONDS );
+	touch( $recent_session, time() - 2 * DAY_IN_SECONDS );
+	$active_lock = trb_release_process_lock( 'staging:20:22222222-2222-4222-8222-222222222222' );
+	clearstatcache();
+	trb_portal_cleanup_expired_release_staging_all();
+	staging_assert( is_file( $recent_session . '/f0.part' ), 'Cleanup deleted a session locked by an active upload.' );
+	trb_release_process_unlock( $active_lock );
+	trb_portal_cleanup_expired_release_staging_all();
+	staging_assert( ! is_dir( $recent_session ), 'Unlocked abandoned session was retained indefinitely.' );
 
 	trb_portal_schedule_release_staging_cleanup();
 	staging_assert( 'hourly' === $test_scheduled['recurrence'], 'Cleanup is not scheduled hourly.' );
