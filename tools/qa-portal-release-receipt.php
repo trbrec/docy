@@ -88,6 +88,13 @@ $integrations = $readJson( $site . '/private/portal-audit-' . $revision . '/veri
 foreach ( $integrations as $entry ) if ( ! str_starts_with( $entry['target'] ?? '', $site . '/public_html/wp-content/' ) || is_link( $entry['target'] ) || ! is_file( $entry['target'] ) || ! hash_equals( $entry['next_sha256'], hash_file( 'sha256', $entry['target'] ) ) ) throw new RuntimeException( 'Integration drift.' );
 if ( count( $integrations ) !== ( $receipt['integration_files'] ?? -1 ) ) throw new RuntimeException( 'Integration count mismatch.' );
 if ( file_exists( $release . '/artist-communications.json' ) || is_link( $release . '/artist-communications.json' ) ) throw new RuntimeException( 'Premature artist communications qualification.' );
+foreach ( array( 'trb-launch-release-guard.php', 'trb-legacy-field-preservation.php' ) as $name ) {
+    $file = $site . '/public_html/wp-content/mu-plugins/' . $name;
+    if ( is_link( $file ) || ! is_file( $file ) || ! hash_equals( hash_file( 'sha256', $candidate . '/integrations/portal-mu-plugins/' . $name ), hash_file( 'sha256', $file ) ) ) throw new RuntimeException( 'Independent guard drift.' );
+}
+$qaWorkspaces = array_merge( glob( '/tmp/trb-portal-stack.*', GLOB_ONLYDIR ), glob( $site . '/private/portal-stack-qa.*', GLOB_ONLYDIR ) );
+$qaEndpoints = array_merge( glob( $site . '/public_html/trb-audit-http-*' ), glob( $site . '/public_html/trb-audit-bootstrap-*' ) );
+if ( $qaWorkspaces || $qaEndpoints ) throw new RuntimeException( 'Temporary QA paths remain.' );
 $crm = '/home/customer/www/crm.trbrec.com';
 $canonical = $readJson( $crm . '/private/canonical-release.json' );
 if ( ( $canonical['verified'] ?? false ) !== true || ( $canonical['revision'] ?? '' ) !== 'b45aa1d0b868235ed7098c97149145d674ec5c6b' || count( $canonical['files'] ?? array() ) !== 53 ) throw new RuntimeException( 'Canonical CRM mismatch.' );
@@ -108,4 +115,9 @@ foreach ( $models as $model ) {
     $actual = $health['models'][$model['template_key']] ?? array();
     if ( ( $actual['id'] ?? '' ) !== $model['template_document_id'] || ( $actual['anchors'] ?? false ) !== true || ! hash_equals( $model['source_sha256'], (string) ( $actual['sha256'] ?? '' ) ) ) throw new RuntimeException( 'Contract source drift.' );
 }
-echo json_encode( array( 'read_only' => true, 'personal_data_exported' => false, 'revision' => $revision, 'published_theme_files_verified' => count( $files ), 'rollback_backup_files_verified' => count( $backupFiles ), 'integration_files_verified' => count( $integrations ), 'artist_communications_waiting_for_full_audit' => true, 'canonical_crm_revision' => $canonical['revision'], 'canonical_crm_files_verified' => count( $canonical['files'] ), 'google_generator_authenticated_health_verified' => true, 'current_contract_sources_verified' => count( $models ), 'historical_contract_sources_verified' => 2, 'checked_at_utc' => gmdate( 'c' ) ), JSON_THROW_ON_ERROR ) . "\n";
+define( 'SHORTINIT', true ); define( 'DISABLE_WP_CRON', true );
+ob_start(); require $site . '/public_html/wp-load.php'; ob_end_clean();
+global $wpdb;
+$qaTables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( 'trbqa_' ) . '%' ) );
+if ( ! is_array( $qaTables ) || $qaTables || $wpdb->last_error ) throw new RuntimeException( 'Temporary QA tables remain or could not be checked.' );
+echo json_encode( array( 'read_only' => true, 'personal_data_exported' => false, 'revision' => $revision, 'published_theme_files_verified' => count( $files ), 'rollback_backup_files_verified' => count( $backupFiles ), 'integration_files_verified' => count( $integrations ), 'independent_guard_files_verified' => 2, 'temporary_qa_workspaces_remaining' => 0, 'temporary_qa_endpoints_remaining' => 0, 'temporary_qa_tables_remaining' => 0, 'artist_communications_waiting_for_full_audit' => true, 'canonical_crm_revision' => $canonical['revision'], 'canonical_crm_files_verified' => count( $canonical['files'] ), 'google_generator_authenticated_health_verified' => true, 'current_contract_sources_verified' => count( $models ), 'historical_contract_sources_verified' => 2, 'checked_at_utc' => gmdate( 'c' ) ), JSON_THROW_ON_ERROR ) . "\n";

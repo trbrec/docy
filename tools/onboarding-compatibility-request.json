@@ -1,6 +1,6 @@
 {
-  "request": "diagnose-final-support-20261012-28",
+  "request": "verify-final-installed-20261012-30",
   "mode": "read_only",
-  "published_revision": "63c81c8ddbcbd68c8660252ae6c118380ec947da",
-  "diagnostic_only": true
+  "published_revision": "8bde11ae359b05054c59f48b1cc4c4b8aceb7092",
+  "diagnostic_only": false
 }
