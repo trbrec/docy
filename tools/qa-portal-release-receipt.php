@@ -49,7 +49,7 @@ if ( 'preflight' === $mode ) {
             $checks[$key . '_files_checked']++;
         }
     }
-    foreach ( array( 'canonical_preflight' => array( 'preflight-portal-release.php' ), 'integration_preflight' => array( 'deploy-portal-integrations.php', 'preflight', $revision ), 'readiness' => array( 'onboarding-readiness.php', $revision ) ) as $key => $arguments ) {
+    foreach ( array( 'canonical_preflight' => array( 'preflight-portal-release.php' ), 'support_health' => array( 'deploy-giulia-support.php', $revision ), 'integration_preflight' => array( 'deploy-portal-integrations.php', 'preflight', $revision ), 'readiness' => array( 'onboarding-readiness.php', $revision ) ) as $key => $arguments ) {
         $command = escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( $candidate . '/tools/' . array_shift( $arguments ) );
         foreach ( $arguments as $argument ) $command .= ' ' . escapeshellarg( $argument );
         $output = array(); exec( $command . ' 2>/dev/null', $output, $code );
