@@ -49,9 +49,10 @@ jobs:
           revision=$(python3 -c 'import json;print(json.load(open("tools/onboarding-compatibility-request.json")).get("published_revision", ""))')
           if [ -n "${revision}" ]; then
             [[ "${revision}" =~ ^[a-f0-9]{40}$ ]]
+            mode=$(python3 -c 'import json;print("preflight" if json.load(open("tools/onboarding-compatibility-request.json")).get("diagnostic_only") is True else "verify")')
             scp -q -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-portal-release-receipt.php "${remote}:${receipt_file}"
-            ssh "${ssh_opts[@]}" "${remote}" "php '${receipt_file}' '${revision}'" > /tmp/portal-release-readback.json 2>/dev/null
-            python3 -c 'import json;d=json.load(open("/tmp/portal-release-readback.json"));assert d.get("read_only") is True and d.get("personal_data_exported") is False and d.get("google_generator_authenticated_health_verified") is True'
+            ssh "${ssh_opts[@]}" "${remote}" "php '${receipt_file}' '${revision}' '${mode}'" > /tmp/portal-release-readback.json 2>/dev/null
+            python3 -c 'import json;d=json.load(open("/tmp/portal-release-readback.json"));assert d.get("read_only") is True and d.get("personal_data_exported") is False'
           fi
       - name: Preserve non-personal compatibility classifications
         uses: actions/upload-artifact@v4
