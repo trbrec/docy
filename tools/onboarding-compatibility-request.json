@@ -1,6 +1,6 @@
 {
-  "request": "wordfence-critical-removal-independent-readback-20261013-36b",
+  "request": "wordfence-final-release-current-crm-readback-20261013-37",
   "mode": "read_only",
-  "published_revision": "d9d3690205db91f742d3821f8aa45e48dc458df7",
+  "published_revision": "46c176665ad44bb4ae874cba10465e30c378d9ac",
   "diagnostic_only": false
 }
