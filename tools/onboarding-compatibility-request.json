@@ -1,5 +1,5 @@
 {
-  "request": "wordfence-release-canonical-preflight-diagnosis-20261013-36",
+  "request": "wordfence-canonical-readback-after-crm33-20261013",
   "mode": "read_only",
   "published_revision": "d9d3690205db91f742d3821f8aa45e48dc458df7",
   "diagnostic_only": true
