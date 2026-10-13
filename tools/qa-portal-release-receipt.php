@@ -143,7 +143,11 @@ $qaEndpoints = array_merge( glob( $site . '/public_html/trb-audit-http-*' ), glo
 if ( $qaWorkspaces || $qaEndpoints ) throw new RuntimeException( 'Temporary QA paths remain.' );
 $crm = '/home/customer/www/crm.trbrec.com';
 $canonical = $readJson( $crm . '/private/canonical-release.json' );
-if ( ( $canonical['verified'] ?? false ) !== true || ( $canonical['revision'] ?? '' ) !== 'b45aa1d0b868235ed7098c97149145d674ec5c6b' || count( $canonical['files'] ?? array() ) !== 53 ) throw new RuntimeException( 'Canonical CRM mismatch.' );
+require_once $candidate . '/tools/crm-module-source-guard.php';
+$required = array( 'app/GiuliaSupport.php', 'assets/onboarding.css' );
+foreach ( glob( $candidate . '/integrations/onboarding/crm/*.php' ) as $file ) $required[] = 'app/' . basename( $file );
+$canonicalRevision = trb_crm_module_source_guard( $crm . '/public_html', $crm . '/private/canonical-release.json', $required );
+if ( ( $canonical['revision'] ?? '' ) !== $canonicalRevision || $canonical !== $readJson( $crm . '/private/canonical-release.json' ) ) throw new RuntimeException( 'Canonical CRM receipt changed during verification.' );
 foreach ( $canonical['files'] as $entry ) {
     $path = $entry['path'] ?? '';
     if ( ! preg_match( '#^[a-zA-Z0-9_./-]+$#D', $path ) || str_starts_with( $path, '/' ) || preg_match( '#(^|/)\.\.?(/|$)#', $path ) ) throw new RuntimeException( 'Unexpected CRM path.' );
@@ -166,4 +170,4 @@ ob_start(); require $site . '/public_html/wp-load.php'; ob_end_clean();
 global $wpdb;
 $qaTables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( 'trbqa_' ) . '%' ) );
 if ( ! is_array( $qaTables ) || $qaTables || $wpdb->last_error ) throw new RuntimeException( 'Temporary QA tables remain or could not be checked.' );
-echo json_encode( array( 'read_only' => true, 'personal_data_exported' => false, 'revision' => $revision, 'published_theme_files_verified' => count( $files ), 'rollback_backup_files_verified' => count( $backupFiles ), 'integration_files_verified' => count( $integrations ), 'store_payment_modules_verified' => 1, 'store_release_backup_files_verified' => $storeBackupCount, 'independent_guard_files_verified' => 2, 'temporary_qa_workspaces_remaining' => 0, 'temporary_qa_endpoints_remaining' => 0, 'temporary_qa_tables_remaining' => 0, 'artist_communications_waiting_for_full_audit' => true, 'canonical_crm_revision' => $canonical['revision'], 'canonical_crm_files_verified' => count( $canonical['files'] ), 'google_generator_authenticated_health_verified' => true, 'current_contract_sources_verified' => count( $models ), 'historical_contract_sources_verified' => 2, 'checked_at_utc' => gmdate( 'c' ) ), JSON_THROW_ON_ERROR ) . "\n";
+echo json_encode( array( 'read_only' => true, 'personal_data_exported' => false, 'revision' => $revision, 'published_theme_files_verified' => count( $files ), 'rollback_backup_files_verified' => count( $backupFiles ), 'integration_files_verified' => count( $integrations ), 'store_payment_modules_verified' => 1, 'store_release_backup_files_verified' => $storeBackupCount, 'independent_guard_files_verified' => 2, 'temporary_qa_workspaces_remaining' => 0, 'temporary_qa_endpoints_remaining' => 0, 'temporary_qa_tables_remaining' => 0, 'artist_communications_waiting_for_full_audit' => true, 'canonical_crm_owner_receipt_verified' => true, 'canonical_crm_revision' => $canonical['revision'], 'canonical_crm_files_verified' => count( $canonical['files'] ), 'google_generator_authenticated_health_verified' => true, 'current_contract_sources_verified' => count( $models ), 'historical_contract_sources_verified' => 2, 'checked_at_utc' => gmdate( 'c' ) ), JSON_THROW_ON_ERROR ) . "\n";
