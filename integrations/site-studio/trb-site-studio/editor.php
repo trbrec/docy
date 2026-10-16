@@ -221,6 +221,7 @@ function studio_artist_image($a){
 }
 function studio_entity_list(){
  $raw=get_option('trb_studio_directory',['artists'=>[],'releases'=>[]]);$out=[];
+ if(function_exists(__NAMESPACE__.'\\editorial_directory'))$raw=editorial_directory($raw);
  foreach($raw['artists']??[] as $a){$o=studio_override('artist',$a['id']);$a=studio_effective('artist',$a);$out[]=['kind'=>'artist','id'=>$a['id'],'name'=>$a['name'],'bio'=>$a['bio'],'links'=>$a['links'],'image_id'=>$a['image_id']??0,'image'=>wp_get_attachment_image_url($a['image_id']??0,'large')?:'','gallery_ids'=>artist_gallery_ids($a),'gallery'=>array_map(fn($id)=>['id'=>$id,'url'=>wp_get_attachment_image_url($id,'large')],artist_gallery_ids($a)),'url'=>artist_page_url($a),'position_x'=>$o['position_x']??($a['id']===67?20:50),'position'=>$o['position']??($a['id']===28?0:($a['id']===177?23:($a['id']===45?27:35))),'brightness'=>$o['brightness']??($a['id']===45?112:100),'version'=>studio_version($o),'manual'=>(bool)$o];}
  if(class_exists('TRB_Promo_Ecosystem'))foreach(get_posts(['post_type'=>'trb_release','post_status'=>['publish','future'],'posts_per_page'=>1000]) as $p){
   $d=\TRB_Promo_Ecosystem::data($p->ID);if(($d['state']??'')!=='published')continue;$o=studio_override('catalog',$p->ID);$assets=apply_filters('trb_promo_release_assets',[],$d,$p->ID);

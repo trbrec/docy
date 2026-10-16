@@ -106,6 +106,7 @@ function public_releases($releases){
 }
 function directory_data(){
  $d=get_option('trb_studio_directory',['artists'=>[],'releases'=>[]]);
+ if(function_exists(__NAMESPACE__.'\\editorial_directory'))$d=editorial_directory($d);
  if(function_exists(__NAMESPACE__.'\\studio_effective'))foreach($d['artists'] as &$a)$a=studio_effective('artist',$a);unset($a);
  if(function_exists(__NAMESPACE__.'\\studio_effective'))foreach($d['releases'] as &$r){if(!empty($r['catalog_id']))$r=array_merge($r,studio_override('catalog',$r['catalog_id']));}unset($r);
  $d['releases']=public_releases($d['releases']);
@@ -208,4 +209,3 @@ add_filter('trb_promo_artist_profile',function($profile,$term){
  }
  return $profile;
 },20,2);
-

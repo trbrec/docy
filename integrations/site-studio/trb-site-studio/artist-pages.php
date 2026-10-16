@@ -14,6 +14,7 @@ function artist_gallery_ids($a){
 }
 function sync_artist_pages($d){
  if(!destination_site())return true;
+ if(function_exists(__NAMESPACE__.'\\editorial_directory'))$d=editorial_directory($d);
  $parent=get_page_by_path('artisti');if(!$parent)return new \WP_Error('artist_parent_missing','La pagina Artisti non è disponibile.');
  $active=[];
  foreach($d['artists']??[] as $raw){

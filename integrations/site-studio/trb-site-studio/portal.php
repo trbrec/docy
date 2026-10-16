@@ -3,6 +3,8 @@ namespace TRB\Studio;
 if (!defined('ABSPATH')) exit;
 function portal_artist_allowed($user){
  if(!$user||!function_exists('trb_portal_user_profile')||trb_portal_user_profile($user)!=='trb')return false;
+ // Ordinary-account audit fixtures must never enter the public roster.
+ if(preg_match('/^trb_audit_[0-9]{8}(?:_|$)/i',(string)($user->user_login??'')))return false;
  if(function_exists('trb_portal_is_release_qa_account')&&trb_portal_is_release_qa_account($user))return false;
  if(get_user_meta($user->ID,'_trb_onboarding_qa',true)==='1')return false;
  $status=function_exists('trb_release_bridge_access_status')?trb_release_bridge_access_status($user->ID):(string)get_user_meta($user->ID,'pw_user_status',true);

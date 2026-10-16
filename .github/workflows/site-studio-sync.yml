@@ -41,5 +41,9 @@ jobs:
           ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
           deployed_sha=$(ssh "${ssh_opts[@]}" "${remote}" "cat '${DEPLOY_PATH}/.trb-deployed-sha'")
           [[ "${deployed_sha}" =~ ^[a-f0-9]{40}$ ]]
+          # Manual maintenance verifies only the managed new1 schedule, retaining unrelated jobs.
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/ensure-site-studio-cron.php' '${deployed_sha}'"
+          fi
           ssh "${ssh_opts[@]}" "${remote}" "php '${DEPLOY_PATH}/tools/sync-site-studio.php' '${deployed_sha}' transfer" >/dev/null 2>&1
           echo "TRB approved public directory synchronized."

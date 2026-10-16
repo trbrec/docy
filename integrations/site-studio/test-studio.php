@@ -52,7 +52,15 @@ check(count(TRB\Studio\editable_items('<!-- wp:html --><p>Same</p><p>Same</p><!-
 $users=[1=>(object)['ID'=>1,'profile'=>'trb','approval'=>'approved','qa'=>false,'meta'=>[]],2=>(object)['ID'=>2,'profile'=>'ddb','approval'=>'approved','meta'=>[]],3=>(object)['ID'=>3,'profile'=>'trb','approval'=>'pending','meta'=>[]],4=>(object)['ID'=>4,'profile'=>'trb','approval'=>'approved','qa'=>true,'meta'=>[]]];
 check(TRB\Studio\portal_artist_allowed($users[1]),'Approved TRB artist included');check(!TRB\Studio\portal_artist_allowed($users[2]),'DDB excluded');check(!TRB\Studio\portal_artist_allowed($users[3]),'Pending signup excluded');check(!TRB\Studio\portal_artist_allowed($users[4]),'QA account excluded');
 $posts=[10=>(object)['ID'=>10,'post_author'=>1,'post_type'=>'trb_release','post_status'=>'private','post_content'=>$raw,'meta'=>['_trb_contract_state'=>'signed','_trb_release_intake_phase'=>'complete','_trb_crm_workflow_status'=>'ready','_trb_release_pipeline_status'=>'approved']]];
+$ordinaryFixture=(object)['ID'=>5,'user_login'=>'trb_audit_20261010','profile'=>'trb','approval'=>'approved','qa'=>false,'meta'=>[]];
+check(!TRB\Studio\portal_artist_allowed($ordinaryFixture),'An approved ordinary-account audit fixture cannot enter the public roster');
+$realArtist=(object)['ID'=>6,'user_login'=>'auditore','profile'=>'trb','approval'=>'approved','qa'=>false,'meta'=>[]];
+$users[6]=$realArtist;
+check(TRB\Studio\portal_artist_allowed($realArtist),'A real artist with a similar login remains eligible');
+$users[5]=$ordinaryFixture;
+$fixtureRelease=(object)['ID'=>11,'post_author'=>5,'post_type'=>'trb_release','post_status'=>'publish','meta'=>['_trb_contract_state'=>'signed','_trb_crm_workflow_status'=>'distributed']];
 $options=['trb_studio_distribution_states'=>['distributed']];
+check(!TRB\Studio\portal_release_allowed($fixtureRelease),'Signed and distributed fixture releases cannot enter the public catalog');
 check(!TRB\Studio\portal_release_allowed($posts[10]),'Technical approval and commercial ready do not publish');$posts[10]->meta['_trb_crm_workflow_status']='distributed';check(TRB\Studio\portal_release_allowed($posts[10]),'Only configured distribution state publishes');$posts[10]->meta['inactive']=true;check(!TRB\Studio\portal_release_allowed($posts[10]),'Cancelled release excluded');unset($posts[10]->meta['inactive']);
 check(TRB\Studio\valid_date('2028-02-29')&&!TRB\Studio\valid_date('2026-02-29'),'Calendar dates validated including leap years');
 $s=['schema'=>1,'source'=>'artist.trbrec.com','complete'=>true,'artists'=>[['id'=>1,'name'=>'Artist','bio'=>'Bio','links'=>[]]],'releases'=>[['id'=>10,'artist_id'=>1,'title'=>'Release','date'=>'2026-11-01','presentation'=>'Story']]];
@@ -157,3 +165,33 @@ $large=new class {public $args;function get_size(){return ['width'=>600,'height'
 check(TRB\Studio\public_image_resize($large)===true&&$large->args===[1200,1200,false],'Oversized portrait photographs still scale proportionally within the public limit');
 $failed=new class {function get_size(){return ['width'=>2400,'height'=>1800];}function resize(...$a){return new WP_Error('resize_failed');}};
 check(is_wp_error(TRB\Studio\public_image_resize($failed)),'Genuine resize failures are preserved rather than silently ignored');
+
+require __DIR__.'/trb-site-studio/editorial.php';
+function get_term($id,$taxonomy){return $id===7?(object)['name'=>'Luca Gaiero']:false;}
+function get_posts($args){return ($args['tax_query'][0]['terms'][0]??0)===7?[10]:[];}
+class TRB_Promo_Ecosystem {const LABELS=['TRB rec'];static function data($id){return ['state'=>'published','label'=>$GLOBALS['fixture_catalog_label']??'TRB rec','upc'=>'888608943925'];}}
+$profile=['name'=>'Luca Gaiero','bio'=>'Biografia pubblica verificata','links'=>[],'image_id'=>501,'basis'=>'trb','catalog_term_id'=>7,'source'=>'Archivio ufficiale'];
+$curated=TRB\Studio\editorial_validate([$profile]);
+check(!is_wp_error($curated)&&array_values($curated)[0]['id']===1000000001,'A verified TRB editorial profile uses a stable public identity without creating a portal account');
+check(count(TRB\Studio\editorial_validate([$profile],$curated))===1,'Re-importing the same editorial artist is idempotent');
+$options['trb_studio_editorial_artists']=$curated;
+$merged=TRB\Studio\editorial_directory(['artists'=>[['id'=>151,'name'=>'Luca Gaiero','bio'=>'','links'=>[]]],'releases'=>[['artist_id'=>151,'title'=>'Pubblicazione']]]);
+check(count($merged['artists'])===1&&$merged['artists'][0]['id']===1000000001&&$merged['releases'][0]['artist_id']===1000000001,'A later portal registration does not duplicate or change the editorial public identity and keeps release associations');
+$again=TRB\Studio\editorial_directory($merged);
+check($again===$merged,'Directory completion remains idempotent during repeated page synchronization');
+check(count(TRB\Studio\editorial_directory(['artists'=>[],'releases'=>[]])['artists'])===1,'A new empty portal generation cannot remove a curated public artist');
+$recent=array_merge($profile,['name'=>'Artista recente','basis'=>'recent','last_work'=>(new DateTimeImmutable('today',new DateTimeZone('Europe/Rome')))->modify('-2 years')->format('Y-m-d')]);
+check(is_wp_error(TRB\Studio\editorial_validate([$recent])),'Recent collaboration alone never admits a DDB artist');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($recent,['last_work'=>'2020-01-01'])])),'Older non-TRB collaborations are not imported as recent');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['name'=>'Sara Rigo','basis'=>'explicit'])])),'The withdrawn Sara Rigo exception is rejected');
+$options['trb_studio_editorial_artists']=$curated+[1000000002=>array_merge($profile,['id'=>1000000002,'name'=>'Sara Rigo','basis'=>'explicit']),1000000003=>array_merge($recent,['id'=>1000000003])];
+$restricted=TRB\Studio\editorial_directory(['artists'=>[],'releases'=>[]]);
+check(count($restricted['artists'])===1&&$restricted['artists'][0]['name']==='Luca Gaiero','Previously saved DDB and Sara profiles cannot return through synchronization');
+$fixture_catalog_label='Digital Distribution Bundle';
+check(is_wp_error(TRB\Studio\editorial_validate([$profile])),'Calling a DDB release TRB cannot bypass the active-label check');
+unset($fixture_catalog_label);
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['name'=>'trb_audit_20261011'])])),'Audit and placeholder names cannot enter editorial publication');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['image_id'=>99])])),'Invalid public photography blocks editorial publication');
+check(is_wp_error(TRB\Studio\editorial_validate([array_merge($profile,['bio'=>''])])),'An incomplete biography blocks editorial publication');
+unset($options['trb_studio_editorial_artists']);
+echo "EDITORIAL ROSTER TOTAL: $count passed\n";
