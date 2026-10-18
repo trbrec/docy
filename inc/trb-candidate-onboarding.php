@@ -60,7 +60,7 @@ function trb_onboarding_private_permission($request){
 add_action('trb_onboarding_rpc_cleanup',static function(){global $wpdb;$wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND CAST(option_value AS UNSIGNED)<%d",$wpdb->esc_like('trb_onboarding_rpc_nonce_').'%',time()));});
 function trb_onboarding_store($action,$payload){
     $secret=trb_portal_dds_store_secret();if(strlen($secret)<32)return new WP_Error('onboarding_store_config','Collegamento versamenti non disponibile.');
-    $path=$action==='store_order'?'order':'payment-status';unset($payload['action']);$body=wp_json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$time=(string)time();$nonce=bin2hex(random_bytes(16));
+    $paths=array('store_order'=>'order','store_status'=>'payment-status','store_deferral_order'=>'deferral-order','store_deferral_status'=>'deferral-status');if(!is_string($action)||!isset($paths[$action]))return new WP_Error('onboarding_action','Operazione non disponibile.',array('status'=>422));$path=$paths[$action];unset($payload['action']);$body=wp_json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$time=(string)time();$nonce=bin2hex(random_bytes(16));
     $response=wp_remote_post('https://store.trbrec.com/wp-json/trb/v1/onboarding/'.$path,array('timeout'=>45,'redirection'=>0,'headers'=>array('Content-Type'=>'application/json','X-TRB-Timestamp'=>$time,'X-TRB-Nonce'=>$nonce,'X-TRB-Signature'=>'sha256='.hash_hmac('sha256','onboarding-v1|'.$time.'|'.$nonce.'|'.$body,$secret)),'body'=>$body));
     if(is_wp_error($response))return new WP_Error('onboarding_store','Il circuito non ha confermato l’operazione.');
     $data=json_decode(wp_remote_retrieve_body($response),true);if(wp_remote_retrieve_response_code($response)!==200||!is_array($data)||isset($data['code'],$data['message']))return new WP_Error('onboarding_store',is_array($data)&&isset($data['message'])?$data['message']:'Versamento da verificare.');
@@ -70,7 +70,7 @@ function trb_onboarding_private($request){
     $p=$request->get_json_params();$action=$p['action']??'';
     if($action==='health')return array('protocol'=>'onboarding-portal-v1','version'=>'2026.2','enabled'=>trb_onboarding_enabled(),'crm_configured'=>strlen(trb_crm_connector_settings()['secret'])>=32,'store_configured'=>strlen(trb_portal_dds_store_secret())>=32,'approval_plugin'=>function_exists('pw_new_user_approve'));
     if(!trb_onboarding_enabled())return new WP_Error('onboarding_disabled','Nuove adesioni non ancora abilitate.',array('status'=>503));
-    if(in_array($action,array('store_order','store_status'),true))return trb_onboarding_store($action,$p);
+    if(in_array($action,array('store_order','store_status','store_deferral_order','store_deferral_status'),true))return trb_onboarding_store($action,$p);
     if($action==='activate_account'){
         $id=absint($p['portal_user_id']??0);$user=get_userdata($id);$practice=(string)($p['practice_id']??'');
         if(!$user||!preg_match('/^[a-f0-9]{32}$/D',$practice)||get_user_meta($id,'_trb_onboarding_version',true)!=='2026.2'||get_user_meta($id,'_trb_onboarding_practice',true)!==$practice||strcasecmp($user->user_email,(string)($p['email']??''))!==0||($p['owner_approved']??false)!==true||($p['signed']??false)!==true||empty($p['signed_pcloud_file_id']))return new WP_Error('onboarding_account','Account non associato alla pratica approvata e firmata.',array('status'=>409));
@@ -153,6 +153,20 @@ function trb_onboarding_public_payload($request){
         $file=$payload['file']??array();
         if(!is_string($file['name']??null)||!preg_match('/^[-_A-Za-z0-9. ]{1,160}\.(pdf|png|jpe?g)$/iD',$file['name'])||!is_string($file['mime']??null)||!in_array($file['mime'],array('application/pdf','image/png','image/jpeg'),true)||!is_int($file['size']??null)||$file['size']<1||$file['size']>10485760)return $invalid();
     }
+    // Only these new actions use this strict browser schema. The authenticated
+    // candidate session is derived below from the browser cookie, never JSON.
+    if(in_array($payload['action']??'',array('deferral_checkout','deferral_refresh','deferral_resume'),true)){
+        $fields=match($payload['action']){
+            'deferral_checkout'=>array('action','request_key','proposal_sha256','policy_version','terms_read'),
+            'deferral_resume'=>array('action','plan_key','proposal_sha256','proposal_read'),
+            default=>array('action'),
+        };
+        foreach(array_keys($payload) as $field)if(!in_array($field,$fields,true))return $invalid();
+        foreach($fields as $field)if(!array_key_exists($field,$payload))return $invalid();
+        foreach(array('request_key','proposal_sha256') as $field)if(array_key_exists($field,$payload)&&(!is_string($payload[$field])||!preg_match('/^[a-f0-9]{64}$/D',$payload[$field])))return $invalid();
+        foreach(array('policy_version','plan_key') as $field)if(array_key_exists($field,$payload)&&(!is_string($payload[$field])||!preg_match('/^[A-Za-z0-9._-]{1,64}$/D',$payload[$field])))return $invalid();
+        foreach(array('terms_read','proposal_read') as $field)if(array_key_exists($field,$payload)&&!is_bool($payload[$field]))return $invalid();
+    }
     return $payload;
 }
 function trb_onboarding_public($request){
@@ -215,7 +229,7 @@ function trb_onboarding_public($request){
         wp_set_current_user((int)$id);wp_set_auth_cookie((int)$id,false,true);
         delete_transient($key);return array('registered'=>true,'login_url'=>home_url('/area-artisti/'));
     }
-    $allowed=array('view','details','upload','uploaded','identity','choose','checkout','refresh','document');if(!in_array($action,$allowed,true))return new WP_Error('onboarding_action','Operazione non disponibile.',array('status'=>422));
+    $allowed=array('view','details','upload','uploaded','identity','choose','checkout','refresh','document','deferral_checkout','deferral_refresh','deferral_resume');if(!in_array($action,$allowed,true))return new WP_Error('onboarding_action','Operazione non disponibile.',array('status'=>422));
     if($action==='details'){
         if(strtoupper($p['billing']['country']??'')!=='IT')return new WP_Error('onboarding_country','Controlla il paese e il CAP della residenza.',array('status'=>422));
         $tax=trb_portal_validate_tax_code($p['tax_code']??'');if(!$tax)return new WP_Error('onboarding_tax','Codice fiscale non valido. Controlla i dati prima di proseguire.',array('status'=>422));$p['tax_code']=$tax;
