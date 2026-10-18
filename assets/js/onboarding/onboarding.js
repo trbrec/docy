@@ -134,17 +134,17 @@
     const awaiting=d.state==='checkout_pending', reserved=d.state==='deferred'||d.state==='resumed';
     show('deferral-new',!recorded);show('deferral-recorded',recorded);show('deferral-checkout',d.enabled===true&&(!recorded&&typeof d.terms_text==='string'&&d.terms_text.length>0||awaiting));
     show('deferral-refresh',recorded);show('deferral-start',d.can_resume===true&&d.enabled===true&&!resumingDeferral);
-    $('deferral-checkout').textContent=awaiting?'Riprendi il versamento di 100 €':'Versa 100 € per posticipare l’attivazione';
-    const status=awaiting?'Versamento in attesa di conferma. Non effettuare un secondo pagamento.':d.state==='retained'?'Il termine della proroga è trascorso. Rispondi alla nostra email per verificare la tua posizione.':d.state==='invalidated'?'Il versamento richiede una verifica. Contatta TRB rec prima di procedere.':d.credited_at?'I 100 € sono già stati scalati dal primo versamento.':reserved?`Versamento di 100 € ricevuto il ${deferralDate(d.paid_on)}. Completa il primo versamento della formula scelta entro il ${deferralDate(d.expires_on)}, alle 23:59:59 (ora italiana), per avviare l’adesione.`:'La tua proroga è da verificare. Rispondi alla nostra email per assistenza.';
+    $('deferral-checkout').textContent=awaiting?'Riprendi il versamento di 100 €':'Riserva la proposta con 100 €';
+    const status=awaiting?'Versamento in attesa di conferma. Non effettuare un secondo pagamento.':d.state==='retained'?'Il termine della riserva è trascorso. Rispondi alla nostra email per verificare la tua posizione.':d.state==='invalidated'?'Il versamento richiede una verifica. Contatta TRB rec prima di procedere.':d.credited_at?'I 100 € già versati per la riserva sono stati conteggiati nella prima quota, senza aggiungersi all’importo della proposta.':reserved?`Riserva confermata: abbiamo ricevuto i 100 € il ${deferralDate(d.paid_on)}. Scegli una formula, anche rateale, e completa la prima quota entro il ${deferralDate(d.expires_on)}, alle 23:59:59 (ora italiana), per avviare l’adesione. I 100 € già versati saranno scalati una sola volta dalla prima quota.`:'La tua riserva è da verificare. Rispondi alla nostra email per assistenza.';
     $('deferral-status').textContent=status;
     if(blocked){
       show('register-step',false);show('ready-access',false);show('portal-access',false);show('payment-step',d.state==='resumed'&&!resumingDeferral&&p.selected_plan&&p.access?.reason!=='payment_review');
       show('plans-step',resumingDeferral&&d.can_resume===true);show('cancel-plan-change',resumingDeferral);
       show('checkout',d.state==='resumed'&&!resumingDeferral&&p.selected_plan&&p.access?.reason!=='payment_review');
       show('payment-due',d.state==='resumed'&&!resumingDeferral&&p.selected_plan);
-      if(d.state==='resumed'&&p.selected_plan){$('payment-current-amount').textContent=money(Math.max(0,p.selected_plan.amounts_cents[0]-d.credit_remaining_cents));$('payment-next').textContent='L’importo indicato comprende già i 100 € versati per la proroga. Dopo la conferma potrai proseguire verso la firma.';}
+      if(d.state==='resumed'&&p.selected_plan){$('payment-current-amount').textContent=money(Math.max(0,p.selected_plan.amounts_cents[0]-d.credit_remaining_cents));$('payment-next').textContent='L’importo indicato è già ridotto dei 100 € versati per la riserva e completa la prima quota della formula scelta. Dopo la conferma potrai proseguire verso la firma.';}
       if(resumingDeferral){$('plan-selection-title').textContent='Scegli come avviare la collaborazione';$('confirm-formula').textContent='Conferma formula e prosegui';for(const label of $('plan-list').children){const radio=label.children[0],plan=p.plans[radio.value];label.children[2].textContent=`${money(Math.max(0,plan.amounts_cents[0]-d.credit_remaining_cents))} da versare ora, con i 100 € già scalati`;}}
-      $('next-step-title').textContent=reserved?'La proposta è riservata per te':'Verifica della proroga';$('next-step-help').textContent=status;$('page-intro').textContent='La proroga non avvia servizi, scadenze delle rate o firma del contratto.';
+      $('next-step-title').textContent=reserved?'La proposta è riservata per te':'Verifica della riserva';$('next-step-help').textContent=status;$('page-intro').textContent='Il solo versamento di riserva non attiva i servizi, la firma del contratto, le scadenze delle rate o l’account.';
       show('signature-email',false);show('read-proposal',true);
     }
     if(!resumingDeferral)$('confirm-formula').textContent='Conferma formula';
@@ -152,12 +152,12 @@
   async function deferralPayment(){
     const d=practice.activation_deferral||{};
     const available=!d.state&&d.available===true, pending=d.state==='checkout_pending';
-    if(cfg.account||!deferralEligible(practice)||d.enabled!==true||(!available&&!pending)||typeof d.terms_text!=='string'||!d.terms_text.trim())throw new Error('La proroga non è disponibile per questa pratica. Rispondi all’email della proposta per assistenza.');
-    if(!d.state&&!$('deferral-terms').checked){notice('Leggi e conferma le condizioni della proroga prima di procedere.',true);return;}
+    if(cfg.account||!deferralEligible(practice)||d.enabled!==true||(!available&&!pending)||typeof d.terms_text!=='string'||!d.terms_text.trim())throw new Error('La riserva della proposta non è disponibile per questa pratica. Rispondi all’email della proposta per assistenza.');
+    if(!d.state&&!$('deferral-terms').checked){notice('Leggi e conferma le condizioni della riserva prima di procedere.',true);return;}
     const result=await api('deferral_checkout',{request_key:deferralKey(),proposal_sha256:practice.proposal_sha256,policy_version:d.policy_version,terms_read:true});
     if(result.practice)render(result.practice);
     if(result.checkout_url){const url=new URL(result.checkout_url);if(url.protocol!=='https:'||url.hostname!=='store.trbrec.com'||url.username||url.password||url.hash||url.port&&url.port!=='443')throw new Error('Collegamento pagamento non valido.');location.assign(url.href);}
-    else notice(result.paid?'Proroga confermata. Qui trovi la nuova scadenza.':'Stiamo verificando il versamento già richiesto.');
+    else notice(result.paid?'Riserva confermata. Qui trovi il termine per avviare l’adesione.':'Stiamo verificando il versamento già richiesto.');
   }
   $('deferral-checkout').addEventListener('click',()=>run(deferralPayment));
   $('deferral-refresh').addEventListener('click',()=>run(async()=>{render(await api('deferral_refresh'));show('notice',false);}));
