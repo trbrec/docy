@@ -1,5 +1,6 @@
 <?php
 /** Exercise the real server sanitizer with instrument/vocal credits from the incident. */
+require_once __DIR__ . '/../inc/trb-release-metadata.php';
 $source = file_get_contents(__DIR__ . '/../inc/trb-artist-portal.php');
 function load_function($name) {
  global $source;

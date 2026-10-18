@@ -3,7 +3,7 @@
 function validate(track) {
  var groups=track.querySelectorAll('[data-symphonic-group]');
  if(!groups.length)return;
- var advisory=track.querySelector('[data-track-advisory]'), vocal=advisory&&advisory.value&&advisory.value!=='no_lyrics';
+ var advisory=track.querySelector('[data-track-advisory]'),style=track.querySelector('[data-track-vocal]'),vocal=style?style.value==='Vocal':advisory&&advisory.value&&advisory.value!=='no_lyrics';
  groups.forEach(function(group){
   var key=group.dataset.contributorGroup, roles=[], first=group.querySelector('input[name$="[name]"]');
   group.querySelectorAll('.trb-contributor-row').forEach(function(row){

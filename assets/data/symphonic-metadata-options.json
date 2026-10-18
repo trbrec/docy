@@ -1,0 +1,1738 @@
+{
+  "languages": {
+    "ab": {
+      "label_it": "abcaso",
+      "label_en": "Abkhazian"
+    },
+    "aa": {
+      "label_it": "afar",
+      "label_en": "Afar"
+    },
+    "af": {
+      "label_it": "afrikaans",
+      "label_en": "Afrikaans"
+    },
+    "ak": {
+      "label_it": "akan",
+      "label_en": "Akan"
+    },
+    "tw": {
+      "label_it": "akan",
+      "label_en": "Akan"
+    },
+    "sq": {
+      "label_it": "albanese",
+      "label_en": "Albanian"
+    },
+    "am": {
+      "label_it": "amarico",
+      "label_en": "Amharic"
+    },
+    "ar": {
+      "label_it": "arabo",
+      "label_en": "Arabic"
+    },
+    "an": {
+      "label_it": "aragonese",
+      "label_en": "Aragonese"
+    },
+    "hy": {
+      "label_it": "armeno",
+      "label_en": "Armenian"
+    },
+    "as": {
+      "label_it": "assamese",
+      "label_en": "Assamese"
+    },
+    "av": {
+      "label_it": "avaro",
+      "label_en": "Avaric"
+    },
+    "ae": {
+      "label_it": "avestan",
+      "label_en": "Avestan"
+    },
+    "ay": {
+      "label_it": "aymara",
+      "label_en": "Aymara"
+    },
+    "az": {
+      "label_it": "azerbaigiano",
+      "label_en": "Azerbaijani"
+    },
+    "bm": {
+      "label_it": "bambara",
+      "label_en": "Bambara"
+    },
+    "ba": {
+      "label_it": "baschiro",
+      "label_en": "Bashkir"
+    },
+    "eu": {
+      "label_it": "basco",
+      "label_en": "Basque"
+    },
+    "bn": {
+      "label_it": "bengalese",
+      "label_en": "Bangla"
+    },
+    "bh": {
+      "label_it": "bhojpuri",
+      "label_en": "Bhojpuri"
+    },
+    "be": {
+      "label_it": "bielorusso",
+      "label_en": "Belarusian"
+    },
+    "my": {
+      "label_it": "birmano",
+      "label_en": "Burmese"
+    },
+    "bi": {
+      "label_it": "bislama",
+      "label_en": "Bislama"
+    },
+    "bs": {
+      "label_it": "bosniaco",
+      "label_en": "Bosnian"
+    },
+    "br": {
+      "label_it": "bretone",
+      "label_en": "Breton"
+    },
+    "bg": {
+      "label_it": "bulgaro",
+      "label_en": "Bulgarian"
+    },
+    "ca": {
+      "label_it": "catalano",
+      "label_en": "Catalan"
+    },
+    "ce": {
+      "label_it": "ceceno",
+      "label_en": "Chechen"
+    },
+    "cs": {
+      "label_it": "ceco",
+      "label_en": "Czech"
+    },
+    "ch": {
+      "label_it": "chamorro",
+      "label_en": "Chamorro"
+    },
+    "zh": {
+      "label_it": "cinese",
+      "label_en": "Chinese"
+    },
+    "cv": {
+      "label_it": "ciuvascio",
+      "label_en": "Chuvash"
+    },
+    "ko": {
+      "label_it": "coreano",
+      "label_en": "Korean"
+    },
+    "kw": {
+      "label_it": "cornico",
+      "label_en": "Cornish"
+    },
+    "co": {
+      "label_it": "corso",
+      "label_en": "Corsican"
+    },
+    "cr": {
+      "label_it": "cree",
+      "label_en": "Cree"
+    },
+    "ht": {
+      "label_it": "creolo haitiano",
+      "label_en": "Haitian Creole"
+    },
+    "hr": {
+      "label_it": "croato",
+      "label_en": "Croatian"
+    },
+    "ku": {
+      "label_it": "curdo",
+      "label_en": "Kurdish"
+    },
+    "da": {
+      "label_it": "danese",
+      "label_en": "Danish"
+    },
+    "dv": {
+      "label_it": "divehi",
+      "label_en": "Divehi"
+    },
+    "dz": {
+      "label_it": "dzongkha",
+      "label_en": "Dzongkha"
+    },
+    "he": {
+      "label_it": "ebraico",
+      "label_en": "Hebrew"
+    },
+    "eo": {
+      "label_it": "esperanto",
+      "label_en": "Esperanto"
+    },
+    "et": {
+      "label_it": "estone",
+      "label_en": "Estonian"
+    },
+    "ee": {
+      "label_it": "ewe",
+      "label_en": "Ewe"
+    },
+    "fo": {
+      "label_it": "faroese",
+      "label_en": "Faroese"
+    },
+    "fj": {
+      "label_it": "figiano",
+      "label_en": "Fijian"
+    },
+    "tl": {
+      "label_it": "filippino",
+      "label_en": "Filipino"
+    },
+    "fi": {
+      "label_it": "finlandese",
+      "label_en": "Finnish"
+    },
+    "fr": {
+      "label_it": "francese",
+      "label_en": "French"
+    },
+    "fy": {
+      "label_it": "frisone occidentale",
+      "label_en": "Western Frisian"
+    },
+    "ff": {
+      "label_it": "fulah",
+      "label_en": "Fula"
+    },
+    "gd": {
+      "label_it": "gaelico scozzese",
+      "label_en": "Scottish Gaelic"
+    },
+    "gl": {
+      "label_it": "galiziano",
+      "label_en": "Galician"
+    },
+    "cy": {
+      "label_it": "gallese",
+      "label_en": "Welsh"
+    },
+    "lg": {
+      "label_it": "ganda",
+      "label_en": "Ganda"
+    },
+    "ka": {
+      "label_it": "georgiano",
+      "label_en": "Georgian"
+    },
+    "ja": {
+      "label_it": "giapponese",
+      "label_en": "Japanese"
+    },
+    "jv": {
+      "label_it": "giavanese",
+      "label_en": "Javanese"
+    },
+    "el": {
+      "label_it": "greco",
+      "label_en": "Greek"
+    },
+    "kl": {
+      "label_it": "groenlandese",
+      "label_en": "Kalaallisut"
+    },
+    "gn": {
+      "label_it": "guaraní",
+      "label_en": "Guarani"
+    },
+    "gu": {
+      "label_it": "gujarati",
+      "label_en": "Gujarati"
+    },
+    "ha": {
+      "label_it": "hausa",
+      "label_en": "Hausa"
+    },
+    "hz": {
+      "label_it": "herero",
+      "label_en": "Herero"
+    },
+    "hi": {
+      "label_it": "hindi",
+      "label_en": "Hindi"
+    },
+    "ho": {
+      "label_it": "hiri motu",
+      "label_en": "Hiri Motu"
+    },
+    "io": {
+      "label_it": "ido",
+      "label_en": "Ido"
+    },
+    "ig": {
+      "label_it": "igbo",
+      "label_en": "Igbo"
+    },
+    "id": {
+      "label_it": "indonesiano",
+      "label_en": "Indonesian"
+    },
+    "en": {
+      "label_it": "inglese",
+      "label_en": "English"
+    },
+    "ia": {
+      "label_it": "interlingua",
+      "label_en": "Interlingua"
+    },
+    "ie": {
+      "label_it": "interlingue",
+      "label_en": "Interlingue"
+    },
+    "iu": {
+      "label_it": "inuktitut",
+      "label_en": "Inuktitut"
+    },
+    "ik": {
+      "label_it": "inupiak",
+      "label_en": "Inupiaq"
+    },
+    "ga": {
+      "label_it": "irlandese",
+      "label_en": "Irish"
+    },
+    "is": {
+      "label_it": "islandese",
+      "label_en": "Icelandic"
+    },
+    "it": {
+      "label_it": "italiano",
+      "label_en": "Italian"
+    },
+    "kn": {
+      "label_it": "kannada",
+      "label_en": "Kannada"
+    },
+    "kr": {
+      "label_it": "kanuri",
+      "label_en": "Kanuri"
+    },
+    "ks": {
+      "label_it": "kashmiri",
+      "label_en": "Kashmiri"
+    },
+    "kk": {
+      "label_it": "kazako",
+      "label_en": "Kazakh"
+    },
+    "km": {
+      "label_it": "khmer",
+      "label_en": "Khmer"
+    },
+    "ki": {
+      "label_it": "kikuyu",
+      "label_en": "Kikuyu"
+    },
+    "rw": {
+      "label_it": "kinyarwanda",
+      "label_en": "Kinyarwanda"
+    },
+    "ky": {
+      "label_it": "kirghiso",
+      "label_en": "Kyrgyz"
+    },
+    "kv": {
+      "label_it": "komi",
+      "label_en": "Komi"
+    },
+    "kg": {
+      "label_it": "kongo",
+      "label_en": "Kongo"
+    },
+    "kj": {
+      "label_it": "kuanyama",
+      "label_en": "Kuanyama"
+    },
+    "lo": {
+      "label_it": "lao",
+      "label_en": "Lao"
+    },
+    "la": {
+      "label_it": "latino",
+      "label_en": "Latin"
+    },
+    "lv": {
+      "label_it": "lettone",
+      "label_en": "Latvian"
+    },
+    "li": {
+      "label_it": "limburghese",
+      "label_en": "Limburgish"
+    },
+    "ln": {
+      "label_it": "lingala",
+      "label_en": "Lingala"
+    },
+    "lt": {
+      "label_it": "lituano",
+      "label_en": "Lithuanian"
+    },
+    "lu": {
+      "label_it": "luba-katanga",
+      "label_en": "Luba-Katanga"
+    },
+    "lb": {
+      "label_it": "lussemburghese",
+      "label_en": "Luxembourgish"
+    },
+    "mk": {
+      "label_it": "macedone",
+      "label_en": "Macedonian"
+    },
+    "ml": {
+      "label_it": "malayalam",
+      "label_en": "Malayalam"
+    },
+    "ms": {
+      "label_it": "malese",
+      "label_en": "Malay"
+    },
+    "mg": {
+      "label_it": "malgascio",
+      "label_en": "Malagasy"
+    },
+    "mt": {
+      "label_it": "maltese",
+      "label_en": "Maltese"
+    },
+    "gv": {
+      "label_it": "mannese",
+      "label_en": "Manx"
+    },
+    "mi": {
+      "label_it": "maori",
+      "label_en": "Māori"
+    },
+    "mr": {
+      "label_it": "marathi",
+      "label_en": "Marathi"
+    },
+    "mh": {
+      "label_it": "marshallese",
+      "label_en": "Marshallese"
+    },
+    "mn": {
+      "label_it": "mongolo",
+      "label_en": "Mongolian"
+    },
+    "na": {
+      "label_it": "nauru",
+      "label_en": "Nauru"
+    },
+    "nv": {
+      "label_it": "navajo",
+      "label_en": "Navajo"
+    },
+    "nd": {
+      "label_it": "ndebele del nord",
+      "label_en": "North Ndebele"
+    },
+    "nr": {
+      "label_it": "ndebele del sud",
+      "label_en": "South Ndebele"
+    },
+    "ng": {
+      "label_it": "ndonga",
+      "label_en": "Ndonga"
+    },
+    "ne": {
+      "label_it": "nepalese",
+      "label_en": "Nepali"
+    },
+    "no": {
+      "label_it": "norvegese",
+      "label_en": "Norwegian"
+    },
+    "nb": {
+      "label_it": "norvegese bokmål",
+      "label_en": "Norwegian Bokmål"
+    },
+    "nn": {
+      "label_it": "norvegese nynorsk",
+      "label_en": "Norwegian Nynorsk"
+    },
+    "ny": {
+      "label_it": "nyanja",
+      "label_en": "Nyanja"
+    },
+    "oc": {
+      "label_it": "occitano",
+      "label_en": "Occitan"
+    },
+    "or": {
+      "label_it": "odia",
+      "label_en": "Odia"
+    },
+    "oj": {
+      "label_it": "ojibwa",
+      "label_en": "Ojibwa"
+    },
+    "nl": {
+      "label_it": "olandese",
+      "label_en": "Dutch"
+    },
+    "om": {
+      "label_it": "oromo",
+      "label_en": "Oromo"
+    },
+    "os": {
+      "label_it": "ossetico",
+      "label_en": "Ossetic"
+    },
+    "pi": {
+      "label_it": "pali",
+      "label_en": "Pali"
+    },
+    "ps": {
+      "label_it": "pashto",
+      "label_en": "Pashto"
+    },
+    "fa": {
+      "label_it": "persiano",
+      "label_en": "Persian"
+    },
+    "pl": {
+      "label_it": "polacco",
+      "label_en": "Polish"
+    },
+    "pt": {
+      "label_it": "portoghese",
+      "label_en": "Portuguese"
+    },
+    "pa": {
+      "label_it": "punjabi",
+      "label_en": "Punjabi"
+    },
+    "qu": {
+      "label_it": "quechua",
+      "label_en": "Quechua"
+    },
+    "rm": {
+      "label_it": "romancio",
+      "label_en": "Romansh"
+    },
+    "ro": {
+      "label_it": "rumeno",
+      "label_en": "Romanian"
+    },
+    "rn": {
+      "label_it": "rundi",
+      "label_en": "Rundi"
+    },
+    "ru": {
+      "label_it": "russo",
+      "label_en": "Russian"
+    },
+    "se": {
+      "label_it": "sami del nord",
+      "label_en": "Northern Sami"
+    },
+    "sm": {
+      "label_it": "samoano",
+      "label_en": "Samoan"
+    },
+    "sg": {
+      "label_it": "sango",
+      "label_en": "Sango"
+    },
+    "sa": {
+      "label_it": "sanscrito",
+      "label_en": "Sanskrit"
+    },
+    "sc": {
+      "label_it": "sardo",
+      "label_en": "Sardinian"
+    },
+    "sr": {
+      "label_it": "serbo",
+      "label_en": "Serbian"
+    },
+    "sn": {
+      "label_it": "shona",
+      "label_en": "Shona"
+    },
+    "ii": {
+      "label_it": "sichuan yi",
+      "label_en": "Sichuan Yi"
+    },
+    "sd": {
+      "label_it": "sindhi",
+      "label_en": "Sindhi"
+    },
+    "si": {
+      "label_it": "singalese",
+      "label_en": "Sinhala"
+    },
+    "cu": {
+      "label_it": "slavo ecclesiastico",
+      "label_en": "Church Slavic"
+    },
+    "sk": {
+      "label_it": "slovacco",
+      "label_en": "Slovak"
+    },
+    "sl": {
+      "label_it": "sloveno",
+      "label_en": "Slovenian"
+    },
+    "so": {
+      "label_it": "somalo",
+      "label_en": "Somali"
+    },
+    "st": {
+      "label_it": "sotho del sud",
+      "label_en": "Southern Sotho"
+    },
+    "es": {
+      "label_it": "spagnolo",
+      "label_en": "Spanish"
+    },
+    "su": {
+      "label_it": "sundanese",
+      "label_en": "Sundanese"
+    },
+    "sv": {
+      "label_it": "svedese",
+      "label_en": "Swedish"
+    },
+    "sw": {
+      "label_it": "swahili",
+      "label_en": "Swahili"
+    },
+    "ss": {
+      "label_it": "swati",
+      "label_en": "Swati"
+    },
+    "tg": {
+      "label_it": "tagico",
+      "label_en": "Tajik"
+    },
+    "ty": {
+      "label_it": "taitiano",
+      "label_en": "Tahitian"
+    },
+    "ta": {
+      "label_it": "tamil",
+      "label_en": "Tamil"
+    },
+    "tt": {
+      "label_it": "tataro",
+      "label_en": "Tatar"
+    },
+    "de": {
+      "label_it": "tedesco",
+      "label_en": "German"
+    },
+    "te": {
+      "label_it": "telugu",
+      "label_en": "Telugu"
+    },
+    "th": {
+      "label_it": "thailandese",
+      "label_en": "Thai"
+    },
+    "bo": {
+      "label_it": "tibetano",
+      "label_en": "Tibetan"
+    },
+    "ti": {
+      "label_it": "tigrino",
+      "label_en": "Tigrinya"
+    },
+    "to": {
+      "label_it": "tongano",
+      "label_en": "Tongan"
+    },
+    "ts": {
+      "label_it": "tsonga",
+      "label_en": "Tsonga"
+    },
+    "tn": {
+      "label_it": "tswana",
+      "label_en": "Tswana"
+    },
+    "tr": {
+      "label_it": "turco",
+      "label_en": "Turkish"
+    },
+    "tk": {
+      "label_it": "turcomanno",
+      "label_en": "Turkmen"
+    },
+    "uk": {
+      "label_it": "ucraino",
+      "label_en": "Ukrainian"
+    },
+    "ug": {
+      "label_it": "uiguro",
+      "label_en": "Uyghur"
+    },
+    "hu": {
+      "label_it": "ungherese",
+      "label_en": "Hungarian"
+    },
+    "ur": {
+      "label_it": "urdu",
+      "label_en": "Urdu"
+    },
+    "uz": {
+      "label_it": "uzbeco",
+      "label_en": "Uzbek"
+    },
+    "wa": {
+      "label_it": "vallone",
+      "label_en": "Walloon"
+    },
+    "ve": {
+      "label_it": "venda",
+      "label_en": "Venda"
+    },
+    "vi": {
+      "label_it": "vietnamita",
+      "label_en": "Vietnamese"
+    },
+    "vo": {
+      "label_it": "volapük",
+      "label_en": "Volapük"
+    },
+    "wo": {
+      "label_it": "wolof",
+      "label_en": "Wolof"
+    },
+    "xh": {
+      "label_it": "xhosa",
+      "label_en": "Xhosa"
+    },
+    "yi": {
+      "label_it": "yiddish",
+      "label_en": "Yiddish"
+    },
+    "yo": {
+      "label_it": "yoruba",
+      "label_en": "Yoruba"
+    },
+    "za": {
+      "label_it": "zhuang",
+      "label_en": "Zhuang"
+    },
+    "zu": {
+      "label_it": "zulu",
+      "label_en": "Zulu"
+    }
+  },
+  "countries": {
+    "AF": {
+      "label_it": "Afghanistan",
+      "label_en": "Afghanistan"
+    },
+    "AL": {
+      "label_it": "Albania",
+      "label_en": "Albania"
+    },
+    "DZ": {
+      "label_it": "Algeria",
+      "label_en": "Algeria"
+    },
+    "AD": {
+      "label_it": "Andorra",
+      "label_en": "Andorra"
+    },
+    "AO": {
+      "label_it": "Angola",
+      "label_en": "Angola"
+    },
+    "AI": {
+      "label_it": "Anguilla",
+      "label_en": "Anguilla"
+    },
+    "AQ": {
+      "label_it": "Antartide",
+      "label_en": "Antarctica"
+    },
+    "AG": {
+      "label_it": "Antigua e Barbuda",
+      "label_en": "Antigua & Barbuda"
+    },
+    "SA": {
+      "label_it": "Arabia Saudita",
+      "label_en": "Saudi Arabia"
+    },
+    "AR": {
+      "label_it": "Argentina",
+      "label_en": "Argentina"
+    },
+    "AM": {
+      "label_it": "Armenia",
+      "label_en": "Armenia"
+    },
+    "AW": {
+      "label_it": "Aruba",
+      "label_en": "Aruba"
+    },
+    "AU": {
+      "label_it": "Australia",
+      "label_en": "Australia"
+    },
+    "AT": {
+      "label_it": "Austria",
+      "label_en": "Austria"
+    },
+    "AZ": {
+      "label_it": "Azerbaigian",
+      "label_en": "Azerbaijan"
+    },
+    "BS": {
+      "label_it": "Bahamas",
+      "label_en": "Bahamas"
+    },
+    "BH": {
+      "label_it": "Bahrein",
+      "label_en": "Bahrain"
+    },
+    "BD": {
+      "label_it": "Bangladesh",
+      "label_en": "Bangladesh"
+    },
+    "BB": {
+      "label_it": "Barbados",
+      "label_en": "Barbados"
+    },
+    "BE": {
+      "label_it": "Belgio",
+      "label_en": "Belgium"
+    },
+    "BZ": {
+      "label_it": "Belize",
+      "label_en": "Belize"
+    },
+    "BJ": {
+      "label_it": "Benin",
+      "label_en": "Benin"
+    },
+    "BM": {
+      "label_it": "Bermuda",
+      "label_en": "Bermuda"
+    },
+    "BT": {
+      "label_it": "Bhutan",
+      "label_en": "Bhutan"
+    },
+    "BY": {
+      "label_it": "Bielorussia",
+      "label_en": "Belarus"
+    },
+    "BO": {
+      "label_it": "Bolivia",
+      "label_en": "Bolivia"
+    },
+    "BA": {
+      "label_it": "Bosnia ed Erzegovina",
+      "label_en": "Bosnia & Herzegovina"
+    },
+    "BW": {
+      "label_it": "Botswana",
+      "label_en": "Botswana"
+    },
+    "BR": {
+      "label_it": "Brasile",
+      "label_en": "Brazil"
+    },
+    "BN": {
+      "label_it": "Brunei",
+      "label_en": "Brunei"
+    },
+    "BG": {
+      "label_it": "Bulgaria",
+      "label_en": "Bulgaria"
+    },
+    "BF": {
+      "label_it": "Burkina Faso",
+      "label_en": "Burkina Faso"
+    },
+    "BI": {
+      "label_it": "Burundi",
+      "label_en": "Burundi"
+    },
+    "KH": {
+      "label_it": "Cambogia",
+      "label_en": "Cambodia"
+    },
+    "CM": {
+      "label_it": "Camerun",
+      "label_en": "Cameroon"
+    },
+    "CA": {
+      "label_it": "Canada",
+      "label_en": "Canada"
+    },
+    "CV": {
+      "label_it": "Capo Verde",
+      "label_en": "Cape Verde"
+    },
+    "BQ": {
+      "label_it": "Caraibi Olandesi",
+      "label_en": "Caribbean Netherlands"
+    },
+    "CZ": {
+      "label_it": "Cechia",
+      "label_en": "Czechia"
+    },
+    "TD": {
+      "label_it": "Ciad",
+      "label_en": "Chad"
+    },
+    "CL": {
+      "label_it": "Cile",
+      "label_en": "Chile"
+    },
+    "CN": {
+      "label_it": "Cina",
+      "label_en": "China"
+    },
+    "CY": {
+      "label_it": "Cipro",
+      "label_en": "Cyprus"
+    },
+    "VA": {
+      "label_it": "Città del Vaticano",
+      "label_en": "Vatican City"
+    },
+    "CO": {
+      "label_it": "Colombia",
+      "label_en": "Colombia"
+    },
+    "KM": {
+      "label_it": "Comore",
+      "label_en": "Comoros"
+    },
+    "CD": {
+      "label_it": "Congo - Kinshasa",
+      "label_en": "Congo - Kinshasa"
+    },
+    "CG": {
+      "label_it": "Congo-Brazzaville",
+      "label_en": "Congo - Brazzaville"
+    },
+    "KP": {
+      "label_it": "Corea del Nord",
+      "label_en": "North Korea"
+    },
+    "KR": {
+      "label_it": "Corea del Sud",
+      "label_en": "South Korea"
+    },
+    "CI": {
+      "label_it": "Costa d’Avorio",
+      "label_en": "Côte d’Ivoire"
+    },
+    "CR": {
+      "label_it": "Costa Rica",
+      "label_en": "Costa Rica"
+    },
+    "HR": {
+      "label_it": "Croazia",
+      "label_en": "Croatia"
+    },
+    "CU": {
+      "label_it": "Cuba",
+      "label_en": "Cuba"
+    },
+    "CW": {
+      "label_it": "Curaçao",
+      "label_en": "Curaçao"
+    },
+    "DK": {
+      "label_it": "Danimarca",
+      "label_en": "Denmark"
+    },
+    "DM": {
+      "label_it": "Dominica",
+      "label_en": "Dominica"
+    },
+    "EC": {
+      "label_it": "Ecuador",
+      "label_en": "Ecuador"
+    },
+    "EG": {
+      "label_it": "Egitto",
+      "label_en": "Egypt"
+    },
+    "SV": {
+      "label_it": "El Salvador",
+      "label_en": "El Salvador"
+    },
+    "AE": {
+      "label_it": "Emirati Arabi Uniti",
+      "label_en": "United Arab Emirates"
+    },
+    "ER": {
+      "label_it": "Eritrea",
+      "label_en": "Eritrea"
+    },
+    "EE": {
+      "label_it": "Estonia",
+      "label_en": "Estonia"
+    },
+    "SZ": {
+      "label_it": "Eswatini",
+      "label_en": "Eswatini"
+    },
+    "ET": {
+      "label_it": "Etiopia",
+      "label_en": "Ethiopia"
+    },
+    "FJ": {
+      "label_it": "Figi",
+      "label_en": "Fiji"
+    },
+    "PH": {
+      "label_it": "Filippine",
+      "label_en": "Philippines"
+    },
+    "FI": {
+      "label_it": "Finlandia",
+      "label_en": "Finland"
+    },
+    "FR": {
+      "label_it": "Francia",
+      "label_en": "France"
+    },
+    "GA": {
+      "label_it": "Gabon",
+      "label_en": "Gabon"
+    },
+    "GM": {
+      "label_it": "Gambia",
+      "label_en": "Gambia"
+    },
+    "GE": {
+      "label_it": "Georgia",
+      "label_en": "Georgia"
+    },
+    "GS": {
+      "label_it": "Georgia del Sud e Sandwich Australi",
+      "label_en": "South Georgia & South Sandwich Islands"
+    },
+    "DE": {
+      "label_it": "Germania",
+      "label_en": "Germany"
+    },
+    "GH": {
+      "label_it": "Ghana",
+      "label_en": "Ghana"
+    },
+    "JM": {
+      "label_it": "Giamaica",
+      "label_en": "Jamaica"
+    },
+    "JP": {
+      "label_it": "Giappone",
+      "label_en": "Japan"
+    },
+    "GI": {
+      "label_it": "Gibilterra",
+      "label_en": "Gibraltar"
+    },
+    "DJ": {
+      "label_it": "Gibuti",
+      "label_en": "Djibouti"
+    },
+    "JO": {
+      "label_it": "Giordania",
+      "label_en": "Jordan"
+    },
+    "GR": {
+      "label_it": "Grecia",
+      "label_en": "Greece"
+    },
+    "GD": {
+      "label_it": "Grenada",
+      "label_en": "Grenada"
+    },
+    "GL": {
+      "label_it": "Groenlandia",
+      "label_en": "Greenland"
+    },
+    "GP": {
+      "label_it": "Guadalupa",
+      "label_en": "Guadeloupe"
+    },
+    "GU": {
+      "label_it": "Guam",
+      "label_en": "Guam"
+    },
+    "GT": {
+      "label_it": "Guatemala",
+      "label_en": "Guatemala"
+    },
+    "GG": {
+      "label_it": "Guernsey",
+      "label_en": "Guernsey"
+    },
+    "GN": {
+      "label_it": "Guinea",
+      "label_en": "Guinea"
+    },
+    "GQ": {
+      "label_it": "Guinea Equatoriale",
+      "label_en": "Equatorial Guinea"
+    },
+    "GW": {
+      "label_it": "Guinea-Bissau",
+      "label_en": "Guinea-Bissau"
+    },
+    "GY": {
+      "label_it": "Guyana",
+      "label_en": "Guyana"
+    },
+    "GF": {
+      "label_it": "Guyana Francese",
+      "label_en": "French Guiana"
+    },
+    "HT": {
+      "label_it": "Haiti",
+      "label_en": "Haiti"
+    },
+    "HN": {
+      "label_it": "Honduras",
+      "label_en": "Honduras"
+    },
+    "IN": {
+      "label_it": "India",
+      "label_en": "India"
+    },
+    "ID": {
+      "label_it": "Indonesia",
+      "label_en": "Indonesia"
+    },
+    "IR": {
+      "label_it": "Iran",
+      "label_en": "Iran"
+    },
+    "IQ": {
+      "label_it": "Iraq",
+      "label_en": "Iraq"
+    },
+    "IE": {
+      "label_it": "Irlanda",
+      "label_en": "Ireland"
+    },
+    "IS": {
+      "label_it": "Islanda",
+      "label_en": "Iceland"
+    },
+    "BV": {
+      "label_it": "Isola Bouvet",
+      "label_en": "Bouvet Island"
+    },
+    "CX": {
+      "label_it": "Isola Christmas",
+      "label_en": "Christmas Island"
+    },
+    "IM": {
+      "label_it": "Isola di Man",
+      "label_en": "Isle of Man"
+    },
+    "NF": {
+      "label_it": "Isola Norfolk",
+      "label_en": "Norfolk Island"
+    },
+    "AX": {
+      "label_it": "Isole Åland",
+      "label_en": "Åland Islands"
+    },
+    "KY": {
+      "label_it": "Isole Cayman",
+      "label_en": "Cayman Islands"
+    },
+    "CC": {
+      "label_it": "Isole Cocos (Keeling)",
+      "label_en": "Cocos (Keeling) Islands"
+    },
+    "CK": {
+      "label_it": "Isole Cook",
+      "label_en": "Cook Islands"
+    },
+    "FO": {
+      "label_it": "Isole Fær Øer",
+      "label_en": "Faroe Islands"
+    },
+    "FK": {
+      "label_it": "Isole Falkland",
+      "label_en": "Falkland Islands"
+    },
+    "HM": {
+      "label_it": "Isole Heard e McDonald",
+      "label_en": "Heard & McDonald Islands"
+    },
+    "MP": {
+      "label_it": "Isole Marianne Settentrionali",
+      "label_en": "Northern Mariana Islands"
+    },
+    "MH": {
+      "label_it": "Isole Marshall",
+      "label_en": "Marshall Islands"
+    },
+    "UM": {
+      "label_it": "Isole Minori Esterne degli Stati Uniti",
+      "label_en": "U.S. Outlying Islands"
+    },
+    "PN": {
+      "label_it": "Isole Pitcairn",
+      "label_en": "Pitcairn Islands"
+    },
+    "SB": {
+      "label_it": "Isole Salomone",
+      "label_en": "Solomon Islands"
+    },
+    "TC": {
+      "label_it": "Isole Turks e Caicos",
+      "label_en": "Turks & Caicos Islands"
+    },
+    "VI": {
+      "label_it": "Isole Vergini Americane",
+      "label_en": "U.S. Virgin Islands"
+    },
+    "VG": {
+      "label_it": "Isole Vergini Britanniche",
+      "label_en": "British Virgin Islands"
+    },
+    "IL": {
+      "label_it": "Israele",
+      "label_en": "Israel"
+    },
+    "IT": {
+      "label_it": "Italia",
+      "label_en": "Italy"
+    },
+    "JE": {
+      "label_it": "Jersey",
+      "label_en": "Jersey"
+    },
+    "KZ": {
+      "label_it": "Kazakistan",
+      "label_en": "Kazakhstan"
+    },
+    "KE": {
+      "label_it": "Kenya",
+      "label_en": "Kenya"
+    },
+    "KG": {
+      "label_it": "Kirghizistan",
+      "label_en": "Kyrgyzstan"
+    },
+    "KI": {
+      "label_it": "Kiribati",
+      "label_en": "Kiribati"
+    },
+    "KW": {
+      "label_it": "Kuwait",
+      "label_en": "Kuwait"
+    },
+    "LA": {
+      "label_it": "Laos",
+      "label_en": "Laos"
+    },
+    "LS": {
+      "label_it": "Lesotho",
+      "label_en": "Lesotho"
+    },
+    "LV": {
+      "label_it": "Lettonia",
+      "label_en": "Latvia"
+    },
+    "LB": {
+      "label_it": "Libano",
+      "label_en": "Lebanon"
+    },
+    "LR": {
+      "label_it": "Liberia",
+      "label_en": "Liberia"
+    },
+    "LY": {
+      "label_it": "Libia",
+      "label_en": "Libya"
+    },
+    "LI": {
+      "label_it": "Liechtenstein",
+      "label_en": "Liechtenstein"
+    },
+    "LT": {
+      "label_it": "Lituania",
+      "label_en": "Lithuania"
+    },
+    "LU": {
+      "label_it": "Lussemburgo",
+      "label_en": "Luxembourg"
+    },
+    "MK": {
+      "label_it": "Macedonia del Nord",
+      "label_en": "North Macedonia"
+    },
+    "MG": {
+      "label_it": "Madagascar",
+      "label_en": "Madagascar"
+    },
+    "MW": {
+      "label_it": "Malawi",
+      "label_en": "Malawi"
+    },
+    "MY": {
+      "label_it": "Malaysia",
+      "label_en": "Malaysia"
+    },
+    "MV": {
+      "label_it": "Maldive",
+      "label_en": "Maldives"
+    },
+    "ML": {
+      "label_it": "Mali",
+      "label_en": "Mali"
+    },
+    "MT": {
+      "label_it": "Malta",
+      "label_en": "Malta"
+    },
+    "MA": {
+      "label_it": "Marocco",
+      "label_en": "Morocco"
+    },
+    "MQ": {
+      "label_it": "Martinica",
+      "label_en": "Martinique"
+    },
+    "MR": {
+      "label_it": "Mauritania",
+      "label_en": "Mauritania"
+    },
+    "MU": {
+      "label_it": "Mauritius",
+      "label_en": "Mauritius"
+    },
+    "YT": {
+      "label_it": "Mayotte",
+      "label_en": "Mayotte"
+    },
+    "MX": {
+      "label_it": "Messico",
+      "label_en": "Mexico"
+    },
+    "FM": {
+      "label_it": "Micronesia",
+      "label_en": "Micronesia"
+    },
+    "MD": {
+      "label_it": "Moldavia",
+      "label_en": "Moldova"
+    },
+    "MC": {
+      "label_it": "Monaco",
+      "label_en": "Monaco"
+    },
+    "MN": {
+      "label_it": "Mongolia",
+      "label_en": "Mongolia"
+    },
+    "ME": {
+      "label_it": "Montenegro",
+      "label_en": "Montenegro"
+    },
+    "MS": {
+      "label_it": "Montserrat",
+      "label_en": "Montserrat"
+    },
+    "MZ": {
+      "label_it": "Mozambico",
+      "label_en": "Mozambique"
+    },
+    "MM": {
+      "label_it": "Myanmar (Birmania)",
+      "label_en": "Myanmar (Burma)"
+    },
+    "NA": {
+      "label_it": "Namibia",
+      "label_en": "Namibia"
+    },
+    "NR": {
+      "label_it": "Nauru",
+      "label_en": "Nauru"
+    },
+    "NP": {
+      "label_it": "Nepal",
+      "label_en": "Nepal"
+    },
+    "NI": {
+      "label_it": "Nicaragua",
+      "label_en": "Nicaragua"
+    },
+    "NE": {
+      "label_it": "Niger",
+      "label_en": "Niger"
+    },
+    "NG": {
+      "label_it": "Nigeria",
+      "label_en": "Nigeria"
+    },
+    "NU": {
+      "label_it": "Niue",
+      "label_en": "Niue"
+    },
+    "NO": {
+      "label_it": "Norvegia",
+      "label_en": "Norway"
+    },
+    "NC": {
+      "label_it": "Nuova Caledonia",
+      "label_en": "New Caledonia"
+    },
+    "NZ": {
+      "label_it": "Nuova Zelanda",
+      "label_en": "New Zealand"
+    },
+    "OM": {
+      "label_it": "Oman",
+      "label_en": "Oman"
+    },
+    "NL": {
+      "label_it": "Paesi Bassi",
+      "label_en": "Netherlands"
+    },
+    "PK": {
+      "label_it": "Pakistan",
+      "label_en": "Pakistan"
+    },
+    "PW": {
+      "label_it": "Palau",
+      "label_en": "Palau"
+    },
+    "PA": {
+      "label_it": "Panama",
+      "label_en": "Panama"
+    },
+    "PG": {
+      "label_it": "Papua Nuova Guinea",
+      "label_en": "Papua New Guinea"
+    },
+    "PY": {
+      "label_it": "Paraguay",
+      "label_en": "Paraguay"
+    },
+    "PE": {
+      "label_it": "Perù",
+      "label_en": "Peru"
+    },
+    "PF": {
+      "label_it": "Polinesia Francese",
+      "label_en": "French Polynesia"
+    },
+    "PL": {
+      "label_it": "Polonia",
+      "label_en": "Poland"
+    },
+    "PT": {
+      "label_it": "Portogallo",
+      "label_en": "Portugal"
+    },
+    "PR": {
+      "label_it": "Portorico",
+      "label_en": "Puerto Rico"
+    },
+    "QA": {
+      "label_it": "Qatar",
+      "label_en": "Qatar"
+    },
+    "HK": {
+      "label_it": "RAS di Hong Kong",
+      "label_en": "Hong Kong SAR China"
+    },
+    "MO": {
+      "label_it": "RAS di Macao",
+      "label_en": "Macao SAR China"
+    },
+    "GB": {
+      "label_it": "Regno Unito",
+      "label_en": "United Kingdom"
+    },
+    "CF": {
+      "label_it": "Repubblica Centrafricana",
+      "label_en": "Central African Republic"
+    },
+    "DO": {
+      "label_it": "Repubblica Dominicana",
+      "label_en": "Dominican Republic"
+    },
+    "RE": {
+      "label_it": "Riunione",
+      "label_en": "Réunion"
+    },
+    "RO": {
+      "label_it": "Romania",
+      "label_en": "Romania"
+    },
+    "RW": {
+      "label_it": "Ruanda",
+      "label_en": "Rwanda"
+    },
+    "RU": {
+      "label_it": "Russia",
+      "label_en": "Russia"
+    },
+    "EH": {
+      "label_it": "Sahara Occidentale",
+      "label_en": "Western Sahara"
+    },
+    "KN": {
+      "label_it": "Saint Kitts e Nevis",
+      "label_en": "St. Kitts & Nevis"
+    },
+    "LC": {
+      "label_it": "Saint Lucia",
+      "label_en": "St. Lucia"
+    },
+    "MF": {
+      "label_it": "Saint Martin",
+      "label_en": "St. Martin"
+    },
+    "VC": {
+      "label_it": "Saint Vincent e Grenadine",
+      "label_en": "St. Vincent & Grenadines"
+    },
+    "BL": {
+      "label_it": "Saint-Barthélemy",
+      "label_en": "St. Barthélemy"
+    },
+    "PM": {
+      "label_it": "Saint-Pierre e Miquelon",
+      "label_en": "St. Pierre & Miquelon"
+    },
+    "WS": {
+      "label_it": "Samoa",
+      "label_en": "Samoa"
+    },
+    "AS": {
+      "label_it": "Samoa Americane",
+      "label_en": "American Samoa"
+    },
+    "SM": {
+      "label_it": "San Marino",
+      "label_en": "San Marino"
+    },
+    "SH": {
+      "label_it": "Sant’Elena",
+      "label_en": "St. Helena"
+    },
+    "ST": {
+      "label_it": "São Tomé e Príncipe",
+      "label_en": "São Tomé & Príncipe"
+    },
+    "SN": {
+      "label_it": "Senegal",
+      "label_en": "Senegal"
+    },
+    "RS": {
+      "label_it": "Serbia",
+      "label_en": "Serbia"
+    },
+    "SC": {
+      "label_it": "Seychelles",
+      "label_en": "Seychelles"
+    },
+    "SL": {
+      "label_it": "Sierra Leone",
+      "label_en": "Sierra Leone"
+    },
+    "SG": {
+      "label_it": "Singapore",
+      "label_en": "Singapore"
+    },
+    "SX": {
+      "label_it": "Sint Maarten",
+      "label_en": "Sint Maarten"
+    },
+    "SY": {
+      "label_it": "Siria",
+      "label_en": "Syria"
+    },
+    "SK": {
+      "label_it": "Slovacchia",
+      "label_en": "Slovakia"
+    },
+    "SI": {
+      "label_it": "Slovenia",
+      "label_en": "Slovenia"
+    },
+    "SO": {
+      "label_it": "Somalia",
+      "label_en": "Somalia"
+    },
+    "ES": {
+      "label_it": "Spagna",
+      "label_en": "Spain"
+    },
+    "LK": {
+      "label_it": "Sri Lanka",
+      "label_en": "Sri Lanka"
+    },
+    "US": {
+      "label_it": "Stati Uniti",
+      "label_en": "United States"
+    },
+    "SS": {
+      "label_it": "Sud Sudan",
+      "label_en": "South Sudan"
+    },
+    "ZA": {
+      "label_it": "Sudafrica",
+      "label_en": "South Africa"
+    },
+    "SD": {
+      "label_it": "Sudan",
+      "label_en": "Sudan"
+    },
+    "SR": {
+      "label_it": "Suriname",
+      "label_en": "Suriname"
+    },
+    "SJ": {
+      "label_it": "Svalbard e Jan Mayen",
+      "label_en": "Svalbard & Jan Mayen"
+    },
+    "SE": {
+      "label_it": "Svezia",
+      "label_en": "Sweden"
+    },
+    "CH": {
+      "label_it": "Svizzera",
+      "label_en": "Switzerland"
+    },
+    "TJ": {
+      "label_it": "Tagikistan",
+      "label_en": "Tajikistan"
+    },
+    "TW": {
+      "label_it": "Taiwan",
+      "label_en": "Taiwan"
+    },
+    "TZ": {
+      "label_it": "Tanzania",
+      "label_en": "Tanzania"
+    },
+    "TF": {
+      "label_it": "Terre Australi Francesi",
+      "label_en": "French Southern Territories"
+    },
+    "PS": {
+      "label_it": "Territori Palestinesi",
+      "label_en": "Palestinian Territories"
+    },
+    "IO": {
+      "label_it": "Territorio Britannico dell’Oceano Indiano",
+      "label_en": "British Indian Ocean Territory"
+    },
+    "TH": {
+      "label_it": "Thailandia",
+      "label_en": "Thailand"
+    },
+    "TL": {
+      "label_it": "Timor Est",
+      "label_en": "Timor-Leste"
+    },
+    "TG": {
+      "label_it": "Togo",
+      "label_en": "Togo"
+    },
+    "TK": {
+      "label_it": "Tokelau",
+      "label_en": "Tokelau"
+    },
+    "TO": {
+      "label_it": "Tonga",
+      "label_en": "Tonga"
+    },
+    "TT": {
+      "label_it": "Trinidad e Tobago",
+      "label_en": "Trinidad & Tobago"
+    },
+    "TN": {
+      "label_it": "Tunisia",
+      "label_en": "Tunisia"
+    },
+    "TR": {
+      "label_it": "Turchia",
+      "label_en": "Türkiye"
+    },
+    "TM": {
+      "label_it": "Turkmenistan",
+      "label_en": "Turkmenistan"
+    },
+    "TV": {
+      "label_it": "Tuvalu",
+      "label_en": "Tuvalu"
+    },
+    "UA": {
+      "label_it": "Ucraina",
+      "label_en": "Ukraine"
+    },
+    "UG": {
+      "label_it": "Uganda",
+      "label_en": "Uganda"
+    },
+    "HU": {
+      "label_it": "Ungheria",
+      "label_en": "Hungary"
+    },
+    "UY": {
+      "label_it": "Uruguay",
+      "label_en": "Uruguay"
+    },
+    "UZ": {
+      "label_it": "Uzbekistan",
+      "label_en": "Uzbekistan"
+    },
+    "VU": {
+      "label_it": "Vanuatu",
+      "label_en": "Vanuatu"
+    },
+    "VE": {
+      "label_it": "Venezuela",
+      "label_en": "Venezuela"
+    },
+    "VN": {
+      "label_it": "Vietnam",
+      "label_en": "Vietnam"
+    },
+    "WF": {
+      "label_it": "Wallis e Futuna",
+      "label_en": "Wallis & Futuna"
+    },
+    "YE": {
+      "label_it": "Yemen",
+      "label_en": "Yemen"
+    },
+    "ZM": {
+      "label_it": "Zambia",
+      "label_en": "Zambia"
+    },
+    "ZW": {
+      "label_it": "Zimbabwe",
+      "label_en": "Zimbabwe"
+    }
+  }
+}

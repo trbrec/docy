@@ -3,6 +3,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 require_once __DIR__ . '/trb-release-integrity.php';
 require_once __DIR__ . '/trb-release-file-retry.php';
+require_once __DIR__ . '/trb-release-metadata.php';
 
 function trb_intake_find( $user_id, $token ) {
 	if ( ! preg_match( '/^[a-f0-9-]{36}$/i', $token ) ) return 0;
@@ -43,6 +44,9 @@ function trb_intake_record( $user_id, $token, $post ) {
 				if ($conflict) return new WP_Error('existing_release','Esiste già la pratica #'.$conflict.' per questo progetto. Riprendila da «Il tuo catalogo». I dati delle pratiche sono rimasti separati.',$conflict);
 				if (trb_symphonic_release($existing) && ($errors=trb_symphonic_credit_errors($post['trb_tracks'] ?? array()))) return new WP_Error('invalid_credits',implode(' ',$errors));
 				if (trb_symphonic_genre_release($existing) && ($errors=trb_symphonic_genre_errors($post['trb_tracks'] ?? array()))) return new WP_Error('invalid_genres',implode(' ',$errors));
+				if ($errors=trb_release_metadata_errors($post)) return new WP_Error('invalid_metadata',implode(' ',$errors));
+				if ($errors=trb_release_ai_declaration_conflicts((array)($post['trb_tracks']??array()),(array)get_post_meta($existing,'_trb_release_tracks',true))) return new WP_Error('metadata_association_conflict',implode(' ',$errors));
+				$post['trb_tracks']=trb_release_preserve_ai_declarations((array)($post['trb_tracks']??array()),(array)get_post_meta($existing,'_trb_release_tracks',true));
 				trb_intake_refresh_draft($existing,$post);
 			}
 			return $existing;
@@ -51,6 +55,7 @@ function trb_intake_record( $user_id, $token, $post ) {
 		if ( ! trb_intake_project_identity( $post ) ) return new WP_Error( 'invalid', 'Inserisci il titolo della release, la tipologia e il titolo di ciascun brano prima di inviare.' );
 		$conflict = trb_intake_project_conflict( $user_id, $post );
 		if ( $conflict ) return new WP_Error( 'existing_release', 'Esiste già la pratica #' . $conflict . ' con questo titolo e questi brani. Aprila da «Il tuo catalogo» e usa «Riprendi il caricamento di questa pratica» se incompleta. Nessuna nuova pratica è stata creata. Se intendi pubblicare una nuova edizione distinta, apri una segnalazione.', $conflict );
+		if ($errors=trb_release_metadata_errors($post)) return new WP_Error('invalid_metadata',implode(' ',$errors));
 		$title = sanitize_text_field( $post['trb_release_title'] ?? '' );
 		$raw_tracks = isset( $post['trb_tracks'] ) && is_array( $post['trb_tracks'] ) ? array_slice( $post['trb_tracks'], 0, 24, true ) : array();
 		$credit_errors=trb_symphonic_credit_errors($raw_tracks);
@@ -72,6 +77,9 @@ function trb_intake_record( $user_id, $token, $post ) {
 			'_trb_release_date' => sanitize_text_field( $post['trb_release_date'] ?? '' ),
 			'_trb_release_original_date' => sanitize_text_field( $post['trb_release_original_date'] ?? '' ),
 			'_trb_release_tracks' => $tracks,
+			'_trb_release_metadata_language' => trb_release_metadata_code($post['trb_release_metadata_language'] ?? '', 'languages'),
+			'_trb_release_version' => sanitize_text_field($post['trb_release_version'] ?? ''),
+			'_trb_release_metadata_schema' => 'symphonic-2026-10',
 			'_trb_release_expected_tracks' => count( $raw_tracks ),
 			'_trb_release_intake_error' => 'Invio ricevuto; acquisizione e validazione dei file non ancora completate.',
 		);
@@ -94,6 +102,7 @@ function trb_intake_refresh_draft($id, $post) {
  $title=sanitize_text_field($post['trb_release_title']??'');
  if ($title!=='') wp_update_post(array('ID'=>$id,'post_title'=>$title));
  foreach(array('type','state','date','original_date') as $field) update_post_meta($id,'_trb_release_'.$field,sanitize_text_field($post['trb_release_'.$field]??''));
+ trb_release_metadata_store($id,$post);
  if (isset($post['trb_tracks']) && is_array($post['trb_tracks'])) update_post_meta($id,'_trb_release_tracks',trb_portal_sanitize_release_tracks(array_slice($post['trb_tracks'],0,24,true),trb_symphonic_release($id),trb_symphonic_genre_release($id)));
 }
 

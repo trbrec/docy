@@ -110,6 +110,12 @@ jobs:
           printf '%s' "${readiness}" | python3 -c 'import json,sys;d=json.load(sys.stdin);keys=("revision","archive_connection","portal_secret","identity_key","signature_secret","invitation_key","signature_adapter","mail_adapter","contract_sources","portal_adapter","portal_loaded","portal_route_loaded","portal_key_matches","portal_store_configured","portal_approval_plugin");assert all(d.get(k) is True for k in keys),"Required onboarding providers or portal prerequisites unconfirmed"'
           release_stage=integration-preflight
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/deploy-portal-integrations.php' preflight '${GITHUB_SHA}'" >/dev/null 2>&1
+          metadata_guard=0
+          if git diff --name-only "${deployment_base}" "${GITHUB_SHA}" -- tools/symphonic-metadata-install-baseline.json | grep -qx 'tools/symphonic-metadata-install-baseline.json'; then
+            release_stage=metadata-baseline-preflight
+            ssh "${ssh_opts[@]}" "${remote}" "umask 077; php '${candidate}/tools/symphonic-metadata-install-guard.php' capture '${GITHUB_SHA}' > '${release}/metadata-before.json'"
+            metadata_guard=1
+          fi
           release_stage=theme-snapshot
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/prepare-portal-release.php' snapshot '${GITHUB_SHA}'" >/dev/null 2>&1
           snapshot_ready=1
@@ -117,6 +123,9 @@ jobs:
           integrations_started=1
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/deploy-portal-integrations.php' apply '${GITHUB_SHA}'" >/dev/null 2>&1
           release_stage=theme-install
+          if [ "${metadata_guard}" -eq 1 ]; then
+            ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/symphonic-metadata-install-guard.php' check '${GITHUB_SHA}'" >/dev/null
+          fi
           ssh "${ssh_opts[@]}" "${remote}" "rsync -a --checksum --exclude='.trb-deployed-sha' --exclude='/tools/test-*' --exclude='/tests/' --exclude='/integrations/site-studio/test-*' --exclude='/tools/fixtures-onboarding-entry-mail.php' --exclude='/tools/site-preview.test.cjs' --exclude='/integrations/site-studio/artist-cards.test.cjs' --exclude='/integrations/site-studio/editor-browser.test.cjs' '${candidate}/' '${DEPLOY_PATH}/' && cp '${candidate}/.trb-deployed-sha' '${DEPLOY_PATH}/.trb-deployed-sha'" >/dev/null 2>&1
           release_stage=obsolete-module-cleanup
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/prepare-portal-release.php' prune '${GITHUB_SHA}'" >/dev/null 2>&1
