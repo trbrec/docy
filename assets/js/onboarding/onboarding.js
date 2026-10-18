@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const cfg=window.TRBOnboarding, $=id=>document.getElementById(id);
-  let editingPlan=false;
+  let editingPlan=false, resumingDeferral=false, deferralRequest=null, deferralPractice=null, deferralConsent='';
   let practice=null, busy=false, polling=false, formPractice=null, planPractice=null, transfer=null, identityUncertain=false, statusUnavailable=false, sessionExpired=false;
   const documentLabels={identity_front:"Carta d’identità — fronte",identity_back:"Carta d’identità — retro",tax_front:"Tessera sanitaria o tesserino del codice fiscale — fronte",tax_back:"Tessera sanitaria o tesserino del codice fiscale — retro"}, confirmedFiles={}, awaitingConfirmation={};
   let documentSlots={identity_front:documentLabels.identity_front,tax_front:documentLabels.tax_front};
@@ -110,8 +110,58 @@
     $('payment-title').textContent=payable&&!rows.length?'Completa il primo versamento':'I tuoi versamenti';
     $('payment-next').textContent=p.automatic_signature?'Dopo la conferma del versamento riceverai via email le istruzioni per firmare il contratto.':'Dopo la conferma del versamento, TRB rec completerà la pratica per inviarti il contratto da firmare.';
     show('payment-note',!!payable&&(rows.length>0||['overdue','payment_review'].includes(p.access?.reason)));
+    renderDeferral(p);
     syncControls();
   }
+  function deferralKey(){
+    if(practice.activation_deferral?.request_key)return practice.activation_deferral.request_key;
+    if(deferralRequest?.practice===practice.id)return deferralRequest.key;
+    const storageKey=`trb-deferral-${practice.id}`;let key='';
+    try{key=sessionStorage.getItem(storageKey)||'';}catch(_){}
+    if(!/^[a-f0-9]{64}$/.test(key)){const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);key=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');try{sessionStorage.setItem(storageKey,key);}catch(_){}}
+    deferralRequest={practice:practice.id,key};return key;
+  }
+  const deferralDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value||'')?value.split('-').reverse().join('/'):'da confermare';
+  const deferralEligible=p=>['DDB12','DDB','DDB-TRB'].includes(p?.group_code);
+  function renderDeferral(p){
+    if(deferralPractice!==p.id){resumingDeferral=false;deferralRequest=null;deferralPractice=p.id;$('deferral-terms').checked=false;}
+    const d=p.activation_deferral||{}, recorded=!!d.state, blocked=recorded&&!d.credited_at, card=$('deferral-option');
+    const consent=JSON.stringify([p.id,p.proposal_sha256,d.policy_version,d.terms_text]);if(deferralConsent!==consent){$('deferral-terms').checked=false;deferralConsent=consent;}
+    show('deferral-option',!cfg.account&&deferralEligible(p)&&(d.available===true&&['identity_matched','payment_pending'].includes(p.state)||recorded));
+    if(card.hidden){resumingDeferral=false;return;}
+    if(recorded)card.querySelector('details').open=true;
+    const terms=$('deferral-terms-text');terms.replaceChildren();if(typeof d.terms_text==='string')for(const text of d.terms_text.split(/(?<=\.)\s+(?=[A-ZÀ-Ü])/u)){const paragraph=document.createElement('p');paragraph.textContent=text;terms.append(paragraph);}
+    const awaiting=d.state==='checkout_pending', reserved=d.state==='deferred'||d.state==='resumed';
+    show('deferral-new',!recorded);show('deferral-recorded',recorded);show('deferral-checkout',d.enabled===true&&(!recorded&&typeof d.terms_text==='string'&&d.terms_text.length>0||awaiting));
+    show('deferral-refresh',recorded);show('deferral-start',d.can_resume===true&&d.enabled===true&&!resumingDeferral);
+    $('deferral-checkout').textContent=awaiting?'Riprendi il versamento di 100 €':'Versa 100 € per posticipare l’attivazione';
+    const status=awaiting?'Versamento in attesa di conferma. Non effettuare un secondo pagamento.':d.state==='retained'?'Il termine della proroga è trascorso. Rispondi alla nostra email per verificare la tua posizione.':d.state==='invalidated'?'Il versamento richiede una verifica. Contatta TRB rec prima di procedere.':d.credited_at?'I 100 € sono già stati scalati dal primo versamento.':reserved?`Versamento di 100 € ricevuto il ${deferralDate(d.paid_on)}. Completa il primo versamento della formula scelta entro il ${deferralDate(d.expires_on)}, alle 23:59:59 (ora italiana), per avviare l’adesione.`:'La tua proroga è da verificare. Rispondi alla nostra email per assistenza.';
+    $('deferral-status').textContent=status;
+    if(blocked){
+      show('register-step',false);show('ready-access',false);show('portal-access',false);show('payment-step',d.state==='resumed'&&!resumingDeferral&&p.selected_plan&&p.access?.reason!=='payment_review');
+      show('plans-step',resumingDeferral&&d.can_resume===true);show('cancel-plan-change',resumingDeferral);
+      show('checkout',d.state==='resumed'&&!resumingDeferral&&p.selected_plan&&p.access?.reason!=='payment_review');
+      show('payment-due',d.state==='resumed'&&!resumingDeferral&&p.selected_plan);
+      if(d.state==='resumed'&&p.selected_plan){$('payment-current-amount').textContent=money(Math.max(0,p.selected_plan.amounts_cents[0]-d.credit_remaining_cents));$('payment-next').textContent='L’importo indicato comprende già i 100 € versati per la proroga. Dopo la conferma potrai proseguire verso la firma.';}
+      if(resumingDeferral){$('plan-selection-title').textContent='Scegli come avviare la collaborazione';$('confirm-formula').textContent='Conferma formula e prosegui';for(const label of $('plan-list').children){const radio=label.children[0],plan=p.plans[radio.value];label.children[2].textContent=`${money(Math.max(0,plan.amounts_cents[0]-d.credit_remaining_cents))} da versare ora, con i 100 € già scalati`;}}
+      $('next-step-title').textContent=reserved?'La proposta è riservata per te':'Verifica della proroga';$('next-step-help').textContent=status;$('page-intro').textContent='La proroga non avvia servizi, scadenze delle rate o firma del contratto.';
+      show('signature-email',false);show('read-proposal',true);
+    }
+    if(!resumingDeferral)$('confirm-formula').textContent='Conferma formula';
+  }
+  async function deferralPayment(){
+    const d=practice.activation_deferral||{};
+    const available=!d.state&&d.available===true, pending=d.state==='checkout_pending';
+    if(cfg.account||!deferralEligible(practice)||d.enabled!==true||(!available&&!pending)||typeof d.terms_text!=='string'||!d.terms_text.trim())throw new Error('La proroga non è disponibile per questa pratica. Rispondi all’email della proposta per assistenza.');
+    if(!d.state&&!$('deferral-terms').checked){notice('Leggi e conferma le condizioni della proroga prima di procedere.',true);return;}
+    const result=await api('deferral_checkout',{request_key:deferralKey(),proposal_sha256:practice.proposal_sha256,policy_version:d.policy_version,terms_read:true});
+    if(result.practice)render(result.practice);
+    if(result.checkout_url){const url=new URL(result.checkout_url);if(url.protocol!=='https:'||url.hostname!=='store.trbrec.com'||url.username||url.password||url.hash||url.port&&url.port!=='443')throw new Error('Collegamento pagamento non valido.');location.assign(url.href);}
+    else notice(result.paid?'Proroga confermata. Qui trovi la nuova scadenza.':'Stiamo verificando il versamento già richiesto.');
+  }
+  $('deferral-checkout').addEventListener('click',()=>run(deferralPayment));
+  $('deferral-refresh').addEventListener('click',()=>run(async()=>{render(await api('deferral_refresh'));show('notice',false);}));
+  $('deferral-start').addEventListener('click',()=>{if(busy||cfg.account||!deferralEligible(practice)||practice.activation_deferral?.enabled!==true||practice.activation_deferral?.can_resume!==true)return;resumingDeferral=true;render(practice);$('plans-form').elements.namedItem('proposal_read').checked=false;$('plans-step').scrollIntoView({behavior:'smooth',block:'start'});});
   function validateFile(file){if(!/\.(jpg|jpeg|png|pdf)$/i.test(file.name)||file.size<1||file.size>10485760)throw new Error('Usa un’immagine o un PDF fino a 10 MB per documento.');}
   async function upload(slot,file){
     validateFile(file);
@@ -152,9 +202,9 @@
     progress('Verifica dei documenti in corso…',null,'Le immagini richieste dei documenti sono state caricate. Stiamo controllando che i dati coincidano con quelli della proposta. Non ripetere l’invio: vedrai qui l’esito e il prossimo passaggio.');show('notice',false);identityUncertain=true;syncControls();
     let result;try{result=await api('identity',{retry:practice.identity_verification?.status==='error'&&practice.identity_verification.retryable===true});}catch(e){if(!e.uncertain&&!e.sessionExpired)identityUncertain=false;throw e;}render(result.practice);if(!result.practice.identity_verification)identityUncertain=false;show('notice',false);$('practice-summary').scrollIntoView({behavior:'smooth',block:'start'});
   });});
-  $('plans-form').addEventListener('submit',e=>{e.preventDefault();if(verifying()){notice('Puoi scegliere la formula. La conferma e il versamento saranno disponibili al termine della verifica dei documenti.');return;}run(async()=>{const f=new FormData(e.target);const next=await api('choose',{plan_key:f.get('plan_key'),proposal_read:f.get('proposal_read')==='on',proposal_sha256:practice.proposal_sha256});editingPlan=false;render(next);show('notice',false);});});
+  $('plans-form').addEventListener('submit',e=>{e.preventDefault();if(verifying()){notice('Puoi scegliere la formula. La conferma e il versamento saranno disponibili al termine della verifica dei documenti.');return;}run(async()=>{const f=new FormData(e.target);const next=await api(resumingDeferral?'deferral_resume':'choose',{plan_key:f.get('plan_key'),proposal_read:f.get('proposal_read')==='on',proposal_sha256:practice.proposal_sha256});editingPlan=false;resumingDeferral=false;render(next);show('notice',false);});});
   $('change-formula').addEventListener('click',()=>{if(busy||practice?.can_change_plan!==true)return;editingPlan=true;render(practice);document.querySelectorAll('#plan-list input[name=plan_key]').forEach(input=>{input.checked=input.value===selectedPlanKey(practice);});$('plans-form').elements.namedItem('proposal_read').checked=false;$('plans-step').scrollIntoView({behavior:'smooth',block:'start'});});
-  $('cancel-plan-change').addEventListener('click',()=>{if(busy)return;editingPlan=false;render(practice);$('payment-step').scrollIntoView({behavior:'smooth',block:'start'});});
+  $('cancel-plan-change').addEventListener('click',()=>{if(busy)return;editingPlan=false;resumingDeferral=false;render(practice);$('payment-step').scrollIntoView({behavior:'smooth',block:'start'});});
   $('refresh').addEventListener('click',()=>run(async()=>{render(await api(cfg.account?'account':verifying()||practice?.state==='identity_review'?'view':'refresh'));show('notice',false);}));
   $('checkout').addEventListener('click',()=>run(async()=>{const result=await api(cfg.account?'account_checkout':'checkout',cfg.account?{}:{plan_key:selectedPlanKey(practice)});if(result.practice)render(result.practice);if(result.checkout_url){const url=new URL(result.checkout_url);if(url.protocol!=='https:'||url.hostname!=='store.trbrec.com')throw new Error('Collegamento pagamento non valido.');location.assign(url.href);}else notice(result.next_due_date?`La prossima quota scade il ${result.next_due_date}.`:'Versamento confermato.');}));
   document.querySelectorAll('[data-document]').forEach(button=>button.addEventListener('click',()=>run(async()=>{const result=await api(cfg.account?'account_document':'document',{slot:button.dataset.document});openDocument(result.file);})));

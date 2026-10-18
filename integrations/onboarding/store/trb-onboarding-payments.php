@@ -3,7 +3,7 @@ if(!defined('ABSPATH'))exit;
 /** Use the dedicated HMAC permissions on precisely these Store POST routes. */
 function trb_onboarding_store_protocol_authentication($result){
     $path=rtrim((string)parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH),'/');
-    if(($_SERVER['REQUEST_METHOD']??'')==='POST'&&in_array($path,array('/wp-json/trb/v1/onboarding/order','/wp-json/trb/v1/onboarding/payment-status'),true))return null;
+    if(($_SERVER['REQUEST_METHOD']??'')==='POST'&&in_array($path,array('/wp-json/trb/v1/onboarding/order','/wp-json/trb/v1/onboarding/payment-status','/wp-json/trb/v1/onboarding/deferral-order','/wp-json/trb/v1/onboarding/deferral-status'),true))return null;
     return $result;
 }
 add_filter('rest_authentication_errors','trb_onboarding_store_protocol_authentication',PHP_INT_MAX);
@@ -33,9 +33,12 @@ function trb_onboarding_store_order($request){
         if(!add_option($lock,$lockValue,'','no'))return new WP_Error('onboarding_busy','Pagamento in preparazione. Riprova tra poco.',array('status'=>409));
     }
     try{
-        $ids=array_filter(array_map('intval',(array)get_option($key,array())));$order=false;$confirmed=0;
+        $credit=trb_onboarding_deferral_credit_context($p,$number);
+        $ids=array_filter(array_map('intval',(array)get_option($key,array())));$ids=trb_onboarding_store_attempt_recover($key,$ids,$id,$number);$order=false;$confirmed=0;
         foreach($ids as $orderId){
             $past=wc_get_order($orderId);if(!$past)throw new RuntimeException('Storico versamenti da verificare.');
+            if((string)$past->get_meta('_trb_onboarding_practice_id')!==$id||(int)$past->get_meta('_trb_onboarding_number')!==$number||$past->get_currency()!=='EUR'||(int)$past->get_meta('_trb_onboarding_amount_cents')<1||(int)round((float)$past->get_total()*100)!==(int)$past->get_meta('_trb_onboarding_amount_cents'))throw new RuntimeException('Ordine non coerente con la rata o il suo importo.');
+            trb_onboarding_deferral_installment_matches($past,$credit);
             if((int)$past->get_meta('_trb_onboarding_installment_total_cents')!==$total||(string)$past->get_meta('_trb_onboarding_snapshot_sha256')!==$p['snapshot_sha256']||strtolower($past->get_billing_email())!==strtolower($email))throw new RuntimeException('Ordine non coerente con la proposta.');
             $capture=trb_onboarding_store_capture($past);$refund=(int)round((float)$past->get_total_refunded()*100);
             if($capture['captured'])$confirmed+=max(0,$capture['amount_cents']-$refund);
@@ -44,8 +47,8 @@ function trb_onboarding_store_order($request){
                 $order=$past;
             }elseif($past->has_status(array('cancelled','refunded'))&&$past->get_transaction_id()!=='')throw new RuntimeException('Versamento con esito da verificare.');
         }
-        if($confirmed===$total&&!$order){$last=wc_get_order(end($ids));return array('order_id'=>$last->get_id(),'checkout_url'=>'','paid'=>true,'amount_cents'=>$amount,'currency'=>'EUR');}
-        if($amount!==$total-$confirmed)throw new RuntimeException('Saldo aggiornato: verifica nuovamente la rata prima di pagare.');
+        if($confirmed===$total-($credit['credit_cents']??0)&&!$order){$last=wc_get_order(end($ids));return trb_onboarding_deferral_installment_result(array('order_id'=>$last->get_id(),'checkout_url'=>'','paid'=>true,'amount_cents'=>$amount,'currency'=>'EUR'),$last,$p);}
+        if($amount!==$total-($credit['credit_cents']??0)-$confirmed)throw new RuntimeException('Saldo aggiornato: verifica nuovamente la rata prima di pagare.');
         if($order&&(int)$order->get_meta('_trb_onboarding_amount_cents')!==$amount)throw new RuntimeException('Tentativo pendente con importo diverso: richiedi assistenza.');
         if(!$order){
             $billing=(array)($p['billing']??array());
@@ -53,22 +56,27 @@ function trb_onboarding_store_order($request){
             if(empty($p['tax_code']))throw new RuntimeException('Codice fiscale mancante.');
             $billing=array_intersect_key($billing,array_flip(array('first_name','last_name','address_1','address_2','city','postcode','country','state','phone')));
             if(!array_key_exists(strtoupper($billing['country']),WC()->countries->get_countries()))throw new RuntimeException('Paese amministrativo non valido.');
+            trb_onboarding_deferral_claim_credit($credit);
+            $attempt=trb_onboarding_store_attempt_reserve($key,$ids,$p,$number,$amount,$total,$email,$credit);
             $order=wc_create_order(array('created_via'=>'trb-contract-onboarding'));
             if(is_wp_error($order))throw new RuntimeException('Ordine non disponibile.');
+            $attempt=trb_onboarding_store_attempt_allocated($key,$attempt,$order);
+            $order->update_meta_data('_trb_onboarding_attempt_token',$attempt['token']);
             $order->set_currency('EUR');$billing['email']=$email;$order->set_address(array_map('sanitize_text_field',$billing),'billing');
             $fee=new WC_Order_Item_Fee();$fee->set_name('Quota contrattuale – rata '.$number);
             $gross=$amount/100;$taxes=wc_tax_enabled()?WC_Tax::find_rates(array('country'=>$billing['country'],'state'=>$billing['state']??'','postcode'=>$billing['postcode'],'city'=>$billing['city'],'tax_class'=>'')):array();
             // Contract amounts include VAT. Use actual Store tax setup, never double-charge VAT.
             $inclusive=$taxes?array_sum(WC_Tax::calc_inclusive_tax($gross,$taxes)):0;
             $fee->set_amount($gross-$inclusive);$fee->set_total($gross-$inclusive);$fee->set_tax_status($taxes?'taxable':'none');$order->add_item($fee);
+            trb_onboarding_deferral_installment_meta($order,$credit);
             $order->update_meta_data('_trb_onboarding_practice_id',$id);$order->update_meta_data('_trb_onboarding_number',$number);$order->update_meta_data('_trb_onboarding_amount_cents',$amount);$order->update_meta_data('_trb_onboarding_installment_total_cents',$total);$order->update_meta_data('_trb_onboarding_snapshot_sha256',$p['snapshot_sha256']);$order->update_meta_data('_billing_fiscal_code',sanitize_text_field($p['tax_code']));
             foreach(array('vat_number','sdi_code','pec') as $field)if(isset($p['invoice'][$field]))$order->update_meta_data('_billing_'.$field,sanitize_text_field($p['invoice'][$field]));
             $order->calculate_totals(true);
             if((int)round((float)$order->get_total()*100)!==$amount){$order->update_status('cancelled','Importo fiscale non coerente: nessun addebito richiesto.');throw new RuntimeException('Calcolo fiscale da verificare prima del pagamento.');}
-            $order->save();$ids[]=$order->get_id();update_option($key,$ids,false);
+            $order->save();$ids=trb_onboarding_store_attempt_complete($key,$ids,$attempt);
         }
         if($order->has_status(array('cancelled','refunded'))||($order->has_status('on-hold')&&$order->get_payment_method()!=='bacs'))throw new RuntimeException('Ordine con esito da verificare: richiedi assistenza prima di un nuovo versamento.');
-        return array('order_id'=>$order->get_id(),'checkout_url'=>$order->has_status('on-hold')&&$order->get_payment_method()==='bacs'?$order->get_checkout_order_received_url():$order->get_checkout_payment_url(),'paid'=>trb_onboarding_store_capture($order)['captured'],'awaiting_bank_transfer'=>$order->has_status('on-hold')&&$order->get_payment_method()==='bacs','amount_cents'=>$amount,'currency'=>'EUR');
+        return trb_onboarding_deferral_installment_result(array('order_id'=>$order->get_id(),'checkout_url'=>$order->has_status('on-hold')&&$order->get_payment_method()==='bacs'?$order->get_checkout_order_received_url():$order->get_checkout_payment_url(),'paid'=>trb_onboarding_store_capture($order)['captured'],'awaiting_bank_transfer'=>$order->has_status('on-hold')&&$order->get_payment_method()==='bacs','amount_cents'=>$amount,'currency'=>'EUR'),$order,$p);
     }catch(Throwable $e){return new WP_Error('onboarding_checkout',$e->getMessage(),array('status'=>409));}
     finally{global $wpdb;$wpdb->delete($wpdb->options,array('option_name'=>$lock,'option_value'=>$lockValue));wp_cache_delete($lock,'options');}
 }
@@ -86,7 +94,7 @@ function trb_onboarding_store_payment_status($request){
     // A bank transfer requires its separate, immutable administrative receipt.
     $capture=trb_onboarding_store_capture($order);$date=$capture['date'];$transaction=$capture['transaction'];
     $verified=$order->is_paid()&&$capture['captured'];
-    return array('practice_id'=>(string)$order->get_meta('_trb_onboarding_practice_id'),'number'=>(int)$order->get_meta('_trb_onboarding_number'),'amount_cents'=>$amount,'refunded_cents'=>$refunded,'currency'=>$order->get_currency(),'snapshot_sha256'=>(string)$order->get_meta('_trb_onboarding_snapshot_sha256'),'email'=>strtolower($order->get_billing_email()),'provider'=>'woocommerce','transaction_id'=>'order:'.$order->get_id().':'.hash('sha256',$transaction),'paid_on'=>$date?wp_date('Y-m-d',$date->getTimestamp(),new DateTimeZone('Europe/Rome')):null,'captured'=>$capture['captured'],'awaiting_bank_transfer'=>$order->get_payment_method()==='bacs'&&$order->has_status('on-hold')&&!$capture['captured'],'status'=>$refunded>0&&$capture['captured']?'reversed':($verified?'confirmed':($capture['captured']?'review':'pending')));
+    return trb_onboarding_deferral_installment_result(array('practice_id'=>(string)$order->get_meta('_trb_onboarding_practice_id'),'number'=>(int)$order->get_meta('_trb_onboarding_number'),'amount_cents'=>$amount,'refunded_cents'=>$refunded,'currency'=>$order->get_currency(),'snapshot_sha256'=>(string)$order->get_meta('_trb_onboarding_snapshot_sha256'),'email'=>strtolower($order->get_billing_email()),'provider'=>'woocommerce','transaction_id'=>'order:'.$order->get_id().':'.hash('sha256',$transaction),'paid_on'=>$date?wp_date('Y-m-d',$date->getTimestamp(),new DateTimeZone('Europe/Rome')):null,'captured'=>$capture['captured'],'awaiting_bank_transfer'=>$order->get_payment_method()==='bacs'&&$order->has_status('on-hold')&&!$capture['captured'],'status'=>$refunded>0&&$capture['captured']?'reversed':($verified?'confirmed':($capture['captured']?'review':'pending'))),$order,$p,true);
 }
 
 add_action('rest_api_init',static function(){
@@ -193,3 +201,5 @@ add_action('wp_footer',static function(){
     if(!$order||!$order->get_meta('_trb_onboarding_practice_id'))return;
     echo '<script>(function(){var title="Carta di credito o debito (Bancomat Visa/Mastercard) · senza conto PayPal",action="EFFETTUA IL VERSAMENTO";function label(){var h=document.querySelector(".page-checkout>h1");if(h&&h.textContent.trim()!=="Versamento della quota contrattuale")h.textContent="Versamento della quota contrattuale";var e=document.querySelector("label[for=payment_method_stripe]");if(e&&e.textContent.trim()!==title)e.textContent=title;var b=document.querySelector("#place_order");if(b){if(b.textContent.trim()!==action)b.textContent=action;if(b.value!==action)b.value=action;if(b.getAttribute("data-value")!==action)b.setAttribute("data-value",action);}}label();if(window.MutationObserver){new MutationObserver(label).observe(document.body,{childList:true,subtree:true,characterData:true});}})();</script>';
 },100);
+
+require_once __DIR__.'/trb-onboarding-deferral.php';

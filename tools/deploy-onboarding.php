@@ -20,6 +20,10 @@ require_once __DIR__.'/crm-module-source-guard.php';
 $crmModules=['assets/onboarding.css'];
 foreach(glob($theme.'/integrations/onboarding/crm/*.php') as $file)$crmModules[]='app/'.basename($file);
 trb_crm_module_source_guard($crm,dirname($crm).'/private/canonical-release.json',$crmModules);
+function onboarding_source(string $path): string{
+    if(is_link($path)||!is_file($path)||!is_readable($path))throw new RuntimeException('Store source unavailable');
+    $source=file_get_contents($path);if(!is_string($source)||trim($source)==='')throw new RuntimeException('Store source empty');return $source;
+}
 function onboarding_wp(string $root,string $code): array{
     $script='define("WP_USE_THEMES",false);define("DISABLE_WP_CRON",true);require '.var_export($root.'/wp-load.php',true).';'.$code;
     exec(escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($script).' 2>/dev/null',$out,$status);
@@ -44,7 +48,9 @@ onboarding_stage('crm-entry');
 $crmIndex=(string)file_get_contents($crm.'/index.php');
 if(!str_contains($crmIndex,"require_once __DIR__.'/app/OnboardingRuntime.php';"))throw new RuntimeException('Canonical CRM entry not installed');
 onboarding_stage('store-stage');
-$stage($store['directory'].'/inc/trb-onboarding-payments.php',(string)file_get_contents($theme.'/integrations/onboarding/store/trb-onboarding-payments.php'));
+$storeSources=[];
+foreach(['trb-onboarding-deferral.php','trb-onboarding-payments.php'] as $name)$storeSources[$name]=onboarding_source($theme.'/integrations/onboarding/store/'.$name);
+foreach($storeSources as $name=>$source)$stage($store['directory'].'/inc/'.$name,$source);
 $functionsPath=$store['directory'].'/functions.php';$functions=(string)file_get_contents($functionsPath);
 if(!str_contains($functions,"'/inc/trb-onboarding-payments.php'"))$functions.="\n/** New contract installment checkout. */\nrequire_once get_stylesheet_directory() . '/inc/trb-onboarding-payments.php';\n";
 $stage($functionsPath,$functions);
