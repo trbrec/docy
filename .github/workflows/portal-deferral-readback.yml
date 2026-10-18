@@ -48,7 +48,7 @@ jobs:
           trap cleanup EXIT
           scp -q -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-deferral-source-readback.php "${remote}:${remote_file}"
           ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${remote_file}'" > /tmp/trb-deferral-readback/sources.json 2>/dev/null
-          python3 -c 'import json;d=json.load(open("/tmp/trb-deferral-readback/sources.json"));assert d.get("read_only") is True and d.get("customer_rows_read") is False and d.get("source_code_exported") is False and len(d["sources"])>=4 and all(set(v)=={"sha256","normalized_lf_sha256","bytes"} for v in d["sources"].values()) and d["flags"]["trb_onboarding_deferral_payments_enabled"] is False'
+          python3 -c 'import json;d=json.load(open("/tmp/trb-deferral-readback/sources.json"));assert d.get("read_only") is True and d.get("customer_rows_read") is False and d.get("source_code_exported") is False and len(d["sources"])>=4 and all(set(v)=={"sha256","normalized_lf_sha256","bytes"} for v in d["sources"].values()) and d["flags"]["trb_onboarding_deferral_payments_enabled"] is False;print("SCOPED_HASH_READBACK="+json.dumps(d,separators=(",",":")))'
       - uses: actions/upload-artifact@v4
         with:
           name: portal-deferral-source-readback
