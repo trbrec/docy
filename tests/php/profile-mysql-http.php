@@ -30,6 +30,7 @@ if ( ! $qaServing ) {
 }
 require dirname( __DIR__, 2 ) . '/inc/trb-release-integrity.php';
 require dirname( __DIR__, 2 ) . '/inc/trb-artist-portal.php';
+trb_portal_register_release_type();
 define( 'TRB_CRM_SYNC_SECRET', str_repeat( 's', 64 ) );
 require dirname( __DIR__, 2 ) . '/integrations/portal-mu-plugins/trb-crm-sync.php';
 require dirname( __DIR__, 2 ) . '/integrations/portal-mu-plugins/trb-z-crm-release-sync-r26.php';
@@ -143,6 +144,7 @@ if ( $qaServing ) {
             if ( ( $_POST['qa_cover_commit_failure'] ?? '' ) === '1' ) add_filter( 'query', static function( $query ) { return $query === 'COMMIT' ? "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Injected QA cover commit failure'" : $query; } );
             trb_portal_attach_release_cover();
         }
+        if ( ( $_POST['action'] ?? '' ) === 'trb_portal_start_release' ) trb_portal_start_release();
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_stage_release_chunk' ) trb_portal_stage_release_chunk();
         if ( ( $_POST['action'] ?? '' ) === 'trb_portal_submit_demo' ) {
             require dirname( __DIR__, 2 ) . '/inc/trb-crm-connector.php';
@@ -152,7 +154,7 @@ if ( $qaServing ) {
         trb_portal_handle_artist_profile();
     }
     header( 'Content-Type: application/json' );
-    echo wp_json_encode( array( 'nonce' => wp_create_nonce( 'trb_portal_save_artist_profile' ), 'demo_nonce' => wp_create_nonce( 'trb_portal_submit_demo' ), 'stage_nonce' => wp_create_nonce( 'trb_portal_stage_release' ), 'settings_nonce' => wp_create_nonce( 'csf_backup_nonce' ), 'settings_form_nonce' => wp_create_nonce( 'csf_options_nonce' ), 'user_id' => $qaUserId, 'outbound_disabled' => ! function_exists( 'mail' ) && ! function_exists( 'curl_exec' ) && ! ini_get( 'allow_url_fopen' ), 'complete' => trb_portal_artist_profile_is_complete(), 'completion' => trb_portal_artist_profile_completion(), 'fields' => get_user_meta( $qaUserId ), 'files' => trb_portal_private_profile_files() ) );
+    echo wp_json_encode( array( 'nonce' => wp_create_nonce( 'trb_portal_save_artist_profile' ), 'release_nonce' => wp_create_nonce( 'trb_portal_start_release' ), 'demo_nonce' => wp_create_nonce( 'trb_portal_submit_demo' ), 'stage_nonce' => wp_create_nonce( 'trb_portal_stage_release' ), 'settings_nonce' => wp_create_nonce( 'csf_backup_nonce' ), 'settings_form_nonce' => wp_create_nonce( 'csf_options_nonce' ), 'user_id' => $qaUserId, 'outbound_disabled' => ! function_exists( 'mail' ) && ! function_exists( 'curl_exec' ) && ! ini_get( 'allow_url_fopen' ), 'complete' => trb_portal_artist_profile_is_complete(), 'completion' => trb_portal_artist_profile_completion(), 'fields' => get_user_meta( $qaUserId ), 'files' => trb_portal_private_profile_files() ) );
     exit;
 }
 function qa_check( $condition, $message ) { if ( ! $condition ) throw new RuntimeException( $message ); $GLOBALS['qa_checks']++; }
@@ -373,6 +375,7 @@ try {
     require __DIR__ . '/theme-text-cases.php';
     require __DIR__ . '/theme-translations-cases.php';
     require __DIR__ . '/theme-license-settings-cases.php';
+    require __DIR__ . '/release-metadata-mysql-cases.php';
     require __DIR__ . '/release-callback-mysql-cases.php';
     require __DIR__ . '/release-cover-mysql-cases.php';
     $qaCartOldUser = get_current_user_id();
