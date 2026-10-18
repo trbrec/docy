@@ -1,0 +1,12 @@
+{
+  "revision": "5227c705ca26316309b015536daf075c1048ff92",
+  "files": {
+    "inc/trb-release-metadata.php": null,
+    "assets/data/symphonic-metadata-options.json": null,
+    "inc/trb-symphonic-credits.php": "be05866d6cc47b1bc16efb5ef491dff0e516f7bc50c0cf1e4f0ddf8798768b6a",
+    "assets/js/trb-symphonic-credits.js": "c86756bc0ee0bf1d86042edf70f3e9e11c5a821feef1291cd951c6d741b131ac",
+    "assets/js/trb-release-upload.js": "117cddd00352f782742b1944a94ae6dcb49a6c5bfe943c9951c4d04692920332",
+    "inc/trb-release-intake.php": "f8c89bc2136618939d43d03798505f40309410962db1fb3f7b56b370ce73ff8e",
+    "inc/trb-artist-portal.php": "96bac04df7f986d4833215e3e41e69b85ddf44d36d8ce1d55db2525d482546b4"
+  }
+}

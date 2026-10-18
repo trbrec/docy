@@ -12,6 +12,7 @@ function absint($v){return abs((int)$v);}
 function sanitize_text_field($v){return trim(strip_tags((string)$v));}
 function sanitize_key($v){return preg_replace('/[^a-z0-9_\-]/','',strtolower((string)$v));}
 function wp_unslash($v){return $v;}
+function wp_date($format){return date($format);}
 function get_current_user_id(){return 7;}
 function is_user_logged_in(){global $logged;return $logged;}
 function current_user_can($v){return true;}
@@ -48,7 +49,7 @@ $end=strpos($source,"add_action( 'admin_post_trb_portal_start_release'",$start);
 eval(substr($source,$start,$end-$start));
 function check($ok,$why){if(!$ok)throw new Exception($why);}
 function submit(){try{trb_portal_start_release();}catch(Reply $r){return $r->payload;}throw new Exception('No response');}
-$_POST=['trb_release_submission_token'=>'11111111-1111-1111-1111-111111111111','trb_release_title'=>'QA intake','trb_release_type'=>'single','trb_tracks'=>[['title'=>'Track']], 'trb_release_intake_only'=>'1'];
+$_POST=['trb_release_submission_token'=>'11111111-1111-1111-1111-111111111111','trb_release_title'=>'QA intake','trb_release_type'=>'single','trb_release_metadata_language'=>'it','trb_tracks'=>[['title'=>'Track','audio_style'=>'Vocal','vocal_language'=>'it','recording_year'=>(int)date('Y'),'recording_country'=>'IT']], 'trb_release_intake_only'=>'1'];
 $logged=false;check(submit()['status']==='session_expired'&&count($posts)===0,'Unauthenticated receipt created');
 $logged=true;$nonce=false;check(submit()['status']==='security_expired'&&count($posts)===0,'Invalid nonce created receipt');
 $nonce=true;$GLOBALS['test_profile']=false;check(submit()['status']==='profile_required'&&count($posts)===0,'Missing profile reached receipt or upload');$GLOBALS['test_profile']='trb';$a=submit();check($a['status']==='received'&&$a['release_id']===1&&count($posts)===1,'Receipt not persisted');
@@ -127,7 +128,7 @@ check(get_post_meta(1,'_trb_release_date',true)==='2027-01-01','Retry kept stale
 echo "PASS stale acquisition, historical ISRC recovery, latest retry metadata and completed-intake protection\n";
 
 // Same project/new browser token must never create another receipt.
-$project=['trb_release_title'=>'Different project','trb_release_type'=>'single','trb_tracks'=>[['title'=>'Song','version'=>'']]];
+$project=['trb_release_title'=>'Different project','trb_release_type'=>'single','trb_release_metadata_language'=>'it','trb_tracks'=>[['title'=>'Song','version'=>'','audio_style'=>'Vocal','vocal_language'=>'it','recording_year'=>(int)date('Y'),'recording_country'=>'IT']]];
 $token='22222222-2222-2222-2222-222222222222';
 $id=trb_intake_record(7,$token,$project);check(is_int($id),'Project rejected');
 $changed=$project;$changed['trb_release_date']='2027-05-01';$changed['trb_tracks'][0]['duration_seconds']=55;

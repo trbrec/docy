@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/trb-release-metadata.php';
 /** Symphonic role catalogue observed in the track editor on 2026-09-25.
  * No migration, scheduled action or write to existing releases belongs here.
  */
@@ -58,7 +59,7 @@ function trb_symphonic_credit_errors( $tracks ) {
 			}
 		}
 		if (!in_array('Producer',$seen['engineering'],true)) $errors[]=$prefix.'indica almeno un produttore musicale nella sezione Produzione e tecnica.';
-		if ('no_lyrics' !== ($track['advisory'] ?? '')) {
+		if ('Vocal' === trb_release_audio_style($track)) {
 			if (!in_array('Lyricist',$seen['writers'],true)) $errors[]=$prefix.'indica chi ha scritto il testo con il ruolo Autore del testo.';
 			if (!in_array('Vocals',$seen['performers'],true)) $errors[]=$prefix.'indica chi canta con il ruolo Voce nella sezione Interpreti e musicisti.';
 		}
