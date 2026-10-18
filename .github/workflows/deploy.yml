@@ -69,6 +69,7 @@ jobs:
           candidate="${release}/candidate"
           release_stage=installed-revision
           snapshot_ready=0
+          theme_install_started=0
           integrations_started=0
           onboarding_started=0
           rollback_release() {
@@ -79,7 +80,7 @@ jobs:
               if [ "${onboarding_started}" -eq 1 ]; then
                 ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/rollback-onboarding-store.php' '${GITHUB_SHA}'" >/dev/null 2>&1 || echo "Store integration rollback requires investigation."
               fi
-              if [ "${snapshot_ready}" -eq 1 ]; then
+              if [ "${snapshot_ready}" -eq 1 ] && [ "${theme_install_started}" -eq 1 ]; then
                 ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/prepare-portal-release.php' rollback '${GITHUB_SHA}'" >/dev/null 2>&1 || echo "Theme rollback requires investigation."
               fi
               if [ "${integrations_started}" -eq 1 ]; then
@@ -126,6 +127,7 @@ jobs:
           if [ "${metadata_guard}" -eq 1 ]; then
             ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/symphonic-metadata-install-guard.php' check '${GITHUB_SHA}'" >/dev/null 2>&1
           fi
+          theme_install_started=1
           ssh "${ssh_opts[@]}" "${remote}" "rsync -a --checksum --exclude='.trb-deployed-sha' --exclude='/tools/test-*' --exclude='/tests/' --exclude='/integrations/site-studio/test-*' --exclude='/tools/fixtures-onboarding-entry-mail.php' --exclude='/tools/site-preview.test.cjs' --exclude='/integrations/site-studio/artist-cards.test.cjs' --exclude='/integrations/site-studio/editor-browser.test.cjs' '${candidate}/' '${DEPLOY_PATH}/' && cp '${candidate}/.trb-deployed-sha' '${DEPLOY_PATH}/.trb-deployed-sha'" >/dev/null 2>&1
           release_stage=obsolete-module-cleanup
           ssh "${ssh_opts[@]}" "${remote}" "php '${candidate}/tools/prepare-portal-release.php' prune '${GITHUB_SHA}'" >/dev/null 2>&1

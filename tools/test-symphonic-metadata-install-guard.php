@@ -33,6 +33,7 @@ try {
     metadata_reject(fn()=>trb_symphonic_metadata_install_state($temp,$bad),'Path traversal or extra scope accepted.');
     $bad=$baseline; $bad['files'][$path]='bad';metadata_reject(fn()=>trb_symphonic_metadata_install_state($temp,$bad),'Malformed hash accepted.');
     $backup=$temp.'/source-copy'; rename($temp.'/'.$path,$backup);
+    metadata_reject(fn()=>trb_symphonic_metadata_install_state($temp,$baseline),'Deleted reviewed source accepted.');
     if (@symlink($backup,$temp.'/'.$path)) {
         metadata_reject(fn()=>trb_symphonic_metadata_install_state($temp,$baseline),'Source symlink accepted.'); unlink($temp.'/'.$path); $symlink_checked=true;
     } elseif (PHP_OS_FAMILY !== 'Windows') throw new RuntimeException('CI must exercise actual symlink rejection.');
