@@ -1,0 +1,57 @@
+name: Scoped activation hash readback
+on:
+  push:
+    branches: [fix/portal-deferral-integration-20261018]
+    paths: [tools/qa-deferral-source-readback.php, .github/workflows/portal-deferral-readback.yml]
+permissions:
+  contents: read
+concurrency:
+  group: portal-deferral-readback
+  cancel-in-progress: false
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l tools/qa-deferral-source-readback.php
+      - name: Read only current activation file hashes and feature flags without exporting code
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SITEGROUND_SSH_PRIVATE_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SITEGROUND_SSH_PASSPHRASE }}
+          SSH_HOST: ${{ secrets.SITEGROUND_SSH_HOST }}
+          SSH_USER: ${{ secrets.SITEGROUND_SSH_USER }}
+          SSH_PORT: ${{ secrets.SITEGROUND_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "${HOME}/.ssh" /tmp/trb-deferral-readback
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 600 "${HOME}/.ssh/id_ed25519"
+          askpass=$(mktemp)
+          printf '#!/bin/sh\nprintf "%%s\\n" "$SSH_PASSPHRASE"\n' > "${askpass}"
+          chmod 700 "${askpass}"
+          eval "$(ssh-agent -s)"
+          SSH_ASKPASS="${askpass}" SSH_ASKPASS_REQUIRE=force DISPLAY=: ssh-add "${HOME}/.ssh/id_ed25519" </dev/null
+          rm -f "${askpass}"
+          ssh-keyscan -T 10 -p "${SSH_PORT}" "${SSH_HOST}" > "${HOME}/.ssh/known_hosts"
+          test -s "${HOME}/.ssh/known_hosts"
+          remote="${SSH_USER}@${SSH_HOST}"
+          ssh_opts=(-p "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          remote_file=$(ssh "${ssh_opts[@]}" "${remote}" 'mktemp /home/customer/www/artist.trbrec.com/private/deferral-source-readback.XXXXXXXX.php')
+          [[ "${remote_file}" =~ ^/home/customer/www/artist\.trbrec\.com/private/deferral-source-readback\.[A-Za-z0-9]{8}\.php$ ]]
+          cleanup() {
+            ssh "${ssh_opts[@]}" "${remote}" "rm -f -- '${remote_file}'; test ! -e '${remote_file}'" >/dev/null 2>&1
+            ssh-add -D >/dev/null 2>&1 || true
+            rm -f "${HOME}/.ssh/id_ed25519"
+          }
+          trap cleanup EXIT
+          scp -q -P "${SSH_PORT}" -o BatchMode=yes -o StrictHostKeyChecking=yes tools/qa-deferral-source-readback.php "${remote}:${remote_file}"
+          ssh "${ssh_opts[@]}" "${remote}" "php -d allow_url_fopen=0 -d disable_functions=mail,curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client '${remote_file}'" > /tmp/trb-deferral-readback/sources.json 2>/dev/null
+          python3 -c 'import json;d=json.load(open("/tmp/trb-deferral-readback/sources.json"));assert d.get("read_only") is True and d.get("customer_rows_read") is False and d.get("source_code_exported") is False and len(d["sources"])>=4 and all(set(v)=={"sha256","normalized_lf_sha256","bytes"} for v in d["sources"].values()) and d["flags"]["trb_onboarding_deferral_payments_enabled"] is False'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portal-deferral-source-readback
+          path: /tmp/trb-deferral-readback/sources.json
+          retention-days: 7
+          if-no-files-found: error
