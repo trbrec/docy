@@ -445,7 +445,7 @@ add_action( 'init', 'trb_crm_complete_sync_ensure_schedule', 30 );
 
 /** Private CRM-to-pCloud bridge. Uses the existing HMAC permission callback. */
 function trb_crm_pcloud_path($path) {
-    if(!is_string($path)||strlen($path)>2048||!str_starts_with($path,'/')||preg_match('/[\x00-\x1f\\\\]/',$path))throw new RuntimeException('PCLOUD_INVALID_PATH');
+    if(!is_string($path)||strlen($path)>2048||!str_starts_with($path,'/')||preg_match('/[\x00-\x1f\x7f\\\\]/',$path))throw new RuntimeException('PCLOUD_INVALID_PATH');
     if($path!=='/')foreach(explode('/',substr($path,1)) as $part)if($part===''||$part==='.'||$part==='..')throw new RuntimeException('PCLOUD_INVALID_PATH');
     return $path;
 }
@@ -455,7 +455,7 @@ function trb_crm_pcloud_transport($method,$path,$local=null,$limit=null,$sink=nu
     $endpoint=rtrim((string)($settings['webdav_endpoint']??''),'/');$parts=parse_url($endpoint);
     if(($parts['scheme']??'')!=='https'||!in_array(strtolower((string)($parts['host']??'')),array('webdav.pcloud.com','ewebdav.pcloud.com'),true)||isset($parts['user'])||isset($parts['pass'])||isset($parts['query'])||isset($parts['fragment'])||!in_array($parts['port']??443,array(443),true)||!empty($parts['path']))throw new RuntimeException('PCLOUD_CONFIGURATION_INVALID');
     if(empty($settings['pcloud_user'])||empty($settings['pcloud_pass']))throw new RuntimeException('PCLOUD_CONFIGURATION_MISSING');
-    trb_crm_pcloud_path($path);$url=$endpoint.'/'.implode('/',array_map('rawurlencode',explode('/',substr($path,1))));
+    $path=trb_webdav_path(trb_crm_pcloud_path($path));$url=$endpoint.'/'.implode('/',array_map('rawurlencode',explode('/',substr($path,1))));
     $ch=curl_init($url);if(!$ch)throw new RuntimeException('PCLOUD_TRANSPORT_UNAVAILABLE');
     $hash=hash_init('sha256');$bytes=0;$size=null;$stream=null;
     curl_setopt_array($ch,array(CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_USERPWD=>$settings['pcloud_user'].':'.$settings['pcloud_pass'],CURLOPT_HTTPAUTH=>CURLAUTH_BASIC,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>180,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_RETURNTRANSFER=>false,
@@ -486,7 +486,8 @@ function trb_crm_pcloud_archive($payload) {
     }
     if(!$local)throw new RuntimeException('PCLOUD_SOURCE_UNAVAILABLE_OR_CHANGED');
     $folder=trb_crm_pcloud_path((string)($payload['folder']??''));
-    if(!str_starts_with($folder,'/Candidature/'))throw new RuntimeException('PCLOUD_ARCHIVE_FOLDER_NOT_ALLOWED');
+    if(!str_starts_with(\TrbCrm\PcloudPathMap::legacy($folder,trb_webdav_candidature_root()),'/Candidature/'))throw new RuntimeException('PCLOUD_ARCHIVE_FOLDER_NOT_ALLOWED');
+    $folder=trb_webdav_path($folder);
     $filename=(string)($payload['filename']??'');
     if($filename===''||strlen($filename)>220||basename($filename)!==$filename||preg_match('/[\x00-\x1f\\\\]/',$filename))throw new RuntimeException('PCLOUD_INVALID_FILENAME');
     $remote=$folder.'/'.$sha.'-'.$filename;
@@ -566,7 +567,7 @@ function trb_crm_pcloud_restore_demo($payload) {
 }
 function trb_crm_pcloud_restore_candidate($payload) {
     $remote=trb_crm_pcloud_path((string)($payload['remote_path']??''));$size=(int)($payload['size']??0);$originalSha=(string)($payload['sha256']??'');$hasProof=true;$id=0;
-    if(!preg_match('/^[a-f0-9]{64}$/',$originalSha)||$size<1||$size>1073741824||!preg_match('#^/(?:Demo TRB|Candidature)/[0-9]{4}/[0-9]{2}/[^/]+/'.$originalSha.'-#',$remote))throw new RuntimeException('CANDIDATE_ARCHIVE_REFERENCE_INVALID');
+    if(!preg_match('/^[a-f0-9]{64}$/',$originalSha)||$size<1||$size>1073741824||!preg_match('#^/(?:Demo TRB|Candidature)/[0-9]{4}/[0-9]{2}/[^/]+/'.$originalSha.'-#',\TrbCrm\PcloudPathMap::legacy($remote,trb_webdav_candidature_root())))throw new RuntimeException('CANDIDATE_ARCHIVE_REFERENCE_INVALID');
     $scope=$payload['storage_scope']??'';if(!in_array($scope,array('private/materials','private-storage/materials'),true))throw new RuntimeException('DEMO_STORAGE_NOT_ALLOWED');
     $root=realpath(dirname(rtrim(ABSPATH,'/'),2).'/crm.trbrec.com/'.$scope);if(!$root||!is_dir($root))throw new RuntimeException('DEMO_STORAGE_NOT_AVAILABLE');
     $temporary=tempnam($root,'portal-read-');if(!$temporary)throw new RuntimeException('DEMO_STORAGE_NOT_WRITABLE');$stream=fopen($temporary,'wb');

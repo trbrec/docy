@@ -56,6 +56,7 @@ function trb_demo_webdav_request( $method, $relative_path, $body = null, $header
 }
 
 function trb_demo_ensure_remote_folder( $relative_path ) {
+	try { $relative_path = trb_webdav_path($relative_path); } catch (Throwable $error) { return new WP_Error('pcloud_invalid_path'); }
 	$built = '';
 	foreach ( array_filter( explode( '/', trim( $relative_path, '/' ) ), 'strlen' ) as $segment ) {
 		$built .= '/' . $segment;
